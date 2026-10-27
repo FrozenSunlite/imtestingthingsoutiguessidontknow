@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-BGuWpaQ9.js";
+import { i as cn, n as base44, r as Button } from "./router-CrHskCyo.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -27833,10 +27833,13 @@ var KEY = "skilltree:rulebook";
 var newChapterId = () => "ch" + Date.now() + "-" + Math.floor(Math.random() * 1e3);
 var DEFAULT_RULEBOOK = {
 	title: "Rulebook",
-	chapters: [{
-		id: "ch-quick-start",
-		title: "Quick Start Guide",
-		content: `# Quick Start Guide
+	books: [{
+		id: "bk-default",
+		title: "Rulebook",
+		chapters: [{
+			id: "ch-quick-start",
+			title: "Quick Start Guide",
+			content: `# Quick Start Guide
 
 Welcome, adventurer! This guide gets you playing in five minutes.
 
@@ -27872,15 +27875,30 @@ Chapters here are written in [Homebrewery](https://homebrewery.naturalcrit.com) 
 
 Use \\pagebreak between sections, keep one chapter per topic, and players can read everything from the **Rulebook** tab on their character screen.
 `
-	}]
+		}]
+	}],
+	activeBookId: "bk-default"
 };
 function loadRulebook() {
 	try {
 		const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-		if (saved && Array.isArray(saved.chapters) && saved.chapters.length) return {
+		if (saved && Array.isArray(saved.books) && saved.books.length) return {
 			title: "Rulebook",
-			chapters: saved.chapters
+			books: saved.books,
+			activeBookId: saved.activeBookId || saved.books[0].id
 		};
+		if (saved && Array.isArray(saved.chapters) && saved.chapters.length) {
+			const b = {
+				id: "bk-migrated",
+				title: saved.title || "Rulebook",
+				chapters: saved.chapters
+			};
+			return {
+				title: "Rulebook",
+				books: [b],
+				activeBookId: b.id
+			};
+		}
 	} catch {}
 	return JSON.parse(JSON.stringify(DEFAULT_RULEBOOK));
 }

@@ -6,6 +6,9 @@ const KEY = "skilltree:rulebook";
 export const newChapterId = () =>
   "ch" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
+export const newBookId = () =>
+  "bk" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+
 export const QUICK_START = `# Quick Start Guide
 
 Welcome, adventurer! This guide gets you playing in five minutes.
@@ -45,14 +48,20 @@ Use \\pagebreak between sections, keep one chapter per topic, and players can re
 
 export const DEFAULT_RULEBOOK = {
   title: "Rulebook",
-  chapters: [{ id: "ch-quick-start", title: "Quick Start Guide", content: QUICK_START }],
+  books: [{ id: "bk-default", title: "Rulebook", chapters: [{ id: "ch-quick-start", title: "Quick Start Guide", content: QUICK_START }] }],
+  activeBookId: "bk-default",
 };
 
 export function loadRulebook() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (saved && Array.isArray(saved.chapters) && saved.chapters.length)
-      return { title: "Rulebook", chapters: saved.chapters };
+    if (saved && Array.isArray(saved.books) && saved.books.length) {
+      return { title: "Rulebook", books: saved.books, activeBookId: saved.activeBookId || saved.books[0].id };
+    }
+    if (saved && Array.isArray(saved.chapters) && saved.chapters.length) {
+      const b = { id: "bk-migrated", title: saved.title || "Rulebook", chapters: saved.chapters };
+      return { title: "Rulebook", books: [b], activeBookId: b.id };
+    }
   } catch {
     /* ignore */
   }
