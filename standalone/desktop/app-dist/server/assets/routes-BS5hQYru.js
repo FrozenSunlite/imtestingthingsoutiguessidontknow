@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-Xw8pzxy6.js";
+import { i as cn, n as base44, r as Button } from "./router-CVg2U7qn.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -6460,7 +6460,7 @@ function SettingsMenu({ open, onClose }) {
 		};
 	}, [character?.devMode]);
 	if (!settings) return null;
-	const activeTab = (tree?.tabs || []).find((t) => t.id === tree?.activeTabId);
+	(tree?.tabs || []).find((t) => t.id === tree?.activeTabId);
 	const setHotkey = (action, combo) => setSettings((s) => ({
 		...s,
 		hotkeys: {
@@ -6808,35 +6808,6 @@ function SettingsMenu({ open, onClose }) {
 												})
 											})]
 										})
-									]
-								}),
-								/* @__PURE__ */ jsx("p", {
-									className: "mt-4 border-t pt-3 text-sm font-medium",
-									children: "Camera start (per tab)"
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "flex items-center gap-2",
-									children: [/* @__PURE__ */ jsx(Label, {
-										className: "w-20 text-xs text-muted-foreground",
-										children: "Start node"
-									}), /* @__PURE__ */ jsx(Input, {
-										className: "h-8 flex-1",
-										list: "camera-start-nodes",
-										placeholder: "Node name (blank = default view)",
-										value: activeTab?.cameraStartNode || "",
-										onChange: (e) => activeTab && patchTab(activeTab.id, { cameraStartNode: e.target.value })
-									})]
-								}),
-								/* @__PURE__ */ jsx("datalist", {
-									id: "camera-start-nodes",
-									children: (tree?.nodes || []).map((n) => /* @__PURE__ */ jsx("option", { value: n.name }, n.id))
-								}),
-								/* @__PURE__ */ jsxs("p", {
-									className: "text-[10px] text-muted-foreground",
-									children: [
-										"Each tab has its own start node (this edits \"",
-										activeTab?.name || "the active tab",
-										"\"). The camera centers on it when that tab opens or is switched to."
 									]
 								}),
 								/* @__PURE__ */ jsxs("div", {

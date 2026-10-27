@@ -326,28 +326,6 @@ export function SettingsMenu({ open, onClose }) {
                   />
                 </div>
               </div>
-              <p className="mt-4 border-t pt-3 text-sm font-medium">Camera start (per tab)</p>
-              <div className="flex items-center gap-2">
-                <Label className="w-20 text-xs text-muted-foreground">Start node</Label>
-                <Input
-                  className="h-8 flex-1"
-                  list="camera-start-nodes"
-                  placeholder="Node name (blank = default view)"
-                  value={activeTab?.cameraStartNode || ""}
-                  onChange={(e) =>
-                    activeTab && patchTab(activeTab.id, { cameraStartNode: e.target.value })
-                  }
-                />
-              </div>
-              <datalist id="camera-start-nodes">
-                {(tree?.nodes || []).map((n) => (
-                  <option key={n.id} value={n.name} />
-                ))}
-              </datalist>
-              <p className="text-[10px] text-muted-foreground">
-                Each tab has its own start node (this edits "{activeTab?.name || "the active tab"}").
-                The camera centers on it when that tab opens or is switched to.
-              </p>
               <div className="mt-4 border-t pt-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div>
