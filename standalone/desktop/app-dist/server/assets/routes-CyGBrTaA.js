@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-B_Y2oLNc.js";
+import { i as cn, n as base44, r as Button } from "./router-CU_PzyQU.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -19642,7 +19642,6 @@ function NodeEditorPanel() {
 					/* @__PURE__ */ jsx(FieldGroup, {
 						label: "Identity",
 						collapsible: true,
-						defaultOpen: true,
 						children: /* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-2",
 							children: [/* @__PURE__ */ jsxs("div", {

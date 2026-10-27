@@ -134,7 +134,7 @@ export function NodeEditorPanel() {
       </div>
       <div className="flex-1 space-y-5 overflow-y-auto p-4 text-sm">
         {/* ── Identity ─────────────────────────────────────────────── */}
-        <FieldGroup label="Identity" collapsible defaultOpen>
+        <FieldGroup label="Identity" collapsible>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <InfoTip label="The node's name — shown on the canvas when Names is enabled, in tooltips and in exports.">
@@ -810,3 +810,4 @@ export function NodeEditorPanel() {
     </div>
   );
 }
+
