@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import {
   FIVE_CATEGORIES,
@@ -21,6 +21,10 @@ import {
   vehicleToLibrary,
 } from "@/lib/fiveETools";
 import { entryDetails, entryImage } from "@/lib/fiveEToolsView";
+import { BulkLibrary, importBrewIntoDraft } from "@/lib/fiveEToolsBulk";
+import { bookToRulebook } from "@/lib/fiveEToolsRulebook";
+import { authorsFromBrew } from "@/lib/fiveEToolsCredits";
+import { addCreditNames, setRulebookActiveBookId } from "@/lib/rulebookStore";
 import { loadSpellLookup } from "@/lib/fiveEToolsLookup";
 import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
@@ -137,13 +141,17 @@ const imageFor = (entry, root, filePath) => {
 // at a chosen rate. Imported data becomes part of the project library; raw
 // source files stay in the on-disk 5eTools folder.
 export function ReferenceIndexTab() {
-  const { settings, setSettings, addImportedTab } = useTree();
+  const { tree, settings, setSettings, addImportedTab, addImportedTabs } = useTree();
   const [status, setStatus] = useState(null);
   const [root, setRoot] = useState("data");
   const [index, setIndex] = useState([]);
   const [catalog, setCatalog] = useState([]);
+  const [catalogSelected, setCatalogSelected] = useState(() => new Set());
   const [fileQuery, setFileQuery] = useState("");
   const [partneredOnly, setPartneredOnly] = useState(false);
+  const [bulk, setBulk] = useState(null);
+  const [bulkMakeTabs, setBulkMakeTabs] = useState(true);
+  const bulkCancelRef = useRef(false);
   const [categoryId, setCategoryId] = useState("bestiary");
   const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
   const [filePath, setFilePath] = useState("");
@@ -263,6 +271,7 @@ export function ReferenceIndexTab() {
     setEntries([]);
     setPreview(null);
     setSelected(new Set());
+    setCatalogSelected(new Set());
   }, [categoryId, root, index.length, catalog.length, partneredOnly]);
 
   const loadFile = async (path) => {
@@ -405,7 +414,39 @@ export function ReferenceIndexTab() {
     });
   };
 
+  const addImportedRulebook = (book) => {
+    if (!book) return false;
+    setSettings((s) => {
+      const list = Array.isArray(s.library.fiveEToolsBooks)
+        ? [...s.library.fiveEToolsBooks]
+        : [];
+      const i = list.findIndex((b) => b.id === book.id || b.title === book.title);
+      if (i >= 0) list[i] = { ...list[i], ...book };
+      else list.push(book);
+      return { ...s, library: { ...s.library, fiveEToolsBooks: list } };
+    });
+    try {
+      setRulebookActiveBookId(book.id);
+      window.dispatchEvent(
+        new CustomEvent("skilltree:rulebook-import", { detail: { bookId: book.id } })
+      );
+    } catch {
+      /* the Rulebook will pick it up on its next open */
+    }
+    return true;
+  };
+
   const importEntry = async (cat, entry) => {
+    if (cat.id === "books") {
+      const remoteInfo = isRemote ? catalog.find((f) => f.path === filePath) : null;
+      const fallbackTitle = raw?.book?.[0]?.name || remoteInfo?.name || "";
+      const book = bookToRulebook(entry, fallbackTitle);
+      if (book) {
+        addImportedRulebook(book);
+        toast.success(`“${book.title}” added to the Rulebook.`);
+        return true;
+      }
+    }
     if (cat.kind === "items") {
       const mapped = itemToLibrary(entry);
       return mapped ? mergeNamed(mapped.key, mapped.value) : false;
@@ -481,6 +522,15 @@ export function ReferenceIndexTab() {
     return true;
   };
 
+  const creditAuthorsFor = (list) => {
+    const info = isRemote ? catalog.find((f) => f.path === filePath) : null;
+    const names = new Set();
+    (list || []).forEach((entry) => {
+      authorsFromBrew(raw, entry, info).forEach((name) => names.add(name));
+    });
+    return addCreditNames([...names]);
+  };
+
   const importSelected = async () => {
     const picked = [...selected].map((i) => entries[i]).filter(Boolean);
     if (!picked.length) {
@@ -544,6 +594,7 @@ export function ReferenceIndexTab() {
 
     setImporting(0);
     setSelected(new Set());
+    creditAuthorsFor(picked);
     toast.success(
       activeCategory.kind === "classes"
         ? `Imported ${done} class tab${done === 1 ? "" : "s"}.`
@@ -554,7 +605,139 @@ export function ReferenceIndexTab() {
   const importPreview = async () => {
     if (!preview) return;
     await importEntry(activeCategory, preview);
+    creditAuthorsFor([preview]);
     toast.success(`Imported ${entryName(preview)}.`);
+  };
+
+  const categoryForBrew = (info) => {
+    const id = categoryForProps(info?.props || []);
+    return (
+      FIVE_CATEGORIES.find((c) => c.id === id) || {
+        id: id || info?.props?.[0] || "imported",
+        label: id || info?.props?.[0] || "Imported",
+      }
+    );
+  };
+
+  const toggleCatalogFile = (path) => {
+    setCatalogSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  const allCatalogSelected =
+    files.length > 0 && files.every((f) => catalogSelected.has(f.path));
+  const selectAllCatalog = () => {
+    setCatalogSelected((prev) => {
+      const next = new Set(prev);
+      if (allCatalogSelected) files.forEach((f) => next.delete(f.path));
+      else files.forEach((f) => next.add(f.path));
+      return next;
+    });
+  };
+
+  // Batch import of whole brew files. Files are fetched a few at a time and
+  // applied to one working library draft per batch, so importing hundreds of
+  // brews does not trigger a state update per entity.
+  const importCatalogFiles = async (paths) => {
+    if (bulk) return;
+    const chosen = (Array.isArray(paths) ? paths : []).filter(Boolean);
+    if (!chosen.length) {
+      toast("Select one or more brew files first.");
+      return;
+    }
+    const warning =
+      `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\n` +
+      `This downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` +
+      (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
+    if (!window.confirm(warning)) return;
+    bulkCancelRef.current = false;
+    const bulkLib = new BulkLibrary(settings.library);
+    const tabNames = new Set((tree?.tabs || []).map((t) => t.name));
+    const creditNames = new Set();
+    let done = 0;
+    let entryTotal = 0;
+    let tabTotal = 0;
+    let errors = 0;
+    const total = chosen.length;
+    setBulk({ total, done: 0, entries: 0, tabs: 0, errors: 0, current: "" });
+    try {
+      const batchSize = 8;
+      for (let start = 0; start < chosen.length; start += batchSize) {
+        if (bulkCancelRef.current) break;
+        const batch = chosen.slice(start, start + batchSize);
+        const results = await Promise.all(
+          batch.map(async (path) => {
+            const info = catalog.find((f) => f.path === path);
+            if (!info) return { path, error: true };
+            try {
+              const res = await fetch(
+                `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
+              );
+              if (!res.ok) throw new Error("download failed");
+              const data = await res.json();
+              return { path, info, data, category: categoryForBrew(info) };
+            } catch {
+              return { path, info, error: true };
+            }
+          })
+        );
+        const newTabs = [];
+        results.forEach((r) => {
+          done += 1;
+          if (r.error) {
+            errors += 1;
+            return;
+          }
+          try {
+            authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
+            const applied = importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
+              makeTabs: bulkMakeTabs,
+              kind: root,
+            });
+            entryTotal += applied.entries;
+            applied.tabs.forEach((tab) => {
+              if (tabNames.has(tab.name)) return;
+              tabNames.add(tab.name);
+              newTabs.push(tab);
+              tabTotal += 1;
+            });
+          } catch {
+            errors += 1;
+          }
+        });
+        if (newTabs.length) addImportedTabs(newTabs, { activate: false });
+        setSettings((s) => ({ ...s, library: bulkLib.library }));
+        setBulk({
+          total,
+          done,
+          entries: entryTotal,
+          tabs: tabTotal,
+          errors,
+          current: batch[batch.length - 1] || "",
+        });
+        // Yield so progress/cancel stay responsive between batches.
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      if (creditNames.size) addCreditNames([...creditNames]);
+      if (bulkCancelRef.current) {
+        toast(`Stopped after ${done} of ${total} files. Imported data is kept.`);
+      } else {
+        toast.success(
+          `Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${
+            errors ? ` · ${errors} failed` : ""
+          }.`
+        );
+      }
+    } catch (err) {
+      toast.error(`Bulk import stopped: ${err.message || err}`);
+    } finally {
+      setBulk(null);
+      bulkCancelRef.current = false;
+    }
   };
 
   if (!isRemote && status && !status.available) {
@@ -638,6 +821,37 @@ export function ReferenceIndexTab() {
         </div>
       </div>
 
+      {bulk && (
+        <div className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium">
+              Importing {bulk.done}/{bulk.total} files · {bulk.entries} entries
+              {bulk.tabs ? ` · ${bulk.tabs} tabs` : ""}
+              {bulk.errors ? ` · ${bulk.errors} failed` : ""}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => {
+                bulkCancelRef.current = true;
+              }}
+            >
+              Stop
+            </Button>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${bulk.total ? (bulk.done / bulk.total) * 100 : 0}%` }}
+            />
+          </div>
+          {bulk.current && (
+            <p className="truncate text-[10px] text-muted-foreground">{bulk.current}</p>
+          )}
+        </div>
+      )}
+
       <div className="grid h-[64vh] min-h-[430px] grid-cols-[150px_200px_minmax(0,1fr)_minmax(260px,1.1fr)] gap-2">
         <aside className="overflow-y-auto rounded-md border p-1">
           {isRemote && (
@@ -687,32 +901,74 @@ export function ReferenceIndexTab() {
                   Partnered only
                 </label>
               )}
+              <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                <Switch checked={bulkMakeTabs} onCheckedChange={setBulkMakeTabs} />
+                Create feature tabs
+              </label>
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-1 text-[10px]"
+                  onClick={selectAllCatalog}
+                >
+                  {allCatalogSelected ? "Clear files" : "Select all files"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-1 text-[10px]"
+                  disabled={!catalogSelected.size || !!bulk}
+                  onClick={() => importCatalogFiles([...catalogSelected])}
+                >
+                  Import files ({catalogSelected.size})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-1 text-[10px]"
+                  disabled={!files.length || !!bulk}
+                  onClick={() => importCatalogFiles(files.map((f) => f.path))}
+                >
+                  Import all shown ({files.length})
+                </Button>
+              </div>
             </div>
           )}
           <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {files.map((f) => (
-              <button
-                key={f.path}
-                type="button"
-                onClick={() => loadFile(f.path)}
-                className={`w-full rounded px-1.5 py-1 text-left text-[10px] ${
-                  f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"
-                }`}
-                title={isRemote ? `${f.name} — ${f.author}\n${f.path}` : f.path}
-              >
-                {isRemote ? (
-                  <>
-                    <span className="block truncate font-medium">{f.name || f.path}</span>
-                    <span className="block truncate text-muted-foreground">
-                      {[f.author, f.partnered ? "Partnered" : "", f.status !== "ready" ? f.status : ""]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </>
-                ) : (
-                  <span className="block truncate">{f.path}</span>
+              <div key={f.path} className="flex items-start gap-1 rounded px-0.5 hover:bg-accent/40">
+                {isRemote && (
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={catalogSelected.has(f.path)}
+                    onChange={() => toggleCatalogFile(f.path)}
+                    title="Select this brew for batch import"
+                  />
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => loadFile(f.path)}
+                  className={`min-w-0 flex-1 rounded px-1 py-1 text-left text-[10px] ${
+                    f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"
+                  }`}
+                  title={isRemote ? `${f.name} — ${f.author}\n${f.path}` : f.path}
+                >
+                  {isRemote ? (
+                    <>
+                      <span className="block truncate font-medium">{f.name || f.path}</span>
+                      <span className="block truncate text-muted-foreground">
+                        {[f.author, f.partnered ? "Partnered" : "", f.status !== "ready" ? f.status : ""]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="block truncate">{f.path}</span>
+                  )}
+                </button>
+              </div>
             ))}
             {files.length === 0 && (
               <p className="p-2 text-[10px] text-muted-foreground">
@@ -805,7 +1061,13 @@ export function ReferenceIndexTab() {
               senses: "Senses import into the Senses library.",
               tables: "Tables import into Roll Tables.",
               vehicles: "Vehicles import into the Vehicles library.",
-            }[activeCategory.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."}
+              backgrounds: "Backgrounds import into the Backgrounds tab.",
+              species: "Species import into the Species tab.",
+              deities: "Deities import into the Deities tab.",
+              objects: "Objects import into the Objects tab.",
+              traps: "Traps and hazards import into the Traps & Hazards tab.",
+              books: "Books import into the Rulebook as read-only books.",
+            }[activeCategory.kind || activeCategory.id] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."}
           </p>
         </section>
 

@@ -200,6 +200,9 @@ export const DEFAULT_LIBRARY = {
   // Entries imported from the local 5eTools Reference Index that do not map to
   // an existing library list are kept here by category.
   fiveETools: {},
+  // 5eTools books converted to Rulebook chapters. Kept with the project rather
+  // than in the small localStorage rulebook, because full books are large.
+  fiveEToolsBooks: [],
 };
 
 // Node types and the RPG file format live in treeFormat.js — re-exported so
@@ -560,6 +563,7 @@ function mergeLibrary(lib) {
     })),
     dungeons: Array.isArray(lib?.dungeons) ? lib.dungeons : [],
     fiveETools: lib?.fiveETools && typeof lib.fiveETools === "object" ? lib.fiveETools : {},
+    fiveEToolsBooks: Array.isArray(lib?.fiveEToolsBooks) ? lib.fiveEToolsBooks : [],
   };
 }
 
@@ -687,6 +691,105 @@ function updateSubtreeAtChain(nodes, chain, update, level = 0) {
     });
     return { ...n, subtrees };
   });
+}
+
+let importedTabSeq = 0;
+
+// Build one imported feature tab (also used by bulk imports, which append many
+// tabs in a single state update).
+function buildImportedTab(name, features, meta = {}) {
+  const list = (features || []).filter((f) => f && (f.name || f.text));
+  if (!list.length) return null;
+  const seq = importedTabSeq++;
+  const stamp = `${Date.now()}t${seq}`;
+  const id = `tab-${stamp}`;
+  const classLayout = meta.layout === "class" || list.some((f) => f.group && f.group !== "Feature");
+  const groups = classLayout
+    ? [...new Set(list.map((f) => f.group || "Class"))].sort((a, b) =>
+        a === "Class" ? -1 : b === "Class" ? 1 : a.localeCompare(b)
+      )
+    : ["Feature"];
+  const nodesByGroup = {};
+  let n = 0;
+
+  groups.forEach((group, gi) => {
+    const groupFeatures = list
+      .filter((f) => (classLayout ? (f.group || "Class") === group : true))
+      .sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
+    const groupNodes = [];
+    const levelCounts = {};
+    groupFeatures.forEach((f, i) => {
+      const nodeId = `n${stamp}i${n++}`;
+      const mech = classLayout ? featureMechanics(f) : { actions: [], resources: [] };
+      const level = Number(f.level) || 0;
+      const withinLevel = levelCounts[level] || 0;
+      levelCounts[level] = withinLevel + 1;
+      groupNodes.push({
+        id: nodeId,
+        name: String(f.name || `Feature ${i + 1}`),
+        description: String(f.text || ""),
+        flavor: "",
+        x: classLayout && level ? (Math.min(20, level) - 1) * 230 : i * 190,
+        y: classLayout ? gi * 180 + withinLevel * 140 : (i % 2) * 130,
+        maxPoints: 1,
+        currentPoints: 0,
+        cost: 0,
+        nodeType: classLayout ? "skill" : "informative",
+        pointType: "talent",
+        talentType: meta.category || "5eTools",
+        size: 100,
+        rotation: 0,
+        flipped: false,
+        flipV: false,
+        image: "",
+        frameImage: "",
+        resources: mech.resources,
+        actions: mech.actions,
+        levelReq: classLayout ? Number(f.level) || 0 : 0,
+        dependencies: i ? [groupNodes[i - 1].id] : [],
+        exclusiveWith: [],
+      });
+    });
+    nodesByGroup[group] = groupNodes;
+  });
+
+  const nodes = groups.flatMap((g) => nodesByGroup[g]);
+  const connections = [];
+  groups.forEach((group) => {
+    const groupNodes = nodesByGroup[group] || [];
+    groupNodes.slice(1).forEach((node, i) => {
+      connections.push({
+        id: `${groupNodes[i].id}->${node.id}`,
+        from: groupNodes[i].id,
+        to: node.id,
+      });
+    });
+  });
+  const base = nodesByGroup.Class || [];
+  groups
+    .filter((g) => g !== "Class")
+    .forEach((group) => {
+      const first = (nodesByGroup[group] || [])[0];
+      if (!first) return;
+      const level = Number(first.levelReq) || 0;
+      const anchor =
+        [...base].reverse().find((b) => (Number(b.levelReq) || 0) <= level) || base[0];
+      if (anchor) {
+        connections.push({
+          id: `${anchor.id}->${first.id}`,
+          from: anchor.id,
+          to: first.id,
+        });
+        first.dependencies = [anchor.id];
+      }
+    });
+  return {
+    id,
+    name: String(name || "Imported Features"),
+    nodes,
+    connections,
+    cameraStartNode: nodes[0]?.id || "",
+  };
 }
 
 export function TreeProvider({ children }) {
@@ -2038,107 +2141,17 @@ export function TreeProvider({ children }) {
   // informative nodes chained in order, so they read like a feature ladder
   // without touching any point pool.
   const addImportedTab = useCallback((name, features, meta = {}) => {
-    const list = (features || []).filter((f) => f && (f.name || f.text));
-    if (!list.length) return null;
-    const id = `tab-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
-    const stamp = Date.now();
-    const classLayout = meta.layout === "class" || list.some((f) => f.group && f.group !== "Feature");
-    const groups = classLayout
-      ? [...new Set(list.map((f) => f.group || "Class"))].sort((a, b) =>
-          a === "Class" ? -1 : b === "Class" ? 1 : a.localeCompare(b)
-        )
-      : ["Feature"];
-    const nodesByGroup = {};
-    let n = 0;
-
-    groups.forEach((group, gi) => {
-      const groupFeatures = list
-        .filter((f) => (classLayout ? (f.group || "Class") === group : true))
-        .sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
-      const groupNodes = [];
-      const levelCounts = {};
-      groupFeatures.forEach((f, i) => {
-        const nodeId = `n${stamp}i${n++}`;
-        const mech = classLayout ? featureMechanics(f) : { actions: [], resources: [] };
-        const level = Number(f.level) || 0;
-        const withinLevel = levelCounts[level] || 0;
-        levelCounts[level] = withinLevel + 1;
-        groupNodes.push({
-          id: nodeId,
-          name: String(f.name || `Feature ${i + 1}`),
-          description: String(f.text || ""),
-          flavor: "",
-          x: classLayout && level ? (Math.min(20, level) - 1) * 230 : i * 190,
-          y: classLayout ? gi * 180 + withinLevel * 140 : (i % 2) * 130,
-          maxPoints: 1,
-          currentPoints: 0,
-          cost: 0,
-          nodeType: classLayout ? "skill" : "informative",
-          pointType: "talent",
-          talentType: meta.category || "5eTools",
-          size: 100,
-          rotation: 0,
-          flipped: false,
-          flipV: false,
-          image: "",
-          frameImage: "",
-          resources: mech.resources,
-          actions: mech.actions,
-          levelReq: classLayout ? Number(f.level) || 0 : 0,
-          dependencies: i ? [groupNodes[i - 1].id] : [],
-          exclusiveWith: [],
-        });
-      });
-      nodesByGroup[group] = groupNodes;
-    });
-
-    const nodes = groups.flatMap((g) => nodesByGroup[g]);
-    const connections = [];
-    groups.forEach((group) => {
-      const groupNodes = nodesByGroup[group] || [];
-      groupNodes.slice(1).forEach((node, i) => {
-        connections.push({
-          id: `${groupNodes[i].id}->${node.id}`,
-          from: groupNodes[i].id,
-          to: node.id,
-        });
-      });
-    });
-    // Branch each subclass from the class feature at the level where the
-    // subclass is gained (or the closest earlier base feature).
-    const base = nodesByGroup.Class || [];
-    groups
-      .filter((g) => g !== "Class")
-      .forEach((group) => {
-        const first = (nodesByGroup[group] || [])[0];
-        if (!first) return;
-        const level = Number(first.levelReq) || 0;
-        const anchor =
-          [...base].reverse().find((b) => (Number(b.levelReq) || 0) <= level) || base[0];
-        if (anchor) {
-          connections.push({
-            id: `${anchor.id}->${first.id}`,
-            from: anchor.id,
-            to: first.id,
-          });
-          first.dependencies = [anchor.id];
-        }
-      });
-    const tab = {
-      id,
-      name: String(name || "Imported Features"),
-      nodes,
-      connections,
-      cameraStartNode: nodes[0]?.id || "",
-    };
+    const tab = buildImportedTab(name, features, meta);
+    if (!tab) return null;
+    const activate = meta.activate !== false;
     setTreeRaw((prev) =>
       prev
         ? {
             ...prev,
             tabs: [...(prev.tabs || []), tab],
-            activeTabId: id,
-            nodes,
-            connections,
+            ...(activate
+              ? { activeTabId: tab.id, nodes: tab.nodes, connections: tab.connections }
+              : {}),
           }
         : prev
     );
@@ -2149,7 +2162,35 @@ export function TreeProvider({ children }) {
       selectedNodeIds: [],
       selectedConnectionId: null,
     }));
-    return id;
+    return tab.id;
+  }, []);
+
+  // Append many imported tabs in one update. Bulk homebrew imports can create
+  // hundreds of class/feature tabs, so this avoids re-rendering per tab.
+  const addImportedTabs = useCallback((specs, { activate = false } = {}) => {
+    const tabs = (specs || [])
+      .map((spec) => buildImportedTab(spec.name, spec.features, spec.meta))
+      .filter(Boolean);
+    if (!tabs.length) return [];
+    setTreeRaw((prev) => {
+      if (!prev) return prev;
+      const first = tabs[0];
+      return {
+        ...prev,
+        tabs: [...(prev.tabs || []), ...tabs],
+        ...(activate
+          ? { activeTabId: first.id, nodes: first.nodes, connections: first.connections }
+          : {}),
+      };
+    });
+    setUi((u) => ({
+      ...u,
+      selectedNodeId: null,
+      editingNodeId: null,
+      selectedNodeIds: [],
+      selectedConnectionId: null,
+    }));
+    return tabs.map((tab) => tab.id);
   }, []);
 
   const deleteTab = useCallback((tabId) => {
@@ -2348,6 +2389,7 @@ export function TreeProvider({ children }) {
     setActiveTab,
     addTab,
     addImportedTab,
+    addImportedTabs,
     renameTab,
     deleteTab,
     patchTab,

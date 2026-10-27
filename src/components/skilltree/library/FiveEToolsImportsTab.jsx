@@ -13,7 +13,10 @@ import { X } from "lucide-react";
 export function FiveEToolsImportsTab() {
   const { settings, setSettings } = useTree();
   const data = settings?.library?.fiveETools || {};
-  const categories = Object.keys(data).filter((k) => Array.isArray(data[k]) && data[k].length);
+  const dedicated = new Set(["backgrounds", "species", "deities", "objects", "traps", "books"]);
+  const categories = Object.keys(data).filter(
+    (k) => !dedicated.has(k) && Array.isArray(data[k]) && data[k].length
+  );
   const labelFor = (id) => FIVE_CATEGORIES.find((c) => c.id === id)?.label || id;
   const [category, setCategory] = useState(categories[0] || "");
   const [query, setQuery] = useState("");

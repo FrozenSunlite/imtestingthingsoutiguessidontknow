@@ -53,6 +53,7 @@ import { ResourcesTab } from "./library/ResourcesTab";
 import { DieScalingTab } from "./library/DieScalingTab";
 import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
 import { FiveEToolsImportsTab } from "./library/FiveEToolsImportsTab";
+import { FiveEToolsCategoryTab } from "./library/FiveEToolsCategoryTab";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
 import { SpellSchoolsTab } from "./library/SpellSchoolsTab";
@@ -69,6 +70,10 @@ const TAB_GROUPS = [
     ["levels", "Levels"], ["attributes", "Attributes"], ["skills", "Skills"], ["tools", "Tools"],
     ["languages", "Languages"], ["speedTypes", "Speed Types"], ["senses", "Senses"],
     ["resources", "Resources"], ["dieScaling", "Die Scaling"],
+  ]],
+  ["Lore & Creatures", [
+    ["backgrounds", "Backgrounds"], ["species", "Species"], ["deities", "Deities"],
+    ["objects", "Objects"], ["traps", "Traps & Hazards"],
   ]],
   ["Combat", [
     ["weapons", "Weapons"], ["weaponUpgrades", "Weapon Upgrades"], ["armor", "Armor"],
@@ -127,6 +132,11 @@ const SEARCH_CATEGORIES = (lib) => [
   ["Dungeon Rooms", "dungeonRooms", lib.dungeonRooms || []],
   ["Monsters", "monsters", lib.monsters || []],
   ["Monster Templates", "monsters", lib.monsterTemplates || []],
+  ["Backgrounds", "backgrounds", lib.fiveETools?.backgrounds || []],
+  ["Species", "species", lib.fiveETools?.species || []],
+  ["Deities", "deities", lib.fiveETools?.deities || []],
+  ["Objects", "objects", lib.fiveETools?.objects || []],
+  ["Traps & Hazards", "traps", lib.fiveETools?.traps || []],
   ["Spell Schools", "spellSchools", (lib.spellSchools || []).map((n) => ({ name: n }))],
   ["Spell Subschools", "spellSchools", (lib.spellSubschools || []).map((s) => ({ name: s?.name }))],
   ["Attributes", "attributes", (lib.attributes || []).map((n) => ({ name: n }))],
@@ -276,6 +286,21 @@ export function LibraryMenu({ open, onClose }) {
             </TabsContent>
             <TabsContent value="fiveETools" className="mt-0">
               <FiveEToolsImportsTab />
+            </TabsContent>
+            <TabsContent value="backgrounds" className="mt-0">
+              <FiveEToolsCategoryTab categoryId="backgrounds" />
+            </TabsContent>
+            <TabsContent value="species" className="mt-0">
+              <FiveEToolsCategoryTab categoryId="species" />
+            </TabsContent>
+            <TabsContent value="deities" className="mt-0">
+              <FiveEToolsCategoryTab categoryId="deities" />
+            </TabsContent>
+            <TabsContent value="objects" className="mt-0">
+              <FiveEToolsCategoryTab categoryId="objects" />
+            </TabsContent>
+            <TabsContent value="traps" className="mt-0">
+              <FiveEToolsCategoryTab categoryId="traps" />
             </TabsContent>
             <TabsContent value="downtime" className="mt-0">
               <DowntimeTab />

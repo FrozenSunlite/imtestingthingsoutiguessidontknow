@@ -475,9 +475,12 @@ const bookDetails = (entry, adventure) => ({
     ["Source", clean(entry.source || entry.id)],
   ],
   sections: [
-    { title: "Contents", list: contentsList(entry.contents) },
+    {
+      title: "Contents",
+      list: contentsList(entry.data?.map((chapter) => ({ name: chapter.name })) || entry.contents),
+    },
     textSection("Description", entry.entries),
-  ].filter((s) => s.list?.length || s.text),
+  ].filter((s) => s && (s.list?.length || s.text)),
 });
 
 const deityDetails = (entry) => ({
@@ -563,7 +566,7 @@ const psionicDetails = (entry) => ({
         .map((m) => `${clean(m.name)}${m.entries ? `: ${clean(m.entries)}` : ""}`)
         .join("\n\n"),
     },
-  ].filter((s) => s.text),
+  ].filter((s) => s && s.text),
 });
 
 const deckDetails = (entry) => ({
@@ -577,7 +580,7 @@ const deckDetails = (entry) => ({
       title: "Cards",
       list: (entry.cards || []).map((c) => ({ label: clean(c.name), text: "" })),
     },
-  ].filter((s) => s.text || s.list?.length),
+  ].filter((s) => s && (s.text || s.list?.length)),
 });
 
 const actionDetails = (entry) => ({

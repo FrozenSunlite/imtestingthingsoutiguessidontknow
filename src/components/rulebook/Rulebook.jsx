@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Homebrewery } from "@/components/rulebook/Homebrewery";
+import { useTree } from "@/lib/treeStore";
 import { importImage } from "@/lib/imageStore";
 import {
   loadRulebook,
@@ -25,6 +26,7 @@ import {
 // written in Homebrewery-style markdown. Books and chapters live in
 // localStorage and are carried along with a saved project.
 export default function Rulebook({ className = "" }) {
+  const { settings, setSettings } = useTree();
   const [rb, setRb] = useState(() => loadRulebook());
   const [bookId, setBookId] = useState(() => loadRulebook().activeBookId);
   const [chapterId, setChapterId] = useState(null);
@@ -36,12 +38,17 @@ export default function Rulebook({ className = "" }) {
   const fileRef = useRef(null);
   const areaRef = useRef(null);
 
-  const books = rb.books || [];
+  const localBooks = rb.books || [];
+  const importedBooks = (settings?.library?.fiveEToolsBooks || []).filter(
+    (b) => !localBooks.some((local) => local.id === b.id)
+  );
+  const books = [...localBooks, ...importedBooks];
   const book = books.find((b) => b.id === bookId) || books[0] || null;
+  const isImported = !!book?.imported;
   const chapters = book?.chapters || [];
   const active = chapters.find((c) => c.id === chapterId) || chapters[0] || null;
   const idx = chapters.findIndex((c) => c.id === active?.id);
-  const isCredits = !!active?.credits;
+  const isCredits = !!active?.credits && !isImported;
 
   const updateCredits = (names) =>
     updateBook((b) => ({
@@ -68,17 +75,35 @@ export default function Rulebook({ className = "" }) {
     saveRulebook({ ...rb, activeBookId: book?.id || rb.activeBookId });
   }, [rb, book?.id, rb.activeBookId]);
 
-  const updateBook = (fn) =>
+  const updateBook = (fn) => {
+    if (!book || isImported) return;
     setRb((r) => ({
       ...r,
       books: (r.books || []).map((b) => (b.id === book.id ? fn(b) : b)),
     }));
+  };
 
   const selectBook = (id) => {
     setBookId(id);
     setChapterId(null);
     setEditing(false);
   };
+
+  // A 5eTools book import opens the Rulebook immediately when it is already
+  // mounted; otherwise the active id is remembered for the next open.
+  useEffect(() => {
+    const onImport = (event) => {
+      const id = event?.detail?.bookId;
+      if (id) selectBook(id);
+    };
+    const onCredits = () => setRb(loadRulebook());
+    window.addEventListener("skilltree:rulebook-import", onImport);
+    window.addEventListener("skilltree:rulebook-credits", onCredits);
+    return () => {
+      window.removeEventListener("skilltree:rulebook-import", onImport);
+      window.removeEventListener("skilltree:rulebook-credits", onCredits);
+    };
+  }, []);
 
   const addBook = () => {
     const b = {
@@ -95,7 +120,22 @@ export default function Rulebook({ className = "" }) {
   };
 
   const removeBook = () => {
-    if (!book || books.length <= 1) return;
+    if (!book) return;
+    if (isImported) {
+      setSettings((s) => ({
+        ...s,
+        library: {
+          ...s.library,
+          fiveEToolsBooks: (s.library.fiveEToolsBooks || []).filter((b) => b.id !== book.id),
+        },
+      }));
+      const fallback = localBooks[0] || books.find((b) => b.id !== book.id);
+      setBookId(fallback?.id || "");
+      setChapterId(null);
+      setEditing(false);
+      return;
+    }
+    if (books.length <= 1) return;
     const rest = books.filter((b) => b.id !== book.id);
     setRb((r) => ({ ...r, books: rest, activeBookId: rest[0].id }));
     setBookId(rest[0].id);
@@ -104,11 +144,12 @@ export default function Rulebook({ className = "" }) {
   };
 
   const renameBook = (title) => {
-    if (!book) return;
+    if (!book || isImported) return;
     updateBook((b) => ({ ...b, title: title.trim() || b.title }));
   };
 
   const startEdit = () => {
+    if (isImported) return;
     setDraft(active?.content || "");
     setEditing(true);
   };
@@ -125,6 +166,7 @@ export default function Rulebook({ className = "" }) {
   };
 
   const addChapter = () => {
+    if (isImported) return;
     const n = chapters.length + 1;
     const ch = {
       id: newChapterId(),
@@ -138,7 +180,7 @@ export default function Rulebook({ className = "" }) {
   };
 
   const removeChapter = () => {
-    if (!active || chapters.length <= 1) return;
+    if (isImported || !active || chapters.length <= 1) return;
     updateBook((b) => ({
       ...b,
       chapters: b.chapters.filter((c) => c.id !== active.id),
@@ -148,6 +190,7 @@ export default function Rulebook({ className = "" }) {
   };
 
   const moveChapter = (dir) => {
+    if (isImported) return;
     const to = idx + dir;
     if (!active || to < 0 || to >= chapters.length) return;
     updateBook((b) => {
@@ -159,6 +202,10 @@ export default function Rulebook({ className = "" }) {
   };
 
   const commitRename = () => {
+    if (isImported) {
+      setRenamingId(null);
+      return;
+    }
     if (renamingId && active) {
       updateBook((b) => ({
         ...b,
@@ -227,9 +274,10 @@ export default function Rulebook({ className = "" }) {
           </select>
           <Input
             className="h-6 text-xs"
-            title="Rename this book"
+            title={isImported ? "Imported from 5eTools — read only" : "Rename this book"}
             defaultValue={book.title}
             key={book.id}
+            readOnly={isImported}
             onBlur={(e) => renameBook(e.target.value)}
           />
           <div className="flex gap-1">
@@ -240,9 +288,9 @@ export default function Rulebook({ className = "" }) {
               size="sm"
               variant="outline"
               className="h-6 px-1"
-              title="Delete this book"
+              title={isImported ? "Remove this imported book" : "Delete this book"}
               onClick={removeBook}
-              disabled={books.length <= 1}
+              disabled={!isImported && books.length <= 1}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -275,13 +323,13 @@ export default function Rulebook({ className = "" }) {
                       ? "bg-accent font-medium"
                       : "text-muted-foreground hover:bg-accent/60"
                   }`}
-                  title={`${i + 1}. ${c.title}${i === 0 ? " — quick start" : ""}`}
+                  title={`${i + 1}. ${c.title}${!isImported && i === 0 ? " — quick start" : ""}`}
                   onClick={() => {
                     setChapterId(c.id);
                     setEditing(false);
                   }}
                   onDoubleClick={() => {
-                    if (c.credits) return;
+                    if (c.credits || isImported) return;
                     setRenamingId(c.id);
                     setNameDraft(c.title);
                   }}
@@ -289,7 +337,7 @@ export default function Rulebook({ className = "" }) {
                   {i + 1}. {c.title}
                 </button>
               )}
-              {c.id === active?.id && renamingId !== c.id && (
+              {c.id === active?.id && renamingId !== c.id && !isImported && (
                 <div className="flex shrink-0">
                   <button
                     type="button"
@@ -312,9 +360,11 @@ export default function Rulebook({ className = "" }) {
             </div>
           ))}
         </div>
-        <Button size="sm" variant="ghost" className="justify-start" title="Add a chapter to this book" onClick={addChapter}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> Add chapter
-        </Button>
+        {!isImported && (
+          <Button size="sm" variant="ghost" className="justify-start" title="Add a chapter to this book" onClick={addChapter}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Add chapter
+          </Button>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -323,11 +373,15 @@ export default function Rulebook({ className = "" }) {
             <h3 className="truncate text-sm font-semibold">{active?.title || "Untitled"}</h3>
             <p className="text-[10px] text-muted-foreground">
               Chapter {idx + 1} of {chapters.length}
-              {idx === 0 ? " — quick start guide" : ""}
+              {isImported
+                ? ` — imported from 5eTools${book.source ? ` (${book.source})` : ""}`
+                : idx === 0
+                  ? " — quick start guide"
+                  : ""}
             </p>
           </div>
           <div className="flex shrink-0 gap-1">
-            {isCredits ? null : editing ? (
+            {isImported ? null : isCredits ? null : editing ? (
               <>
                 <Button size="sm" onClick={saveEdit} title="Save this chapter">
                   Save
@@ -420,11 +474,13 @@ export default function Rulebook({ className = "" }) {
             </>
           )}
           <p className="text-[10px] text-muted-foreground">
-            {isCredits
-              ? "Add or remove names only — this page can't be edited as free text."
-              : editing
-              ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save."
-              : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."}
+            {isImported
+              ? "Imported 5eTools book — read only. You can remove it and import it again from the Reference Index."
+              : isCredits
+                ? "Add or remove names only — this page can't be edited as free text."
+                : editing
+                  ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save."
+                  : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."}
           </p>
         </div>
       </div>

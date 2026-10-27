@@ -109,6 +109,14 @@ export function entriesFromRaw(raw, preferredProp = "") {
   if (Array.isArray(raw)) return raw;
   if (!raw || typeof raw !== "object") return [];
   if (preferredProp) {
+    // Prefer the full bookData/adventureData document over its short metadata
+    // entry; the wrapper contains the actual chapters.
+    if (preferredProp === "book" && Array.isArray(raw.bookData) && raw.bookData.length) {
+      return raw.bookData;
+    }
+    if (preferredProp === "adventure" && Array.isArray(raw.adventureData) && raw.adventureData.length) {
+      return raw.adventureData;
+    }
     const keys = PROP_KEYS[preferredProp] || [preferredProp];
     const picked = keys.flatMap((k) => (Array.isArray(raw[k]) ? raw[k] : []));
     if (picked.length) return picked;
@@ -127,6 +135,8 @@ export function entriesFromRaw(raw, preferredProp = "") {
     return [...(raw.vehicle || []), ...(raw.vehicleUpgrade || [])];
   if (Array.isArray(raw.deck) || Array.isArray(raw.card))
     return [...(raw.deck || []), ...(raw.card || [])];
+  if (Array.isArray(raw.bookData) && raw.bookData.length) return raw.bookData;
+  if (Array.isArray(raw.adventureData) && raw.adventureData.length) return raw.adventureData;
   for (const key of ENTRY_KEYS) {
     if (Array.isArray(raw[key])) return raw[key];
   }
@@ -135,7 +145,14 @@ export function entriesFromRaw(raw, preferredProp = "") {
 }
 
 export const entryName = (entry) =>
-  String(entry?.name || entry?.title || entry?.caption || entry?.abbreviation || "Untitled");
+  String(
+    entry?.name ||
+      entry?.title ||
+      entry?.caption ||
+      entry?.abbreviation ||
+      entry?.id ||
+      "Untitled"
+  );
 
 export const entrySource = (entry) =>
   [entry?.source, entry?.page ? `p.${entry.page}` : ""].filter(Boolean).join(" ");

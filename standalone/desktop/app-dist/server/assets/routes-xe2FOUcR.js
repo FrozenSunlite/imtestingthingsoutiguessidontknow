@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DWhkgyH7.js";
+import { n as Button, r as cn } from "./router-CRhnPFRV.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -4135,6 +4135,8 @@ function entriesFromRaw(raw, preferredProp = "") {
 	if (Array.isArray(raw)) return raw;
 	if (!raw || typeof raw !== "object") return [];
 	if (preferredProp) {
+		if (preferredProp === "book" && Array.isArray(raw.bookData) && raw.bookData.length) return raw.bookData;
+		if (preferredProp === "adventure" && Array.isArray(raw.adventureData) && raw.adventureData.length) return raw.adventureData;
 		const picked = (PROP_KEYS[preferredProp] || [preferredProp]).flatMap((k) => Array.isArray(raw[k]) ? raw[k] : []);
 		if (picked.length) return picked;
 	}
@@ -4149,11 +4151,13 @@ function entriesFromRaw(raw, preferredProp = "") {
 	if (Array.isArray(raw.cult) || Array.isArray(raw.boon)) return [...raw.cult || [], ...raw.boon || []];
 	if (Array.isArray(raw.vehicle) || Array.isArray(raw.vehicleUpgrade)) return [...raw.vehicle || [], ...raw.vehicleUpgrade || []];
 	if (Array.isArray(raw.deck) || Array.isArray(raw.card)) return [...raw.deck || [], ...raw.card || []];
+	if (Array.isArray(raw.bookData) && raw.bookData.length) return raw.bookData;
+	if (Array.isArray(raw.adventureData) && raw.adventureData.length) return raw.adventureData;
 	for (const key of ENTRY_KEYS) if (Array.isArray(raw[key])) return raw[key];
 	if (raw.name) return [raw];
 	return [];
 }
-var entryName$1 = (entry) => String(entry?.name || entry?.title || entry?.caption || entry?.abbreviation || "Untitled");
+var entryName$1 = (entry) => String(entry?.name || entry?.title || entry?.caption || entry?.abbreviation || entry?.id || "Untitled");
 var entrySource = (entry) => [entry?.source, entry?.page ? `p.${entry.page}` : ""].filter(Boolean).join(" ");
 var entryMeta = (entry) => {
 	const bits = [];
@@ -5958,7 +5962,8 @@ var DEFAULT_LIBRARY = {
 		loot: [...r.loot || []]
 	})),
 	dungeons: [],
-	fiveETools: {}
+	fiveETools: {},
+	fiveEToolsBooks: []
 };
 function poolForNode(node) {
 	const o = node?.poolOverride;
@@ -6358,7 +6363,8 @@ function mergeLibrary(lib) {
 			loot: [...r.loot || []]
 		})),
 		dungeons: Array.isArray(lib?.dungeons) ? lib.dungeons : [],
-		fiveETools: lib?.fiveETools && typeof lib.fiveETools === "object" ? lib.fiveETools : {}
+		fiveETools: lib?.fiveETools && typeof lib.fiveETools === "object" ? lib.fiveETools : {},
+		fiveEToolsBooks: Array.isArray(lib?.fiveEToolsBooks) ? lib.fiveEToolsBooks : []
 	};
 }
 function ensureTabs(tree) {
@@ -6464,6 +6470,93 @@ function updateSubtreeAtChain(nodes, chain, update, level = 0) {
 			subtrees
 		};
 	});
+}
+var importedTabSeq = 0;
+function buildImportedTab(name, features, meta = {}) {
+	const list = (features || []).filter((f) => f && (f.name || f.text));
+	if (!list.length) return null;
+	const seq = importedTabSeq++;
+	const stamp = `${Date.now()}t${seq}`;
+	const id = `tab-${stamp}`;
+	const classLayout = meta.layout === "class" || list.some((f) => f.group && f.group !== "Feature");
+	const groups = classLayout ? [...new Set(list.map((f) => f.group || "Class"))].sort((a, b) => a === "Class" ? -1 : b === "Class" ? 1 : a.localeCompare(b)) : ["Feature"];
+	const nodesByGroup = {};
+	let n = 0;
+	groups.forEach((group, gi) => {
+		const groupFeatures = list.filter((f) => classLayout ? (f.group || "Class") === group : true).sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
+		const groupNodes = [];
+		const levelCounts = {};
+		groupFeatures.forEach((f, i) => {
+			const nodeId = `n${stamp}i${n++}`;
+			const mech = classLayout ? featureMechanics(f) : {
+				actions: [],
+				resources: []
+			};
+			const level = Number(f.level) || 0;
+			const withinLevel = levelCounts[level] || 0;
+			levelCounts[level] = withinLevel + 1;
+			groupNodes.push({
+				id: nodeId,
+				name: String(f.name || `Feature ${i + 1}`),
+				description: String(f.text || ""),
+				flavor: "",
+				x: classLayout && level ? (Math.min(20, level) - 1) * 230 : i * 190,
+				y: classLayout ? gi * 180 + withinLevel * 140 : i % 2 * 130,
+				maxPoints: 1,
+				currentPoints: 0,
+				cost: 0,
+				nodeType: classLayout ? "skill" : "informative",
+				pointType: "talent",
+				talentType: meta.category || "5eTools",
+				size: 100,
+				rotation: 0,
+				flipped: false,
+				flipV: false,
+				image: "",
+				frameImage: "",
+				resources: mech.resources,
+				actions: mech.actions,
+				levelReq: classLayout ? Number(f.level) || 0 : 0,
+				dependencies: i ? [groupNodes[i - 1].id] : [],
+				exclusiveWith: []
+			});
+		});
+		nodesByGroup[group] = groupNodes;
+	});
+	const nodes = groups.flatMap((g) => nodesByGroup[g]);
+	const connections = [];
+	groups.forEach((group) => {
+		const groupNodes = nodesByGroup[group] || [];
+		groupNodes.slice(1).forEach((node, i) => {
+			connections.push({
+				id: `${groupNodes[i].id}->${node.id}`,
+				from: groupNodes[i].id,
+				to: node.id
+			});
+		});
+	});
+	const base = nodesByGroup.Class || [];
+	groups.filter((g) => g !== "Class").forEach((group) => {
+		const first = (nodesByGroup[group] || [])[0];
+		if (!first) return;
+		const level = Number(first.levelReq) || 0;
+		const anchor = [...base].reverse().find((b) => (Number(b.levelReq) || 0) <= level) || base[0];
+		if (anchor) {
+			connections.push({
+				id: `${anchor.id}->${first.id}`,
+				from: anchor.id,
+				to: first.id
+			});
+			first.dependencies = [anchor.id];
+		}
+	});
+	return {
+		id,
+		name: String(name || "Imported Features"),
+		nodes,
+		connections,
+		cameraStartNode: nodes[0]?.id || ""
+	};
 }
 function TreeProvider({ children }) {
 	const [treeRaw, setTreeRaw] = useState(null);
@@ -7645,95 +7738,17 @@ function TreeProvider({ children }) {
 		} : prev);
 	}, []);
 	const addImportedTab = useCallback((name, features, meta = {}) => {
-		const list = (features || []).filter((f) => f && (f.name || f.text));
-		if (!list.length) return null;
-		const id = `tab-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
-		const stamp = Date.now();
-		const classLayout = meta.layout === "class" || list.some((f) => f.group && f.group !== "Feature");
-		const groups = classLayout ? [...new Set(list.map((f) => f.group || "Class"))].sort((a, b) => a === "Class" ? -1 : b === "Class" ? 1 : a.localeCompare(b)) : ["Feature"];
-		const nodesByGroup = {};
-		let n = 0;
-		groups.forEach((group, gi) => {
-			const groupFeatures = list.filter((f) => classLayout ? (f.group || "Class") === group : true).sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
-			const groupNodes = [];
-			const levelCounts = {};
-			groupFeatures.forEach((f, i) => {
-				const nodeId = `n${stamp}i${n++}`;
-				const mech = classLayout ? featureMechanics(f) : {
-					actions: [],
-					resources: []
-				};
-				const level = Number(f.level) || 0;
-				const withinLevel = levelCounts[level] || 0;
-				levelCounts[level] = withinLevel + 1;
-				groupNodes.push({
-					id: nodeId,
-					name: String(f.name || `Feature ${i + 1}`),
-					description: String(f.text || ""),
-					flavor: "",
-					x: classLayout && level ? (Math.min(20, level) - 1) * 230 : i * 190,
-					y: classLayout ? gi * 180 + withinLevel * 140 : i % 2 * 130,
-					maxPoints: 1,
-					currentPoints: 0,
-					cost: 0,
-					nodeType: classLayout ? "skill" : "informative",
-					pointType: "talent",
-					talentType: meta.category || "5eTools",
-					size: 100,
-					rotation: 0,
-					flipped: false,
-					flipV: false,
-					image: "",
-					frameImage: "",
-					resources: mech.resources,
-					actions: mech.actions,
-					levelReq: classLayout ? Number(f.level) || 0 : 0,
-					dependencies: i ? [groupNodes[i - 1].id] : [],
-					exclusiveWith: []
-				});
-			});
-			nodesByGroup[group] = groupNodes;
-		});
-		const nodes = groups.flatMap((g) => nodesByGroup[g]);
-		const connections = [];
-		groups.forEach((group) => {
-			const groupNodes = nodesByGroup[group] || [];
-			groupNodes.slice(1).forEach((node, i) => {
-				connections.push({
-					id: `${groupNodes[i].id}->${node.id}`,
-					from: groupNodes[i].id,
-					to: node.id
-				});
-			});
-		});
-		const base = nodesByGroup.Class || [];
-		groups.filter((g) => g !== "Class").forEach((group) => {
-			const first = (nodesByGroup[group] || [])[0];
-			if (!first) return;
-			const level = Number(first.levelReq) || 0;
-			const anchor = [...base].reverse().find((b) => (Number(b.levelReq) || 0) <= level) || base[0];
-			if (anchor) {
-				connections.push({
-					id: `${anchor.id}->${first.id}`,
-					from: anchor.id,
-					to: first.id
-				});
-				first.dependencies = [anchor.id];
-			}
-		});
-		const tab = {
-			id,
-			name: String(name || "Imported Features"),
-			nodes,
-			connections,
-			cameraStartNode: nodes[0]?.id || ""
-		};
+		const tab = buildImportedTab(name, features, meta);
+		if (!tab) return null;
+		const activate = meta.activate !== false;
 		setTreeRaw((prev) => prev ? {
 			...prev,
 			tabs: [...prev.tabs || [], tab],
-			activeTabId: id,
-			nodes,
-			connections
+			...activate ? {
+				activeTabId: tab.id,
+				nodes: tab.nodes,
+				connections: tab.connections
+			} : {}
 		} : prev);
 		setUi((u) => ({
 			...u,
@@ -7742,7 +7757,32 @@ function TreeProvider({ children }) {
 			selectedNodeIds: [],
 			selectedConnectionId: null
 		}));
-		return id;
+		return tab.id;
+	}, []);
+	const addImportedTabs = useCallback((specs, { activate = false } = {}) => {
+		const tabs = (specs || []).map((spec) => buildImportedTab(spec.name, spec.features, spec.meta)).filter(Boolean);
+		if (!tabs.length) return [];
+		setTreeRaw((prev) => {
+			if (!prev) return prev;
+			const first = tabs[0];
+			return {
+				...prev,
+				tabs: [...prev.tabs || [], ...tabs],
+				...activate ? {
+					activeTabId: first.id,
+					nodes: first.nodes,
+					connections: first.connections
+				} : {}
+			};
+		});
+		setUi((u) => ({
+			...u,
+			selectedNodeId: null,
+			editingNodeId: null,
+			selectedNodeIds: [],
+			selectedConnectionId: null
+		}));
+		return tabs.map((tab) => tab.id);
 	}, []);
 	const deleteTab = useCallback((tabId) => {
 		setTreeRaw((prev) => {
@@ -7939,6 +7979,7 @@ function TreeProvider({ children }) {
 		setActiveTab,
 		addTab,
 		addImportedTab,
+		addImportedTabs,
 		renameTab,
 		deleteTab,
 		patchTab,
@@ -14089,12 +14130,12 @@ function importMonsterPayload(data) {
 }
 //#endregion
 //#region src/lib/fiveEToolsView.js
-var clean = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
+var clean$1 = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
 var titleCase = (s) => String(s || "").split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 var join = (value, sep = ", ") => {
 	if (value == null || value === "") return "";
-	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(sep);
-	return clean(value);
+	if (Array.isArray(value)) return value.map((v) => clean$1(v)).filter(Boolean).join(sep);
+	return clean$1(value);
 };
 var yesNo = (v) => v ? "Yes" : "";
 var SIZE_LABEL = {
@@ -14107,8 +14148,8 @@ var SIZE_LABEL = {
 };
 var sizeText = (value) => {
 	if (value == null) return "";
-	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
-	return SIZE_LABEL[value] || clean(value);
+	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean$1(s)).join(", ");
+	return SIZE_LABEL[value] || clean$1(value);
 };
 var feet = (n) => {
 	const v = Math.round(Number(n) / 5 * 10) / 10;
@@ -14116,7 +14157,7 @@ var feet = (n) => {
 };
 var speedText = (speed) => {
 	if (speed == null) return "";
-	if (typeof speed === "string") return clean(speed);
+	if (typeof speed === "string") return clean$1(speed);
 	if (typeof speed === "number") return feet(speed);
 	if (Array.isArray(speed)) return speed.map(speedText).filter(Boolean).join(", ");
 	return Object.entries(speed).filter(([, v]) => v != null && v !== false).map(([k, v]) => {
@@ -14130,33 +14171,33 @@ var speedText = (speed) => {
 };
 var proficiencyText = (value) => {
 	if (!value) return "";
-	if (typeof value === "string") return clean(value);
+	if (typeof value === "string") return clean$1(value);
 	if (Array.isArray(value)) return value.map(proficiencyText).filter(Boolean).join("; ");
-	if (typeof value !== "object") return clean(value);
+	if (typeof value !== "object") return clean$1(value);
 	if (value.choose) {
 		const from = value.choose.from || [];
 		return `Choose ${value.choose.count || 1} from ${from.map((v) => titleCase(v)).join(", ")}`;
 	}
 	if (value.any) return `Any ${value.any}`;
-	return clean(value);
+	return clean$1(value);
 };
 var prerequisite = (value) => {
 	if (!value) return "";
-	if (typeof value === "string") return clean(value);
+	if (typeof value === "string") return clean$1(value);
 	if (Array.isArray(value)) return value.map(prerequisite).filter(Boolean).join(", ");
-	if (typeof value !== "object") return clean(value);
+	if (typeof value !== "object") return clean$1(value);
 	const bits = [];
 	if (value.level != null) {
 		const l = value.level;
-		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean(l.class)})` : ""}` : `Level ${l}`);
+		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean$1(l.class)})` : ""}` : `Level ${l}`);
 	}
-	if (value.race?.length) bits.push(value.race.map((r) => clean(r.name || r)).join(" or "));
-	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean(r.name || r)).join(" or ")}`);
-	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean(r.name || r)).join(" or ")}`);
-	if (value.spell) bits.push(`Spell: ${clean(value.spell)}`);
-	if (value.other) bits.push(clean(value.other));
-	if (value.ability?.length) bits.push(value.ability.map((a) => clean(a)).join(", "));
-	if (!bits.length) return clean(value);
+	if (value.race?.length) bits.push(value.race.map((r) => clean$1(r.name || r)).join(" or "));
+	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean$1(r.name || r)).join(" or ")}`);
+	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean$1(r.name || r)).join(" or ")}`);
+	if (value.spell) bits.push(`Spell: ${clean$1(value.spell)}`);
+	if (value.other) bits.push(clean$1(value.other));
+	if (value.ability?.length) bits.push(value.ability.map((a) => clean$1(a)).join(", "));
+	if (!bits.length) return clean$1(value);
 	return bits.join(", ");
 };
 var componentText = (components) => {
@@ -14165,7 +14206,7 @@ var componentText = (components) => {
 	if (components.v) parts.push("V");
 	if (components.s) parts.push("S");
 	if (components.m) {
-		const mat = typeof components.m === "string" ? components.m : clean(components.m);
+		const mat = typeof components.m === "string" ? components.m : clean$1(components.m);
 		parts.push(mat ? `M (${mat})` : "M");
 	}
 	return parts.join(", ");
@@ -14176,7 +14217,7 @@ var classNames = (classes) => {
 		["fromClassList", ""],
 		["fromClassListVariant", " (variant)"],
 		["fromSubclass", ""]
-	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean(c.name || c.className)}${c.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`)).join(", ");
+	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean$1(c.name || c.className)}${c.subclassName ? ` (${clean$1(c.subclassName)})` : ""}${suffix}`)).join(", ");
 };
 function featureFromRef(ref, list, subclass) {
 	if (!ref) return null;
@@ -14199,8 +14240,8 @@ function featuresFrom(raw, entry, subclass) {
 	const list = subclass ? raw.subclassFeature || [] : raw.classFeature || [];
 	return (subclass ? entry.subclassFeatures || [] : entry.classFeatures || []).map((ref) => featureFromRef(ref, list, subclass)).filter(Boolean).map((f) => ({
 		level: Number(f.level) || 0,
-		name: clean(f.name || entryName$1(f)),
-		text: clean(f.entries)
+		name: clean$1(f.name || entryName$1(f)),
+		text: clean$1(f.entries)
 	})).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
 var featureSection = (features, label = "Features") => {
@@ -14214,7 +14255,7 @@ var featureSection = (features, label = "Features") => {
 	};
 };
 var textSection = (title, value) => {
-	const text = clean(value);
+	const text = clean$1(value);
 	return text ? {
 		title,
 		text
@@ -14224,17 +14265,17 @@ var rowText = (row) => {
 	return (Array.isArray(row) ? row : row?.row || [row]).map((cell) => {
 		if (cell && typeof cell === "object") {
 			if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
-			if (cell.type === "cell") return clean(cell.entry ?? cell.entries ?? "");
+			if (cell.type === "cell") return clean$1(cell.entry ?? cell.entries ?? "");
 		}
-		return clean(cell);
+		return clean$1(cell);
 	});
 };
 var tableBlock = (table) => {
 	if (!table) return null;
-	const columns = (table.colLabels || []).map(clean);
+	const columns = (table.colLabels || []).map(clean$1);
 	const rows = (table.rows || []).slice(0, 100).map(rowText);
 	return {
-		title: clean(table.name || table.caption || "Table"),
+		title: clean$1(table.name || table.caption || "Table"),
 		columns,
 		rows
 	};
@@ -14275,8 +14316,8 @@ var contentsList = (contents, depth = 0) => (contents || []).flatMap((c) => {
 		text: ""
 	}];
 	if (c.name) return [{
-		label: `${"  ".repeat(depth)}${clean(c.name)}`,
-		text: clean(c.entries).slice(0, 160)
+		label: `${"  ".repeat(depth)}${clean$1(c.name)}`,
+		text: clean$1(c.entries).slice(0, 160)
 	}, ...contentsList(c.contents, depth + 1)];
 	return contentsList(c.contents, depth);
 });
@@ -14288,8 +14329,8 @@ var actionEntries = (entry, keys) => {
 		sections.push({
 			title,
 			text: list.map((a) => {
-				const name = clean(a?.name);
-				const text = clean(a?.entries ?? a?.text);
+				const name = clean$1(a?.name);
+				const text = clean$1(a?.entries ?? a?.text);
 				return [name && `${name}.`, text].filter(Boolean).join(" ");
 			}).filter(Boolean).join("\n\n")
 		});
@@ -14360,18 +14401,18 @@ var classDetails = (entry, raw, subclass) => {
 	const sp = entry.startingProficiencies || {};
 	return {
 		fields: subclass ? [
-			["Class", clean(entry.className)],
-			["Source", clean(entry.classSource)],
+			["Class", clean$1(entry.className)],
+			["Source", clean$1(entry.classSource)],
 			["Features", String(features.length || "")]
 		] : [
-			["Hit Die", entry.hd ? `d${entry.hd.faces} per ${clean(entry.hd.number) === "1" ? "level" : "level"}` : ""],
+			["Hit Die", entry.hd ? `d${entry.hd.faces} per ${clean$1(entry.hd.number) === "1" ? "level" : "level"}` : ""],
 			["Saving Throws", join(entry.proficiency, ", ").toUpperCase()],
 			["Armor", proficiencyText(sp.armor)],
 			["Weapons", proficiencyText(sp.weapons)],
 			["Tools", proficiencyText(sp.tools)],
 			["Skills", proficiencyText(sp.skills)],
-			["Subclass", clean(entry.subclassTitle)],
-			["Source", clean(entry.source)]
+			["Subclass", clean$1(entry.subclassTitle)],
+			["Source", clean$1(entry.source)]
 		],
 		sections: [
 			featureSection(features),
@@ -14382,10 +14423,10 @@ var classDetails = (entry, raw, subclass) => {
 };
 var featDetails = (entry) => ({
 	fields: [
-		["Category", clean(entry.category)],
+		["Category", clean$1(entry.category)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
 		["Repeatable", yesNo(entry.repeatable)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
 });
@@ -14396,8 +14437,8 @@ var backgroundDetails = (entry) => ({
 		["Skills", proficiencyText(entry.skillProficiencies)],
 		["Tools", proficiencyText(entry.toolProficiencies)],
 		["Languages", proficiencyText(entry.languageProficiencies)],
-		["Equipment", clean(entry.startingEquipment)],
-		["Source", clean(entry.source)]
+		["Equipment", clean$1(entry.startingEquipment)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
@@ -14407,15 +14448,15 @@ var speciesDetails = (entry) => ({
 		["Speed", speedText(entry.speed)],
 		["Ability Scores", join(entry.ability)],
 		["Languages", proficiencyText(entry.languageProficiencies)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), ...actionEntries(entry, [["trait", "Traits"], ["traitTags", "Tags"]])].filter(Boolean)
 });
 var optionDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.featureType || entry.optionType)],
+		["Type", clean$1(entry.featureType || entry.optionType)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
@@ -14460,31 +14501,31 @@ var itemDetails = (entry) => {
 	const rarity = String(entry.rarity || "").toLowerCase();
 	return {
 		fields: [
-			["Type", mapped?.key === "wondrousItems" && value.itemType ? value.itemType : ITEM_TYPE_LABEL[code] || clean(entry.type)],
+			["Type", mapped?.key === "wondrousItems" && value.itemType ? value.itemType : ITEM_TYPE_LABEL[code] || clean$1(entry.type)],
 			["Rarity", rarity && rarity !== "none" ? titleCase(rarity) : ""],
-			["Attunement", entry.reqAttune ? clean(entry.reqAttune) : entry.reqAttuneTags ? "Required" : ""],
+			["Attunement", entry.reqAttune ? clean$1(entry.reqAttune) : entry.reqAttuneTags ? "Required" : ""],
 			["Weight", entry.weight != null ? `${entry.weight} lb.` : ""],
 			["Value", value.cost || (entry.value != null ? `${Number((Number(entry.value) / 100).toFixed(2))} gp` : "")],
 			["Properties", value.properties?.length ? join(value.properties) : join(entry.property)],
 			["Mastery", join(entry.mastery)],
-			["Damage", value.diceCount ? `${value.diceCount}${value.dieSize}${value.damageType ? ` ${value.damageType}` : ""}` : clean(entry.dmg1 || entry.dmg2)],
-			["Armor Class", value.acFlat != null ? String(value.acFlat) : clean(entry.ac)],
-			["Source", clean(entry.source)]
+			["Damage", value.diceCount ? `${value.diceCount}${value.dieSize}${value.damageType ? ` ${value.damageType}` : ""}` : clean$1(entry.dmg1 || entry.dmg2)],
+			["Armor Class", value.acFlat != null ? String(value.acFlat) : clean$1(entry.ac)],
+			["Source", clean$1(entry.source)]
 		],
 		sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
 	};
 };
 var conditionDetails = (entry, kind) => ({
-	fields: [["Type", kind], ["Source", clean(entry.source)]],
+	fields: [["Type", kind], ["Source", clean$1(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var tableDetails = (entry) => {
 	const block = tableBlock(entry);
 	return {
 		fields: [
-			["Caption", clean(entry.caption)],
+			["Caption", clean$1(entry.caption)],
 			["Rows", String((entry.rows || []).length)],
-			["Source", clean(entry.source)]
+			["Source", clean$1(entry.source)]
 		],
 		sections: block ? [block] : []
 	};
@@ -14492,50 +14533,50 @@ var tableDetails = (entry) => {
 var bookDetails = (entry, adventure) => ({
 	fields: [
 		["Author", join(entry.author)],
-		["Published", clean(entry.published)],
-		["Group", clean(entry.group)],
-		...adventure ? [["Storyline", clean(entry.storyline)], ["Level", clean(entry.level)]] : [],
-		["Source", clean(entry.source || entry.id)]
+		["Published", clean$1(entry.published)],
+		["Group", clean$1(entry.group)],
+		...adventure ? [["Storyline", clean$1(entry.storyline)], ["Level", clean$1(entry.level)]] : [],
+		["Source", clean$1(entry.source || entry.id)]
 	],
 	sections: [{
 		title: "Contents",
-		list: contentsList(entry.contents)
-	}, textSection("Description", entry.entries)].filter((s) => s.list?.length || s.text)
+		list: contentsList(entry.data?.map((chapter) => ({ name: chapter.name })) || entry.contents)
+	}, textSection("Description", entry.entries)].filter((s) => s && (s.list?.length || s.text))
 });
 var deityDetails = (entry) => ({
 	fields: [
-		["Pantheon", clean(entry.pantheon)],
-		["Alignment", clean(entry.alignment)],
-		["Category", clean(entry.category)],
+		["Pantheon", clean$1(entry.pantheon)],
+		["Alignment", clean$1(entry.alignment)],
+		["Category", clean$1(entry.category)],
 		["Domains", join(entry.domains)],
-		["Province", clean(entry.province)],
-		["Symbol", clean(entry.symbol)],
-		["Source", clean(entry.source)]
+		["Province", clean$1(entry.province)],
+		["Symbol", clean$1(entry.symbol)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var vehicleDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.vehicleType)],
+		["Type", clean$1(entry.vehicleType)],
 		["Size", sizeText(entry.size)],
-		["Terrain", clean(entry.terrain)],
+		["Terrain", clean$1(entry.terrain)],
 		["Crew", entry.capCrew != null ? String(entry.capCrew) : ""],
 		["Passengers", entry.capPassenger != null ? String(entry.capPassenger) : ""],
 		["Cargo", entry.capCargo != null ? `${entry.capCargo} tons` : ""],
-		["Armor Class", clean(entry.ac)],
-		["Hit Points", clean(entry.hp)],
+		["Armor Class", clean$1(entry.ac)],
+		["Hit Points", clean$1(entry.hp)],
 		["Speed", speedText(entry.speed)],
 		["Immunities", join(entry.immune)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var objectDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.objectType)],
+		["Type", clean$1(entry.objectType)],
 		["Size", sizeText(entry.size)],
-		["Armor Class", clean(entry.ac)],
-		["Hit Points", clean(entry.hp)],
+		["Armor Class", clean$1(entry.ac)],
+		["Hit Points", clean$1(entry.hp)],
 		["Speed", speedText(entry.speed)],
 		["Ability Scores", [
 			"str",
@@ -14547,103 +14588,103 @@ var objectDetails = (entry) => ({
 		].filter((k) => entry[k] != null).map((k) => `${k.toUpperCase()} ${entry[k]}`).join(", ")],
 		["Senses", join(entry.senses)],
 		["Immunities", join(entry.immune)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), textSection("Actions", entry.actionEntries)].filter(Boolean)
 });
 var trapDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.trapHazType)],
-		["Rating", clean(entry.rating)],
-		["Source", clean(entry.source)]
+		["Type", clean$1(entry.trapHazType)],
+		["Rating", clean$1(entry.rating)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var rewardDetails = (entry) => ({
-	fields: [["Type", clean(entry.type)], ["Source", clean(entry.source)]],
+	fields: [["Type", clean$1(entry.type)], ["Source", clean$1(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var psionicDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.type)],
-		["Order", clean(entry.order)],
-		["Focus", clean(entry.focus)],
-		["Source", clean(entry.source)]
+		["Type", clean$1(entry.type)],
+		["Order", clean$1(entry.order)],
+		["Focus", clean$1(entry.focus)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), {
 		title: "Modes",
-		text: (entry.modes || []).map((m) => `${clean(m.name)}${m.entries ? `: ${clean(m.entries)}` : ""}`).join("\n\n")
-	}].filter((s) => s.text)
+		text: (entry.modes || []).map((m) => `${clean$1(m.name)}${m.entries ? `: ${clean$1(m.entries)}` : ""}`).join("\n\n")
+	}].filter((s) => s && s.text)
 });
 var deckDetails = (entry) => ({
-	fields: [["Cards", String((entry.cards || []).length)], ["Source", clean(entry.source)]],
+	fields: [["Cards", String((entry.cards || []).length)], ["Source", clean$1(entry.source)]],
 	sections: [textSection("Description", entry.entries), {
 		title: "Cards",
 		list: (entry.cards || []).map((c) => ({
-			label: clean(c.name),
+			label: clean$1(c.name),
 			text: ""
 		}))
-	}].filter((s) => s.text || s.list?.length)
+	}].filter((s) => s && (s.text || s.list?.length))
 });
 var actionDetails = (entry) => ({
-	fields: [["Time", clean(entry.time)], ["Source", clean(entry.source)]],
+	fields: [["Time", clean$1(entry.time)], ["Source", clean$1(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var languageDetails = (entry) => ({
 	fields: [
 		["Typical Speakers", join(entry.typicalSpeakers)],
-		["Script", clean(entry.script)],
-		["Source", clean(entry.source)]
+		["Script", clean$1(entry.script)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var bastionDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.facilityType)],
-		["Level", clean(entry.level)],
+		["Type", clean$1(entry.facilityType)],
+		["Level", clean$1(entry.level)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Space", clean(entry.space)],
-		["Hirelings", clean(entry.hirelings)],
+		["Space", clean$1(entry.space)],
+		["Hirelings", clean$1(entry.hirelings)],
 		["Orders", join(entry.orders)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var encounterDetails = (entry) => ({
-	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean(entry.source)]],
+	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean$1(entry.source)]],
 	sections: [...(entry.tables || []).map((t) => tableBlock(t)).filter(Boolean), textSection("Description", entry.entries)].filter(Boolean)
 });
 var lootDetails = (entry) => ({
 	fields: [
 		["CR Range", [entry.crMin, entry.crMax].filter((v) => v != null).join(" – ")],
-		["Coins", clean(entry.coins)],
-		["Source", clean(entry.source)]
+		["Coins", clean$1(entry.coins)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: [tableBlock(entry.table), textSection("Description", entry.entries)].filter(Boolean)
 });
 var ruleDetails = (entry) => ({
-	fields: [["Type", clean(entry.ruleType)], ["Source", clean(entry.source)]],
+	fields: [["Type", clean$1(entry.ruleType)], ["Source", clean$1(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var skillDetails = (entry) => ({
-	fields: [["Ability", clean(entry.ability)], ["Source", clean(entry.source)]],
+	fields: [["Ability", clean$1(entry.ability)], ["Source", clean$1(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var magicVariantDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.type)],
-		["Requires", clean(entry.requires)],
-		["Inherits", clean(entry.inherits)],
-		["Source", clean(entry.source)]
+		["Type", clean$1(entry.type)],
+		["Requires", clean$1(entry.requires)],
+		["Inherits", clean$1(entry.inherits)],
+		["Source", clean$1(entry.source)]
 	],
 	sections: []
 });
 var genericDetails = (entry) => ({
 	fields: [
-		["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
-		["Rarity", clean(entry.rarity)],
+		["Type", clean$1(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
+		["Rarity", clean$1(entry.rarity)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Source", clean(entry.source)]
+		["Source", clean$1(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries || entry.description || entry.text), textSection("Additional", entry.additionalEntries)].filter(Boolean)
 });
@@ -14692,24 +14733,24 @@ function entryDetails(categoryId, entry, raw, context = {}) {
 	const image = entryImage(entry);
 	return {
 		name: entryName$1(entry),
-		source: clean(entry.source || entry.classSource || entry.id),
+		source: clean$1(entry.source || entry.classSource || entry.id),
 		page: entry.page,
-		edition: clean(entry.edition),
+		edition: clean$1(entry.edition),
 		image,
 		fields: (body.fields || []).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
-		sections: (body.sections || []).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
+		sections: (body.sections || []).filter((s) => s.text && clean$1(s.text) || s.list?.length || s.columns?.length)
 	};
 }
 function CleanField(value) {
 	if (value == null) return "";
-	if (typeof value === "string") return clean(value);
+	if (typeof value === "string") return clean$1(value);
 	if (typeof value === "number" || typeof value === "boolean") return String(value);
-	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(", ");
+	if (Array.isArray(value)) return value.map((v) => clean$1(v)).filter(Boolean).join(", ");
 	if (typeof value === "object") {
-		if (value.name && value.description) return `${clean(value.name)}: ${clean(value.description)}`;
-		if (value.name) return clean(value.name);
-		if (value.description) return clean(value.description);
-		return clean(value);
+		if (value.name && value.description) return `${clean$1(value.name)}: ${clean$1(value.description)}`;
+		if (value.name) return clean$1(value.name);
+		if (value.description) return clean$1(value.description);
+		return clean$1(value);
 	}
 	return String(value);
 }
@@ -14813,7 +14854,15 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 function FiveEToolsImportsTab() {
 	const { settings, setSettings } = useTree();
 	const data = settings?.library?.fiveETools || {};
-	const categories = Object.keys(data).filter((k) => Array.isArray(data[k]) && data[k].length);
+	const dedicated = /* @__PURE__ */ new Set([
+		"backgrounds",
+		"species",
+		"deities",
+		"objects",
+		"traps",
+		"books"
+	]);
+	const categories = Object.keys(data).filter((k) => !dedicated.has(k) && Array.isArray(data[k]) && data[k].length);
 	const labelFor = (id) => FIVE_CATEGORIES.find((c) => c.id === id)?.label || id;
 	const [category, setCategory] = useState(categories[0] || "");
 	const [query, setQuery] = useState("");
@@ -14883,6 +14932,93 @@ function FiveEToolsImportsTab() {
 				})]
 			}), /* @__PURE__ */ jsx("div", {
 				className: "max-h-[55vh] overflow-y-auto rounded-md border p-2",
+				children: details ? /* @__PURE__ */ jsxs("div", {
+					className: "space-y-2",
+					children: [/* @__PURE__ */ jsx(ReferenceEntryPreview, { details }), /* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "ghost",
+						onClick: remove,
+						children: [/* @__PURE__ */ jsx(X, { className: "mr-1 h-3.5 w-3.5" }), " Remove from project"]
+					})]
+				}) : /* @__PURE__ */ jsx("p", {
+					className: "text-xs text-muted-foreground",
+					children: "Select an entry to read it."
+				})
+			})]
+		})]
+	});
+}
+//#endregion
+//#region src/components/skilltree/library/FiveEToolsCategoryTab.jsx
+function FiveEToolsCategoryTab({ categoryId }) {
+	const { settings, setSettings } = useTree();
+	const data = settings?.library?.fiveETools?.[categoryId] || [];
+	const [query, setQuery] = useState("");
+	const [preview, setPreview] = useState(null);
+	const label = FIVE_CATEGORIES.find((c) => c.id === categoryId)?.label || categoryId;
+	const shown = useMemo(() => data.filter((entry) => `${entryName$1(entry)} ${entrySource(entry)}`.toLowerCase().includes(query.trim().toLowerCase())), [data, query]);
+	const details = useMemo(() => preview ? entryDetails(categoryId, preview, null) : null, [categoryId, preview]);
+	const remove = () => {
+		if (!preview) return;
+		setSettings((s) => {
+			const map = { ...s.library.fiveETools || {} };
+			const entries = (map[categoryId] || []).filter((e) => e !== preview);
+			if (entries.length) map[categoryId] = entries;
+			else delete map[categoryId];
+			return {
+				...s,
+				library: {
+					...s.library,
+					fiveETools: map
+				}
+			};
+		});
+		setPreview(null);
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "flex items-center justify-between gap-2",
+			children: [/* @__PURE__ */ jsxs("p", {
+				className: "text-xs text-muted-foreground",
+				children: [label, " imported from 5eTools. The Reference Index can add more."]
+			}), /* @__PURE__ */ jsx(Input, {
+				className: "h-8 w-44",
+				placeholder: `Search ${label.toLowerCase()}…`,
+				value: query,
+				onChange: (e) => setQuery(e.target.value)
+			})]
+		}), data.length === 0 ? /* @__PURE__ */ jsxs("div", {
+			className: "rounded-md border border-dashed p-4 text-xs text-muted-foreground",
+			children: [
+				"Nothing imported yet. Open ",
+				/* @__PURE__ */ jsx("strong", { children: "Reference Index" }),
+				", choose the",
+				" ",
+				/* @__PURE__ */ jsx("strong", { children: label }),
+				" category, and import entries."
+			]
+		}) : /* @__PURE__ */ jsxs("div", {
+			className: "grid grid-cols-[minmax(0,1fr)_minmax(280px,1.15fr)] gap-2",
+			children: [/* @__PURE__ */ jsxs("div", {
+				className: "max-h-[55vh] overflow-y-auto rounded-md border p-1",
+				children: [shown.map((entry, i) => /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					onClick: () => setPreview(entry),
+					className: `flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs ${preview === entry ? "bg-accent" : "hover:bg-accent/50"}`,
+					children: [/* @__PURE__ */ jsx("span", {
+						className: "min-w-0 flex-1 truncate font-medium",
+						children: String(entryName$1(entry))
+					}), /* @__PURE__ */ jsx("span", {
+						className: "shrink-0 text-[10px] text-muted-foreground",
+						children: String(entrySource(entry))
+					})]
+				}, `${entryName$1(entry)}-${i}`)), shown.length === 0 && /* @__PURE__ */ jsx("p", {
+					className: "p-2 text-xs text-muted-foreground",
+					children: "No matches."
+				})]
+			}), /* @__PURE__ */ jsx("div", {
+				className: "max-h-[55vh] overflow-y-auto rounded-md border p-3",
 				children: details ? /* @__PURE__ */ jsxs("div", {
 					className: "space-y-2",
 					children: [/* @__PURE__ */ jsx(ReferenceEntryPreview, { details }), /* @__PURE__ */ jsxs(Button, {
@@ -18852,6 +18988,13 @@ var TAB_GROUPS = [
 		["resources", "Resources"],
 		["dieScaling", "Die Scaling"]
 	]],
+	["Lore & Creatures", [
+		["backgrounds", "Backgrounds"],
+		["species", "Species"],
+		["deities", "Deities"],
+		["objects", "Objects"],
+		["traps", "Traps & Hazards"]
+	]],
 	["Combat", [
 		["weapons", "Weapons"],
 		["weaponUpgrades", "Weapon Upgrades"],
@@ -19052,6 +19195,31 @@ var SEARCH_CATEGORIES = (lib) => [
 		lib.monsterTemplates || []
 	],
 	[
+		"Backgrounds",
+		"backgrounds",
+		lib.fiveETools?.backgrounds || []
+	],
+	[
+		"Species",
+		"species",
+		lib.fiveETools?.species || []
+	],
+	[
+		"Deities",
+		"deities",
+		lib.fiveETools?.deities || []
+	],
+	[
+		"Objects",
+		"objects",
+		lib.fiveETools?.objects || []
+	],
+	[
+		"Traps & Hazards",
+		"traps",
+		lib.fiveETools?.traps || []
+	],
+	[
 		"Spell Schools",
 		"spellSchools",
 		(lib.spellSchools || []).map((n) => ({ name: n }))
@@ -19246,6 +19414,31 @@ function LibraryMenu({ open, onClose }) {
 								value: "fiveETools",
 								className: "mt-0",
 								children: /* @__PURE__ */ jsx(FiveEToolsImportsTab, {})
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "backgrounds",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "backgrounds" })
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "species",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "species" })
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "deities",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "deities" })
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "objects",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "objects" })
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "traps",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "traps" })
 							}),
 							/* @__PURE__ */ jsx(TabsContent, {
 								value: "downtime",
@@ -33915,9 +34108,53 @@ function saveRulebook(rb) {
 		localStorage.setItem(KEY, JSON.stringify(rb));
 	} catch {}
 }
+function setRulebookActiveBookId(id) {
+	if (!id) return;
+	try {
+		const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+		if (saved && Array.isArray(saved.books)) {
+			saved.activeBookId = id;
+			localStorage.setItem(KEY, JSON.stringify(saved));
+		}
+	} catch {}
+}
+function addCreditNames(names = []) {
+	const incoming = [...new Set((names || []).map((n) => String(n || "").trim()).filter(Boolean))];
+	if (!incoming.length) return [];
+	const rb = loadRulebook();
+	const book = rb.books?.find((b) => b.chapters?.some((c) => c.credits)) || rb.books?.[0];
+	if (!book) return [];
+	const chapter = (book.chapters || []).find((c) => c.credits);
+	const current = chapter ? [...chapter.names || []] : [];
+	const seen = new Set(current.map((n) => n.toLowerCase()));
+	const added = [];
+	incoming.forEach((name) => {
+		if (seen.has(name.toLowerCase())) return;
+		seen.add(name.toLowerCase());
+		current.push(name);
+		added.push(name);
+	});
+	if (!added.length) return [];
+	if (chapter) {
+		chapter.names = current;
+		chapter.content = creditsContent(current);
+	} else book.chapters = [...book.chapters || [], {
+		id: "ch-credits",
+		title: "Credits",
+		credits: true,
+		names: current,
+		content: creditsContent(current)
+	}];
+	saveRulebook(rb);
+	try {
+		window.dispatchEvent(new CustomEvent("skilltree:rulebook-credits", { detail: { names: added } }));
+	} catch {}
+	return added;
+}
 //#endregion
 //#region src/components/rulebook/Rulebook.jsx
 function Rulebook({ className = "" }) {
+	const { settings, setSettings } = useTree();
 	const [rb, setRb] = useState(() => loadRulebook());
 	const [bookId, setBookId] = useState(() => loadRulebook().activeBookId);
 	const [chapterId, setChapterId] = useState(null);
@@ -33928,12 +34165,15 @@ function Rulebook({ className = "" }) {
 	const [creditDraft, setCreditDraft] = useState("");
 	const fileRef = useRef(null);
 	const areaRef = useRef(null);
-	const books = rb.books || [];
+	const localBooks = rb.books || [];
+	const importedBooks = (settings?.library?.fiveEToolsBooks || []).filter((b) => !localBooks.some((local) => local.id === b.id));
+	const books = [...localBooks, ...importedBooks];
 	const book = books.find((b) => b.id === bookId) || books[0] || null;
+	const isImported = !!book?.imported;
 	const chapters = book?.chapters || [];
 	const active = chapters.find((c) => c.id === chapterId) || chapters[0] || null;
 	const idx = chapters.findIndex((c) => c.id === active?.id);
-	const isCredits = !!active?.credits;
+	const isCredits = !!active?.credits && !isImported;
 	const updateCredits = (names) => updateBook((b) => ({
 		...b,
 		chapters: (b.chapters || []).map((c) => c.id === active.id ? {
@@ -33962,15 +34202,31 @@ function Rulebook({ className = "" }) {
 		book?.id,
 		rb.activeBookId
 	]);
-	const updateBook = (fn) => setRb((r) => ({
-		...r,
-		books: (r.books || []).map((b) => b.id === book.id ? fn(b) : b)
-	}));
+	const updateBook = (fn) => {
+		if (!book || isImported) return;
+		setRb((r) => ({
+			...r,
+			books: (r.books || []).map((b) => b.id === book.id ? fn(b) : b)
+		}));
+	};
 	const selectBook = (id) => {
 		setBookId(id);
 		setChapterId(null);
 		setEditing(false);
 	};
+	useEffect(() => {
+		const onImport = (event) => {
+			const id = event?.detail?.bookId;
+			if (id) selectBook(id);
+		};
+		const onCredits = () => setRb(loadRulebook());
+		window.addEventListener("skilltree:rulebook-import", onImport);
+		window.addEventListener("skilltree:rulebook-credits", onCredits);
+		return () => {
+			window.removeEventListener("skilltree:rulebook-import", onImport);
+			window.removeEventListener("skilltree:rulebook-credits", onCredits);
+		};
+	}, []);
 	const addBook = () => {
 		const b = {
 			id: newBookId(),
@@ -33991,7 +34247,22 @@ function Rulebook({ className = "" }) {
 		setEditing(false);
 	};
 	const removeBook = () => {
-		if (!book || books.length <= 1) return;
+		if (!book) return;
+		if (isImported) {
+			setSettings((s) => ({
+				...s,
+				library: {
+					...s.library,
+					fiveEToolsBooks: (s.library.fiveEToolsBooks || []).filter((b) => b.id !== book.id)
+				}
+			}));
+			const fallback = localBooks[0] || books.find((b) => b.id !== book.id);
+			setBookId(fallback?.id || "");
+			setChapterId(null);
+			setEditing(false);
+			return;
+		}
+		if (books.length <= 1) return;
 		const rest = books.filter((b) => b.id !== book.id);
 		setRb((r) => ({
 			...r,
@@ -34003,13 +34274,14 @@ function Rulebook({ className = "" }) {
 		setEditing(false);
 	};
 	const renameBook = (title) => {
-		if (!book) return;
+		if (!book || isImported) return;
 		updateBook((b) => ({
 			...b,
 			title: title.trim() || b.title
 		}));
 	};
 	const startEdit = () => {
+		if (isImported) return;
 		setDraft(active?.content || "");
 		setEditing(true);
 	};
@@ -34025,6 +34297,7 @@ function Rulebook({ className = "" }) {
 		setEditing(false);
 	};
 	const addChapter = () => {
+		if (isImported) return;
 		const n = chapters.length + 1;
 		const ch = {
 			id: newChapterId(),
@@ -34040,7 +34313,7 @@ function Rulebook({ className = "" }) {
 		setEditing(true);
 	};
 	const removeChapter = () => {
-		if (!active || chapters.length <= 1) return;
+		if (isImported || !active || chapters.length <= 1) return;
 		updateBook((b) => ({
 			...b,
 			chapters: b.chapters.filter((c) => c.id !== active.id)
@@ -34049,6 +34322,7 @@ function Rulebook({ className = "" }) {
 		setEditing(false);
 	};
 	const moveChapter = (dir) => {
+		if (isImported) return;
 		const to = idx + dir;
 		if (!active || to < 0 || to >= chapters.length) return;
 		updateBook((b) => {
@@ -34062,6 +34336,10 @@ function Rulebook({ className = "" }) {
 		});
 	};
 	const commitRename = () => {
+		if (isImported) {
+			setRenamingId(null);
+			return;
+		}
 		if (renamingId && active) updateBook((b) => ({
 			...b,
 			chapters: b.chapters.map((c) => c.id === renamingId ? {
@@ -34125,8 +34403,9 @@ function Rulebook({ className = "" }) {
 						}),
 						/* @__PURE__ */ jsx(Input, {
 							className: "h-6 text-xs",
-							title: "Rename this book",
+							title: isImported ? "Imported from 5eTools — read only" : "Rename this book",
 							defaultValue: book.title,
+							readOnly: isImported,
 							onBlur: (e) => renameBook(e.target.value)
 						}, book.id),
 						/* @__PURE__ */ jsxs("div", {
@@ -34142,9 +34421,9 @@ function Rulebook({ className = "" }) {
 								size: "sm",
 								variant: "outline",
 								className: "h-6 px-1",
-								title: "Delete this book",
+								title: isImported ? "Remove this imported book" : "Delete this book",
 								onClick: removeBook,
-								disabled: books.length <= 1,
+								disabled: !isImported && books.length <= 1,
 								children: /* @__PURE__ */ jsx(Trash2, { className: "h-3 w-3" })
 							})]
 						})
@@ -34171,13 +34450,13 @@ function Rulebook({ className = "" }) {
 						}) : /* @__PURE__ */ jsxs("button", {
 							type: "button",
 							className: `flex-1 truncate rounded px-1.5 py-1 text-left text-xs ${c.id === active?.id ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60"}`,
-							title: `${i + 1}. ${c.title}${i === 0 ? " — quick start" : ""}`,
+							title: `${i + 1}. ${c.title}${!isImported && i === 0 ? " — quick start" : ""}`,
 							onClick: () => {
 								setChapterId(c.id);
 								setEditing(false);
 							},
 							onDoubleClick: () => {
-								if (c.credits) return;
+								if (c.credits || isImported) return;
 								setRenamingId(c.id);
 								setNameDraft(c.title);
 							},
@@ -34186,7 +34465,7 @@ function Rulebook({ className = "" }) {
 								". ",
 								c.title
 							]
-						}), c.id === active?.id && renamingId !== c.id && /* @__PURE__ */ jsxs("div", {
+						}), c.id === active?.id && renamingId !== c.id && !isImported && /* @__PURE__ */ jsxs("div", {
 							className: "flex shrink-0",
 							children: [/* @__PURE__ */ jsx("button", {
 								type: "button",
@@ -34204,7 +34483,7 @@ function Rulebook({ className = "" }) {
 						})]
 					}, c.id))
 				}),
-				/* @__PURE__ */ jsxs(Button, {
+				!isImported && /* @__PURE__ */ jsxs(Button, {
 					size: "sm",
 					variant: "ghost",
 					className: "justify-start",
@@ -34230,12 +34509,12 @@ function Rulebook({ className = "" }) {
 								idx + 1,
 								" of ",
 								chapters.length,
-								idx === 0 ? " — quick start guide" : ""
+								isImported ? ` — imported from 5eTools${book.source ? ` (${book.source})` : ""}` : idx === 0 ? " — quick start guide" : ""
 							]
 						})]
 					}), /* @__PURE__ */ jsx("div", {
 						className: "flex shrink-0 gap-1",
-						children: isCredits ? null : editing ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Button, {
+						children: isImported ? null : isCredits ? null : editing ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Button, {
 							size: "sm",
 							onClick: saveEdit,
 							title: "Save this chapter",
@@ -34338,7 +34617,7 @@ function Rulebook({ className = "" }) {
 						onChange: insertImage
 					})] }), /* @__PURE__ */ jsx("p", {
 						className: "text-[10px] text-muted-foreground",
-						children: isCredits ? "Add or remove names only — this page can't be edited as free text." : editing ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save." : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."
+						children: isImported ? "Imported 5eTools book — read only. You can remove it and import it again from the Reference Index." : isCredits ? "Add or remove names only — this page can't be edited as free text." : editing ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save." : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."
 					})]
 				})
 			]
@@ -37319,6 +37598,384 @@ function DMScreen({ onExit }) {
 	});
 }
 //#endregion
+//#region src/lib/fiveEToolsRulebook.js
+var clean = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
+var cell = (value) => clean(value).replace(/\|/g, "\\|");
+var tableMarkdown = (table) => {
+	const columns = (table.colLabels || []).map(cell);
+	const rows = (table.rows || []).map((row) => {
+		return (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
+			if (value && typeof value === "object") {
+				if (value.roll) return value.roll.exact != null ? String(value.roll.exact) : `${value.roll.min ?? ""}${value.roll.max != null ? `–${value.roll.max}` : ""}`;
+				return cell(value.entry ?? value.entries ?? value.name ?? "");
+			}
+			return cell(value);
+		});
+	});
+	if (!rows.length) return "";
+	if (!columns.length) return rows.map((r) => `- ${r.filter(Boolean).join(" — ")}`).join("\n");
+	return [
+		`| ${columns.join(" | ")} |`,
+		`| ${columns.map(() => "---").join(" | ")} |`,
+		...rows.map((r) => `| ${r.join(" | ")} |`)
+	].join("\n");
+};
+var imageMarkdown = (node) => {
+	const href = node?.href;
+	if (typeof href === "string") return `![${clean(node.name) || "Illustration"}](${href})`;
+	if (href?.url) return `![${clean(node.name) || "Illustration"}](${href.url})`;
+	if (href?.path) return `![${clean(node.name) || "Illustration"}](${href.path})`;
+	if (href?.paths?.length) return href.paths.map((path) => `![${clean(node.name) || "Illustration"}](${path})`).join("\n\n");
+	return "";
+};
+var refLabel = (node) => clean(node?.name || node?.spell || node?.item || node?.creature || node?.condition || node?.optionalfeature || node?.classFeature || node?.subclassFeature || node?.table || node?.book || node?.adventure || "");
+function renderEntries(value, depth = 0) {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map((v) => renderEntries(v, depth)).filter(Boolean).join("\n\n");
+	if (typeof value !== "object") return clean(value);
+	switch (value.type) {
+		case "table": {
+			const table = tableMarkdown(value);
+			return [value.name ? `**${clean(value.name)}**` : "", table].filter(Boolean).join("\n\n");
+		}
+		case "list": return (value.items || []).map((item) => `- ${clean(item).replace(/\n/g, "\n  ")}`).join("\n");
+		case "options": return [value.name ? `**${clean(value.name)}**` : "", ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
+		case "inset":
+		case "insetReadaloud": {
+			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+			return [value.name ? `> **${clean(value.name)}**\n>` : "", body].filter(Boolean).join("\n");
+		}
+		case "quote": {
+			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+			return [value.byline ? `> — ${clean(value.byline)}\n>` : "", body].filter(Boolean).join("\n");
+		}
+		case "image":
+		case "gallery": return imageMarkdown(value);
+		case "hr": return "---";
+		case "abilityDc":
+		case "abilityAttackMod": {
+			const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
+			return `**${clean(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
+		}
+		case "statblock":
+		case "statblockInline": return [value.name ? `**${clean(value.name)}**` : "", renderEntries(value.entries, depth + 1)].filter(Boolean).join("\n\n");
+	}
+	if (value.type?.startsWith("ref")) {
+		const label = refLabel(value);
+		return label ? `*${label}*` : "";
+	}
+	return [value.name && Array.isArray(value.entries) ? `${"#".repeat(Math.min(6, depth + 2))} ${clean(value.name)}` : value.name ? `**${clean(value.name)}**` : "", value.entries ? renderEntries(value.entries, depth + 1) : value.items ? renderEntries(value.items, depth + 1) : ""].filter(Boolean).join("\n\n");
+}
+var slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "book";
+function bookToRulebook(entry, fallbackTitle = "") {
+	if (!entry) return null;
+	const data = Array.isArray(entry.data) ? entry.data : Array.isArray(entry.contents) ? [] : [];
+	const title = clean(entry.name || entry.title || fallbackTitle || entry.id) || "Imported Book";
+	const source = clean(entry.source || entry.id || "");
+	const id = `rb5e-${slug(source)}-${slug(title)}`;
+	let chapters = data.map((chapter, i) => {
+		const chapterTitle = clean(chapter.name) || `Chapter ${i + 1}`;
+		const body = renderEntries(chapter.entries, 1);
+		return {
+			id: `${id}-ch${i + 1}`,
+			title: chapterTitle,
+			content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n")
+		};
+	}).filter((chapter) => chapter.content.trim());
+	if (!chapters.length) {
+		const outline = (entry.contents || []).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean(name)}`).join("\n");
+		const body = renderEntries(entry.entries, 1);
+		chapters = [{
+			id: `${id}-ch1`,
+			title,
+			content: [
+				`# ${title}`,
+				outline,
+				body
+			].filter(Boolean).join("\n\n")
+		}];
+	}
+	return {
+		id,
+		title,
+		source,
+		imported: true,
+		chapters
+	};
+}
+//#endregion
+//#region src/lib/fiveEToolsBulk.js
+var nameKey = (value) => String(typeof value === "string" ? value : value?.name || "").toLowerCase();
+var sourceOf$1 = (entry) => String(entry?.source || entry?.classSource || entry?.subclassSource || entry?.bookSource || entry?.monster?.source || "");
+var isSubclass = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
+var imageUrl = (kind, entry) => {
+	const raw = entryImage(entry);
+	if (!raw) return "";
+	if (/^(https?:|data:|\/images\/)/i.test(raw)) return raw;
+	return `/api/5etools/brew-image?kind=${encodeURIComponent(kind)}&path=${encodeURIComponent(raw.replace(/^\/+/, ""))}`;
+};
+var BulkLibrary = class {
+	constructor(library = {}) {
+		this.library = { ...library };
+		this.cache = /* @__PURE__ */ new Map();
+		this.rawCache = /* @__PURE__ */ new Map();
+	}
+	arr(key) {
+		if (!this.cache.has(key)) {
+			const arr = Array.isArray(this.library[key]) ? [...this.library[key]] : [];
+			const index = new Map(arr.map((entry, i) => [nameKey(entry), i]));
+			this.cache.set(key, {
+				arr,
+				index
+			});
+			this.library[key] = arr;
+		}
+		return this.cache.get(key);
+	}
+	upsert(key, value) {
+		if (!value?.name) return;
+		const { arr, index } = this.arr(key);
+		const k = nameKey(value);
+		const i = index.get(k);
+		if (i != null) arr[i] = {
+			...arr[i],
+			...value
+		};
+		else {
+			index.set(k, arr.length);
+			arr.push(value);
+		}
+	}
+	lists() {
+		if (!this.listsDraft) {
+			this.listsDraft = { ...this.library.lists || {} };
+			this.library.lists = this.listsDraft;
+		}
+		return this.listsDraft;
+	}
+	listArray(key) {
+		const lists = this.lists();
+		if (!Array.isArray(lists[key])) lists[key] = [...lists[key] || []];
+		return lists[key];
+	}
+	addString(key, value) {
+		if (!value) return;
+		const arr = this.listArray(key);
+		if (!arr.some((x) => nameKey(x) === String(value).toLowerCase())) arr.push(value);
+	}
+	upsertList(key, value) {
+		if (!value?.name) return;
+		const arr = this.listArray(key);
+		const i = arr.findIndex((x) => nameKey(x) === nameKey(value));
+		if (i >= 0) arr[i] = {
+			...typeof arr[i] === "object" ? arr[i] : { name: arr[i] },
+			...value
+		};
+		else arr.push(value);
+	}
+	raw(catId) {
+		if (!this.rawDraft) {
+			this.rawDraft = { ...this.library.fiveETools || {} };
+			this.library.fiveETools = this.rawDraft;
+		}
+		if (!this.rawCache.has(catId)) {
+			const arr = Array.isArray(this.rawDraft[catId]) ? [...this.rawDraft[catId]] : [];
+			const index = new Map(arr.map((entry, i) => [`${entryName$1(entry)}|${sourceOf$1(entry)}`, i]));
+			this.rawCache.set(catId, {
+				arr,
+				index
+			});
+			this.rawDraft[catId] = arr;
+		}
+		return this.rawCache.get(catId);
+	}
+	upsertRaw(catId, entry) {
+		if (!entry || !catId) return;
+		const { arr, index } = this.raw(catId);
+		const key = `${entryName$1(entry)}|${sourceOf$1(entry)}`;
+		const i = index.get(key);
+		if (i != null) arr[i] = entry;
+		else {
+			index.set(key, arr.length);
+			arr.push(entry);
+		}
+	}
+	upsertRulebook(book) {
+		if (!book?.id) return;
+		if (!this.rulebookDraft) {
+			this.rulebookDraft = Array.isArray(this.library.fiveEToolsBooks) ? [...this.library.fiveEToolsBooks] : [];
+			this.library.fiveEToolsBooks = this.rulebookDraft;
+			this.rulebookIndex = new Map(this.rulebookDraft.map((b, i) => [b.id, i]));
+		}
+		const i = this.rulebookIndex.get(book.id);
+		if (i != null) this.rulebookDraft[i] = {
+			...this.rulebookDraft[i],
+			...book
+		};
+		else {
+			this.rulebookIndex.set(book.id, this.rulebookDraft.length);
+			this.rulebookDraft.push(book);
+		}
+	}
+};
+function applyEntryToLibrary(bulk, category, entry, { kind, fallbackTitle } = {}) {
+	if (!entry || !category) return;
+	if (category.id === "books") {
+		const book = bookToRulebook(entry, fallbackTitle);
+		if (book) bulk.upsertRulebook(book);
+		return;
+	}
+	switch (category.kind) {
+		case "monsters": {
+			const m = normalizeImportedMonster(entry);
+			if (m?.name) {
+				const img = imageUrl(kind, entry);
+				if (img) m.image = img;
+				bulk.upsert("monsters", m);
+			}
+			return;
+		}
+		case "spells": {
+			const spell = spellToLibrary(entry);
+			if (spell.name) bulk.upsert("spells", spell);
+			return;
+		}
+		case "items": {
+			const mapped = itemToLibrary(entry);
+			if (mapped) bulk.upsert(mapped.key, mapped.value);
+			return;
+		}
+		case "conditions": {
+			const status = conditionToStatus(entry);
+			if (status) bulk.upsert("statusEffects", status);
+			return;
+		}
+		case "actions": {
+			const action = actionToLibrary(entry);
+			if (action) bulk.upsert("actions", action);
+			return;
+		}
+		case "languages":
+			bulk.addString("languages", languageToLibrary(entry));
+			return;
+		case "skills": {
+			const skill = skillToLibrary(entry);
+			if (skill) bulk.upsertList("skills", skill);
+			return;
+		}
+		case "senses": {
+			const sense = senseToLibrary(entry);
+			if (sense) bulk.upsert("senses", sense);
+			return;
+		}
+		case "tables": {
+			const table = tableToRollTable(entry);
+			if (table) bulk.upsert("rollTables", table);
+			return;
+		}
+		case "vehicles": {
+			const vehicle = vehicleToLibrary(entry);
+			if (vehicle) bulk.upsert("vehicles", vehicle);
+			return;
+		}
+		default: bulk.upsertRaw(category.id, entry);
+	}
+}
+function tabsForBrewFile(category, entries, raw, info) {
+	if (!category) return [];
+	if (category.kind === "classes") {
+		const bases = entries.filter((e) => !isSubclass(e));
+		const subs = entries.filter(isSubclass);
+		const used = /* @__PURE__ */ new Set();
+		const tabs = [];
+		bases.forEach((base) => {
+			const matching = subs.filter((s) => {
+				if (s.className !== base.name) return false;
+				if (s.classSource && base.source && s.classSource !== base.source) return false;
+				return true;
+			});
+			matching.forEach((s) => used.add(s));
+			const features = featuresForClassBundle(base, matching, raw);
+			if (features.length) tabs.push({
+				name: `Class: ${entryName$1(base)}`,
+				features,
+				meta: {
+					category: category.label,
+					layout: "class",
+					className: base.name
+				}
+			});
+		});
+		subs.filter((s) => !used.has(s)).forEach((sub) => {
+			const features = featuresForEntry(category.id, sub, raw);
+			if (features.length) tabs.push({
+				name: `Subclass: ${entryName$1(sub)}`,
+				features,
+				meta: {
+					category: category.label,
+					layout: "class",
+					className: sub.className
+				}
+			});
+		});
+		return tabs;
+	}
+	if (category.kind === "feats" || category.kind === "options") {
+		const features = entries.flatMap((entry) => featuresForEntry(category.id, entry, raw));
+		if (!features.length) return [];
+		return [{
+			name: `${category.label.replace(/^Other /, "")}: ${info?.name || "Imported"}`,
+			features,
+			meta: { category: category.label }
+		}];
+	}
+	return [];
+}
+function importBrewIntoDraft(bulk, info, category, raw, { makeTabs = true, kind } = {}) {
+	const entries = entriesFromRaw(raw, info?.props?.[0]);
+	if (!entries.length) return {
+		entries: 0,
+		tabs: []
+	};
+	entries.forEach((entry) => applyEntryToLibrary(bulk, category, entry, {
+		kind,
+		fallbackTitle: info?.name
+	}));
+	return {
+		entries: entries.length,
+		tabs: makeTabs ? tabsForBrewFile(category, entries, raw, info) : []
+	};
+}
+//#endregion
+//#region src/lib/fiveEToolsCredits.js
+var addName = (out, value) => {
+	if (!value) return;
+	if (Array.isArray(value)) {
+		value.forEach((v) => addName(out, v));
+		return;
+	}
+	if (typeof value === "string") {
+		const name = value.trim();
+		if (name) out.add(name);
+		return;
+	}
+	if (typeof value === "object") addName(out, value.name);
+};
+function authorsFromBrew(raw, entry, info) {
+	const out = /* @__PURE__ */ new Set();
+	(raw?._meta?.sources || []).forEach((source) => {
+		if (Array.isArray(source?.authors) && source.authors.length) addName(out, source.authors);
+		else addName(out, source?.convertedBy);
+	});
+	addName(out, entry?.author);
+	addName(out, entry?.authors);
+	addName(out, entry?._meta?.authors);
+	if (info?.author) addName(out, info.author);
+	return [...out];
+}
+//#endregion
 //#region src/components/skilltree/library/ReferenceIndexTab.jsx
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 var ROOTS = [
@@ -37398,13 +38055,17 @@ var imageFor = (entry, root, filePath) => {
 	return `/api/5etools/image?path=${encodeURIComponent(candidate)}`;
 };
 function ReferenceIndexTab() {
-	const { settings, setSettings, addImportedTab } = useTree();
+	const { tree, settings, setSettings, addImportedTab, addImportedTabs } = useTree();
 	const [status, setStatus] = useState(null);
 	const [root, setRoot] = useState("data");
 	const [index, setIndex] = useState([]);
 	const [catalog, setCatalog] = useState([]);
+	const [catalogSelected, setCatalogSelected] = useState(() => /* @__PURE__ */ new Set());
 	const [fileQuery, setFileQuery] = useState("");
 	const [partneredOnly, setPartneredOnly] = useState(false);
+	const [bulk, setBulk] = useState(null);
+	const [bulkMakeTabs, setBulkMakeTabs] = useState(true);
+	const bulkCancelRef = useRef(false);
 	const [categoryId, setCategoryId] = useState("bestiary");
 	const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
 	const [filePath, setFilePath] = useState("");
@@ -37517,6 +38178,7 @@ function ReferenceIndexTab() {
 		setEntries([]);
 		setPreview(null);
 		setSelected(/* @__PURE__ */ new Set());
+		setCatalogSelected(/* @__PURE__ */ new Set());
 	}, [
 		categoryId,
 		root,
@@ -37688,7 +38350,40 @@ function ReferenceIndexTab() {
 			};
 		});
 	};
+	const addImportedRulebook = (book) => {
+		if (!book) return false;
+		setSettings((s) => {
+			const list = Array.isArray(s.library.fiveEToolsBooks) ? [...s.library.fiveEToolsBooks] : [];
+			const i = list.findIndex((b) => b.id === book.id || b.title === book.title);
+			if (i >= 0) list[i] = {
+				...list[i],
+				...book
+			};
+			else list.push(book);
+			return {
+				...s,
+				library: {
+					...s.library,
+					fiveEToolsBooks: list
+				}
+			};
+		});
+		try {
+			setRulebookActiveBookId(book.id);
+			window.dispatchEvent(new CustomEvent("skilltree:rulebook-import", { detail: { bookId: book.id } }));
+		} catch {}
+		return true;
+	};
 	const importEntry = async (cat, entry) => {
+		if (cat.id === "books") {
+			const remoteInfo = isRemote ? catalog.find((f) => f.path === filePath) : null;
+			const book = bookToRulebook(entry, raw?.book?.[0]?.name || remoteInfo?.name || "");
+			if (book) {
+				addImportedRulebook(book);
+				toast.success(`“${book.title}” added to the Rulebook.`);
+				return true;
+			}
+		}
 		if (cat.kind === "items") {
 			const mapped = itemToLibrary(entry);
 			return mapped ? mergeNamed(mapped.key, mapped.value) : false;
@@ -37755,6 +38450,14 @@ function ReferenceIndexTab() {
 		storeRaw(cat.id, entry);
 		return true;
 	};
+	const creditAuthorsFor = (list) => {
+		const info = isRemote ? catalog.find((f) => f.path === filePath) : null;
+		const names = /* @__PURE__ */ new Set();
+		(list || []).forEach((entry) => {
+			authorsFromBrew(raw, entry, info).forEach((name) => names.add(name));
+		});
+		return addCreditNames([...names]);
+	};
 	const importSelected = async () => {
 		const picked = [...selected].map((i) => entries[i]).filter(Boolean);
 		if (!picked.length) {
@@ -37809,12 +38512,141 @@ function ReferenceIndexTab() {
 		}
 		setImporting(0);
 		setSelected(/* @__PURE__ */ new Set());
+		creditAuthorsFor(picked);
 		toast.success(activeCategory.kind === "classes" ? `Imported ${done} class tab${done === 1 ? "" : "s"}.` : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`);
 	};
 	const importPreview = async () => {
 		if (!preview) return;
 		await importEntry(activeCategory, preview);
+		creditAuthorsFor([preview]);
 		toast.success(`Imported ${entryName$1(preview)}.`);
+	};
+	const categoryForBrew = (info) => {
+		const id = categoryForProps(info?.props || []);
+		return FIVE_CATEGORIES.find((c) => c.id === id) || {
+			id: id || info?.props?.[0] || "imported",
+			label: id || info?.props?.[0] || "Imported"
+		};
+	};
+	const toggleCatalogFile = (path) => {
+		setCatalogSelected((prev) => {
+			const next = new Set(prev);
+			if (next.has(path)) next.delete(path);
+			else next.add(path);
+			return next;
+		});
+	};
+	const allCatalogSelected = files.length > 0 && files.every((f) => catalogSelected.has(f.path));
+	const selectAllCatalog = () => {
+		setCatalogSelected((prev) => {
+			const next = new Set(prev);
+			if (allCatalogSelected) files.forEach((f) => next.delete(f.path));
+			else files.forEach((f) => next.add(f.path));
+			return next;
+		});
+	};
+	const importCatalogFiles = async (paths) => {
+		if (bulk) return;
+		const chosen = (Array.isArray(paths) ? paths : []).filter(Boolean);
+		if (!chosen.length) {
+			toast("Select one or more brew files first.");
+			return;
+		}
+		const warning = `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\nThis downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` + (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
+		if (!window.confirm(warning)) return;
+		bulkCancelRef.current = false;
+		const bulkLib = new BulkLibrary(settings.library);
+		const tabNames = new Set((tree?.tabs || []).map((t) => t.name));
+		const creditNames = /* @__PURE__ */ new Set();
+		let done = 0;
+		let entryTotal = 0;
+		let tabTotal = 0;
+		let errors = 0;
+		const total = chosen.length;
+		setBulk({
+			total,
+			done: 0,
+			entries: 0,
+			tabs: 0,
+			errors: 0,
+			current: ""
+		});
+		try {
+			const batchSize = 8;
+			for (let start = 0; start < chosen.length; start += batchSize) {
+				if (bulkCancelRef.current) break;
+				const batch = chosen.slice(start, start + batchSize);
+				const results = await Promise.all(batch.map(async (path) => {
+					const info = catalog.find((f) => f.path === path);
+					if (!info) return {
+						path,
+						error: true
+					};
+					try {
+						const res = await fetch(`/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`);
+						if (!res.ok) throw new Error("download failed");
+						return {
+							path,
+							info,
+							data: await res.json(),
+							category: categoryForBrew(info)
+						};
+					} catch {
+						return {
+							path,
+							info,
+							error: true
+						};
+					}
+				}));
+				const newTabs = [];
+				results.forEach((r) => {
+					done += 1;
+					if (r.error) {
+						errors += 1;
+						return;
+					}
+					try {
+						authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
+						const applied = importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
+							makeTabs: bulkMakeTabs,
+							kind: root
+						});
+						entryTotal += applied.entries;
+						applied.tabs.forEach((tab) => {
+							if (tabNames.has(tab.name)) return;
+							tabNames.add(tab.name);
+							newTabs.push(tab);
+							tabTotal += 1;
+						});
+					} catch {
+						errors += 1;
+					}
+				});
+				if (newTabs.length) addImportedTabs(newTabs, { activate: false });
+				setSettings((s) => ({
+					...s,
+					library: bulkLib.library
+				}));
+				setBulk({
+					total,
+					done,
+					entries: entryTotal,
+					tabs: tabTotal,
+					errors,
+					current: batch[batch.length - 1] || ""
+				});
+				await new Promise((r) => setTimeout(r, 0));
+			}
+			if (creditNames.size) addCreditNames([...creditNames]);
+			if (bulkCancelRef.current) toast(`Stopped after ${done} of ${total} files. Imported data is kept.`);
+			else toast.success(`Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${errors ? ` · ${errors} failed` : ""}.`);
+		} catch (err) {
+			toast.error(`Bulk import stopped: ${err.message || err}`);
+		} finally {
+			setBulk(null);
+			bulkCancelRef.current = false;
+		}
 	};
 	if (!isRemote && status && !status.available) return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2 rounded-md border border-dashed p-4 text-xs",
@@ -37913,6 +38745,47 @@ function ReferenceIndexTab() {
 					})
 				]
 			}),
+			bulk && /* @__PURE__ */ jsxs("div", {
+				className: "space-y-1 rounded-md border bg-muted/30 p-2 text-xs",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex items-center justify-between gap-2",
+						children: [/* @__PURE__ */ jsxs("span", {
+							className: "font-medium",
+							children: [
+								"Importing ",
+								bulk.done,
+								"/",
+								bulk.total,
+								" files · ",
+								bulk.entries,
+								" entries",
+								bulk.tabs ? ` · ${bulk.tabs} tabs` : "",
+								bulk.errors ? ` · ${bulk.errors} failed` : ""
+							]
+						}), /* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "outline",
+							className: "h-7 text-xs",
+							onClick: () => {
+								bulkCancelRef.current = true;
+							},
+							children: "Stop"
+						})]
+					}),
+					/* @__PURE__ */ jsx("div", {
+						className: "h-1.5 w-full overflow-hidden rounded bg-muted",
+						children: /* @__PURE__ */ jsx("div", {
+							className: "h-full bg-primary transition-all",
+							style: { width: `${bulk.total ? bulk.done / bulk.total * 100 : 0}%` }
+						})
+					}),
+					bulk.current && /* @__PURE__ */ jsx("p", {
+						className: "truncate text-[10px] text-muted-foreground",
+						children: bulk.current
+					})
+				]
+			}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "grid h-[64vh] min-h-[430px] grid-cols-[150px_200px_minmax(0,1fr)_minmax(260px,1.1fr)] gap-2",
 				children: [
@@ -37945,40 +38818,95 @@ function ReferenceIndexTab() {
 							}),
 							isRemote && /* @__PURE__ */ jsxs("div", {
 								className: "space-y-1 border-b p-1",
-								children: [/* @__PURE__ */ jsx(Input, {
-									className: "h-7 text-xs",
-									placeholder: "Find a brew…",
-									value: fileQuery,
-									onChange: (e) => setFileQuery(e.target.value)
-								}), root === "homebrew" && /* @__PURE__ */ jsxs("label", {
-									className: "flex items-center gap-1.5 text-[10px] text-muted-foreground",
-									children: [/* @__PURE__ */ jsx(Switch, {
-										checked: partneredOnly,
-										onCheckedChange: setPartneredOnly
-									}), "Partnered only"]
-								})]
+								children: [
+									/* @__PURE__ */ jsx(Input, {
+										className: "h-7 text-xs",
+										placeholder: "Find a brew…",
+										value: fileQuery,
+										onChange: (e) => setFileQuery(e.target.value)
+									}),
+									root === "homebrew" && /* @__PURE__ */ jsxs("label", {
+										className: "flex items-center gap-1.5 text-[10px] text-muted-foreground",
+										children: [/* @__PURE__ */ jsx(Switch, {
+											checked: partneredOnly,
+											onCheckedChange: setPartneredOnly
+										}), "Partnered only"]
+									}),
+									/* @__PURE__ */ jsxs("label", {
+										className: "flex items-center gap-1.5 text-[10px] text-muted-foreground",
+										children: [/* @__PURE__ */ jsx(Switch, {
+											checked: bulkMakeTabs,
+											onCheckedChange: setBulkMakeTabs
+										}), "Create feature tabs"]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "flex flex-wrap gap-1",
+										children: [
+											/* @__PURE__ */ jsx(Button, {
+												size: "sm",
+												variant: "ghost",
+												className: "h-6 px-1 text-[10px]",
+												onClick: selectAllCatalog,
+												children: allCatalogSelected ? "Clear files" : "Select all files"
+											}),
+											/* @__PURE__ */ jsxs(Button, {
+												size: "sm",
+												variant: "outline",
+												className: "h-6 px-1 text-[10px]",
+												disabled: !catalogSelected.size || !!bulk,
+												onClick: () => importCatalogFiles([...catalogSelected]),
+												children: [
+													"Import files (",
+													catalogSelected.size,
+													")"
+												]
+											}),
+											/* @__PURE__ */ jsxs(Button, {
+												size: "sm",
+												variant: "outline",
+												className: "h-6 px-1 text-[10px]",
+												disabled: !files.length || !!bulk,
+												onClick: () => importCatalogFiles(files.map((f) => f.path)),
+												children: [
+													"Import all shown (",
+													files.length,
+													")"
+												]
+											})
+										]
+									})
+								]
 							}),
 							/* @__PURE__ */ jsxs("div", {
 								className: "min-h-0 flex-1 overflow-y-auto p-1",
-								children: [files.map((f) => /* @__PURE__ */ jsx("button", {
-									type: "button",
-									onClick: () => loadFile(f.path),
-									className: `w-full rounded px-1.5 py-1 text-left text-[10px] ${f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"}`,
-									title: isRemote ? `${f.name} — ${f.author}\n${f.path}` : f.path,
-									children: isRemote ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("span", {
-										className: "block truncate font-medium",
-										children: f.name || f.path
-									}), /* @__PURE__ */ jsx("span", {
-										className: "block truncate text-muted-foreground",
-										children: [
-											f.author,
-											f.partnered ? "Partnered" : "",
-											f.status !== "ready" ? f.status : ""
-										].filter(Boolean).join(" · ")
-									})] }) : /* @__PURE__ */ jsx("span", {
-										className: "block truncate",
-										children: f.path
-									})
+								children: [files.map((f) => /* @__PURE__ */ jsxs("div", {
+									className: "flex items-start gap-1 rounded px-0.5 hover:bg-accent/40",
+									children: [isRemote && /* @__PURE__ */ jsx("input", {
+										type: "checkbox",
+										className: "mt-1",
+										checked: catalogSelected.has(f.path),
+										onChange: () => toggleCatalogFile(f.path),
+										title: "Select this brew for batch import"
+									}), /* @__PURE__ */ jsx("button", {
+										type: "button",
+										onClick: () => loadFile(f.path),
+										className: `min-w-0 flex-1 rounded px-1 py-1 text-left text-[10px] ${f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"}`,
+										title: isRemote ? `${f.name} — ${f.author}\n${f.path}` : f.path,
+										children: isRemote ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("span", {
+											className: "block truncate font-medium",
+											children: f.name || f.path
+										}), /* @__PURE__ */ jsx("span", {
+											className: "block truncate text-muted-foreground",
+											children: [
+												f.author,
+												f.partnered ? "Partnered" : "",
+												f.status !== "ready" ? f.status : ""
+											].filter(Boolean).join(" · ")
+										})] }) : /* @__PURE__ */ jsx("span", {
+											className: "block truncate",
+											children: f.path
+										})
+									})]
 								}, f.path)), files.length === 0 && /* @__PURE__ */ jsx("p", {
 									className: "p-2 text-[10px] text-muted-foreground",
 									children: "No files in this source/category."
@@ -38107,8 +39035,14 @@ function ReferenceIndexTab() {
 									skills: "Skills import with their governing ability.",
 									senses: "Senses import into the Senses library.",
 									tables: "Tables import into Roll Tables.",
-									vehicles: "Vehicles import into the Vehicles library."
-								}[activeCategory.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."
+									vehicles: "Vehicles import into the Vehicles library.",
+									backgrounds: "Backgrounds import into the Backgrounds tab.",
+									species: "Species import into the Species tab.",
+									deities: "Deities import into the Deities tab.",
+									objects: "Objects import into the Objects tab.",
+									traps: "Traps and hazards import into the Traps & Hazards tab.",
+									books: "Books import into the Rulebook as read-only books."
+								}[activeCategory.kind || activeCategory.id] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."
 							})
 						]
 					}),

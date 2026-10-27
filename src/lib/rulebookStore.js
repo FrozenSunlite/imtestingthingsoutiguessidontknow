@@ -98,3 +98,61 @@ export function saveRulebook(rb) {
     /* quota */
   }
 }
+
+// Remember which book (including an imported 5eTools book) should open the
+// next time the Rulebook is shown.
+export function setRulebookActiveBookId(id) {
+  if (!id) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && Array.isArray(saved.books)) {
+      saved.activeBookId = id;
+      localStorage.setItem(KEY, JSON.stringify(saved));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+// Add creator names from imported 5eTools content to the Credits page. Only
+// names are added; the page stays a name list rather than free text.
+export function addCreditNames(names = []) {
+  const incoming = [...new Set((names || []).map((n) => String(n || "").trim()).filter(Boolean))];
+  if (!incoming.length) return [];
+  const rb = loadRulebook();
+  const book = rb.books?.find((b) => b.chapters?.some((c) => c.credits)) || rb.books?.[0];
+  if (!book) return [];
+  const chapter = (book.chapters || []).find((c) => c.credits);
+  const current = chapter ? [...(chapter.names || [])] : [];
+  const seen = new Set(current.map((n) => n.toLowerCase()));
+  const added = [];
+  incoming.forEach((name) => {
+    if (seen.has(name.toLowerCase())) return;
+    seen.add(name.toLowerCase());
+    current.push(name);
+    added.push(name);
+  });
+  if (!added.length) return [];
+  if (chapter) {
+    chapter.names = current;
+    chapter.content = creditsContent(current);
+  } else {
+    book.chapters = [
+      ...(book.chapters || []),
+      {
+        id: "ch-credits",
+        title: "Credits",
+        credits: true,
+        names: current,
+        content: creditsContent(current),
+      },
+    ];
+  }
+  saveRulebook(rb);
+  try {
+    window.dispatchEvent(new CustomEvent("skilltree:rulebook-credits", { detail: { names: added } }));
+  } catch {
+    /* ignore */
+  }
+  return added;
+}
