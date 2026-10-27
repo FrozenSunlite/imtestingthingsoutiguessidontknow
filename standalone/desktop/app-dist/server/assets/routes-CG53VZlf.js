@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B6v9gi7n.js";
+import { n as Button, r as cn } from "./router-C2Ro0waA.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3014,7 +3014,8 @@ var DUNGEON_RANKS = {
 		downtime: "2 weeks",
 		level: "0–2",
 		prof: 0,
-		cr: 1,
+		crMin: 0,
+		crMax: 1,
 		color: "#94a3b8"
 	},
 	D: {
@@ -3024,7 +3025,8 @@ var DUNGEON_RANKS = {
 		downtime: "3 weeks",
 		level: "3–5",
 		prof: 1,
-		cr: 3,
+		crMin: 2,
+		crMax: 3,
 		color: "#86efac"
 	},
 	C: {
@@ -3034,7 +3036,8 @@ var DUNGEON_RANKS = {
 		downtime: "4 weeks",
 		level: "6–8",
 		prof: 2,
-		cr: 6,
+		crMin: 4,
+		crMax: 6,
 		color: "#5eead4"
 	},
 	B: {
@@ -3044,7 +3047,8 @@ var DUNGEON_RANKS = {
 		downtime: "5 weeks",
 		level: "9–11",
 		prof: 3,
-		cr: 9,
+		crMin: 7,
+		crMax: 9,
 		color: "#60a5fa"
 	},
 	A: {
@@ -3054,7 +3058,8 @@ var DUNGEON_RANKS = {
 		downtime: "6 weeks",
 		level: "12–14",
 		prof: 4,
-		cr: 12,
+		crMin: 10,
+		crMax: 12,
 		color: "#a78bfa"
 	},
 	S: {
@@ -3064,7 +3069,8 @@ var DUNGEON_RANKS = {
 		downtime: "7 weeks",
 		level: "15–17",
 		prof: 5,
-		cr: 15,
+		crMin: 13,
+		crMax: 15,
 		color: "#f472b6"
 	},
 	SS: {
@@ -3074,7 +3080,8 @@ var DUNGEON_RANKS = {
 		downtime: "8 weeks",
 		level: "18–20",
 		prof: 6,
-		cr: 18,
+		crMin: 16,
+		crMax: 18,
 		color: "#fb923c"
 	},
 	SSS: {
@@ -3084,17 +3091,21 @@ var DUNGEON_RANKS = {
 		downtime: "9 weeks",
 		level: "21+",
 		prof: 7,
-		cr: 21,
+		crMin: 19,
+		crMax: 30,
 		color: "#ef4444"
 	}
 };
 function rankChallenge(rank) {
 	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
-	const rankCR = Number(info.cr) || 1;
+	const minCR = Math.max(0, Number(info.crMin) || 0);
+	const maxCR = Math.max(minCR, Number(info.crMax) || minCR);
 	return {
-		rankCR,
-		minCR: Math.max(0, rankCR - 1),
-		maxCR: rankCR
+		rankCR: maxCR,
+		minCR,
+		maxCR,
+		minionMin: Math.max(0, minCR - 2),
+		minionMax: Math.max(0, minCR - 1)
 	};
 }
 var DUNGEON_CATEGORIES = [
@@ -4217,18 +4228,21 @@ function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [], 
 				"Entrance",
 				"Start"
 			].includes(room.category)) return room;
+			const miniBoss = room.category === "Boss" || room.category === "Elite";
+			const lo = miniBoss ? band.minCR : band.minionMin;
+			const hi = miniBoss ? band.maxCR : band.minionMax;
 			if (!pool.length) return {
 				...room,
-				spawns: [`${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`]
+				spawns: [`${Math.max(1, party * 2)}× rank ${rank} ${miniBoss ? "boss" : "minion"} threat (CR ${lo}–${hi})`]
 			};
-			const cr0 = !!room.cr0Only && band.minCR === 0;
+			const cr0 = !!room.cr0Only && lo === 0;
 			const candidates = pool.filter((m) => {
 				const v = crValue(m.cr);
-				return cr0 ? v === 0 : v >= band.minCR && v <= band.maxCR;
+				return cr0 ? v === 0 : v >= lo && v <= hi;
 			});
 			if (!candidates.length) return {
 				...room,
-				spawns: [`${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`]
+				spawns: [`${Math.max(1, party * 2)}× rank ${rank} ${miniBoss ? "boss" : "minion"} threat (CR ${lo}–${hi})`]
 			};
 			const groups = room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, candidates.length);
 			const total = room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
@@ -4250,6 +4264,8 @@ function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [], 
 			rankCR: band.rankCR,
 			minCR: band.minCR,
 			maxCR: band.maxCR,
+			minionMin: band.minionMin,
+			minionMax: band.minionMax,
 			targetCR: band.maxCR
 		}
 	};
@@ -38391,23 +38407,18 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		setCtxMenu(null);
 	};
 	const generate = () => {
-		const band = rankChallenge(rank);
-		const rankMonsters = monsters.filter((m) => {
-			const cr = crValue(m.cr);
-			return cr >= band.minCR && cr <= band.maxCR;
-		});
 		const d = generateDungeon({
 			mode,
 			rank,
 			seed: seed.trim() || randomSeed(),
 			templates: roomTemplates,
-			monsters: rankMonsters,
+			monsters,
 			lootPools
 		});
 		const scaled = scaleEncounters(d, {
 			players,
 			partyLevel,
-			monsters: rankMonsters,
+			monsters,
 			rank
 		});
 		const rooms = (scaled.rooms || []).map((r) => ({
@@ -38774,11 +38785,16 @@ function DungeonGenerator({ onExit, embedded = false }) {
 											players * 2,
 											" monsters total per combat room · rank ",
 											rank,
-											" CR band",
+											" boss CR",
 											" ",
 											dungeon?.encounterScale?.minCR ?? rankBand.minCR,
 											"–",
-											dungeon?.encounterScale?.maxCR ?? rankBand.maxCR
+											dungeon?.encounterScale?.maxCR ?? rankBand.maxCR,
+											" · minions CR",
+											" ",
+											dungeon?.encounterScale?.minionMin ?? rankBand.minionMin,
+											"–",
+											dungeon?.encounterScale?.minionMax ?? rankBand.minionMax
 										]
 									}),
 									routes.length > 1 && /* @__PURE__ */ jsxs("div", {

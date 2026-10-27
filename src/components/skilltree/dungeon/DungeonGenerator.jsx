@@ -9,7 +9,6 @@ import {
   randomSeed,
   roomFromTemplate,
   scaleEncounters,
-  crValue,
   rankChallenge,
 } from "@/lib/dungeonGen";
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
@@ -311,23 +310,18 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   };
 
   const generate = () => {
-    const band = rankChallenge(rank);
-    const rankMonsters = monsters.filter((m) => {
-      const cr = crValue(m.cr);
-      return cr >= band.minCR && cr <= band.maxCR;
-    });
     const d = generateDungeon({
       mode,
       rank,
       seed: seed.trim() || randomSeed(),
       templates: roomTemplates,
-      monsters: rankMonsters,
+      monsters,
       lootPools,
     });
     const scaled = scaleEncounters(d, {
       players,
       partyLevel,
-      monsters: rankMonsters,
+      monsters,
       rank,
     });
     const rooms = (scaled.rooms || []).map((r) => ({
@@ -636,9 +630,11 @@ export function DungeonGenerator({ onExit, embedded = false }) {
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              ~{players * 2} monsters total per combat room · rank {rank} CR band{" "}
+              ~{players * 2} monsters total per combat room · rank {rank} boss CR{" "}
               {dungeon?.encounterScale?.minCR ?? rankBand.minCR}–
-              {dungeon?.encounterScale?.maxCR ?? rankBand.maxCR}
+              {dungeon?.encounterScale?.maxCR ?? rankBand.maxCR} · minions CR{" "}
+              {dungeon?.encounterScale?.minionMin ?? rankBand.minionMin}–
+              {dungeon?.encounterScale?.minionMax ?? rankBand.minionMax}
             </p>
             {routes.length > 1 && (
               <div className="space-y-1 rounded border p-1.5">

@@ -1,22 +1,32 @@
 // Procedural dungeon generation: room templates, rank tables, seeded layouts
 // for a single dungeon or a branching "spire" run.
 
+// crMin/crMax is the challenge band for bosses (and elite mini-bosses).
+// Ordinary non-boss NPCs sit one or two CR below crMin.
 export const DUNGEON_RANKS = {
-  E: { label: "E", nickname: "Expie", rooms: 3, downtime: "2 weeks", level: "0–2", prof: 0, cr: 1, color: "#94a3b8" },
-  D: { label: "D", nickname: "Newk", rooms: 6, downtime: "3 weeks", level: "3–5", prof: 1, cr: 3, color: "#86efac" },
-  C: { label: "C", nickname: "Rookie", rooms: 9, downtime: "4 weeks", level: "6–8", prof: 2, cr: 6, color: "#5eead4" },
-  B: { label: "B", nickname: "Reg", rooms: 12, downtime: "5 weeks", level: "9–11", prof: 3, cr: 9, color: "#60a5fa" },
-  A: { label: "A", nickname: "Prestige", rooms: 15, downtime: "6 weeks", level: "12–14", prof: 4, cr: 12, color: "#a78bfa" },
-  S: { label: "S", nickname: "Cavalry", rooms: 18, downtime: "7 weeks", level: "15–17", prof: 5, cr: 15, color: "#f472b6" },
-  SS: { label: "SS", nickname: "Hero", rooms: 21, downtime: "8 weeks", level: "18–20", prof: 6, cr: 18, color: "#fb923c" },
-  SSS: { label: "SSS", nickname: "Mythos", rooms: 24, downtime: "9 weeks", level: "21+", prof: 7, cr: 21, color: "#ef4444" },
+  E: { label: "E", nickname: "Expie", rooms: 3, downtime: "2 weeks", level: "0–2", prof: 0, crMin: 0, crMax: 1, color: "#94a3b8" },
+  D: { label: "D", nickname: "Newk", rooms: 6, downtime: "3 weeks", level: "3–5", prof: 1, crMin: 2, crMax: 3, color: "#86efac" },
+  C: { label: "C", nickname: "Rookie", rooms: 9, downtime: "4 weeks", level: "6–8", prof: 2, crMin: 4, crMax: 6, color: "#5eead4" },
+  B: { label: "B", nickname: "Reg", rooms: 12, downtime: "5 weeks", level: "9–11", prof: 3, crMin: 7, crMax: 9, color: "#60a5fa" },
+  A: { label: "A", nickname: "Prestige", rooms: 15, downtime: "6 weeks", level: "12–14", prof: 4, crMin: 10, crMax: 12, color: "#a78bfa" },
+  S: { label: "S", nickname: "Cavalry", rooms: 18, downtime: "7 weeks", level: "15–17", prof: 5, crMin: 13, crMax: 15, color: "#f472b6" },
+  SS: { label: "SS", nickname: "Hero", rooms: 21, downtime: "8 weeks", level: "18–20", prof: 6, crMin: 16, crMax: 18, color: "#fb923c" },
+  SSS: { label: "SSS", nickname: "Mythos", rooms: 24, downtime: "9 weeks", level: "21+", prof: 7, crMin: 19, crMax: 30, color: "#ef4444" },
 };
 
-// A rank's challenge band. Generated monsters must sit in [rank CR − 1, rank CR].
+// Boss CR range plus the lower band used by ordinary non-boss NPCs. Elite
+// rooms are mini-boss fights and use the boss range.
 export function rankChallenge(rank) {
   const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
-  const rankCR = Number(info.cr) || 1;
-  return { rankCR, minCR: Math.max(0, rankCR - 1), maxCR: rankCR };
+  const minCR = Math.max(0, Number(info.crMin) || 0);
+  const maxCR = Math.max(minCR, Number(info.crMax) || minCR);
+  return {
+    rankCR: maxCR,
+    minCR,
+    maxCR,
+    minionMin: Math.max(0, minCR - 2),
+    minionMax: Math.max(0, minCR - 1),
+  };
 }
 
 export const DUNGEON_CATEGORIES = [
@@ -1020,25 +1030,28 @@ export function scaleEncounters(
       if (room.bonfire || ["Rest", "Shop", "Entrance", "Start"].includes(room.category)) {
         return room;
       }
+      const miniBoss = room.category === "Boss" || room.category === "Elite";
+      const lo = miniBoss ? band.minCR : band.minionMin;
+      const hi = miniBoss ? band.maxCR : band.minionMax;
       if (!pool.length) {
         return {
           ...room,
           spawns: [
-            `${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`,
+            `${Math.max(1, party * 2)}× rank ${rank} ${miniBoss ? "boss" : "minion"} threat (CR ${lo}–${hi})`,
           ],
         };
       }
-      // Animal dens may use CR 0 only when the rank band actually includes 0.
-      const cr0 = !!room.cr0Only && band.minCR === 0;
+      // Animal dens may use CR 0 only when the allowed band includes 0.
+      const cr0 = !!room.cr0Only && lo === 0;
       const candidates = pool.filter((m) => {
         const v = crValue(m.cr);
-        return cr0 ? v === 0 : v >= band.minCR && v <= band.maxCR;
+        return cr0 ? v === 0 : v >= lo && v <= hi;
       });
       if (!candidates.length) {
         return {
           ...room,
           spawns: [
-            `${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`,
+            `${Math.max(1, party * 2)}× rank ${rank} ${miniBoss ? "boss" : "minion"} threat (CR ${lo}–${hi})`,
           ],
         };
       }
@@ -1061,6 +1074,8 @@ export function scaleEncounters(
       rankCR: band.rankCR,
       minCR: band.minCR,
       maxCR: band.maxCR,
+      minionMin: band.minionMin,
+      minionMax: band.minionMax,
       targetCR: band.maxCR,
     },
   };
