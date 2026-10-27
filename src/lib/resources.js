@@ -113,13 +113,17 @@ export const DEFAULT_SENSES = ["Darkvision", "Blindsight", "Truesight", "Tremors
 // Convert legacy feet measurements in free text to spaces (1 space = 5 ft).
 // Handles "30 ft.", "60 feet", "20-foot-radius Sphere" and similar.
 export function feetToSpacesText(text) {
+  if (typeof text === "number" && Number.isFinite(text)) {
+    const v = Math.round((text / 5) * 10) / 10;
+    return `${v} ${v === 1 ? "space" : "spaces"}`;
+  }
   if (typeof text !== "string" || !text) return text;
   const spaces = (n) => {
     const v = Math.round((Number(n) / 5) * 10) / 10;
     return v;
   };
   return text
-    .replace(/(\d+(?:\.\d+)?)\s*-\s*foot(-?[a-z]*)/gi, (_, n, suffix) => `${spaces(n)}-space${suffix}`)
+    .replace(/(\d+(?:\.\d+)?)\s*-\s*(?:foot|feet|ft\.?)(-?[a-z]*)/gi, (_, n, suffix) => `${spaces(n)}-space${suffix}`)
     .replace(/(\d+(?:\.\d+)?)\s*(?:ft\.?|feet|foot)\b/gi, (_, n) => {
       const v = spaces(n);
       return `${v} ${v === 1 ? "space" : "spaces"}`;

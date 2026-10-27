@@ -1,0 +1,1 @@
+import{n as e}from"./routes-BSjJNiKB.js";export default e();

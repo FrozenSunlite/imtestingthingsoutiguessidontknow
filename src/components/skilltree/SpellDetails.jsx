@@ -1,5 +1,5 @@
 import { parseCastingTime, materialStatus, componentsText, spellNumbers, aoeText } from "@/lib/spells";
-import { ACTION_CATEGORIES } from "@/lib/resources";
+import { ACTION_CATEGORIES, feetToSpacesText } from "@/lib/resources";
 
 const fmtSigned = (n) => {
   const x = Math.round(Number(n) || 0);
@@ -139,7 +139,7 @@ export function SpellDetails({ spell, character, sheet = {} }) {
   return (
     <div className="mt-1 space-y-1 rounded border bg-muted/30 p-1.5">
       <Row label="Casting time">{spell.castingTime || "—"}</Row>
-      <Row label="Range">{spell.range || "—"}</Row>
+      <Row label="Range">{feetToSpacesText(spell.range) || "-"}</Row>
       <Row label="Duration">{spell.duration || "—"}</Row>
       <Row label="Components">{componentsText(spell) || "—"}</Row>
       <Row label="Attack/Save">{saveText(spell)}</Row>
@@ -157,7 +157,7 @@ export function SpellDetails({ spell, character, sheet = {} }) {
           </Row>
         )}
       <Row label="Targets">{spell.targets || "—"}</Row>
-      <Row label="Area of effect">{aoeText(spell) || "—"}</Row>
+      <Row label="Area of effect">{feetToSpacesText(aoeText(spell)) || "-"}</Row>
       {spell.repeats ? <Row label="Repeats">{spell.repeats}</Row> : null}
       {spell.description ? <Row label="Effect">{spell.description}</Row> : null}
       {spell.level !== "cantrip" && (

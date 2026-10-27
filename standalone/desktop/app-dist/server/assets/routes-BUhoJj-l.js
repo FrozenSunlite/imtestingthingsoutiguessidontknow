@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B0-RNpP9.js";
+import { n as Button, r as cn } from "./router-37KnEVK1.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -2300,11 +2300,15 @@ var DEFAULT_SENSES = [
 	"Tremorsense"
 ];
 function feetToSpacesText(text) {
+	if (typeof text === "number" && Number.isFinite(text)) {
+		const v = Math.round(text / 5 * 10) / 10;
+		return `${v} ${v === 1 ? "space" : "spaces"}`;
+	}
 	if (typeof text !== "string" || !text) return text;
 	const spaces = (n) => {
 		return Math.round(Number(n) / 5 * 10) / 10;
 	};
-	return text.replace(/(\d+(?:\.\d+)?)\s*-\s*foot(-?[a-z]*)/gi, (_, n, suffix) => `${spaces(n)}-space${suffix}`).replace(/(\d+(?:\.\d+)?)\s*(?:ft\.?|feet|foot)\b/gi, (_, n) => {
+	return text.replace(/(\d+(?:\.\d+)?)\s*-\s*(?:foot|feet|ft\.?)(-?[a-z]*)/gi, (_, n, suffix) => `${spaces(n)}-space${suffix}`).replace(/(\d+(?:\.\d+)?)\s*(?:ft\.?|feet|foot)\b/gi, (_, n) => {
 		const v = spaces(n);
 		return `${v} ${v === 1 ? "space" : "spaces"}`;
 	});
@@ -27023,7 +27027,7 @@ function SpellDetails({ spell, character, sheet = {} }) {
 			}),
 			/* @__PURE__ */ jsx(Row$1, {
 				label: "Range",
-				children: spell.range || "—"
+				children: feetToSpacesText(spell.range) || "-"
 			}),
 			/* @__PURE__ */ jsx(Row$1, {
 				label: "Duration",
@@ -27071,7 +27075,7 @@ function SpellDetails({ spell, character, sheet = {} }) {
 			}),
 			/* @__PURE__ */ jsx(Row$1, {
 				label: "Area of effect",
-				children: aoeText(spell) || "—"
+				children: feetToSpacesText(aoeText(spell)) || "-"
 			}),
 			spell.repeats ? /* @__PURE__ */ jsx(Row$1, {
 				label: "Repeats",
