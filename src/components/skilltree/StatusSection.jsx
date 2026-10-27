@@ -101,7 +101,7 @@ export function ConditionTracks() {
         label="Exhaustion"
         value={exhaustion}
         onChange={(n) => set({ exhaustion: Math.max(0, n - exhaustionAdds) })}
-        note={`${penalty > 0 ? `−${penalty} to d20 tests · ` : ""}−5 ft speed per stage · max 6`}
+        note={`${penalty > 0 ? `−${penalty} to d20 tests · ` : ""}−1 space speed per stage · max 6`}
       />
 
       <StageTrack

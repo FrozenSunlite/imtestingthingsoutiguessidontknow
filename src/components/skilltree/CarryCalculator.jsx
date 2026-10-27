@@ -97,11 +97,11 @@ export function CarryCalculator({ character, setCharacter }) {
           </div>
           <p className="text-[10px] text-muted-foreground">
             Light {Math.round(enc.light)} lb · Heavy {Math.round(enc.heavy)} lb · Max{" "}
-            {Math.round(enc.max)} lb — past Light −10 ft speed, past Heavy −20 ft.
+            {Math.round(enc.max)} lb — past Light −2 spaces of speed, past Heavy −4 spaces.
           </p>
           {enc.penalty > 0 && (
             <p className="text-[10px] font-medium text-orange-600 dark:text-orange-400">
-              Encumbered: −{enc.penalty} ft speed (applied to Speed above).
+              Encumbered: −{enc.penalty} spaces of speed (applied to Speed above).
             </p>
           )}
         </div>

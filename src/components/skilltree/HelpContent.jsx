@@ -138,7 +138,7 @@ const QUICK_REFERENCE = [
     title: "Homebuilder",
     entries: [
       ["Plot kinds", "Home, Business, Bastion — or a hybrid of two"],
-      ["Basic facility", "25 gp per space (1-space grid = 5 ft)"],
+      ["Basic facility", "25 gp per space (one grid square)"],
       ["Courtyard / Porch", "Drag to size · Porch 2×3 default"],
       ["Balcony", "1×3 · always lands on the floor above"],
       ["Attachments", "Attic / Floor / Cellar per basic facility"],

@@ -17,6 +17,8 @@ import {
   sizeShift,
   SIZE_LADDER,
   SIZE_MULT,
+  DEFAULT_SPEED_TYPES,
+  DEFAULT_SENSES,
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";import { optionAtPath } from "@/lib/optionTree";
@@ -161,9 +163,10 @@ export const DEFAULT_LIBRARY = {
   trinkets: [],
   trinketTables: [],
   damageTypes: [],
-  // Movement and sense types shown on the sheet (names only).
-  speedTypes: [],
-  senses: [],
+  // Movement and sense types shown on the sheet. The library is the source of
+  // truth; the standard types are seeded here so they can be edited or removed.
+  speedTypes: DEFAULT_SPEED_TYPES.map((name) => ({ name, description: "" })),
+  senses: DEFAULT_SENSES.map((name) => ({ name, description: "" })),
   // The die-scaling ladder used when a node raises or lowers a die. Entries
   // are editable in the Reference Library, so homebrew ladders are possible.
   dieScaling: DEFAULT_DIE_SCALING.map((name) => ({ name })),
@@ -497,8 +500,12 @@ function mergeLibrary(lib) {
     trinkets: lib?.trinkets || [],
     trinketTables: lib?.trinketTables || [],
     damageTypes: lib?.damageTypes || [],
-    speedTypes: (lib?.speedTypes || []).map(normalizeTypeEntry).filter((t) => t.name),
-    senses: (lib?.senses || []).map(normalizeTypeEntry).filter((t) => t.name),
+    speedTypes: (lib?.speedTypes?.length ? lib.speedTypes : d.speedTypes)
+      .map(normalizeTypeEntry)
+      .filter((t) => t.name),
+    senses: (lib?.senses?.length ? lib.senses : d.senses)
+      .map(normalizeTypeEntry)
+      .filter((t) => t.name),
     // The die-scaling ladder is seeded with the standard progression; saved
     // libraries refresh to it until the user edits their own ladder.
     dieScaling: (lib?.dieScaling?.length ? lib.dieScaling : d.dieScaling)

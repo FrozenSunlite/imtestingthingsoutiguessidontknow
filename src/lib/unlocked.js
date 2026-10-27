@@ -4,10 +4,13 @@ import { poolForNode } from "@/lib/treeStore";
 // Points (Heritage Traits) come first; Talent-pool nodes are grouped by their
 // Talent Type, types alphabetized (untagged last), and nodes inside each
 // group in acquisition order (the order their points were invested).
-export function groupUnlocked(nodes) {
+export function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
   // Starter copies inside a subtree represent their host node — listing them
-  // would show that talent twice on the sheet.
-  const list = (nodes || []).filter((n) => !n.__hostCopy);
+  // would show that talent twice on the sheet. Auto-granted starter nodes are
+  // structural and only appear in dev mode.
+  const list = (nodes || []).filter(
+    (n) => !n.__hostCopy && (includeAutoGranted || !n.__autoGranted)
+  );
   const byAcquired = (a, b) =>
     (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
   const heritage = list.filter((n) => poolForNode(n) === "heritage").sort(byAcquired);

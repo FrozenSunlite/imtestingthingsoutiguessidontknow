@@ -86,7 +86,7 @@ export function PresentationSheet({ innerRef, onExport }) {
   // Heritage-purchased nodes first, then Talent-pool nodes grouped by Talent
   // Type (alphabetized), each in acquisition order.
   const { heritage: heritageNodes, talentGroups, attributes: attributeNodes } =
-    groupUnlocked(unlocked);
+    groupUnlocked(unlocked, { includeAutoGranted: !!character.devMode });
   const profGroups = [
     ["Skill", (character.proficiencies || {}).skills],
     ["Tool", (character.proficiencies || {}).tools],

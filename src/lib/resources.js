@@ -105,24 +105,41 @@ export const BUILTIN_ROW_ORDER = [
 ];
 export const STATS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 // Movement is measured in "spaces" rather than feet. Default speed types and
-// senses; the Reference Library can define more types (names only).
+// senses; the Reference Library seeds these and is the source of truth for the
+// rows shown on the sheet.
 export const DEFAULT_SPEED_TYPES = ["Standard", "Climbing", "Swimming", "Flying", "Burrowing"];
 export const DEFAULT_SENSES = ["Darkvision", "Blindsight", "Truesight", "Tremorsense"];
 
-// The speed types and senses a character sheet shows: defaults plus library
-// types plus anything the character has a saved value for.
+// Convert legacy feet measurements in free text to spaces (1 space = 5 ft).
+// Handles "30 ft.", "60 feet", "20-foot-radius Sphere" and similar.
+export function feetToSpacesText(text) {
+  if (typeof text !== "string" || !text) return text;
+  const spaces = (n) => {
+    const v = Math.round((Number(n) / 5) * 10) / 10;
+    return v;
+  };
+  return text
+    .replace(/(\d+(?:\.\d+)?)\s*-\s*foot(-?[a-z]*)/gi, (_, n, suffix) => `${spaces(n)}-space${suffix}`)
+    .replace(/(\d+(?:\.\d+)?)\s*(?:ft\.?|feet|foot)\b/gi, (_, n) => {
+      const v = spaces(n);
+      return `${v} ${v === 1 ? "space" : "spaces"}`;
+    });
+}
+
+// The speed/sense names shown on the sheet come from the library (seeded with
+// the defaults). The character's saved values are looked up by these names.
 export function speedTypeList(character, lib = null) {
-  const set = new Set(DEFAULT_SPEED_TYPES);
-  (lib?.speedTypes || []).forEach((s) => s?.name && set.add(s.name));
-  Object.keys(character?.speeds || {}).forEach((k) => k && set.add(k));
-  return [...set];
+  const names = (lib?.speedTypes || [])
+    .map((s) => (typeof s === "string" ? s : s?.name))
+    .filter(Boolean);
+  return names.length ? names : DEFAULT_SPEED_TYPES;
 }
 
 export function senseList(character, lib = null) {
-  const set = new Set(DEFAULT_SENSES);
-  (lib?.senses || []).forEach((s) => s?.name && set.add(s.name));
-  Object.keys(character?.senses || {}).forEach((k) => k && set.add(k));
-  return [...set];
+  const names = (lib?.senses || [])
+    .map((s) => (typeof s === "string" ? s : s?.name))
+    .filter(Boolean);
+  return names.length ? names : DEFAULT_SENSES;
 }
 
 export const ACTION_CATEGORIES = [
@@ -164,6 +181,18 @@ export function resourceCatalog(tree, manualResources = [], lib = null) {
   });
   (manualResources || []).forEach((r) => {
     const name = String(r?.name || "").trim();
+    if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), { name, builtin: false });
+  });
+  // Library speed types and senses are valid node targets too, so they show up
+  // in resource pickers (e.g. "Climbing Speed", "Darkvision").
+  (lib?.speedTypes || []).forEach((t) => {
+    const name = String(t?.name || t || "").trim();
+    if (!name) return;
+    const key = name === "Standard" ? "Speed" : `${name} Speed`;
+    if (!BUILTIN_KEYS.has(key)) custom.set(key.toLowerCase(), { name: key, builtin: false });
+  });
+  (lib?.senses || []).forEach((s) => {
+    const name = String(s?.name || s || "").trim();
     if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), { name, builtin: false });
   });
   return [...BUILTIN_RESOURCES.map((r) => ({ name: r.key, builtin: true, group: r.group })), ...custom.values()];

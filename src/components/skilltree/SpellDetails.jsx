@@ -86,7 +86,7 @@ function UpcastBlock({ scaling, note }) {
           if (dice && size) parts.push(`${dice}${size}`);
           else if (dice) parts.push(`${dice} dice`);
           else if (size) parts.push(`die size ${size}`);
-          if (Number(r.aoeSize)) parts.push(`AoE +${r.aoeSize} ft.`);
+          if (Number(r.aoeSize)) parts.push(`AoE +${r.aoeSize} spaces`);
           if (r.targets !== "" && r.targets != null) parts.push(`${r.targets} targets`);
           if (r.repeats !== "" && r.repeats != null) parts.push(`repeats: ${r.repeats}`);
           if (r.effect) parts.push(r.effect);

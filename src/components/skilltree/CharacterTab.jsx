@@ -132,7 +132,7 @@ export function CharacterTab() {
   const dev = !!character.devMode;
   const sourceNodes = dev ? tree?.nodes || [] : unlocked;
   const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } =
-    groupUnlocked(sourceNodes);
+    groupUnlocked(sourceNodes, { includeAutoGranted: dev });
 
   // Test add/remove: a raw point change plus the proficiency side effects the
   // normal invest flow applies — no prerequisite, pool or level gates.

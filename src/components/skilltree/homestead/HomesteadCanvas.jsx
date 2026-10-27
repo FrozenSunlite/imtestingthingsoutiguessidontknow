@@ -1227,7 +1227,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
       )}
       {!tool && (
         <div className="pointer-events-none absolute left-3 top-3 max-w-md rounded-md border bg-background/90 px-2.5 py-1 text-xs shadow text-muted-foreground">
-          1 space = one 5 ft square. Middle-drag to pan, drag on empty ground to box-select,
+          1 space = one square. Middle-drag to pan, drag on empty ground to box-select,
           scroll to zoom, drag an item's edge to resize, press R to rotate the selection,
           right-click a room to attach a Cellar, Floor or Attic and place rooms inside it.
         </div>

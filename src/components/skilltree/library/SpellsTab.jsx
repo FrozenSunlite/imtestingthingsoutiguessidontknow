@@ -107,7 +107,7 @@ function AoeEditor({ sp, patch }) {
       </Select>
       {sp.aoeShape ? (
         <>
-          <InfoTip label="Size of the area in spaces (1 space = 5 ft).">
+          <InfoTip label="Size of the area in spaces.">
             <Input
               className="h-8 w-16"
               type="number"
@@ -454,7 +454,7 @@ export function SpellsTab() {
                     </SelectContent>
                   </Select>
                   <Select value={sp.range || "__none__"} onValueChange={(v) => patch(i, { range: v === "__none__" ? "" : v })}>
-                    <InfoTip label="Range — Self, a radius around you, Touch, or a distance in spaces (1 space = 5 ft).">
+                    <InfoTip label="Range - Self, a radius around you, Touch, or a distance in spaces.">
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Range…" />
                       </SelectTrigger>

@@ -44,7 +44,8 @@ function SheetDocument({ innerRef }) {
   const eff = effectivePools(pools, character, tree, levels);
   const resources = aggregateResources(tree, character, levels);
   const { heritage: heritageNodes, talentGroups } = groupUnlocked(
-    tree.nodes.filter((n) => (n.currentPoints || 0) > 0)
+    tree.nodes.filter((n) => (n.currentPoints || 0) > 0),
+    { includeAutoGranted: !!character.devMode }
   );
 
   return (
@@ -132,7 +133,8 @@ function SheetDocument({ innerRef }) {
 function buildText(character, tree, pools, usage, resources, raw, levels) {
   const eff = effectivePools(pools, character, tree, levels);
   const { heritage: heritageNodes, talentGroups } = groupUnlocked(
-    tree.nodes.filter((n) => (n.currentPoints || 0) > 0)
+    tree.nodes.filter((n) => (n.currentPoints || 0) > 0),
+    { includeAutoGranted: !!character.devMode }
   );
   const L = [];
   if (raw) {

@@ -45,6 +45,8 @@ export function SpeedSection({ sheet, character, setCharacter, tree, types, enc 
     const notes = [];
     if (isStd && d.encPenalty > 0) notes.push(`−${d.encPenalty} encumbered`);
     if (isStd && d.smallPenalty > 0) notes.push(`−${d.smallPenalty} small`);
+    if (isStd && d.exhaustPenalty > 0) notes.push(`−${d.exhaustPenalty} exhaustion`);
+    if (isStd && d.exertPenalty > 0) notes.push(`−${d.exertPenalty} exertion`);
     return (
       <MovementCell
         key={t}

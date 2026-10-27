@@ -18,6 +18,7 @@ import {
   NameList,
   CostField,
 } from "./shared";
+import { feetToSpacesText } from "@/lib/resources";
 import { WondrousActions } from "./WondrousActions";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { SubChips, matchesSub } from "./SubChips";
@@ -336,11 +337,11 @@ export function VehiclesTab() {
                 onChange={(ev) => g.patch(i, { cost: ev.target.value })}
               />
             </InfoTip>
-            <InfoTip label="Movement speed, e.g. 30 ft.">
+            <InfoTip label="Movement speed in spaces, e.g. 6 spaces.">
               <Input
                 className="h-8"
-                placeholder="Speed (e.g. 30 ft.)"
-                value={e.speed || ""}
+                placeholder="Speed (e.g. 6 spaces)"
+                value={feetToSpacesText(e.speed) || ""}
                 onChange={(ev) => g.patch(i, { speed: ev.target.value })}
               />
             </InfoTip>

@@ -117,9 +117,9 @@ export function aoeText(spell = {}) {
   if (!size) return shape;
   if (shape === "Sphere" || shape === "Cylinder" || shape === "Emanation") {
     const measure = spell.aoeMeasure === "diameter" ? "diameter" : "radius";
-    return `${size}-foot-${measure} ${shape}`;
+    return `${size}-space-${measure} ${shape}`;
   }
-  return `${size}-foot ${shape}`;
+  return `${size}-space ${shape}`;
 }
 
 // "V, S, M (300 gp, diamond — consumed)" style component summary.

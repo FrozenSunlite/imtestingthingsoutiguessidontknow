@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowUpDown, Plus, Save, Trash2, X } from "lucide-react";
 import { ImageField } from "@/components/skilltree/ImageField";
+import { feetToSpacesText } from "@/lib/resources";
 
 // The View sheet's Familiar tab: a monster-manual style statblock for the
 // character's companion. Pick one from the Reference Library's Monsters list
@@ -38,6 +39,23 @@ const toNum = (v) => {
   const m = String(v ?? "").match(/-?\d+/);
   return m ? Number(m[0]) : 0;
 };
+// "1/2" → 0.5 for CR sorting; unknowns sort last.
+const crNum = (cr) => {
+  const s = String(cr ?? "").trim();
+  if (s === "1/8") return 0.125;
+  if (s === "1/4") return 0.25;
+  if (s === "1/2") return 0.5;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+};
+const MONSTER_SORTS = [
+  ["name", "Name"],
+  ["cr", "CR"],
+  ["type", "Type"],
+  ["alignment", "Alignment"],
+  ["size", "Size"],
+  ["hp", "HP"],
+];
 const joinList = (v) => (Array.isArray(v) ? v.join(", ") : String(v ?? ""));
 
 // {name, text} lists, accepting plain strings, [name, text] pairs,
@@ -77,12 +95,14 @@ export function normalizeStatblock(raw) {
   const speed = (() => {
     const s = r.speed ?? r.movement;
     if (s == null) return "";
-    if (typeof s === "number") return `${s} ft.`;
-    if (typeof s === "string") return s;
-    if (Array.isArray(s)) return s.join(", ");
-    return Object.entries(s)
-      .map(([k, v]) => `${typeof v === "object" ? toNum(v?.number) : toNum(v)} ft. ${k === "walk" ? "" : k}`.trim())
-      .join(", ");
+    if (typeof s === "number") return feetToSpacesText(`${s} ft.`);
+    if (typeof s === "string") return feetToSpacesText(s);
+    if (Array.isArray(s)) return feetToSpacesText(s.join(", "));
+    return feetToSpacesText(
+      Object.entries(s)
+        .map(([k, v]) => `${typeof v === "object" ? toNum(v?.number) : toNum(v)} ft. ${k === "walk" ? "" : k}`.trim())
+        .join(", ")
+    );
   })();
   const ac = r.ac ?? r.armorClass ?? r.armor_class;
   const acVal = Array.isArray(ac)
@@ -114,7 +134,7 @@ export function normalizeStatblock(raw) {
     cha: stat("cha"),
     profBonus: toNum(r.profBonus ?? r.proficiencyBonus) || 2,
     hitDice: joinList(r.hitDice ?? r.hit_dice ?? r.hitdice),
-    senses: joinList(r.senses),
+    senses: feetToSpacesText(joinList(r.senses)),
     languages: joinList(r.languages),
     cr: String(cr),
     traits: listOf(r.traits ?? r.trait),
@@ -174,7 +194,7 @@ export function monsterToStatblock(m) {
     ac: toNum(m?.ac) || 10,
     hpMax: toNum(m?.hp) || 1,
     hpCurrent: toNum(m?.hp) || 1,
-    speed: m?.speed || "",
+    speed: feetToSpacesText(m?.speed || ""),
     str: abil.str ?? 10,
     dex: abil.dex ?? 10,
     con: abil.con ?? 10,
@@ -182,7 +202,7 @@ export function monsterToStatblock(m) {
     wis: abil.wis ?? 10,
     cha: abil.cha ?? 10,
     cr: String(m?.cr ?? ""),
-    senses: m?.senses || "",
+    senses: feetToSpacesText(m?.senses || ""),
     languages: m?.languages || "",
     traits: (m?.traits || []).map((t) => ({ name: t.name || "", text: t.text || "" })),
     actions: (m?.actions || []).map((a) => ({ name: a.name || "", text: a.text || "" })),
@@ -208,9 +228,9 @@ export function statblockToMonster(f) {
     description: "",
     ac: f?.ac ?? "",
     hp: f?.hpMax ?? "",
-    speed: f?.speed || "",
+    speed: feetToSpacesText(f?.speed || ""),
     abilities: ABILITIES.map(([k, l]) => `${l} ${f?.[k] ?? 10}`).join(", "),
-    senses: f?.senses || "",
+    senses: feetToSpacesText(f?.senses || ""),
     languages: f?.languages || "",
     traits: f?.traits || [],
     actions: f?.actions || [],
@@ -304,7 +324,16 @@ export function FamiliarTab() {
   const { character, setCharacter, settings, setSettings } = useTree();
   const [pick, setPick] = useState(undefined);
   const [sel, setSel] = useState(0);
+  const [monsterSort, setMonsterSort] = useState("name");
+  const [monsterDesc, setMonsterDesc] = useState(false);
   const monsters = (settings?.library?.monsters || []).filter((m) => m?.name);
+  const sortedMonsters = [...monsters].sort((a, b) => {
+    let d = 0;
+    if (monsterSort === "cr") d = crNum(a.cr) - crNum(b.cr);
+    else if (monsterSort === "hp") d = (Number(a.hp) || -1) - (Number(b.hp) || -1);
+    else d = String(a[monsterSort] || "").localeCompare(String(b[monsterSort] || ""));
+    return monsterDesc ? -d : d;
+  });
 
   // Multiple familiars/companions (summons, mounts…). The old single
   // `familiar` field becomes slot one; `familiar` stays synced to slot one
@@ -338,6 +367,7 @@ export function FamiliarTab() {
   const addFromLibrary = () => {
     const m = monsters.find((x) => x.name === pick);
     if (!m) return;
+    setSel(list.length);
     addFamiliar(monsterToStatblock(m));
     setPick(undefined);
   };
@@ -357,6 +387,29 @@ export function FamiliarTab() {
     }));
   };
 
+  const sortControls = (
+    <div className="flex items-center gap-1">
+      <Select value={monsterSort} onValueChange={setMonsterSort}>
+        <SelectTrigger className="h-8 w-28 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {MONSTER_SORTS.map(([v, l]) => (
+            <SelectItem key={v} value={v}>{l}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        size="sm"
+        variant="ghost"
+        title="Reverse order"
+        onClick={() => setMonsterDesc(!monsterDesc)}
+      >
+        <ArrowUpDown className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   if (!fam) {
     return (
       <div className="space-y-3 rounded-md border p-4 text-center">
@@ -369,18 +422,17 @@ export function FamiliarTab() {
         <div className="flex flex-wrap items-center justify-center gap-2">
           {monsters.length > 0 && (
             <>
+              {sortControls}
               <Select value={pick} onValueChange={setPick}>
                 <SelectTrigger className="h-9 w-56">
                   <SelectValue placeholder="Choose a monster…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[...monsters]
-                    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
-                    .map((m, i) => (
-                      <SelectItem key={i} value={m.name}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
+                  {sortedMonsters.map((m, i) => (
+                    <SelectItem key={i} value={m.name}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button size="sm" disabled={!pick} onClick={addFromLibrary}>
@@ -425,6 +477,28 @@ export function FamiliarTab() {
           <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {/* Add another statblock from the library, sorted like the Monsters tab. */}
+      {monsters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1">
+          {sortControls}
+          <Select value={pick} onValueChange={setPick}>
+            <SelectTrigger className="h-8 w-56 text-xs">
+              <SelectValue placeholder="Add from library…" />
+            </SelectTrigger>
+            <SelectContent>
+              {sortedMonsters.map((m, i) => (
+                <SelectItem key={i} value={m.name}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" disabled={!pick} onClick={addFromLibrary}>
+            Add from library
+          </Button>
+        </div>
+      )}
 
       {/* Statblock header */}
       <div className="rounded-md border border-destructive/40 p-3">
@@ -474,9 +548,9 @@ export function FamiliarTab() {
           <LabeledInput label="HP (max)" value={fam.hpMax} onChange={(v) => setFam({ hpMax: toNum(v) })} />
           <LabeledInput
             label="Speed"
-            value={fam.speed}
+            value={feetToSpacesText(fam.speed) || ""}
             onChange={(v) => setFam({ speed: v })}
-            placeholder="30 ft., fly 60 ft."
+            placeholder="6 spaces, fly 12 spaces"
           />
         </div>
       </div>
@@ -504,7 +578,7 @@ export function FamiliarTab() {
           onChange={(v) => setFam({ profBonus: toNum(v) })}
         />
         <LabeledInput label="Challenge Rating" value={fam.cr} onChange={(v) => setFam({ cr: v })} />
-        <LabeledInput label="Senses" value={fam.senses} onChange={(v) => setFam({ senses: v })} placeholder="Darkvision 60 ft." />
+        <LabeledInput label="Senses" value={feetToSpacesText(fam.senses) || ""} onChange={(v) => setFam({ senses: v })} placeholder="Darkvision 12 spaces" />
         <LabeledInput label="Languages" value={fam.languages} onChange={(v) => setFam({ languages: v })} placeholder="Understands your languages" />
       </div>
 

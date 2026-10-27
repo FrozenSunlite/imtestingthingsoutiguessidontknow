@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { HotkeyRow } from "@/components/skilltree/HotkeyRow";
 import { HelpContent } from "@/components/skilltree/HelpContent";
-import { useTheme } from "@/lib/useTheme";
+import { useTheme, COLOR_TEMPLATES, DEFAULT_CUSTOM, FONT_OPTIONS } from "@/lib/useTheme";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -56,6 +56,10 @@ const FIXED_SHORTCUTS = [
 export function SettingsMenu({ open, onClose }) {
   const { settings, setSettings, tree, patchTab, character, setCharacter } = useTree();
   const [theme, setTheme] = useTheme();
+  const template = theme.template || "default";
+  const customTheme = { ...DEFAULT_CUSTOM, ...(theme.custom || {}) };
+  const setCustomTheme = (patch) =>
+    setTheme({ ...theme, custom: { ...customTheme, ...patch } });
   const [devLogs, setDevLogs] = useState([]);
   useEffect(() => {
     if (!character?.devMode) return;
@@ -302,30 +306,120 @@ export function SettingsMenu({ open, onClose }) {
             <TabsContent value="general" className="mt-3 space-y-2">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Theme</p>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <Label className="text-xs">Cyberpunk theme</Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Dark neon look with cyan and magenta accents across the app.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!!theme.cyber}
-                    onCheckedChange={(v) => setTheme({ ...theme, cyber: v })}
-                  />
+                <div className="space-y-1">
+                  <Label className="text-xs">Colour template</Label>
+                  <Select
+                    value={template}
+                    onValueChange={(v) => setTheme({ ...theme, template: v })}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COLOR_TEMPLATES.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    {template === "default"
+                      ? "Use the cyberpunk/classic look and the switches below."
+                      : template === "custom"
+                      ? "Pick your own surface, text, accent, border and font colours."
+                      : "A ready-made palette for the whole app, including its fonts."}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <Label className="text-xs">Dark mode</Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Off = light mode: the same neon accents inverted onto a light surface.
-                    </p>
+                {template === "default" && (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <Label className="text-xs">Cyberpunk theme</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Dark neon look with cyan and magenta accents across the app.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!theme.cyber}
+                        onCheckedChange={(v) => setTheme({ ...theme, cyber: v })}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <Label className="text-xs">Dark mode</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Off = light mode: the same neon accents inverted onto a light surface.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!theme.dark}
+                        onCheckedChange={(v) => setTheme({ ...theme, dark: v })}
+                      />
+                    </div>
+                  </>
+                )}
+                {template === "custom" && (
+                  <div className="space-y-2 rounded-md border p-2">
+                    <p className="text-xs font-medium">Custom colours</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        ["background", "Background"],
+                        ["surface", "Surface"],
+                        ["text", "Text / font"],
+                        ["muted", "Muted text"],
+                        ["accent", "Accent"],
+                        ["border", "Border"],
+                      ].map(([key, label]) => (
+                        <label key={key} className="flex items-center gap-1.5 text-xs">
+                          <input
+                            type="color"
+                            className="h-7 w-9 shrink-0 rounded border"
+                            value={customTheme[key]}
+                            onChange={(e) => setCustomTheme({ [key]: e.target.value })}
+                          />
+                          <span className="min-w-0 flex-1 truncate">{label}</span>
+                          <span className="font-mono text-[9px] text-muted-foreground">
+                            {customTheme[key]}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Body font</Label>
+                      <Input
+                        className="h-8"
+                        list="theme-fonts"
+                        value={customTheme.font}
+                        onChange={(e) => setCustomTheme({ font: e.target.value })}
+                        placeholder="e.g. Georgia, serif"
+                      />
+                      <Label className="text-xs">Heading font (blank = body font)</Label>
+                      <Input
+                        className="h-8"
+                        list="theme-fonts"
+                        value={customTheme.headingFont}
+                        onChange={(e) => setCustomTheme({ headingFont: e.target.value })}
+                        placeholder="e.g. 'Palatino Linotype', serif"
+                      />
+                      <datalist id="theme-fonts">
+                        {FONT_OPTIONS.map((f) => (
+                          <option key={f} value={f} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setTheme({ ...theme, custom: { ...DEFAULT_CUSTOM } })}
+                      >
+                        Reset custom
+                      </Button>
+                      <span className="text-[10px] text-muted-foreground">
+                        Font colour follows the Text colour.
+                      </span>
+                    </div>
                   </div>
-                  <Switch
-                    checked={!!theme.dark}
-                    onCheckedChange={(v) => setTheme({ ...theme, dark: v })}
-                  />
-                </div>
+                )}
               </div>
               <div className="mt-4 border-t pt-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">

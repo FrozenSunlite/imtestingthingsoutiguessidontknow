@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-cY-Cnhx9.js";
+import { n as Button, r as cn } from "./router-B0-RNpP9.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -1393,7 +1393,7 @@ var FURNISHINGS = [
 		businessOnly: true,
 		outdoor: true,
 		req: "Rooftop or courtyard; 5 Hirelings per Airship",
-		benefits: "Stores one Airship ≤160 ft or two ≤80 ft. Tools for Air Vehicles. Each Airship provides two Trade Routes, immune to bandits and pirates."
+		benefits: "Stores one Airship ≤32 spaces or two ≤16 spaces. Tools for Air Vehicles. Each Airship provides two Trade Routes, immune to bandits and pirates."
 	},
 	{
 		name: "Animal Pen",
@@ -2299,17 +2299,23 @@ var DEFAULT_SENSES = [
 	"Truesight",
 	"Tremorsense"
 ];
+function feetToSpacesText(text) {
+	if (typeof text !== "string" || !text) return text;
+	const spaces = (n) => {
+		return Math.round(Number(n) / 5 * 10) / 10;
+	};
+	return text.replace(/(\d+(?:\.\d+)?)\s*-\s*foot(-?[a-z]*)/gi, (_, n, suffix) => `${spaces(n)}-space${suffix}`).replace(/(\d+(?:\.\d+)?)\s*(?:ft\.?|feet|foot)\b/gi, (_, n) => {
+		const v = spaces(n);
+		return `${v} ${v === 1 ? "space" : "spaces"}`;
+	});
+}
 function speedTypeList(character, lib = null) {
-	const set = new Set(DEFAULT_SPEED_TYPES);
-	(lib?.speedTypes || []).forEach((s) => s?.name && set.add(s.name));
-	Object.keys(character?.speeds || {}).forEach((k) => k && set.add(k));
-	return [...set];
+	const names = (lib?.speedTypes || []).map((s) => typeof s === "string" ? s : s?.name).filter(Boolean);
+	return names.length ? names : DEFAULT_SPEED_TYPES;
 }
 function senseList(character, lib = null) {
-	const set = new Set(DEFAULT_SENSES);
-	(lib?.senses || []).forEach((s) => s?.name && set.add(s.name));
-	Object.keys(character?.senses || {}).forEach((k) => k && set.add(k));
-	return [...set];
+	const names = (lib?.senses || []).map((s) => typeof s === "string" ? s : s?.name).filter(Boolean);
+	return names.length ? names : DEFAULT_SENSES;
 }
 var ACTION_CATEGORIES = [
 	["action", "Action"],
@@ -2345,6 +2351,22 @@ function resourceCatalog(tree, manualResources = [], lib = null) {
 	});
 	(manualResources || []).forEach((r) => {
 		const name = String(r?.name || "").trim();
+		if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), {
+			name,
+			builtin: false
+		});
+	});
+	(lib?.speedTypes || []).forEach((t) => {
+		const name = String(t?.name || t || "").trim();
+		if (!name) return;
+		const key = name === "Standard" ? "Speed" : `${name} Speed`;
+		if (!BUILTIN_KEYS.has(key)) custom.set(key.toLowerCase(), {
+			name: key,
+			builtin: false
+		});
+	});
+	(lib?.senses || []).forEach((s) => {
+		const name = String(s?.name || s || "").trim();
 		if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), {
 			name,
 			builtin: false
@@ -4050,8 +4072,14 @@ var DEFAULT_LIBRARY = {
 	trinkets: [],
 	trinketTables: [],
 	damageTypes: [],
-	speedTypes: [],
-	senses: [],
+	speedTypes: DEFAULT_SPEED_TYPES.map((name) => ({
+		name,
+		description: ""
+	})),
+	senses: DEFAULT_SENSES.map((name) => ({
+		name,
+		description: ""
+	})),
 	dieScaling: DEFAULT_DIE_SCALING.map((name) => ({ name })),
 	resources: [
 		{
@@ -4455,8 +4483,8 @@ function mergeLibrary(lib) {
 		trinkets: lib?.trinkets || [],
 		trinketTables: lib?.trinketTables || [],
 		damageTypes: lib?.damageTypes || [],
-		speedTypes: (lib?.speedTypes || []).map(normalizeTypeEntry).filter((t) => t.name),
-		senses: (lib?.senses || []).map(normalizeTypeEntry).filter((t) => t.name),
+		speedTypes: (lib?.speedTypes?.length ? lib.speedTypes : d.speedTypes).map(normalizeTypeEntry).filter((t) => t.name),
+		senses: (lib?.senses?.length ? lib.senses : d.senses).map(normalizeTypeEntry).filter((t) => t.name),
 		dieScaling: (lib?.dieScaling?.length ? lib.dieScaling : d.dieScaling).map(normalizeTypeEntry).filter((t) => dieText(t)),
 		resources: (Array.isArray(lib?.resources) ? lib.resources : d.resources).map(normalizeResourceEntry).filter((r) => r.name),
 		rollTables: lib?.rollTables || [],
@@ -6834,7 +6862,7 @@ var QUICK_REFERENCE = [
 		title: "Homebuilder",
 		entries: [
 			["Plot kinds", "Home, Business, Bastion — or a hybrid of two"],
-			["Basic facility", "25 gp per space (1-space grid = 5 ft)"],
+			["Basic facility", "25 gp per space (one grid square)"],
 			["Courtyard / Porch", "Drag to size · Porch 2×3 default"],
 			["Balcony", "1×3 · always lands on the floor above"],
 			["Attachments", "Attic / Floor / Cellar per basic facility"],
@@ -6926,27 +6954,293 @@ function HelpContent() {
 }
 //#endregion
 //#region src/lib/useTheme.js
+var DEFAULT_CUSTOM = {
+	background: "#12161d",
+	surface: "#1a2029",
+	text: "#eef2f7",
+	muted: "#9aa5b1",
+	accent: "#22d3ee",
+	border: "#2f3a47",
+	font: "ui-sans-serif, system-ui, sans-serif",
+	headingFont: ""
+};
+var FONT_OPTIONS = [
+	"ui-sans-serif, system-ui, sans-serif",
+	"Georgia, 'Times New Roman', serif",
+	"'Palatino Linotype', 'Book Antiqua', Palatino, serif",
+	"'Trebuchet MS', sans-serif",
+	"Verdana, Geneva, sans-serif",
+	"Tahoma, sans-serif",
+	"'Courier New', monospace",
+	"ui-monospace, SFMono-Regular, Menlo, monospace"
+];
+var COLOR_TEMPLATES = [
+	{
+		id: "default",
+		label: "Default (cyber / classic)"
+	},
+	{
+		id: "parchment",
+		label: "Parchment",
+		dark: false,
+		colors: {
+			background: "#f4ead3",
+			surface: "#fffaf0",
+			text: "#3a2a1d",
+			muted: "#7a6a57",
+			accent: "#8b3a2e",
+			border: "#d6c3a1",
+			font: "Georgia, 'Times New Roman', serif"
+		}
+	},
+	{
+		id: "solarized",
+		label: "Solarized",
+		dark: false,
+		colors: {
+			background: "#fdf6e3",
+			surface: "#eee8d5",
+			text: "#073642",
+			muted: "#657b83",
+			accent: "#268bd2",
+			border: "#93a1a1",
+			font: "Verdana, Geneva, sans-serif"
+		}
+	},
+	{
+		id: "forest",
+		label: "Forest",
+		dark: true,
+		colors: {
+			background: "#101d16",
+			surface: "#18291f",
+			text: "#e8f3ea",
+			muted: "#a3b7a7",
+			accent: "#63d99b",
+			border: "#2d4535",
+			font: "'Trebuchet MS', sans-serif"
+		}
+	},
+	{
+		id: "ocean",
+		label: "Ocean",
+		dark: true,
+		colors: {
+			background: "#0a1d27",
+			surface: "#112f3d",
+			text: "#e5f3f8",
+			muted: "#9ab6c2",
+			accent: "#38bdf8",
+			border: "#21495b",
+			font: "Verdana, Geneva, sans-serif"
+		}
+	},
+	{
+		id: "rose",
+		label: "Rose Quartz",
+		dark: false,
+		colors: {
+			background: "#fdf1f5",
+			surface: "#fff8fb",
+			text: "#3d1f2b",
+			muted: "#8c6473",
+			accent: "#be185d",
+			border: "#efc9d7",
+			font: "'Palatino Linotype', 'Book Antiqua', Palatino, serif"
+		}
+	},
+	{
+		id: "midnight",
+		label: "Midnight",
+		dark: true,
+		colors: {
+			background: "#0b1020",
+			surface: "#141a2e",
+			text: "#e7eaf6",
+			muted: "#a0a8c0",
+			accent: "#8b5cf6",
+			border: "#29334f",
+			font: "ui-sans-serif, system-ui, sans-serif"
+		}
+	},
+	{
+		id: "highContrast",
+		label: "High Contrast",
+		dark: true,
+		colors: {
+			background: "#000000",
+			surface: "#111111",
+			text: "#ffffff",
+			muted: "#cccccc",
+			accent: "#ffee00",
+			border: "#666666",
+			font: "Arial, Helvetica, sans-serif"
+		}
+	},
+	{
+		id: "custom",
+		label: "Custom…"
+	}
+];
+function parseHex(hex) {
+	let h = String(hex || "").replace("#", "").trim();
+	if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+	if (!/^[0-9a-f]{6}$/i.test(h)) return [
+		0,
+		0,
+		0
+	];
+	return [
+		0,
+		2,
+		4
+	].map((i) => parseInt(h.slice(i, i + 2), 16));
+}
+function toHex([r, g, b]) {
+	return "#" + [
+		r,
+		g,
+		b
+	].map((n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0")).join("");
+}
+function mixHex(a, b, t) {
+	const A = parseHex(a);
+	const B = parseHex(b);
+	return toHex(A.map((v, i) => v + (B[i] - v) * t));
+}
+function hexToHsl(hex) {
+	const [r255, g255, b255] = parseHex(hex);
+	const r = r255 / 255;
+	const g = g255 / 255;
+	const b = b255 / 255;
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	const l = (max + min) / 2;
+	let h = 0;
+	let s = 0;
+	if (max !== min) {
+		const d = max - min;
+		s = l > .5 ? d / (2 - max - min) : d / (max + min);
+		if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+		else if (max === g) h = (b - r) / d + 2;
+		else h = (r - g) / d + 4;
+		h *= 60;
+	}
+	return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+var isDarkColor = (hex) => {
+	const [r, g, b] = parseHex(hex);
+	return .2126 * r + .7152 * g + .0722 * b < 140;
+};
+var contrastColor = (hex) => isDarkColor(hex) ? "#ffffff" : "#111111";
+function templateColors(template, custom) {
+	if (template === "custom") return {
+		...DEFAULT_CUSTOM,
+		...custom || {}
+	};
+	return COLOR_TEMPLATES.find((t) => t.id === template)?.colors || null;
+}
+function themeVars(template, custom) {
+	const c = templateColors(template, custom);
+	if (!c) return {};
+	const secondary = mixHex(c.surface, c.text, .09);
+	const mutedSurface = mixHex(c.surface, c.background, .45);
+	const accentSurface = mixHex(c.surface, c.accent, .16);
+	const vars = {
+		"--background": hexToHsl(c.background),
+		"--foreground": hexToHsl(c.text),
+		"--card": hexToHsl(c.surface),
+		"--card-foreground": hexToHsl(c.text),
+		"--popover": hexToHsl(c.surface),
+		"--popover-foreground": hexToHsl(c.text),
+		"--primary": hexToHsl(c.accent),
+		"--primary-foreground": hexToHsl(contrastColor(c.accent)),
+		"--secondary": hexToHsl(secondary),
+		"--secondary-foreground": hexToHsl(c.text),
+		"--muted": hexToHsl(mutedSurface),
+		"--muted-foreground": hexToHsl(c.muted),
+		"--accent": hexToHsl(accentSurface),
+		"--accent-foreground": hexToHsl(c.text),
+		"--destructive": hexToHsl("#dc2626"),
+		"--destructive-foreground": hexToHsl("#ffffff"),
+		"--border": hexToHsl(c.border),
+		"--input": hexToHsl(c.border),
+		"--ring": hexToHsl(c.accent),
+		"--chart-1": hexToHsl(c.accent),
+		"--chart-2": hexToHsl(mixHex(c.accent, c.text, .3)),
+		"--chart-3": hexToHsl(mixHex(c.accent, c.background, .3)),
+		"--chart-4": hexToHsl(mixHex(c.accent, "#f59e0b", .45)),
+		"--chart-5": hexToHsl(mixHex(c.accent, "#ec4899", .45)),
+		"--sidebar-background": hexToHsl(c.surface),
+		"--sidebar-foreground": hexToHsl(c.text),
+		"--sidebar-primary": hexToHsl(c.accent),
+		"--sidebar-primary-foreground": hexToHsl(contrastColor(c.accent)),
+		"--sidebar-accent": hexToHsl(accentSurface),
+		"--sidebar-accent-foreground": hexToHsl(c.text),
+		"--sidebar-border": hexToHsl(c.border),
+		"--sidebar-ring": hexToHsl(c.accent)
+	};
+	const font = (c.font || "").trim();
+	if (font) {
+		vars["--font-body"] = font;
+		vars["--font-heading"] = (c.headingFont || "").trim() || font;
+		vars["--font-display"] = (c.headingFont || "").trim() || font;
+	}
+	return vars;
+}
+var APPLIED_VARS = [];
+function applyVars(el, vars) {
+	APPLIED_VARS.forEach((key) => el.style.removeProperty(key));
+	APPLIED_VARS.length = 0;
+	Object.entries(vars).forEach(([key, value]) => {
+		el.style.setProperty(key, value);
+		APPLIED_VARS.push(key);
+	});
+}
+function normalizeTheme(t) {
+	const theme = {
+		cyber: true,
+		dark: true,
+		...t || {}
+	};
+	if (!theme.template) theme.template = "default";
+	theme.custom = {
+		...DEFAULT_CUSTOM,
+		...theme.custom || {}
+	};
+	return theme;
+}
 function readTheme() {
 	try {
 		const raw = localStorage.getItem("skilltree:theme");
-		if (raw) return JSON.parse(raw);
+		if (raw) return normalizeTheme(JSON.parse(raw));
 		const old = localStorage.getItem("skilltree:dark");
-		if (old) return {
+		if (old) return normalizeTheme({
 			cyber: true,
 			dark: old === "1"
-		};
+		});
 	} catch {}
-	return {
+	return normalizeTheme({
 		cyber: true,
 		dark: true
-	};
+	});
 }
 function useTheme() {
 	const [theme, setTheme] = useState(readTheme);
 	useEffect(() => {
 		const el = document.documentElement;
-		el.classList.toggle("cyberpunk", !!theme.cyber);
-		el.classList.toggle("dark", !!theme.dark);
+		const template = theme.template || "default";
+		const preset = COLOR_TEMPLATES.find((t) => t.id === template);
+		const isCustom = template === "custom";
+		const isPreset = !!preset && template !== "default";
+		const custom = {
+			...DEFAULT_CUSTOM,
+			...theme.custom || {}
+		};
+		const dark = isCustom ? isDarkColor(custom.background) : isPreset ? !!preset.dark : !!theme.dark;
+		el.classList.toggle("cyberpunk", template === "default" ? !!theme.cyber : false);
+		el.classList.toggle("dark", dark);
+		applyVars(el, isPreset ? themeVars(template, custom) : {});
 		try {
 			localStorage.setItem("skilltree:theme", JSON.stringify(theme));
 		} catch {}
@@ -6980,6 +7274,18 @@ var FIXED_SHORTCUTS = [
 function SettingsMenu({ open, onClose }) {
 	const { settings, setSettings, tree, patchTab, character, setCharacter } = useTree();
 	const [theme, setTheme] = useTheme();
+	const template = theme.template || "default";
+	const customTheme = {
+		...DEFAULT_CUSTOM,
+		...theme.custom || {}
+	};
+	const setCustomTheme = (patch) => setTheme({
+		...theme,
+		custom: {
+			...customTheme,
+			...patch
+		}
+	});
 	const [devLogs, setDevLogs] = useState([]);
 	useEffect(() => {
 		if (!character?.devMode) return;
@@ -7316,6 +7622,33 @@ function SettingsMenu({ open, onClose }) {
 											children: "Theme"
 										}),
 										/* @__PURE__ */ jsxs("div", {
+											className: "space-y-1",
+											children: [
+												/* @__PURE__ */ jsx(Label, {
+													className: "text-xs",
+													children: "Colour template"
+												}),
+												/* @__PURE__ */ jsxs(Select, {
+													value: template,
+													onValueChange: (v) => setTheme({
+														...theme,
+														template: v
+													}),
+													children: [/* @__PURE__ */ jsx(SelectTrigger, {
+														className: "h-8",
+														children: /* @__PURE__ */ jsx(SelectValue, {})
+													}), /* @__PURE__ */ jsx(SelectContent, { children: COLOR_TEMPLATES.map((t) => /* @__PURE__ */ jsx(SelectItem, {
+														value: t.id,
+														children: t.label
+													}, t.id)) })]
+												}),
+												/* @__PURE__ */ jsx("p", {
+													className: "text-[10px] text-muted-foreground",
+													children: template === "default" ? "Use the cyberpunk/classic look and the switches below." : template === "custom" ? "Pick your own surface, text, accent, border and font colours." : "A ready-made palette for the whole app, including its fonts."
+												})
+											]
+										}),
+										template === "default" && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs("div", {
 											className: "flex items-center justify-between gap-2",
 											children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 												className: "text-xs",
@@ -7330,8 +7663,7 @@ function SettingsMenu({ open, onClose }) {
 													cyber: v
 												})
 											})]
-										}),
-										/* @__PURE__ */ jsxs("div", {
+										}), /* @__PURE__ */ jsxs("div", {
 											className: "flex items-center justify-between gap-2",
 											children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 												className: "text-xs",
@@ -7346,6 +7678,90 @@ function SettingsMenu({ open, onClose }) {
 													dark: v
 												})
 											})]
+										})] }),
+										template === "custom" && /* @__PURE__ */ jsxs("div", {
+											className: "space-y-2 rounded-md border p-2",
+											children: [
+												/* @__PURE__ */ jsx("p", {
+													className: "text-xs font-medium",
+													children: "Custom colours"
+												}),
+												/* @__PURE__ */ jsx("div", {
+													className: "grid grid-cols-2 gap-1.5",
+													children: [
+														["background", "Background"],
+														["surface", "Surface"],
+														["text", "Text / font"],
+														["muted", "Muted text"],
+														["accent", "Accent"],
+														["border", "Border"]
+													].map(([key, label]) => /* @__PURE__ */ jsxs("label", {
+														className: "flex items-center gap-1.5 text-xs",
+														children: [
+															/* @__PURE__ */ jsx("input", {
+																type: "color",
+																className: "h-7 w-9 shrink-0 rounded border",
+																value: customTheme[key],
+																onChange: (e) => setCustomTheme({ [key]: e.target.value })
+															}),
+															/* @__PURE__ */ jsx("span", {
+																className: "min-w-0 flex-1 truncate",
+																children: label
+															}),
+															/* @__PURE__ */ jsx("span", {
+																className: "font-mono text-[9px] text-muted-foreground",
+																children: customTheme[key]
+															})
+														]
+													}, key))
+												}),
+												/* @__PURE__ */ jsxs("div", {
+													className: "space-y-1",
+													children: [
+														/* @__PURE__ */ jsx(Label, {
+															className: "text-xs",
+															children: "Body font"
+														}),
+														/* @__PURE__ */ jsx(Input, {
+															className: "h-8",
+															list: "theme-fonts",
+															value: customTheme.font,
+															onChange: (e) => setCustomTheme({ font: e.target.value }),
+															placeholder: "e.g. Georgia, serif"
+														}),
+														/* @__PURE__ */ jsx(Label, {
+															className: "text-xs",
+															children: "Heading font (blank = body font)"
+														}),
+														/* @__PURE__ */ jsx(Input, {
+															className: "h-8",
+															list: "theme-fonts",
+															value: customTheme.headingFont,
+															onChange: (e) => setCustomTheme({ headingFont: e.target.value }),
+															placeholder: "e.g. 'Palatino Linotype', serif"
+														}),
+														/* @__PURE__ */ jsx("datalist", {
+															id: "theme-fonts",
+															children: FONT_OPTIONS.map((f) => /* @__PURE__ */ jsx("option", { value: f }, f))
+														})
+													]
+												}),
+												/* @__PURE__ */ jsxs("div", {
+													className: "flex items-center gap-2",
+													children: [/* @__PURE__ */ jsx(Button, {
+														size: "sm",
+														variant: "outline",
+														onClick: () => setTheme({
+															...theme,
+															custom: { ...DEFAULT_CUSTOM }
+														}),
+														children: "Reset custom"
+													}), /* @__PURE__ */ jsx("span", {
+														className: "text-[10px] text-muted-foreground",
+														children: "Font colour follows the Text colour."
+													})]
+												})
+											]
 										})
 									]
 								}),
@@ -9486,7 +9902,7 @@ function parseMaxHp(hp) {
 	const n = parseInt(String(hp ?? ""), 10);
 	return Number.isFinite(n) ? n : 0;
 }
-function crNum$1(cr) {
+function crNum$2(cr) {
 	const s = String(cr ?? "").trim();
 	if (s.includes("/")) {
 		const [a, b] = s.split("/").map(Number);
@@ -10648,11 +11064,11 @@ function VehiclesTab() {
 							})
 						}),
 						/* @__PURE__ */ jsx(InfoTip, {
-							label: "Movement speed, e.g. 30 ft.",
+							label: "Movement speed in spaces, e.g. 6 spaces.",
 							children: /* @__PURE__ */ jsx(Input, {
 								className: "h-8",
-								placeholder: "Speed (e.g. 30 ft.)",
-								value: e.speed || "",
+								placeholder: "Speed (e.g. 6 spaces)",
+								value: feetToSpacesText(e.speed) || "",
 								onChange: (ev) => g.patch(i, { speed: ev.target.value })
 							})
 						}),
@@ -11653,7 +12069,7 @@ function AoeEditor({ sp, patch }) {
 				children: s
 			}, s))] })]
 		}), sp.aoeShape ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(InfoTip, {
-			label: "Size of the area in spaces (1 space = 5 ft).",
+			label: "Size of the area in spaces.",
 			children: /* @__PURE__ */ jsx(Input, {
 				className: "h-8 w-16",
 				type: "number",
@@ -12062,7 +12478,7 @@ function SpellsTab() {
 									value: sp.range || "__none__",
 									onValueChange: (v) => patch(i, { range: v === "__none__" ? "" : v }),
 									children: [/* @__PURE__ */ jsx(InfoTip, {
-										label: "Range — Self, a radius around you, Touch, or a distance in spaces (1 space = 5 ft).",
+										label: "Range - Self, a radius around you, Touch, or a distance in spaces.",
 										children: /* @__PURE__ */ jsx(SelectTrigger, {
 											className: "h-8",
 											children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Range…" })
@@ -12750,6 +13166,22 @@ var toNum = (v) => {
 	const m = String(v ?? "").match(/-?\d+/);
 	return m ? Number(m[0]) : 0;
 };
+var crNum$1 = (cr) => {
+	const s = String(cr ?? "").trim();
+	if (s === "1/8") return .125;
+	if (s === "1/4") return .25;
+	if (s === "1/2") return .5;
+	const n = Number(s);
+	return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+};
+var MONSTER_SORTS = [
+	["name", "Name"],
+	["cr", "CR"],
+	["type", "Type"],
+	["alignment", "Alignment"],
+	["size", "Size"],
+	["hp", "HP"]
+];
 var BLANK$1 = {
 	name: "",
 	image: "",
@@ -12794,7 +13226,7 @@ function monsterToStatblock(m) {
 		ac: toNum(m?.ac) || 10,
 		hpMax: toNum(m?.hp) || 1,
 		hpCurrent: toNum(m?.hp) || 1,
-		speed: m?.speed || "",
+		speed: feetToSpacesText(m?.speed || ""),
 		str: abil.str ?? 10,
 		dex: abil.dex ?? 10,
 		con: abil.con ?? 10,
@@ -12802,7 +13234,7 @@ function monsterToStatblock(m) {
 		wis: abil.wis ?? 10,
 		cha: abil.cha ?? 10,
 		cr: String(m?.cr ?? ""),
-		senses: m?.senses || "",
+		senses: feetToSpacesText(m?.senses || ""),
 		languages: m?.languages || "",
 		traits: (m?.traits || []).map((t) => ({
 			name: t.name || "",
@@ -12838,9 +13270,9 @@ function statblockToMonster(f) {
 		description: "",
 		ac: f?.ac ?? "",
 		hp: f?.hpMax ?? "",
-		speed: f?.speed || "",
+		speed: feetToSpacesText(f?.speed || ""),
 		abilities: ABILITIES.map(([k, l]) => `${l} ${f?.[k] ?? 10}`).join(", "),
-		senses: f?.senses || "",
+		senses: feetToSpacesText(f?.senses || ""),
 		languages: f?.languages || "",
 		traits: f?.traits || [],
 		actions: f?.actions || [],
@@ -12941,7 +13373,16 @@ function FamiliarTab() {
 	const { character, setCharacter, settings, setSettings } = useTree();
 	const [pick, setPick] = useState(void 0);
 	const [sel, setSel] = useState(0);
+	const [monsterSort, setMonsterSort] = useState("name");
+	const [monsterDesc, setMonsterDesc] = useState(false);
 	const monsters = (settings?.library?.monsters || []).filter((m) => m?.name);
+	const sortedMonsters = [...monsters].sort((a, b) => {
+		let d = 0;
+		if (monsterSort === "cr") d = crNum$1(a.cr) - crNum$1(b.cr);
+		else if (monsterSort === "hp") d = (Number(a.hp) || -1) - (Number(b.hp) || -1);
+		else d = String(a[monsterSort] || "").localeCompare(String(b[monsterSort] || ""));
+		return monsterDesc ? -d : d;
+	});
 	const listFrom = (c) => c.familiars ?? (c.familiar ? [c.familiar] : []);
 	const list = listFrom(character);
 	const idx = Math.min(sel, Math.max(0, list.length - 1));
@@ -12979,6 +13420,7 @@ function FamiliarTab() {
 	const addFromLibrary = () => {
 		const m = monsters.find((x) => x.name === pick);
 		if (!m) return;
+		setSel(list.length);
 		addFamiliar(monsterToStatblock(m));
 		setPick(void 0);
 	};
@@ -12995,6 +13437,26 @@ function FamiliarTab() {
 			}
 		}));
 	};
+	const sortControls = /* @__PURE__ */ jsxs("div", {
+		className: "flex items-center gap-1",
+		children: [/* @__PURE__ */ jsxs(Select, {
+			value: monsterSort,
+			onValueChange: setMonsterSort,
+			children: [/* @__PURE__ */ jsx(SelectTrigger, {
+				className: "h-8 w-28 text-xs",
+				children: /* @__PURE__ */ jsx(SelectValue, {})
+			}), /* @__PURE__ */ jsx(SelectContent, { children: MONSTER_SORTS.map(([v, l]) => /* @__PURE__ */ jsx(SelectItem, {
+				value: v,
+				children: l
+			}, v)) })]
+		}), /* @__PURE__ */ jsx(Button, {
+			size: "sm",
+			variant: "ghost",
+			title: "Reverse order",
+			onClick: () => setMonsterDesc(!monsterDesc),
+			children: /* @__PURE__ */ jsx(ArrowUpDown, { className: "h-4 w-4" })
+		})]
+	});
 	if (!fam) return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-3 rounded-md border p-4 text-center",
 		children: [
@@ -13008,22 +13470,26 @@ function FamiliarTab() {
 			}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex flex-wrap items-center justify-center gap-2",
-				children: [monsters.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs(Select, {
-					value: pick,
-					onValueChange: setPick,
-					children: [/* @__PURE__ */ jsx(SelectTrigger, {
-						className: "h-9 w-56",
-						children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a monster…" })
-					}), /* @__PURE__ */ jsx(SelectContent, { children: [...monsters].sort((a, b) => String(a.name).localeCompare(String(b.name))).map((m, i) => /* @__PURE__ */ jsx(SelectItem, {
-						value: m.name,
-						children: m.name
-					}, i)) })]
-				}), /* @__PURE__ */ jsx(Button, {
-					size: "sm",
-					disabled: !pick,
-					onClick: addFromLibrary,
-					children: "Add familiar"
-				})] }), /* @__PURE__ */ jsx(Button, {
+				children: [monsters.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
+					sortControls,
+					/* @__PURE__ */ jsxs(Select, {
+						value: pick,
+						onValueChange: setPick,
+						children: [/* @__PURE__ */ jsx(SelectTrigger, {
+							className: "h-9 w-56",
+							children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a monster…" })
+						}), /* @__PURE__ */ jsx(SelectContent, { children: sortedMonsters.map((m, i) => /* @__PURE__ */ jsx(SelectItem, {
+							value: m.name,
+							children: m.name
+						}, i)) })]
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						disabled: !pick,
+						onClick: addFromLibrary,
+						children: "Add familiar"
+					})
+				] }), /* @__PURE__ */ jsx(Button, {
 					size: "sm",
 					variant: "outline",
 					onClick: () => addFamiliar({ ...BLANK$1 }),
@@ -13051,6 +13517,30 @@ function FamiliarTab() {
 					},
 					children: /* @__PURE__ */ jsx(Plus, { className: "h-3.5 w-3.5" })
 				})]
+			}),
+			monsters.length > 0 && /* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap items-center gap-1",
+				children: [
+					sortControls,
+					/* @__PURE__ */ jsxs(Select, {
+						value: pick,
+						onValueChange: setPick,
+						children: [/* @__PURE__ */ jsx(SelectTrigger, {
+							className: "h-8 w-56 text-xs",
+							children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Add from library…" })
+						}), /* @__PURE__ */ jsx(SelectContent, { children: sortedMonsters.map((m, i) => /* @__PURE__ */ jsx(SelectItem, {
+							value: m.name,
+							children: m.name
+						}, i)) })]
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "outline",
+						disabled: !pick,
+						onClick: addFromLibrary,
+						children: "Add from library"
+					})
+				]
 			}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "rounded-md border border-destructive/40 p-3",
@@ -13135,9 +13625,9 @@ function FamiliarTab() {
 							}),
 							/* @__PURE__ */ jsx(LabeledInput, {
 								label: "Speed",
-								value: fam.speed,
+								value: feetToSpacesText(fam.speed) || "",
 								onChange: (v) => setFam({ speed: v }),
-								placeholder: "30 ft., fly 60 ft."
+								placeholder: "6 spaces, fly 12 spaces"
 							})
 						]
 					})
@@ -13180,9 +13670,9 @@ function FamiliarTab() {
 					}),
 					/* @__PURE__ */ jsx(LabeledInput, {
 						label: "Senses",
-						value: fam.senses,
+						value: feetToSpacesText(fam.senses) || "",
 						onChange: (v) => setFam({ senses: v }),
-						placeholder: "Darkvision 60 ft."
+						placeholder: "Darkvision 12 spaces"
 					}),
 					/* @__PURE__ */ jsx(LabeledInput, {
 						label: "Languages",
@@ -13619,9 +14109,9 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 									}),
 									/* @__PURE__ */ jsx(Field, {
 										label: "Speed",
-										value: m.speed,
+										value: feetToSpacesText(m.speed) || "",
 										onChange: (v) => patch({ speed: v }),
-										placeholder: "30 ft., fly 60 ft."
+										placeholder: "6 spaces, fly 12 spaces"
 									})
 								]
 							})
@@ -13642,9 +14132,9 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 							}),
 							/* @__PURE__ */ jsx(Field, {
 								label: "Senses",
-								value: m.senses,
+								value: feetToSpacesText(m.senses) || "",
 								onChange: (v) => patch({ senses: v }),
-								placeholder: "Darkvision 60 ft."
+								placeholder: "Darkvision 12 spaces"
 							}),
 							/* @__PURE__ */ jsx(Field, {
 								label: "Languages",
@@ -22156,8 +22646,8 @@ function SendToSubtreeDialog({ open, rows, onClose }) {
 }
 //#endregion
 //#region src/lib/unlocked.js
-function groupUnlocked(nodes) {
-	const list = (nodes || []).filter((n) => !n.__hostCopy);
+function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
+	const list = (nodes || []).filter((n) => !n.__hostCopy && (includeAutoGranted || !n.__autoGranted));
 	const byAcquired = (a, b) => (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
 	const heritage = list.filter((n) => poolForNode(n) === "heritage").sort(byAcquired);
 	const attributes = list.filter((n) => poolForNode(n) === "attribute").sort(byAcquired);
@@ -22887,6 +23377,8 @@ function SpeedSection({ sheet, character, setCharacter, tree, types, enc }) {
 		const notes = [];
 		if (isStd && d.encPenalty > 0) notes.push(`−${d.encPenalty} encumbered`);
 		if (isStd && d.smallPenalty > 0) notes.push(`−${d.smallPenalty} small`);
+		if (isStd && d.exhaustPenalty > 0) notes.push(`−${d.exhaustPenalty} exhaustion`);
+		if (isStd && d.exertPenalty > 0) notes.push(`−${d.exertPenalty} exertion`);
 		return /* @__PURE__ */ jsx(MovementCell, {
 			label: t,
 			final: d.final ?? base,
@@ -23116,7 +23608,7 @@ function ConditionTracks() {
 			label: "Exhaustion",
 			value: exhaustion,
 			onChange: (n) => set({ exhaustion: Math.max(0, n - exhaustionAdds) }),
-			note: `${penalty > 0 ? `−${penalty} to d20 tests · ` : ""}−5 ft speed per stage · max 6`
+			note: `${penalty > 0 ? `−${penalty} to d20 tests · ` : ""}−1 space speed per stage · max 6`
 		}),
 		/* @__PURE__ */ jsx(StageTrack, {
 			label: "Exertion",
@@ -23572,7 +24064,7 @@ function CharacterTab() {
 	});
 	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
 	const dev = !!character.devMode;
-	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? tree?.nodes || [] : unlocked);
+	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? tree?.nodes || [] : unlocked, { includeAutoGranted: dev });
 	const testAdjust = (n, delta) => {
 		investPoint(n.id, delta);
 		if ((n.proficiencies || []).length) setCharacter((c) => ({
@@ -24856,7 +25348,7 @@ function CarryCalculator({ character, setCharacter }) {
 							" lb · Max",
 							" ",
 							Math.round(enc.max),
-							" lb — past Light −10 ft speed, past Heavy −20 ft."
+							" lb — past Light −2 spaces of speed, past Heavy −4 spaces."
 						]
 					}),
 					enc.penalty > 0 && /* @__PURE__ */ jsxs("p", {
@@ -24864,7 +25356,7 @@ function CarryCalculator({ character, setCharacter }) {
 						children: [
 							"Encumbered: −",
 							enc.penalty,
-							" ft speed (applied to Speed above)."
+							" spaces of speed (applied to Speed above)."
 						]
 					})
 				]
@@ -26379,8 +26871,8 @@ function aoeText(spell = {}) {
 	if (!shape) return spell.aoe || "";
 	const size = Number(spell.aoeSize) || 0;
 	if (!size) return shape;
-	if (shape === "Sphere" || shape === "Cylinder" || shape === "Emanation") return `${size}-foot-${spell.aoeMeasure === "diameter" ? "diameter" : "radius"} ${shape}`;
-	return `${size}-foot ${shape}`;
+	if (shape === "Sphere" || shape === "Cylinder" || shape === "Emanation") return `${size}-space-${spell.aoeMeasure === "diameter" ? "diameter" : "radius"} ${shape}`;
+	return `${size}-space ${shape}`;
 }
 function componentsText(spell) {
 	const s = spell || {};
@@ -26474,7 +26966,7 @@ function UpcastBlock({ scaling, note }) {
 				if (dice && size) parts.push(`${dice}${size}`);
 				else if (dice) parts.push(`${dice} dice`);
 				else if (size) parts.push(`die size ${size}`);
-				if (Number(r.aoeSize)) parts.push(`AoE +${r.aoeSize} ft.`);
+				if (Number(r.aoeSize)) parts.push(`AoE +${r.aoeSize} spaces`);
 				if (r.targets !== "" && r.targets != null) parts.push(`${r.targets} targets`);
 				if (r.repeats !== "" && r.repeats != null) parts.push(`repeats: ${r.repeats}`);
 				if (r.effect) parts.push(r.effect);
@@ -30062,7 +30554,7 @@ function CombatTracker({ tracker, setTracker, monsters }) {
 	const sortedMonsters = useMemo(() => {
 		const arr = [...monsters];
 		if (sort === "type") arr.sort((a, b) => (a.type || "").localeCompare(b.type || "") || (a.name || "").localeCompare(b.name || ""));
-		else if (sort === "cr") arr.sort((a, b) => crNum$1(a.cr) - crNum$1(b.cr) || (a.name || "").localeCompare(b.name || ""));
+		else if (sort === "cr") arr.sort((a, b) => crNum$2(a.cr) - crNum$2(b.cr) || (a.name || "").localeCompare(b.name || ""));
 		else arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 		return arr;
 	}, [monsters, sort]);
@@ -33619,7 +34111,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			}),
 			!tool && /* @__PURE__ */ jsx("div", {
 				className: "pointer-events-none absolute left-3 top-3 max-w-md rounded-md border bg-background/90 px-2.5 py-1 text-xs shadow text-muted-foreground",
-				children: "1 space = one 5 ft square. Middle-drag to pan, drag on empty ground to box-select, scroll to zoom, drag an item's edge to resize, press R to rotate the selection, right-click a room to attach a Cellar, Floor or Attic and place rooms inside it."
+				children: "1 space = one square. Middle-drag to pan, drag on empty ground to box-select, scroll to zoom, drag an item's edge to resize, press R to rotate the selection, right-click a room to attach a Cellar, Floor or Attic and place rooms inside it."
 			})
 		]
 	});
@@ -37316,7 +37808,7 @@ function Homebuilder({ onExit }) {
 					children: "Homebuilder"
 				}), /* @__PURE__ */ jsx("p", {
 					className: "mt-1 text-sm text-muted-foreground",
-					children: "Design a home, business, bastion or any hybrid of the three — one grid space per 5 ft square."
+					children: "Design a home, business, bastion or any hybrid of the three — one grid space per square."
 				})]
 			}),
 			/* @__PURE__ */ jsx("div", {
@@ -38773,7 +39265,7 @@ function PresentationSheet({ innerRef, onExport }) {
 	const capacity = carryCapacity(character, tree);
 	const spells = character.spellList || [];
 	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
-	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes } = groupUnlocked(unlocked);
+	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes } = groupUnlocked(unlocked, { includeAutoGranted: !!character.devMode });
 	const profGroups = [
 		["Skill", (character.proficiencies || {}).skills],
 		["Tool", (character.proficiencies || {}).tools],
@@ -39312,7 +39804,7 @@ function profLines(character) {
 }
 function buildText(character, tree, pools, usage, resources, raw, levels) {
 	const eff = effectivePools(pools, character, tree, levels);
-	const { heritage: heritageNodes, talentGroups } = groupUnlocked(tree.nodes.filter((n) => (n.currentPoints || 0) > 0));
+	const { heritage: heritageNodes, talentGroups } = groupUnlocked(tree.nodes.filter((n) => (n.currentPoints || 0) > 0), { includeAutoGranted: !!character.devMode });
 	const L = [];
 	if (raw) {
 		L.push(`name=${character.name || ""}`);

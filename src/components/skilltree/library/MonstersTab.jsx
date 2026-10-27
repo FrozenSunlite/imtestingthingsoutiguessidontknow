@@ -16,6 +16,7 @@ import {
 import { ChevronDown, ChevronRight, Plus, X, ArrowUpDown, UserPlus } from "lucide-react";
 import { monsterToStatblock } from "@/components/skilltree/FamiliarTab";
 import { ImageField } from "@/components/skilltree/ImageField";
+import { feetToSpacesText } from "@/lib/resources";
 
 // Reference Library tab: a log of monsters. Each entry is a full statblock
 // (sorted by name, CR, type, alignment…), can carry inventory — a weapon adds
@@ -279,7 +280,7 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
             <div className="mt-2 grid grid-cols-3 gap-1.5">
               <Field label="AC" value={m.ac} onChange={(v) => patch({ ac: v })} placeholder="13" />
               <Field label="HP" value={m.hp} onChange={(v) => patch({ hp: v })} placeholder="45" />
-              <Field label="Speed" value={m.speed} onChange={(v) => patch({ speed: v })} placeholder="30 ft., fly 60 ft." />
+              <Field label="Speed" value={feetToSpacesText(m.speed) || ""} onChange={(v) => patch({ speed: v })} placeholder="6 spaces, fly 12 spaces" />
             </div>
           </div>
 
@@ -288,7 +289,7 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 
           <div className="grid grid-cols-3 gap-1.5">
             <Field label="CR" value={m.cr} onChange={(v) => patch({ cr: v })} placeholder="1/2" />
-            <Field label="Senses" value={m.senses} onChange={(v) => patch({ senses: v })} placeholder="Darkvision 60 ft." />
+            <Field label="Senses" value={feetToSpacesText(m.senses) || ""} onChange={(v) => patch({ senses: v })} placeholder="Darkvision 12 spaces" />
             <Field label="Languages" value={m.languages} onChange={(v) => patch({ languages: v })} placeholder="—" />
           </div>
           <Textarea
