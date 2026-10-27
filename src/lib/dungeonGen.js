@@ -375,11 +375,14 @@ function insertBonfires(spine, rng) {
     out.push(room);
     if (ENCOUNTER_CATEGORIES.has(room.category)) encounters += 1;
     const last = i === spine.length - 1;
-    if (encounters >= 2 && !last) {
+    // Never place a camp after the final room, after a boss, or at the end of
+    // the run. The boss sanctum must always be the last thing on the path.
+    if (encounters >= 2 && !last && room.category !== "Boss") {
       out.push(makeBonfire(rng));
       encounters = 0;
     }
   });
+  while (out.length && out[out.length - 1]?.bonfire) out.pop();
   return out;
 }
 
@@ -462,7 +465,7 @@ export function generateDungeon({
       if (!restFloor && !last) encounterFloors += 1;
       // A bonfire landing after every two encounter floors. All paths from the
       // previous floor converge here, then descend to the next floor.
-      if (encounterFloors >= 2 && !last) {
+      if (encounterFloors >= 2 && !last && !current.some((r) => r.category === "Boss")) {
         const camp = makeBonfire(rng);
         camp.x = f * 22 + 11;
         camp.y = 0;
@@ -520,7 +523,11 @@ export function generateDungeon({
           link(expandedSpine[i].id, expandedSpine[i + 1].id, expandedSpine[i].connector)
         );
       }
-      rooms.push(...expandedSpine.filter((r) => !spine.includes(r)));
+      // Rebuild the room order so bonfires appear between their neighbouring
+      // rooms and the boss remains the final room of the run.
+      const branchRooms = rooms.filter((r) => r.branch);
+      rooms.length = 0;
+      rooms.push(...expandedSpine, ...branchRooms);
     }
     positionSingle(rooms, rng);
     title = name || `${rank} Dungeon`;

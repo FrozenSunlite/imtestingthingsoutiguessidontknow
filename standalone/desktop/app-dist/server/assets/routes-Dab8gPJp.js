@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CNTDJHq9.js";
+import { n as Button, r as cn } from "./router-DewRqKVQ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3611,11 +3611,12 @@ function insertBonfires(spine, rng) {
 		out.push(room);
 		if (ENCOUNTER_CATEGORIES.has(room.category)) encounters += 1;
 		const last = i === spine.length - 1;
-		if (encounters >= 2 && !last) {
+		if (encounters >= 2 && !last && room.category !== "Boss") {
 			out.push(makeBonfire(rng));
 			encounters = 0;
 		}
 	});
+	while (out.length && out[out.length - 1]?.bonfire) out.pop();
 	return out;
 }
 function positionSingle(rooms, rng) {
@@ -3684,7 +3685,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			});
 			previous = current;
 			if (!current.every((r) => ["Rest", "Shop"].includes(r.category)) && !last) encounterFloors += 1;
-			if (encounterFloors >= 2 && !last) {
+			if (encounterFloors >= 2 && !last && !current.some((r) => r.category === "Boss")) {
 				const camp = makeBonfire(rng);
 				camp.x = f * 22 + 11;
 				camp.y = 0;
@@ -3738,7 +3739,9 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			connections.length = 0;
 			connections.push(...branchLinks);
 			for (let i = 0; i < expandedSpine.length - 1; i += 1) connections.push(link(expandedSpine[i].id, expandedSpine[i + 1].id, expandedSpine[i].connector));
-			rooms.push(...expandedSpine.filter((r) => !spine.includes(r)));
+			const branchRooms = rooms.filter((r) => r.branch);
+			rooms.length = 0;
+			rooms.push(...expandedSpine, ...branchRooms);
 		}
 		positionSingle(rooms, rng);
 		title = name || `${rank} Dungeon`;
