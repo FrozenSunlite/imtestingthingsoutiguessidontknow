@@ -1,0 +1,1 @@
+import{n as e}from"./routes-nSHdgxA4.js";export default e();

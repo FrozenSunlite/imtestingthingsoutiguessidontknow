@@ -81,7 +81,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
         <div className="space-y-3">
           {menuBtn(<Plus className="h-5 w-5" />, "New", "Start a fresh skill tree", () => { if (window.confirm("Starting a new project will erase any unsaved changes. Continue?")) startNewTree(); })}
           <div className="grid grid-cols-2 gap-3">
-            {menuBtn(<Play className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />, "Continue", "Resume current tree without clearing", () => { if (hasProject) enterApp("edit"); })}
+            {menuBtn(<Play className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />, "Continue", "Resume current tree without clearing", () => { if (hasProject) enterApp("edit"); }, (!hasProject && !devMode))}
             {menuBtn(<FolderOpen className="h-5 w-5" />, "Save / Load", "Save or load a project", () => setSaveOpen(true))}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -140,7 +140,6 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
       <SettingsMenu open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SaveLoadMenu open={loadOpen} onClose={() => setLoadOpen(false)} />
       <StandaloneCopyDialog open={copyOpen} onClose={() => setCopyOpen(false)} />
-    <p className="mt-4 text-center text-[10px] text-muted-foreground/70">Not for Commercial Resale</p>
     </div>
   );
 }
