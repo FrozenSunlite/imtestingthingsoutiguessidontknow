@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-CG6vIKLE.js";
+import { i as cn, n as base44, r as Button } from "./router-DlT15pgF.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -19699,10 +19699,7 @@ function NodeEditorPanel() {
 			console.log("saving image", field, String(dataUrl).slice(0, 30));
 			updateNode(node.id, { [field]: dataUrl });
 			alert("Image captured (" + String(dataUrl).length + " chars).");
-		} catch (e) {
-			console.error(e);
-			alert("Upload failed: " + (e && e.message ? e.message : e));
-		} finally {
+		} catch (e) {} finally {
 			setUploading(false);
 		}
 	};

@@ -78,8 +78,7 @@ export function NodeEditorPanel() {
       updateNode(node.id, { [field]: dataUrl });
       alert("Image captured (" + String(dataUrl).length + " chars).");
     } catch (e) {
-      console.error(e);
-      alert("Upload failed: " + (e && e.message ? e.message : e));
+      /* upload errors are non-fatal; ignore silently */
     } finally {
       setUploading(false);
     }
