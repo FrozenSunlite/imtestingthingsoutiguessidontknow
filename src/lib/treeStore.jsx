@@ -1905,6 +1905,8 @@ export function TreeProvider({ children }) {
 
   // "New" on the launch menu: a fresh blank project.
   const startNewTree = useCallback(() => {
+    const hasWork = (tree?.nodes?.length || 0) > 0 || !!character?.name;
+    if (hasWork && !window.confirm("Starting a new project will erase your current work. Continue?")) return;
     setTreeRaw({
       name: "New Skill Tree",
       nodes: [],

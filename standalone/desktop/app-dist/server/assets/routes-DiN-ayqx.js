@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-Bc1JqEaK.js";
+import { i as cn, n as base44, r as Button } from "./router-Chkl_LSF.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -5353,6 +5353,7 @@ function TreeProvider({ children }) {
 		setScreen("app");
 	}, []);
 	const startNewTree = useCallback(() => {
+		if (((tree?.nodes?.length || 0) > 0 || !!character?.name) && !window.confirm("Starting a new project will erase your current work. Continue?")) return;
 		setTreeRaw({
 			name: "New Skill Tree",
 			nodes: [],
