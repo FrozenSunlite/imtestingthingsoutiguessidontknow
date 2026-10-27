@@ -28,6 +28,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
 
   const menuBtn = (icon, title, sub, onClick) => (
@@ -113,6 +114,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
           {menuBtn(<Power className="h-5 w-5" />, "Exit", "Close the app", exit)}
         </div>
       </div>
+      <SaveLoadMenu open={saveOpen} onClose={() => setSaveOpen(false)} />
       <Dialog open={rulebookOpen} onOpenChange={setRulebookOpen}>
         <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-4xl">
           <DialogHeader>
@@ -127,4 +129,6 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
+
 
