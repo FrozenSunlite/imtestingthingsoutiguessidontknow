@@ -12,10 +12,10 @@ import {
   sanitizeKey,
   ACTION_CATEGORIES,
   BUILTIN_ROW_ORDER,
-  BUILTIN_KEYS,
   SIZE_LABELS,
   totalCarried,
   repeatsFor,
+  customResourceList,
 } from "@/lib/resources";
 import { resolveResourceDie } from "@/lib/dieScaling";
 import { CapacityBar } from "./CapacityBar";
@@ -75,7 +75,7 @@ export function PresentationSheet({ innerRef, onExport }) {
     vars
   );
   const spent = character.actionUses || {};
-  const customs = aggregated.filter((e) => !BUILTIN_KEYS.has(e.name));
+  const customs = customResourceList(aggregated, settings?.library);
   const currencies = (settings?.library?.currencies || []).filter((c) => c.key || c.name);
   const coins = character.coins || {};
   const items = character.inventory || [];
@@ -134,6 +134,7 @@ export function PresentationSheet({ innerRef, onExport }) {
   const derivedText = (k, d) => {
     if (k === "Creature Type") return d.text;
     if (k === "Size" || k === "Count as Size") return SIZE_LABELS[d.idx] ?? "Medium";
+    if (k === "Inspiration") return `${d.filled ?? 0}/${d.slots ?? 1}`;
     return String(d.final ?? d);
   };
 
@@ -245,7 +246,12 @@ export function PresentationSheet({ innerRef, onExport }) {
                 const die = resolveResourceDie(r, settings?.library);
                 return (
                 <div key={r.name} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs">
-                  <span className="font-medium">{r.name}</span>
+                  <span
+                    className="font-medium"
+                    style={{ color: r.color && r.color !== "#ffffff" ? r.color : undefined }}
+                  >
+                    {r.name}
+                  </span>
                   <span className="font-mono text-slate-700">
                     {r.value}
                     {die && /\d*d\d/.test(die.text) ? ` · ${die.text}` : ""}

@@ -378,6 +378,7 @@ const DEFAULT_CHARACTER = {
   tokenFrameUri: "",
   inspiration: 0,
   exhaustion: 0,
+  exertion: 0,
   trackEncumbrance: false,
   backstory: "",
   appearance: { eyes: "", skin: "", hair: "", height: "", weight: "" },

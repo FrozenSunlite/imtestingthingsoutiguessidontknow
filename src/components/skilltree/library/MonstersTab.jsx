@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, Plus, X, ArrowUpDown, UserPlus } from "lucide-react";
 import { monsterToStatblock } from "@/components/skilltree/FamiliarTab";
+import { ImageField } from "@/components/skilltree/ImageField";
 
 // Reference Library tab: a log of monsters. Each entry is a full statblock
 // (sorted by name, CR, type, alignment…), can carry inventory — a weapon adds
@@ -23,7 +24,7 @@ import { monsterToStatblock } from "@/components/skilltree/FamiliarTab";
 // legendary resistances…) defined in the tab's template section.
 
 const BLANK = {
-  name: "", size: "", type: "", alignment: "", cr: "", description: "", flavor: "",
+  name: "", image: "", size: "", type: "", alignment: "", cr: "", description: "", flavor: "",
   ac: "", hp: "", speed: "", abilities: "", senses: "", languages: "",
   traits: [], actions: [], reactions: [], proficiencies: [], inventory: [], templates: [],
 };
@@ -213,6 +214,14 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
         <button type="button" onClick={() => setOpen(!open)} className="shrink-0">
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
+        {m.image && (
+          <img
+            src={m.image}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded border object-cover"
+            style={{ imageRendering: "pixelated" }}
+          />
+        )}
         <Input
           className="h-8 flex-1 font-semibold"
           placeholder="Monster name"
@@ -236,7 +245,7 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
           <X className="h-4 w-4" />
         </Button>
       </div>
-      {(m.description || m.alignment || eff.ac || eff.hp || eff.spellcasting || eff.legendary) && (
+      {!!(m.description || m.alignment || eff.ac || eff.hp || eff.spellcasting || eff.legendary > 0) && (
         <div className="mt-1 space-y-0.5 px-5 text-xs text-muted-foreground">
           {m.alignment && <p>Alignment: {m.alignment}</p>}
           {(eff.ac || eff.hp) && (
@@ -255,7 +264,14 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
         <div className="mt-2 space-y-2">
           {/* Statblock header: identity + defense, portioned like the Familiar page */}
           <div className="rounded-md border border-destructive/40 p-2">
-            <div className="grid grid-cols-3 gap-1.5">
+            <ImageField
+              label="Artwork"
+              value={m.image || ""}
+              onChange={(v) => patch({ image: v })}
+              previewClass="h-28 w-28"
+              info="Shown on the monster row here and carried into the familiar when imported."
+            />
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
               <Field label="Size" value={m.size} onChange={(v) => patch({ size: v })} placeholder="Huge" />
               <Field label="Type" value={m.type} onChange={(v) => patch({ type: v })} placeholder="Beast" />
               <Field label="Alignment" value={m.alignment} onChange={(v) => patch({ alignment: v })} placeholder="Unaligned" />

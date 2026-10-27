@@ -37,6 +37,7 @@ export function ProficienciesEditor({ node, set }) {
             : p.type === "armor"
             ? "lib-armor"
             : "lib-skills";
+        const isSave = p.type === "savingThrow";
         return (
           <div key={i} className="space-y-1.5 rounded-md border p-2">
             <div className="flex items-center gap-1">
@@ -63,29 +64,46 @@ export function ProficienciesEditor({ node, set }) {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <Input
-              className="h-8"
-              list={listId}
-              placeholder={
-                p.type === "choice"
-                  ? "Describe the choice (e.g. any skill)"
-                  : `What ${p.type || "skill"} it grants`
-              }
-              value={p.name || ""}
-              onChange={(e) => patch({ name: e.target.value })}
-            />
+            {isSave ? (
+              <Select value={p.name || "STR"} onValueChange={(v) => patch({ name: v })}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["STR", "DEX", "CON", "INT", "WIS", "CHA"].map((s) => (
+                    <SelectItem key={s} value={s}>{s} saving throw</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                className="h-8"
+                list={listId}
+                placeholder={
+                  p.type === "choice"
+                    ? "Describe the choice (e.g. any skill)"
+                    : `What ${p.type || "skill"} it grants`
+                }
+                value={p.name || ""}
+                onChange={(e) => patch({ name: e.target.value })}
+              />
+            )}
             {p.type === "choice" && (
               <p className="text-[10px] text-muted-foreground">
                 The actual proficiency is typed on the character sheet once this node is unlocked.
               </p>
             )}
-            <label className="flex items-center gap-1.5 text-xs">
-              <Switch
-                checked={!!p.expertise}
-                onCheckedChange={(v) => patch({ expertise: v })}
-              />
-              Grants Expertise
-            </label>
+            {isSave ? (
+              <p className="text-[10px] text-muted-foreground">
+                The sheet marks that saving throw as proficient while this node is invested.
+              </p>
+            ) : (
+              <label className="flex items-center gap-1.5 text-xs">
+                <Switch
+                  checked={!!p.expertise}
+                  onCheckedChange={(v) => patch({ expertise: v })}
+                />
+                Grants Expertise
+              </label>
+            )}
           </div>
         );
       })}

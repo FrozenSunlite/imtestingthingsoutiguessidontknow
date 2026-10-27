@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { useTree, aggregateResources, statVars, profBonusFor } from "@/lib/treeStore";
 import {
   derivedSheet,
-  BUILTIN_KEYS,
   BUILTIN_ROW_ORDER,
   SIZE_LABELS,
   STATS,
+  customResourceList,
 } from "@/lib/resources";
 import { resolveResourceDie } from "@/lib/dieScaling";
 import { Input } from "@/components/ui/input";
@@ -54,16 +54,14 @@ export function DerivedResourcesSection() {
       .filter((r) => r?.name)
       .map((r) => [String(r.name).toLowerCase(), r])
   );
-  const customs = aggregated
-    .filter((e) => !BUILTIN_KEYS.has(e.name))
-    .map((e) => {
-      const lib = libByName.get(String(e.name).toLowerCase());
-      if (!lib) return e;
-      return {
-        ...e,
-        color: e.color === "#ffffff" ? lib.color || e.color : e.color,
-      };
-    });
+  const customs = customResourceList(aggregated, settings?.library).map((e) => {
+    const lib = libByName.get(String(e.name).toLowerCase());
+    if (!lib) return e;
+    return {
+      ...e,
+      color: e.color === "#ffffff" ? lib.color || e.color : e.color,
+    };
+  });
   const set = (patch) => setCharacter({ ...character, ...patch });
 
   // The hit-dice field is free text: "#d#" (e.g. "3d8") overrides both the
@@ -101,6 +99,8 @@ export function DerivedResourcesSection() {
             display = d.text;
           } else if (isSize) {
             display = SIZE_LABELS[d.idx] ?? "Medium";
+          } else if (k === "Inspiration") {
+            display = `${d.filled ?? 0}/${d.slots ?? 1}`;
           } else {
             display = ov != null ? ov : d.final;
           }
@@ -118,6 +118,16 @@ export function DerivedResourcesSection() {
                 {k === "Speed" && d.encPenalty > 0 && (
                   <span className="rounded bg-orange-100 px-1 text-[9px] font-medium text-orange-600 dark:bg-orange-950 dark:text-orange-300">
                     enc −{d.encPenalty}
+                  </span>
+                )}
+                {k === "Speed" && d.exhaustPenalty > 0 && (
+                  <span className="rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-600 dark:bg-amber-950 dark:text-amber-300">
+                    exhaustion −{d.exhaustPenalty}
+                  </span>
+                )}
+                {k === "Speed" && d.exertPenalty > 0 && (
+                  <span className="rounded bg-red-100 px-1 text-[9px] font-medium text-red-600 dark:bg-red-950 dark:text-red-300">
+                    exertion −{d.exertPenalty}
                   </span>
                 )}
                 {k === "Speed" && d.smallPenalty > 0 && (

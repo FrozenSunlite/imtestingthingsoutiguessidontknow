@@ -54,6 +54,7 @@ export const BUILTIN_RESOURCES = [
   { key: "Spell Attacks", group: "Core" },
   { key: "Save DCs", group: "Core" },
   { key: "Proficiency Bonus", group: "Core" },
+  { key: "Saving Throws", group: "Core" },
   { key: "Initiative", group: "Core" },
   { key: "Darkvision", group: "Senses" },
   { key: "Blindsight", group: "Senses" },
@@ -62,6 +63,7 @@ export const BUILTIN_RESOURCES = [
   { key: "Barrier", group: "Core" },
   { key: "Inspiration", group: "Core" },
   { key: "Exhaustion", group: "Core" },
+  { key: "Exertion", group: "Core" },
   { key: "Creature Type", group: "Type" },
   { key: "Size", group: "Size" },
   { key: "Count as Size", group: "Size" },
@@ -86,9 +88,11 @@ export const BUILTIN_ROW_ORDER = [
   "Spell Attacks",
   "Save DCs",
   "Proficiency Bonus",
+  "Saving Throws",
   "Initiative",
   "Inspiration",
   "Exhaustion",
+  "Exertion",
   "Creature Type",
   "Size",
   "Count as Size",
@@ -129,6 +133,17 @@ export const ACTION_CATEGORIES = [
   ["downtime", "Downtime"],
 ];
 
+// 2014-style Exertion is a second six-stage track. Its effects are cumulative
+// and shown on the sheet; Speed and maximum HP are also adjusted automatically.
+export const EXERTION_EFFECTS = [
+  "Disadvantage on ability checks",
+  "Speed halved",
+  "Disadvantage on attack rolls and saving throws",
+  "Hit point maximum halved",
+  "Speed reduced to 0",
+  "Death",
+];
+
 // Formula variables are keyed without spaces: "Superiority Dice" → SuperiorityDice.
 export const sanitizeKey = (name) => String(name || "").replace(/[^A-Za-z0-9]/g, "");
 
@@ -152,6 +167,38 @@ export function resourceCatalog(tree, manualResources = [], lib = null) {
     if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), { name, builtin: false });
   });
   return [...BUILTIN_RESOURCES.map((r) => ({ name: r.key, builtin: true, group: r.group })), ...custom.values()];
+}
+
+// Every custom resource the sheet should show: resources granted by nodes or
+// present on the character, plus every Reference Library resource even when it
+// has no current value yet. Library entries appear at 0 so the catalogue and
+// the sheet stay in sync.
+export function customResourceList(aggregated = [], lib = null) {
+  const rows = (aggregated || []).filter((e) => e && !BUILTIN_KEYS.has(e.name));
+  const seen = new Set(rows.map((e) => String(e.name).toLowerCase()));
+  (lib?.resources || []).forEach((r) => {
+    const name = String(r?.name || "").trim();
+    if (!name || seen.has(name.toLowerCase()) || BUILTIN_KEYS.has(name)) return;
+    seen.add(name.toLowerCase());
+    rows.push({
+      name,
+      color: r.color || "#ffffff",
+      uses: 0,
+      value: "0",
+      diceParts: [],
+      text: "",
+      typeParts: [],
+      grant: null,
+      replaced: null,
+      dieSize: "",
+      dieAdjust: 0,
+      dieOverride: "",
+      recovery: "",
+      recoveryAmount: "",
+      libraryOnly: true,
+    });
+  });
+  return rows;
 }
 
 // Ranked search over a catalog: starts-with matches first, then contains.
@@ -402,16 +449,30 @@ export function derivedSheet(
   out["Armor Class"] = acEntry;
   const enc = encumbranceInfo(character, tree);
   const smallPen = character.smallRaceHeritage ? 5 : 0;
+  // Exhaustion (2024) and Exertion (2014-style) both affect movement.
+  const ex = val("Exhaustion", Number(character.exhaustion) || 0);
+  const exStages = Math.max(0, Math.min(6, Math.round(ex.final)));
+  const exr = val("Exertion", Number(character.exertion) || 0);
+  const exrStages = Math.max(0, Math.min(6, Math.round(exr.final)));
   out["Speed"] = val(
     "Speed",
     (Number(character.speed ?? 6) || 0) + (Number(character.modifiers?.speed) || 0)
   );
-  out["Speed"].final = Math.max(
+  let speedFinal = Math.max(
     0,
     out["Speed"].final - smallPen - (character.trackEncumbrance ? enc.penalty : 0)
   );
+  // 2024 Exhaustion: −5 ft (one space) per stage.
+  speedFinal = Math.max(0, speedFinal - exStages);
+  // 2014-style Exertion: halved at stage 2, reduced to 0 at stage 5.
+  const beforeExertion = speedFinal;
+  if (exrStages >= 2) speedFinal = Math.floor(speedFinal / 2);
+  if (exrStages >= 5) speedFinal = 0;
+  out["Speed"].final = speedFinal;
   out["Speed"].encPenalty = character.trackEncumbrance ? enc.penalty : 0;
   out["Speed"].smallPenalty = smallPen;
+  out["Speed"].exhaustPenalty = exStages;
+  out["Speed"].exertPenalty = Math.max(0, beforeExertion - speedFinal);
   // Movement in spaces: jump distances (2 horizontal / 1 vertical by default),
   // per-type speeds (Standard is the Speed above; others start at 0 or their
   // saved value) and sense ranges. Nodes add to or replace each by name.
@@ -428,6 +489,7 @@ export function derivedSheet(
     out[s] = val(s, Number(character.senses?.[s] ?? 0) || 0);
   });
   out["Proficiency Bonus"] = val("Proficiency Bonus", profBonus);
+  out["Saving Throws"] = val("Saving Throws", 0);
   out["Spell Attacks"] = val("Spell Attacks", profBonus + sm);
   out["Save DCs"] = val("Save DCs", 8 + profBonus + sm);
   // Hit dice: the quantity defaults to the level (or an explicit
@@ -481,13 +543,31 @@ export function derivedSheet(
     ).join(" "),
     adds: ctAdds,
   };
-  const ex = val("Exhaustion", Number(character.exhaustion) || 0);
-  const stages = Math.max(0, Math.min(6, Math.round(ex.final)));
-  out["Exhaustion"] = { ...ex, final: stages, penalty: 2 * stages };
+  out["Exhaustion"] = {
+    ...ex,
+    final: exStages,
+    penalty: 2 * exStages,
+    speedPenalty: exStages,
+  };
+  out["Exertion"] = {
+    ...exr,
+    final: exrStages,
+    effects: EXERTION_EFFECTS.slice(0, exrStages),
+    speedMultiplier: exrStages >= 5 ? 0 : exrStages >= 2 ? 0.5 : 1,
+    hpMaxMultiplier: exrStages >= 4 ? 0.5 : 1,
+  };
   const init = val("Initiative", mod("DEX"));
-  init.final = init.final - 2 * stages;
+  init.final = init.final - 2 * exStages;
   out["Initiative"] = init;
-  out["Inspiration"] = val("Inspiration", Number(character.inspiration) || 0);
+  // Inspiration is one slot; talents can add more. `filled` is how many of
+  // those slots the player currently has marked.
+  const insp = val("Inspiration", 1);
+  const inspSlots = Math.max(0, Math.round(insp.final));
+  out["Inspiration"] = {
+    ...insp,
+    slots: inspSlots,
+    filled: Math.max(0, Math.min(inspSlots, Number(character.inspiration) || 0)),
+  };
   return out;
 }
 

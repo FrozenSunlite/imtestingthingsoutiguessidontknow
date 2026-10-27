@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BbdvWH_J.js";
+import { n as Button, r as cn } from "./router-cY-Cnhx9.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -2164,6 +2164,10 @@ var BUILTIN_RESOURCES = [
 		group: "Core"
 	},
 	{
+		key: "Saving Throws",
+		group: "Core"
+	},
+	{
 		key: "Initiative",
 		group: "Core"
 	},
@@ -2193,6 +2197,10 @@ var BUILTIN_RESOURCES = [
 	},
 	{
 		key: "Exhaustion",
+		group: "Core"
+	},
+	{
+		key: "Exertion",
 		group: "Core"
 	},
 	{
@@ -2255,9 +2263,11 @@ var BUILTIN_ROW_ORDER = [
 	"Spell Attacks",
 	"Save DCs",
 	"Proficiency Bonus",
+	"Saving Throws",
 	"Initiative",
 	"Inspiration",
 	"Exhaustion",
+	"Exertion",
 	"Creature Type",
 	"Size",
 	"Count as Size",
@@ -2308,6 +2318,14 @@ var ACTION_CATEGORIES = [
 	["reaction", "Reaction"],
 	["downtime", "Downtime"]
 ];
+var EXERTION_EFFECTS = [
+	"Disadvantage on ability checks",
+	"Speed halved",
+	"Disadvantage on attack rolls and saving throws",
+	"Hit point maximum halved",
+	"Speed reduced to 0",
+	"Death"
+];
 var sanitizeKey = (name) => String(name || "").replace(/[^A-Za-z0-9]/g, "");
 function resourceCatalog(tree, manualResources = [], lib = null) {
 	const custom = /* @__PURE__ */ new Map();
@@ -2337,6 +2355,33 @@ function resourceCatalog(tree, manualResources = [], lib = null) {
 		builtin: true,
 		group: r.group
 	})), ...custom.values()];
+}
+function customResourceList(aggregated = [], lib = null) {
+	const rows = (aggregated || []).filter((e) => e && !BUILTIN_KEYS.has(e.name));
+	const seen = new Set(rows.map((e) => String(e.name).toLowerCase()));
+	(lib?.resources || []).forEach((r) => {
+		const name = String(r?.name || "").trim();
+		if (!name || seen.has(name.toLowerCase()) || BUILTIN_KEYS.has(name)) return;
+		seen.add(name.toLowerCase());
+		rows.push({
+			name,
+			color: r.color || "#ffffff",
+			uses: 0,
+			value: "0",
+			diceParts: [],
+			text: "",
+			typeParts: [],
+			grant: null,
+			replaced: null,
+			dieSize: "",
+			dieAdjust: 0,
+			dieOverride: "",
+			recovery: "",
+			recoveryAmount: "",
+			libraryOnly: true
+		});
+	});
+	return rows;
 }
 function searchCatalog(items, query) {
 	const q = String(query || "").trim().toLowerCase();
@@ -2565,10 +2610,21 @@ function derivedSheet(character, tree, levels, aggregated, profBonus, stats, lib
 	out["Armor Class"] = acEntry;
 	const enc = encumbranceInfo(character, tree);
 	const smallPen = character.smallRaceHeritage ? 5 : 0;
+	const ex = val("Exhaustion", Number(character.exhaustion) || 0);
+	const exStages = Math.max(0, Math.min(6, Math.round(ex.final)));
+	const exr = val("Exertion", Number(character.exertion) || 0);
+	const exrStages = Math.max(0, Math.min(6, Math.round(exr.final)));
 	out["Speed"] = val("Speed", (Number(character.speed ?? 6) || 0) + (Number(character.modifiers?.speed) || 0));
-	out["Speed"].final = Math.max(0, out["Speed"].final - smallPen - (character.trackEncumbrance ? enc.penalty : 0));
+	let speedFinal = Math.max(0, out["Speed"].final - smallPen - (character.trackEncumbrance ? enc.penalty : 0));
+	speedFinal = Math.max(0, speedFinal - exStages);
+	const beforeExertion = speedFinal;
+	if (exrStages >= 2) speedFinal = Math.floor(speedFinal / 2);
+	if (exrStages >= 5) speedFinal = 0;
+	out["Speed"].final = speedFinal;
 	out["Speed"].encPenalty = character.trackEncumbrance ? enc.penalty : 0;
 	out["Speed"].smallPenalty = smallPen;
+	out["Speed"].exhaustPenalty = exStages;
+	out["Speed"].exertPenalty = Math.max(0, beforeExertion - speedFinal);
 	out["Horizontal Jump"] = val("Horizontal Jump", Number(character.jumpH ?? 2) || 0);
 	out["Vertical Jump"] = val("Vertical Jump", Number(character.jumpV ?? 1) || 0);
 	speedTypeList(character, lib).forEach((t) => {
@@ -2582,6 +2638,7 @@ function derivedSheet(character, tree, levels, aggregated, profBonus, stats, lib
 		out[s] = val(s, Number(character.senses?.[s] ?? 0) || 0);
 	});
 	out["Proficiency Bonus"] = val("Proficiency Bonus", profBonus);
+	out["Saving Throws"] = val("Saving Throws", 0);
 	out["Spell Attacks"] = val("Spell Attacks", profBonus + sm);
 	out["Save DCs"] = val("Save DCs", 8 + profBonus + sm);
 	const hd = find("Hit Dice");
@@ -2618,17 +2675,29 @@ function derivedSheet(character, tree, levels, aggregated, profBonus, stats, lib
 		text: (ctReplaces.length ? ctReplaces : [character.creatureType || "Humanoid", ...ctAdds]).join(" "),
 		adds: ctAdds
 	};
-	const ex = val("Exhaustion", Number(character.exhaustion) || 0);
-	const stages = Math.max(0, Math.min(6, Math.round(ex.final)));
 	out["Exhaustion"] = {
 		...ex,
-		final: stages,
-		penalty: 2 * stages
+		final: exStages,
+		penalty: 2 * exStages,
+		speedPenalty: exStages
+	};
+	out["Exertion"] = {
+		...exr,
+		final: exrStages,
+		effects: EXERTION_EFFECTS.slice(0, exrStages),
+		speedMultiplier: exrStages >= 5 ? 0 : exrStages >= 2 ? .5 : 1,
+		hpMaxMultiplier: exrStages >= 4 ? .5 : 1
 	};
 	const init = val("Initiative", mod("DEX"));
-	init.final = init.final - 2 * stages;
+	init.final = init.final - 2 * exStages;
 	out["Initiative"] = init;
-	out["Inspiration"] = val("Inspiration", Number(character.inspiration) || 0);
+	const insp = val("Inspiration", 1);
+	const inspSlots = Math.max(0, Math.round(insp.final));
+	out["Inspiration"] = {
+		...insp,
+		slots: inspSlots,
+		filled: Math.max(0, Math.min(inspSlots, Number(character.inspiration) || 0))
+	};
 	return out;
 }
 function totalCarried(character) {
@@ -4248,6 +4317,7 @@ var DEFAULT_CHARACTER = {
 	tokenFrameUri: "",
 	inspiration: 0,
 	exhaustion: 0,
+	exertion: 0,
 	trackEncumbrance: false,
 	backstory: "",
 	appearance: {
@@ -6750,10 +6820,10 @@ var QUICK_REFERENCE = [
 			["Details", "Identity: name, class, race, background, level, size"],
 			["Abilities & Stats", "Base scores + node bonuses, live modifiers"],
 			["Pools", "Spendable points, top of screen"],
-			["Derived", "HP, hit dice, initiative, spellcasting stat, exhaustion"],
+			["Derived", "HP, hit dice, initiative, spellcasting stat, exhaustion & exertion"],
 			["Actions", "Everything the character can do; rest buttons refill"],
-			["Status", "Initiative, inspiration, exhaustion stages, effects"],
-			["Proficiencies", "Skills, tools, languages, instruments"],
+			["Status", "Initiative, inspiration slots, exhaustion & exertion stages, effects"],
+			["Proficiencies", "Skills, tools, languages, instruments, saving throws"],
 			["Modifiers", "AC, speed, spell/weapon attack, saves"],
 			["Spell List", "Tabbed by casting stat, then level"],
 			["Inventory", "Items, weight, coins (50 = 1 lb), capacity bar"],
@@ -12564,6 +12634,104 @@ function StatusEffectsTab() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/ImageField.jsx
+function ImageField({ label = "Image", value = "", onChange, placeholder = "Image URL or upload…", info = "", previewClass = "h-28 w-28" }) {
+	const fileRef = useRef(null);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState("");
+	const upload = async (file) => {
+		if (!file) return;
+		setBusy(true);
+		setError("");
+		try {
+			onChange(await importImage(file));
+		} catch (e) {
+			setError(e?.message || "Could not import the image.");
+		} finally {
+			setBusy(false);
+		}
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-1",
+		children: [/* @__PURE__ */ jsx(Label, {
+			className: "text-[10px] font-bold uppercase tracking-wider text-muted-foreground",
+			children: label
+		}), /* @__PURE__ */ jsxs("div", {
+			className: "flex items-start gap-2",
+			children: [/* @__PURE__ */ jsx("div", {
+				className: `${previewClass} flex shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40`,
+				children: value ? /* @__PURE__ */ jsx("img", {
+					src: value,
+					alt: "",
+					className: "h-full w-full object-contain",
+					style: { imageRendering: "pixelated" }
+				}) : /* @__PURE__ */ jsx("span", {
+					className: "px-1 text-center text-[10px] text-muted-foreground",
+					children: "No image"
+				})
+			}), /* @__PURE__ */ jsxs("div", {
+				className: "min-w-0 flex-1 space-y-1",
+				onDragOver: (e) => {
+					e.preventDefault();
+					e.dataTransfer.dropEffect = "copy";
+				},
+				onDrop: (e) => {
+					e.preventDefault();
+					upload(e.dataTransfer.files?.[0]);
+				},
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex gap-1",
+						children: [
+							/* @__PURE__ */ jsx(Input, {
+								className: "h-8 min-w-0 flex-1",
+								value: value || "",
+								onChange: (e) => onChange(e.target.value),
+								placeholder
+							}),
+							/* @__PURE__ */ jsx("input", {
+								ref: fileRef,
+								type: "file",
+								accept: "image/*",
+								className: "hidden",
+								onChange: (e) => {
+									upload(e.target.files?.[0]);
+									e.target.value = "";
+								}
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "shrink-0",
+								disabled: busy,
+								title: "Upload an image",
+								onClick: () => fileRef.current?.click(),
+								children: /* @__PURE__ */ jsx(Upload, { className: "h-4 w-4" })
+							}),
+							value && /* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								className: "shrink-0",
+								title: "Clear the image",
+								onClick: () => onChange(""),
+								children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+							})
+						]
+					}),
+					info && /* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: info
+					}),
+					error && /* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-destructive",
+						children: error
+					})
+				]
+			})]
+		})]
+	});
+}
+//#endregion
 //#region src/components/skilltree/FamiliarTab.jsx
 var ABILITIES = [
 	["str", "STR"],
@@ -12584,6 +12752,7 @@ var toNum = (v) => {
 };
 var BLANK$1 = {
 	name: "",
+	image: "",
 	size: "",
 	type: "Familiar",
 	alignment: "",
@@ -12618,6 +12787,7 @@ function monsterToStatblock(m) {
 	return {
 		...BLANK$1,
 		name: m?.name || "",
+		image: m?.image || m?.img || m?.portrait || "",
 		size: m?.size || "",
 		type: m?.type || "Familiar",
 		alignment: m?.alignment || "",
@@ -12660,6 +12830,7 @@ function monsterToStatblock(m) {
 function statblockToMonster(f) {
 	return {
 		name: f?.name || "",
+		image: f?.image || "",
 		size: f?.size || "",
 		type: f?.type || "",
 		alignment: f?.alignment || "",
@@ -12911,6 +13082,16 @@ function FamiliarTab() {
 							})
 						]
 					}),
+					/* @__PURE__ */ jsx("div", {
+						className: "mt-2",
+						children: /* @__PURE__ */ jsx(ImageField, {
+							label: "Portrait",
+							value: fam.image || "",
+							onChange: (v) => setFam({ image: v }),
+							previewClass: "h-32 w-32",
+							info: "Shown with this statblock on the View sheet. Uploads are stored in the project's image folder."
+						})
+					}),
 					/* @__PURE__ */ jsxs("div", {
 						className: "mt-2 grid grid-cols-3 gap-1.5",
 						children: [
@@ -13096,6 +13277,7 @@ function FamiliarTab() {
 //#region src/components/skilltree/library/MonstersTab.jsx
 var BLANK = {
 	name: "",
+	image: "",
 	size: "",
 	type: "",
 	alignment: "",
@@ -13328,6 +13510,12 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 						className: "shrink-0",
 						children: open ? /* @__PURE__ */ jsx(ChevronDown, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(ChevronRight, { className: "h-4 w-4" })
 					}),
+					m.image && /* @__PURE__ */ jsx("img", {
+						src: m.image,
+						alt: "",
+						className: "h-9 w-9 shrink-0 rounded border object-cover",
+						style: { imageRendering: "pixelated" }
+					}),
 					/* @__PURE__ */ jsx(Input, {
 						className: "h-8 flex-1 font-semibold",
 						placeholder: "Monster name",
@@ -13355,7 +13543,7 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 					})
 				]
 			}),
-			(m.description || m.alignment || eff.ac || eff.hp || eff.spellcasting || eff.legendary) && /* @__PURE__ */ jsxs("div", {
+			!!(m.description || m.alignment || eff.ac || eff.hp || eff.spellcasting || eff.legendary > 0) && /* @__PURE__ */ jsxs("div", {
 				className: "mt-1 space-y-0.5 px-5 text-xs text-muted-foreground",
 				children: [
 					m.alignment && /* @__PURE__ */ jsxs("p", { children: ["Alignment: ", m.alignment] }),
@@ -13383,51 +13571,61 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 				children: [
 					/* @__PURE__ */ jsxs("div", {
 						className: "rounded-md border border-destructive/40 p-2",
-						children: [/* @__PURE__ */ jsxs("div", {
-							className: "grid grid-cols-3 gap-1.5",
-							children: [
-								/* @__PURE__ */ jsx(Field, {
-									label: "Size",
-									value: m.size,
-									onChange: (v) => patch({ size: v }),
-									placeholder: "Huge"
-								}),
-								/* @__PURE__ */ jsx(Field, {
-									label: "Type",
-									value: m.type,
-									onChange: (v) => patch({ type: v }),
-									placeholder: "Beast"
-								}),
-								/* @__PURE__ */ jsx(Field, {
-									label: "Alignment",
-									value: m.alignment,
-									onChange: (v) => patch({ alignment: v }),
-									placeholder: "Unaligned"
-								})
-							]
-						}), /* @__PURE__ */ jsxs("div", {
-							className: "mt-2 grid grid-cols-3 gap-1.5",
-							children: [
-								/* @__PURE__ */ jsx(Field, {
-									label: "AC",
-									value: m.ac,
-									onChange: (v) => patch({ ac: v }),
-									placeholder: "13"
-								}),
-								/* @__PURE__ */ jsx(Field, {
-									label: "HP",
-									value: m.hp,
-									onChange: (v) => patch({ hp: v }),
-									placeholder: "45"
-								}),
-								/* @__PURE__ */ jsx(Field, {
-									label: "Speed",
-									value: m.speed,
-									onChange: (v) => patch({ speed: v }),
-									placeholder: "30 ft., fly 60 ft."
-								})
-							]
-						})]
+						children: [
+							/* @__PURE__ */ jsx(ImageField, {
+								label: "Artwork",
+								value: m.image || "",
+								onChange: (v) => patch({ image: v }),
+								previewClass: "h-28 w-28",
+								info: "Shown on the monster row here and carried into the familiar when imported."
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "mt-2 grid grid-cols-3 gap-1.5",
+								children: [
+									/* @__PURE__ */ jsx(Field, {
+										label: "Size",
+										value: m.size,
+										onChange: (v) => patch({ size: v }),
+										placeholder: "Huge"
+									}),
+									/* @__PURE__ */ jsx(Field, {
+										label: "Type",
+										value: m.type,
+										onChange: (v) => patch({ type: v }),
+										placeholder: "Beast"
+									}),
+									/* @__PURE__ */ jsx(Field, {
+										label: "Alignment",
+										value: m.alignment,
+										onChange: (v) => patch({ alignment: v }),
+										placeholder: "Unaligned"
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "mt-2 grid grid-cols-3 gap-1.5",
+								children: [
+									/* @__PURE__ */ jsx(Field, {
+										label: "AC",
+										value: m.ac,
+										onChange: (v) => patch({ ac: v }),
+										placeholder: "13"
+									}),
+									/* @__PURE__ */ jsx(Field, {
+										label: "HP",
+										value: m.hp,
+										onChange: (v) => patch({ hp: v }),
+										placeholder: "45"
+									}),
+									/* @__PURE__ */ jsx(Field, {
+										label: "Speed",
+										value: m.speed,
+										onChange: (v) => patch({ speed: v }),
+										placeholder: "30 ft., fly 60 ft."
+									})
+								]
+							})
+						]
 					}),
 					/* @__PURE__ */ jsx(AbilityBlock, {
 						m,
@@ -20235,6 +20433,7 @@ function ProficienciesEditor({ node, set }) {
 					set({ proficiencies });
 				};
 				const listId = p.type === "tool" ? "lib-tools" : p.type === "instrument" ? "lib-instruments" : p.type === "weapon" ? "lib-weapons" : p.type === "armor" ? "lib-armor" : "lib-skills";
+				const isSave = p.type === "savingThrow";
 				return /* @__PURE__ */ jsxs("div", {
 					className: "space-y-1.5 rounded-md border p-2",
 					children: [
@@ -20287,7 +20486,24 @@ function ProficienciesEditor({ node, set }) {
 								children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
 							})]
 						}),
-						/* @__PURE__ */ jsx(Input, {
+						isSave ? /* @__PURE__ */ jsxs(Select, {
+							value: p.name || "STR",
+							onValueChange: (v) => patch({ name: v }),
+							children: [/* @__PURE__ */ jsx(SelectTrigger, {
+								className: "h-8",
+								children: /* @__PURE__ */ jsx(SelectValue, {})
+							}), /* @__PURE__ */ jsx(SelectContent, { children: [
+								"STR",
+								"DEX",
+								"CON",
+								"INT",
+								"WIS",
+								"CHA"
+							].map((s) => /* @__PURE__ */ jsxs(SelectItem, {
+								value: s,
+								children: [s, " saving throw"]
+							}, s)) })]
+						}) : /* @__PURE__ */ jsx(Input, {
 							className: "h-8",
 							list: listId,
 							placeholder: p.type === "choice" ? "Describe the choice (e.g. any skill)" : `What ${p.type || "skill"} it grants`,
@@ -20298,7 +20514,10 @@ function ProficienciesEditor({ node, set }) {
 							className: "text-[10px] text-muted-foreground",
 							children: "The actual proficiency is typed on the character sheet once this node is unlocked."
 						}),
-						/* @__PURE__ */ jsxs("label", {
+						isSave ? /* @__PURE__ */ jsx("p", {
+							className: "text-[10px] text-muted-foreground",
+							children: "The sheet marks that saving throw as proficient while this node is invested."
+						}) : /* @__PURE__ */ jsxs("label", {
 							className: "flex items-center gap-1.5 text-xs",
 							children: [/* @__PURE__ */ jsx(Switch, {
 								checked: !!p.expertise,
@@ -22229,7 +22448,9 @@ function HitPointsCard() {
 	const aggregated = aggregateResources(tree, character, levels);
 	const hpAdds = Number((aggregated.find((e) => e.name === "Hit Points") || {}).uses) || 0;
 	const base = Number(character.hitPoints) || 0;
-	const maxHp = Math.max(0, base + hpAdds);
+	const exertionAdds = Number((aggregated.find((e) => e.name === "Exertion") || {}).uses) || 0;
+	const hpMaxMultiplier = Math.max(0, Math.min(6, Math.round((Number(character.exertion) || 0) + exertionAdds))) >= 4 ? .5 : 1;
+	const maxHp = Math.max(0, Math.floor((base + hpAdds) * hpMaxMultiplier));
 	const dieSize = character.hitDiceSize || "d6";
 	const sides = Number(String(dieSize).replace(/\D/g, "")) || 6;
 	const conMod = Math.floor((statOr10(stats.CON) - 10) / 2) + (Number(character.modifiers?.ability?.CON) || 0);
@@ -22324,16 +22545,23 @@ function HitPointsCard() {
 							}),
 							/* @__PURE__ */ jsxs("div", {
 								className: "mt-1.5 flex items-center gap-1.5",
-								children: [/* @__PURE__ */ jsx(Input, {
-									type: "number",
-									className: "h-8 w-20",
-									title: "Base hit points (talent contributions add on top)",
-									value: base,
-									onChange: (e) => setCharacter({
-										...character,
-										hitPoints: e.target.value === "" ? 0 : Number(e.target.value) || 0
+								children: [
+									/* @__PURE__ */ jsx(Input, {
+										type: "number",
+										className: "h-8 w-20",
+										title: "Base hit points (talent contributions add on top)",
+										value: base,
+										onChange: (e) => setCharacter({
+											...character,
+											hitPoints: e.target.value === "" ? 0 : Number(e.target.value) || 0
+										})
+									}),
+									hpAdds !== 0 && /* @__PURE__ */ jsx(PlusBadge, { value: hpAdds }),
+									hpMaxMultiplier < 1 && /* @__PURE__ */ jsxs("span", {
+										className: "rounded bg-red-100 px-1 text-[9px] font-medium text-red-600 dark:bg-red-950 dark:text-red-300",
+										children: ["exertion ×", hpMaxMultiplier]
 									})
-								}), hpAdds !== 0 && /* @__PURE__ */ jsx(PlusBadge, { value: hpAdds })]
+								]
 							}),
 							/* @__PURE__ */ jsxs(Button, {
 								size: "sm",
@@ -22796,6 +23024,190 @@ function SensesSection({ sheet, character, setCharacter, senses }) {
 	});
 }
 //#endregion
+//#region src/components/skilltree/StatusSection.jsx
+function StageTrack({ label, value, max = 6, onChange, note }) {
+	const stages = Math.max(0, Math.min(max, Math.round(Number(value) || 0)));
+	const tones = [
+		"bg-white dark:bg-muted",
+		"bg-yellow-300",
+		"bg-yellow-400",
+		"bg-orange-500",
+		"bg-orange-600",
+		"bg-red-600",
+		"bg-red-700"
+	];
+	return /* @__PURE__ */ jsxs("div", {
+		className: "mt-3",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between",
+				children: [/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: label
+				}), /* @__PURE__ */ jsxs("span", {
+					className: "text-[10px] text-muted-foreground",
+					children: [
+						stages,
+						" / ",
+						max
+					]
+				})]
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "mt-1 flex items-center gap-1",
+				children: Array.from({ length: max }, (_, i) => i + 1).map((n) => {
+					const filled = stages >= n;
+					return /* @__PURE__ */ jsx("button", {
+						type: "button",
+						"aria-label": `${label} stage ${n}`,
+						onClick: () => onChange(stages === n ? n - 1 : n),
+						className: `flex h-8 flex-1 items-center justify-center rounded border border-border text-xs font-semibold transition-colors ${filled ? tones[n] || tones[tones.length - 1] : "bg-white dark:bg-muted"} ${filled ? "text-white" : "text-muted-foreground"}`,
+						children: n
+					}, n);
+				})
+			}),
+			note && /* @__PURE__ */ jsx("p", {
+				className: "mt-1 text-[10px] text-muted-foreground",
+				children: note
+			})
+		]
+	});
+}
+function ConditionTracks() {
+	const { mergedTree: tree, character, setCharacter, settings } = useTree();
+	const levels = settings?.library?.levels || [];
+	const sheet = derivedSheet(character, tree, levels, aggregateResources(tree, character, levels), profBonusFor(character.level || 1, levels), statVars(character, tree), settings?.library);
+	const set = (patch) => setCharacter({
+		...character,
+		...patch
+	});
+	const inspSlots = Math.max(1, Math.round(sheet.Inspiration?.slots ?? 1));
+	const inspFilled = Math.max(0, Math.min(inspSlots, Number(character.inspiration) || 0));
+	const exhaustion = sheet.Exhaustion ? Math.round(sheet.Exhaustion.final) : 0;
+	const exhaustionAdds = Number(sheet.Exhaustion?.adds) || 0;
+	const penalty = sheet.Exhaustion ? sheet.Exhaustion.penalty : 0;
+	const exertion = sheet.Exertion ? Math.round(sheet.Exertion.final) : 0;
+	const exertionAdds = Number(sheet.Exertion?.adds) || 0;
+	return /* @__PURE__ */ jsxs("div", { children: [
+		/* @__PURE__ */ jsxs("div", {
+			className: "text-center",
+			children: [
+				/* @__PURE__ */ jsxs(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: ["Inspiration ", inspSlots > 1 ? `(${inspFilled}/${inspSlots})` : ""]
+				}),
+				/* @__PURE__ */ jsx("div", {
+					className: "mt-0.5 flex items-center justify-center gap-1.5",
+					children: Array.from({ length: inspSlots }, (_, i) => /* @__PURE__ */ jsx("button", {
+						type: "button",
+						"aria-label": `Inspiration ${i + 1}`,
+						onClick: () => set({ inspiration: inspFilled > i ? i : i + 1 }),
+						className: `flex h-7 w-7 items-center justify-center rounded border transition-colors ${inspFilled > i ? "border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "border-border bg-white dark:bg-muted"}`,
+						children: inspFilled > i && /* @__PURE__ */ jsx(Check, { className: "h-4 w-4" })
+					}, i))
+				}),
+				inspSlots > 1 && /* @__PURE__ */ jsx("p", {
+					className: "mt-0.5 text-[9px] text-muted-foreground",
+					children: "Talents grant extra slots"
+				})
+			]
+		}),
+		/* @__PURE__ */ jsx(StageTrack, {
+			label: "Exhaustion",
+			value: exhaustion,
+			onChange: (n) => set({ exhaustion: Math.max(0, n - exhaustionAdds) }),
+			note: `${penalty > 0 ? `−${penalty} to d20 tests · ` : ""}−5 ft speed per stage · max 6`
+		}),
+		/* @__PURE__ */ jsx(StageTrack, {
+			label: "Exertion",
+			value: exertion,
+			onChange: (n) => set({ exertion: Math.max(0, n - exertionAdds) }),
+			note: "2014-style effects below; speed and HP max are applied automatically."
+		}),
+		exertion > 0 && /* @__PURE__ */ jsx("ul", {
+			className: "mt-1 space-y-0.5 text-[10px] text-muted-foreground",
+			children: EXERTION_EFFECTS.slice(0, exertion).map((effect, i) => /* @__PURE__ */ jsxs("li", { children: [
+				i + 1,
+				". ",
+				effect
+			] }, effect))
+		})
+	] });
+}
+function StatusSection() {
+	const { mergedTree: tree, character, setCharacter, settings } = useTree();
+	const levels = settings?.library?.levels || [];
+	const sheet = derivedSheet(character, tree, levels, aggregateResources(tree, character, levels), profBonusFor(character.level || 1, levels), statVars(character, tree), settings?.library);
+	const set = (patch) => setCharacter({
+		...character,
+		...patch
+	});
+	const init = sheet.Initiative ? sheet.Initiative.final : 0;
+	return /* @__PURE__ */ jsxs("div", {
+		className: "rounded-md border p-3",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "text-center",
+				children: [/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "Initiative"
+				}), /* @__PURE__ */ jsxs("div", {
+					className: "mt-0.5 flex items-center justify-center gap-1",
+					children: [/* @__PURE__ */ jsx("span", {
+						className: "font-mono text-lg font-bold",
+						children: init >= 0 ? `+${init}` : init
+					}), sheet.Initiative && sheet.Initiative.adds !== 0 && /* @__PURE__ */ jsxs("span", {
+						className: "text-[9px] text-violet-500",
+						children: [
+							sheet.Initiative.adds > 0 ? "+" : "",
+							sheet.Initiative.adds,
+							" nodes"
+						]
+					})]
+				})]
+			}),
+			/* @__PURE__ */ jsx(ConditionTracks, {}),
+			(() => {
+				const statuses = (settings?.library?.statusEffects || []).filter((s) => s?.name);
+				if (!statuses.length) return null;
+				const active = character.activeStatuses || [];
+				const kindClass = {
+					buff: "border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+					debuff: "border-red-400 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+					condition: "border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+				};
+				return /* @__PURE__ */ jsxs("div", {
+					className: "mt-3",
+					children: [
+						/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: "Status Effects"
+						}),
+						/* @__PURE__ */ jsx("div", {
+							className: "mt-1 flex flex-wrap gap-1",
+							children: statuses.map((s) => {
+								const on = active.includes(s.name);
+								const tooltip = [s.description, ...s.effects || []].filter(Boolean).join(" ");
+								return /* @__PURE__ */ jsx("button", {
+									type: "button",
+									title: tooltip,
+									onClick: () => set({ activeStatuses: on ? active.filter((n) => n !== s.name) : [...active, s.name] }),
+									className: `rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${on ? kindClass[s.kind] || kindClass.condition : "border-border bg-white text-muted-foreground hover:bg-accent dark:bg-muted"}`,
+									children: s.name
+								}, s.name);
+							})
+						}),
+						/* @__PURE__ */ jsx("p", {
+							className: "mt-1 text-[10px] text-muted-foreground",
+							children: "Toggle what the character is currently under — actions can require or grant these."
+						})
+					]
+				});
+			})()
+		]
+	});
+}
+//#endregion
 //#region src/components/skilltree/DamageAffinitiesSection.jsx
 var COLUMNS = [
 	[
@@ -23135,9 +23547,29 @@ function CharacterTab() {
 	const eff = effectivePools(pools, character, tree, levels);
 	const stats = statVars(character, tree);
 	const aggregated = aggregateResources(tree, character, levels);
+	const saveBonus = Number((aggregated.find((e) => e.name === "Saving Throws") || {}).uses) || 0;
+	const abilityKey = (name) => {
+		const s = String(name || "").trim().toUpperCase();
+		return {
+			STRENGTH: "STR",
+			DEXTERITY: "DEX",
+			CONSTITUTION: "CON",
+			INTELLIGENCE: "INT",
+			WISDOM: "WIS",
+			CHARISMA: "CHA"
+		}[s] || s;
+	};
+	const nodeSaveProfs = new Set((tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0).flatMap((n) => (n.proficiencies || []).filter((p) => p.type === "savingThrow").map((p) => abilityKey(p.name))));
 	const profBonus = profBonusFor(character.level || 1, levels);
 	const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
-	const customs = aggregated.filter((e) => !BUILTIN_KEYS.has(e.name) && !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name));
+	const customs = customResourceList(aggregated, settings?.library).filter((e) => !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name)).map((e) => {
+		const lib = (settings?.library?.resources || []).find((r) => String(r?.name || "").toLowerCase() === e.name.toLowerCase());
+		if (!lib) return e;
+		return {
+			...e,
+			color: e.color === "#ffffff" ? lib.color || e.color : e.color
+		};
+	});
 	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
 	const dev = !!character.devMode;
 	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? tree?.nodes || [] : unlocked);
@@ -23197,6 +23629,7 @@ function CharacterTab() {
 	const derivedText = (k, d) => {
 		if (k === "Creature Type") return d.text;
 		if (k === "Size" || k === "Count as Size") return SIZE_LABELS[d.idx] ?? "Medium";
+		if (k === "Inspiration") return `${d.filled ?? 0}/${d.slots ?? 1}`;
 		return String(d.final ?? d);
 	};
 	const derivedShown = derivedRows.filter((k) => sheet[k] && !k.endsWith(" Speed") && !DEFAULT_SENSES.includes(k));
@@ -23265,7 +23698,10 @@ function CharacterTab() {
 						const abilBonus = Number(character.modifiers?.ability?.[s]) || 0;
 						const mod = Math.floor((effective - 10) / 2) + abilBonus;
 						const saveProf = !!(character.savesProf || {})[s];
-						const saveDC = 8 + profBonus + mod + (Number(character.modifiers?.saves) || 0);
+						const nodeSave = nodeSaveProfs.has(s);
+						const hasSaveProf = saveProf || nodeSave;
+						const specificSave = Number((aggregated.find((e) => e.name === `${s} Save`) || {}).uses) || 0;
+						const saveDC = 8 + profBonus + mod + (Number(character.modifiers?.saves) || 0) + saveBonus + specificSave;
 						const isSpellStat = (character.spellStat || "") === s;
 						return /* @__PURE__ */ jsxs("div", {
 							className: "flex flex-col items-center gap-1.5 rounded-xl border bg-accent/40 p-3",
@@ -23286,15 +23722,18 @@ function CharacterTab() {
 									className: "flex items-center gap-1",
 									children: [/* @__PURE__ */ jsx("button", {
 										type: "button",
-										title: "Proficient in saving throws",
-										onClick: () => setCharacter({
-											...character,
-											savesProf: {
-												...character.savesProf || {},
-												[s]: !saveProf
-											}
-										}),
-										className: `flex h-6 w-6 items-center justify-center rounded border transition-colors ${saveProf ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`,
+										title: nodeSave ? "Saving throw proficiency granted by a talent" : "Proficient in saving throws",
+										onClick: () => {
+											if (nodeSave) return;
+											setCharacter({
+												...character,
+												savesProf: {
+													...character.savesProf || {},
+													[s]: !saveProf
+												}
+											});
+										},
+										className: `flex h-6 w-6 items-center justify-center rounded border transition-colors ${hasSaveProf ? nodeSave ? "border-violet-500 bg-violet-500/10 text-violet-600" : "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`,
 										children: /* @__PURE__ */ jsx(Check, { className: "h-3.5 w-3.5" })
 									}), /* @__PURE__ */ jsx("button", {
 										type: "button",
@@ -23307,7 +23746,7 @@ function CharacterTab() {
 										children: /* @__PURE__ */ jsx(Sparkles, { className: "h-3.5 w-3.5" })
 									})]
 								}),
-								saveProf && /* @__PURE__ */ jsxs("span", {
+								hasSaveProf && /* @__PURE__ */ jsxs("span", {
 									className: "text-[10px] font-semibold text-muted-foreground",
 									children: ["Save DC ", saveDC]
 								})
@@ -23317,6 +23756,10 @@ function CharacterTab() {
 				})
 			}),
 			/* @__PURE__ */ jsx(HitPointsCard, {}),
+			/* @__PURE__ */ jsx(SectionCard, {
+				title: "Conditions & Inspiration",
+				children: /* @__PURE__ */ jsx(ConditionTracks, {})
+			}),
 			(derivedShown.length > 0 || customs.length > 0) && /* @__PURE__ */ jsxs(SectionCard, {
 				title: "Derived Resources",
 				children: [derivedShown.length > 0 && /* @__PURE__ */ jsx("div", {
@@ -23343,6 +23786,7 @@ function CharacterTab() {
 							className: "flex items-center justify-between rounded-lg bg-accent/40 px-2.5 py-1.5 text-xs",
 							children: [/* @__PURE__ */ jsx("span", {
 								className: "font-medium",
+								style: { color: r.color && r.color !== "#ffffff" ? r.color : void 0 },
 								children: r.name
 							}), /* @__PURE__ */ jsxs("span", {
 								className: "font-mono text-muted-foreground",
@@ -26915,7 +27359,7 @@ function DerivedResourcesSection() {
 	};
 	const libResources = settings?.library?.resources || [];
 	const libByName = new Map(libResources.filter((r) => r?.name).map((r) => [String(r.name).toLowerCase(), r]));
-	const customs = aggregated.filter((e) => !BUILTIN_KEYS.has(e.name)).map((e) => {
+	const customs = customResourceList(aggregated, settings?.library).map((e) => {
 		const lib = libByName.get(String(e.name).toLowerCase());
 		if (!lib) return e;
 		return {
@@ -26959,6 +27403,7 @@ function DerivedResourcesSection() {
 				if (k === "Hit Dice") display = `${d.final}${d.size}`;
 				else if (isCT) display = d.text;
 				else if (isSize) display = SIZE_LABELS[d.idx] ?? "Medium";
+				else if (k === "Inspiration") display = `${d.filled ?? 0}/${d.slots ?? 1}`;
 				else display = ov != null ? ov : d.final;
 				const shown = ov != null && !isSize && !isCT ? ov : display;
 				return /* @__PURE__ */ jsxs("div", {
@@ -26977,6 +27422,14 @@ function DerivedResourcesSection() {
 							k === "Speed" && d.encPenalty > 0 && /* @__PURE__ */ jsxs("span", {
 								className: "rounded bg-orange-100 px-1 text-[9px] font-medium text-orange-600 dark:bg-orange-950 dark:text-orange-300",
 								children: ["enc −", d.encPenalty]
+							}),
+							k === "Speed" && d.exhaustPenalty > 0 && /* @__PURE__ */ jsxs("span", {
+								className: "rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+								children: ["exhaustion −", d.exhaustPenalty]
+							}),
+							k === "Speed" && d.exertPenalty > 0 && /* @__PURE__ */ jsxs("span", {
+								className: "rounded bg-red-100 px-1 text-[9px] font-medium text-red-600 dark:bg-red-950 dark:text-red-300",
+								children: ["exertion −", d.exertPenalty]
 							}),
 							k === "Speed" && d.smallPenalty > 0 && /* @__PURE__ */ jsxs("span", {
 								className: "rounded bg-sky-100 px-1 text-[9px] font-medium text-sky-600 dark:bg-sky-950 dark:text-sky-300",
@@ -27134,177 +27587,6 @@ function DerivedResourcesSection() {
 			children: "No custom resources granted yet. Unlock nodes to populate."
 		})
 	] });
-}
-//#endregion
-//#region src/components/skilltree/StatusSection.jsx
-function StatusSection() {
-	const { mergedTree: tree, character, setCharacter, settings } = useTree();
-	const levels = settings?.library?.levels || [];
-	const sheet = derivedSheet(character, tree, levels, aggregateResources(tree, character, levels), profBonusFor(character.level || 1, levels), statVars(character, tree), settings?.library);
-	const set = (patch) => setCharacter({
-		...character,
-		...patch
-	});
-	const inspiration = Number(character.inspiration) || 0;
-	const exhaustion = sheet.Exhaustion ? Math.round(sheet.Exhaustion.final) : 0;
-	const penalty = sheet.Exhaustion ? sheet.Exhaustion.penalty : 0;
-	const init = sheet.Initiative ? sheet.Initiative.final : 0;
-	return /* @__PURE__ */ jsxs("div", {
-		className: "rounded-md border p-3",
-		children: [
-			/* @__PURE__ */ jsxs("div", {
-				className: "flex items-center justify-between gap-3",
-				children: [/* @__PURE__ */ jsxs("div", {
-					className: "text-center",
-					children: [/* @__PURE__ */ jsx(Label, {
-						className: "text-[10px] text-muted-foreground",
-						children: "Initiative"
-					}), /* @__PURE__ */ jsxs("div", {
-						className: "mt-0.5 flex items-center gap-1",
-						children: [/* @__PURE__ */ jsx("span", {
-							className: "font-mono text-lg font-bold",
-							children: init >= 0 ? `+${init}` : init
-						}), sheet.Initiative && sheet.Initiative.adds !== 0 && /* @__PURE__ */ jsxs("span", {
-							className: "text-[9px] text-violet-500",
-							children: [
-								sheet.Initiative.adds > 0 ? "+" : "",
-								sheet.Initiative.adds,
-								" nodes"
-							]
-						})]
-					})]
-				}), /* @__PURE__ */ jsxs("div", {
-					className: "text-center",
-					children: [/* @__PURE__ */ jsx(Label, {
-						className: "text-[10px] text-muted-foreground",
-						children: "Inspiration"
-					}), /* @__PURE__ */ jsxs("div", {
-						className: "mt-0.5 flex items-center justify-center gap-1.5",
-						children: [
-							/* @__PURE__ */ jsx("button", {
-								type: "button",
-								"aria-label": "Remove Inspiration",
-								onClick: () => set({ inspiration: Math.max(0, inspiration - 1) }),
-								className: "flex h-6 w-6 items-center justify-center rounded border border-border bg-white text-muted-foreground transition-colors hover:bg-accent dark:bg-muted",
-								children: /* @__PURE__ */ jsx(Minus, { className: "h-3 w-3" })
-							}),
-							[0, 1].map((i) => /* @__PURE__ */ jsx("button", {
-								type: "button",
-								"aria-label": `Inspiration ${i + 1}`,
-								onClick: () => set({ inspiration: inspiration === i + 1 ? i : i + 1 }),
-								className: `flex h-7 w-7 items-center justify-center rounded border transition-colors ${inspiration > i ? "border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" : "border-border bg-white dark:bg-muted"}`,
-								children: inspiration > i && /* @__PURE__ */ jsx(Check, { className: "h-4 w-4" })
-							}, i)),
-							/* @__PURE__ */ jsx("button", {
-								type: "button",
-								"aria-label": "Add Inspiration",
-								onClick: () => set({ inspiration: Math.min(2, inspiration + 1) }),
-								className: "flex h-6 w-6 items-center justify-center rounded border border-border bg-white text-muted-foreground transition-colors hover:bg-accent dark:bg-muted",
-								children: /* @__PURE__ */ jsx(Plus, { className: "h-3 w-3" })
-							})
-						]
-					})]
-				})]
-			}),
-			/* @__PURE__ */ jsxs("div", {
-				className: "mt-3",
-				children: [
-					/* @__PURE__ */ jsxs("div", {
-						className: "flex items-center justify-between",
-						children: [/* @__PURE__ */ jsx(Label, {
-							className: "text-[10px] text-muted-foreground",
-							children: "Exhaustion"
-						}), /* @__PURE__ */ jsxs("span", {
-							className: "text-[10px] text-muted-foreground",
-							children: [
-								exhaustion,
-								" / 6",
-								penalty > 0 ? ` · −${penalty} to d20 tests` : ""
-							]
-						})]
-					}),
-					/* @__PURE__ */ jsxs("div", {
-						className: "mt-1 flex items-center gap-1",
-						children: [
-							/* @__PURE__ */ jsx("button", {
-								type: "button",
-								"aria-label": "Reduce Exhaustion",
-								onClick: () => set({ exhaustion: Math.max(0, exhaustion - 1) }),
-								className: "flex h-8 w-6 shrink-0 items-center justify-center rounded border border-border bg-white text-muted-foreground transition-colors hover:bg-accent dark:bg-muted",
-								children: /* @__PURE__ */ jsx(Minus, { className: "h-3 w-3" })
-							}),
-							[
-								1,
-								2,
-								3,
-								4,
-								5,
-								6
-							].map((n) => {
-								const filled = exhaustion >= n;
-								const color = !filled ? "bg-white dark:bg-muted" : n <= 2 ? "bg-yellow-400" : n <= 4 ? "bg-orange-500" : "bg-red-600";
-								return /* @__PURE__ */ jsx("button", {
-									type: "button",
-									"aria-label": `Exhaustion stage ${n}`,
-									onClick: () => set({ exhaustion: exhaustion === n ? n - 1 : n }),
-									className: `flex h-8 flex-1 items-center justify-center rounded border border-border text-xs font-semibold transition-colors ${color} ${filled ? "text-white" : "text-muted-foreground"}`,
-									children: n
-								}, n);
-							}),
-							/* @__PURE__ */ jsx("button", {
-								type: "button",
-								"aria-label": "Add Exhaustion",
-								onClick: () => set({ exhaustion: Math.min(6, exhaustion + 1) }),
-								className: "flex h-8 w-6 shrink-0 items-center justify-center rounded border border-border bg-white text-muted-foreground transition-colors hover:bg-accent dark:bg-muted",
-								children: /* @__PURE__ */ jsx(Plus, { className: "h-3 w-3" })
-							})
-						]
-					}),
-					/* @__PURE__ */ jsx("p", {
-						className: "mt-1 text-[10px] text-muted-foreground",
-						children: "Each stage: −2 to every d20 test (applied to Initiative automatically)."
-					})
-				]
-			}),
-			(() => {
-				const statuses = (settings?.library?.statusEffects || []).filter((s) => s?.name);
-				if (!statuses.length) return null;
-				const active = character.activeStatuses || [];
-				const kindClass = {
-					buff: "border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-					debuff: "border-red-400 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-					condition: "border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-				};
-				return /* @__PURE__ */ jsxs("div", {
-					className: "mt-3",
-					children: [
-						/* @__PURE__ */ jsx(Label, {
-							className: "text-[10px] text-muted-foreground",
-							children: "Status Effects"
-						}),
-						/* @__PURE__ */ jsx("div", {
-							className: "mt-1 flex flex-wrap gap-1",
-							children: statuses.map((s) => {
-								const on = active.includes(s.name);
-								const tooltip = [s.description, ...s.effects || []].filter(Boolean).join(" ");
-								return /* @__PURE__ */ jsx("button", {
-									type: "button",
-									title: tooltip,
-									onClick: () => set({ activeStatuses: on ? active.filter((n) => n !== s.name) : [...active, s.name] }),
-									className: `rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${on ? kindClass[s.kind] || kindClass.condition : "border-border bg-white text-muted-foreground hover:bg-accent dark:bg-muted"}`,
-									children: s.name
-								}, s.name);
-							})
-						}),
-						/* @__PURE__ */ jsx("p", {
-							className: "mt-1 text-[10px] text-muted-foreground",
-							children: "Toggle what the character is currently under — actions can require or grant these."
-						})
-					]
-				});
-			})()
-		]
-	});
 }
 //#endregion
 //#region src/components/skilltree/SheetDetailsSection.jsx
@@ -38483,7 +38765,7 @@ function PresentationSheet({ innerRef, onExport }) {
 	const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
 	const actions = mergeLibraryActions(settings?.library?.actions || [], collectActions(tree, vars), vars);
 	const spent = character.actionUses || {};
-	const customs = aggregated.filter((e) => !BUILTIN_KEYS.has(e.name));
+	const customs = customResourceList(aggregated, settings?.library);
 	const currencies = (settings?.library?.currencies || []).filter((c) => c.key || c.name);
 	const coins = character.coins || {};
 	const items = character.inventory || [];
@@ -38538,6 +38820,7 @@ function PresentationSheet({ innerRef, onExport }) {
 	const derivedText = (k, d) => {
 		if (k === "Creature Type") return d.text;
 		if (k === "Size" || k === "Count as Size") return SIZE_LABELS[d.idx] ?? "Medium";
+		if (k === "Inspiration") return `${d.filled ?? 0}/${d.slots ?? 1}`;
 		return String(d.final ?? d);
 	};
 	const details = [
@@ -38712,6 +38995,7 @@ function PresentationSheet({ innerRef, onExport }) {
 									className: "flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs",
 									children: [/* @__PURE__ */ jsx("span", {
 										className: "font-medium",
+										style: { color: r.color && r.color !== "#ffffff" ? r.color : void 0 },
 										children: r.name
 									}), /* @__PURE__ */ jsxs("span", {
 										className: "font-mono text-slate-700",

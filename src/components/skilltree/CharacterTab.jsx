@@ -15,7 +15,6 @@ import {
   STATS,
   derivedSheet,
   BUILTIN_ROW_ORDER,
-  BUILTIN_KEYS,
   SIZE_LABELS,
   numericResourceMap,
   sanitizeKey,
@@ -23,10 +22,12 @@ import {
   speedTypeList,
   senseList,
   DEFAULT_SENSES,
+  customResourceList,
 } from "@/lib/resources";
 import { resolveResourceDie } from "@/lib/dieScaling";
 import { SpeedSection } from "./SpeedSection";
 import { SensesSection } from "./SensesSection";
+import { ConditionTracks } from "./StatusSection";
 import { DamageAffinitiesSection } from "./DamageAffinitiesSection";
 import { SaveDCsSection } from "./SaveDCsSection";
 import { DEFAULT_SKILL_ABILITIES, statOr10 } from "@/lib/skills";
@@ -84,12 +85,44 @@ export function CharacterTab() {
   const eff = effectivePools(pools, character, tree, levels);
   const stats = statVars(character, tree);
   const aggregated = aggregateResources(tree, character, levels);
+  const saveBonus = Number((aggregated.find((e) => e.name === "Saving Throws") || {}).uses) || 0;
+  // Saving-throw proficiencies granted by invested nodes (type "savingThrow"
+  // on the node's proficiency list). Computed live so refunding the node
+  // removes them. Accepts short or full ability names.
+  const abilityKey = (name) => {
+    const s = String(name || "").trim().toUpperCase();
+    const full = {
+      STRENGTH: "STR",
+      DEXTERITY: "DEX",
+      CONSTITUTION: "CON",
+      INTELLIGENCE: "INT",
+      WISDOM: "WIS",
+      CHARISMA: "CHA",
+    };
+    return full[s] || s;
+  };
+  const nodeSaveProfs = new Set(
+    (tree?.nodes || [])
+      .filter((n) => (n.currentPoints || 0) > 0)
+      .flatMap((n) =>
+        (n.proficiencies || [])
+          .filter((p) => p.type === "savingThrow")
+          .map((p) => abilityKey(p.name))
+      )
+  );
   const profBonus = profBonusFor(character.level || 1, levels);
   const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
-  const customs = aggregated.filter(
-    (e) =>
-      !BUILTIN_KEYS.has(e.name) && !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name)
-  );
+  const customs = customResourceList(aggregated, settings?.library)
+    .filter(
+      (e) => !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name)
+    )
+    .map((e) => {
+      const lib = (settings?.library?.resources || []).find(
+        (r) => String(r?.name || "").toLowerCase() === e.name.toLowerCase()
+      );
+      if (!lib) return e;
+      return { ...e, color: e.color === "#ffffff" ? lib.color || e.color : e.color };
+    });
   const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
   // Unlocked nodes grouped: Heritage Points purchases first, then
   // Talent-pool nodes by Talent Type (alphabetized), each node in the order
@@ -168,6 +201,7 @@ export function CharacterTab() {
   const derivedText = (k, d) => {
     if (k === "Creature Type") return d.text;
     if (k === "Size" || k === "Count as Size") return SIZE_LABELS[d.idx] ?? "Medium";
+    if (k === "Inspiration") return `${d.filled ?? 0}/${d.slots ?? 1}`;
     return String(d.final ?? d);
   };
   const derivedShown = derivedRows.filter(
@@ -227,7 +261,10 @@ export function CharacterTab() {
             const abilBonus = Number(character.modifiers?.ability?.[s]) || 0;
             const mod = Math.floor((effective - 10) / 2) + abilBonus;
             const saveProf = !!(character.savesProf || {})[s];
-            const saveDC = 8 + profBonus + mod + (Number(character.modifiers?.saves) || 0);
+            const nodeSave = nodeSaveProfs.has(s);
+            const hasSaveProf = saveProf || nodeSave;
+            const specificSave = Number((aggregated.find((e) => e.name === `${s} Save`) || {}).uses) || 0;
+            const saveDC = 8 + profBonus + mod + (Number(character.modifiers?.saves) || 0) + saveBonus + specificSave;
             const isSpellStat = (character.spellStat || "") === s;
             return (
               <div
@@ -244,16 +281,23 @@ export function CharacterTab() {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    title="Proficient in saving throws"
-                    onClick={() =>
+                    title={
+                      nodeSave
+                        ? "Saving throw proficiency granted by a talent"
+                        : "Proficient in saving throws"
+                    }
+                    onClick={() => {
+                      if (nodeSave) return;
                       setCharacter({
                         ...character,
                         savesProf: { ...(character.savesProf || {}), [s]: !saveProf },
-                      })
-                    }
+                      });
+                    }}
                     className={`flex h-6 w-6 items-center justify-center rounded border transition-colors ${
-                      saveProf
-                        ? "border-primary bg-primary/10 text-primary"
+                      hasSaveProf
+                        ? nodeSave
+                          ? "border-violet-500 bg-violet-500/10 text-violet-600"
+                          : "border-primary bg-primary/10 text-primary"
                         : "border-border text-muted-foreground"
                     }`}
                   >
@@ -274,7 +318,7 @@ export function CharacterTab() {
                     <Sparkles className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                {saveProf && (
+                {hasSaveProf && (
                   <span className="text-[10px] font-semibold text-muted-foreground">
                     Save DC {saveDC}
                   </span>
@@ -287,6 +331,11 @@ export function CharacterTab() {
 
       {/* Hit points, rest & downtime */}
       <HitPointsCard />
+
+      {/* Conditions, inspiration and the exhaustion/exertion tracks */}
+      <SectionCard title="Conditions & Inspiration">
+        <ConditionTracks />
+      </SectionCard>
 
       {/* Derived resources */}
       {(derivedShown.length > 0 || customs.length > 0) && (
@@ -316,7 +365,12 @@ export function CharacterTab() {
                   key={r.name}
                   className="flex items-center justify-between rounded-lg bg-accent/40 px-2.5 py-1.5 text-xs"
                 >
-                  <span className="font-medium">{r.name}</span>
+                  <span
+                    className="font-medium"
+                    style={{ color: r.color && r.color !== "#ffffff" ? r.color : undefined }}
+                  >
+                    {r.name}
+                  </span>
                   <span className="font-mono text-muted-foreground">
                     {r.value}
                     {die && /\d*d\d/.test(die.text) ? ` · ${die.text}` : ""}

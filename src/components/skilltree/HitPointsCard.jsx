@@ -21,7 +21,14 @@ export function HitPointsCard() {
   const aggregated = aggregateResources(tree, character, levels);
   const hpAdds = Number((aggregated.find((e) => e.name === "Hit Points") || {}).uses) || 0;
   const base = Number(character.hitPoints) || 0;
-  const maxHp = Math.max(0, base + hpAdds);
+  // 2014-style Exertion halves the hit point maximum at stage 4+.
+  const exertionAdds = Number((aggregated.find((e) => e.name === "Exertion") || {}).uses) || 0;
+  const exertionStages = Math.max(
+    0,
+    Math.min(6, Math.round((Number(character.exertion) || 0) + exertionAdds))
+  );
+  const hpMaxMultiplier = exertionStages >= 4 ? 0.5 : 1;
+  const maxHp = Math.max(0, Math.floor((base + hpAdds) * hpMaxMultiplier));
   const dieSize = character.hitDiceSize || "d6";
   const sides = Number(String(dieSize).replace(/\D/g, "")) || 6;
   const conMod =
@@ -111,6 +118,11 @@ export function HitPointsCard() {
               }
             />
             {hpAdds !== 0 && <PlusBadge value={hpAdds} />}
+            {hpMaxMultiplier < 1 && (
+              <span className="rounded bg-red-100 px-1 text-[9px] font-medium text-red-600 dark:bg-red-950 dark:text-red-300">
+                exertion ×{hpMaxMultiplier}
+              </span>
+            )}
           </div>
           <Button
             size="sm"

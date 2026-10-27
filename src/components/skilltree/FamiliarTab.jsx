@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Save, Trash2, X } from "lucide-react";
+import { ImageField } from "@/components/skilltree/ImageField";
 
 // The View sheet's Familiar tab: a monster-manual style statblock for the
 // character's companion. Pick one from the Reference Library's Monsters list
@@ -97,6 +98,7 @@ export function normalizeStatblock(raw) {
   const cr = typeof r.cr === "object" ? (r.cr?.cr ?? "") : (r.cr ?? "");
   return {
     name: r.name || "",
+    image: r.image || r.img || r.portrait || "",
     size: SIZE_MAP[r.size] || (typeof r.size === "string" ? r.size : ""),
     type: typeof r.type === "object" ? (r.type?.type ?? "") : (r.type ?? ""),
     alignment: joinList(r.alignment),
@@ -125,6 +127,7 @@ export function normalizeStatblock(raw) {
 
 const BLANK = {
   name: "",
+  image: "",
   size: "",
   type: "Familiar",
   alignment: "",
@@ -164,6 +167,7 @@ export function monsterToStatblock(m) {
   return {
     ...BLANK,
     name: m?.name || "",
+    image: m?.image || m?.img || m?.portrait || "",
     size: m?.size || "",
     type: m?.type || "Familiar",
     alignment: m?.alignment || "",
@@ -196,6 +200,7 @@ export function monsterToStatblock(m) {
 export function statblockToMonster(f) {
   return {
     name: f?.name || "",
+    image: f?.image || "",
     size: f?.size || "",
     type: f?.type || "",
     alignment: f?.alignment || "",
@@ -448,6 +453,15 @@ export function FamiliarTab() {
           >
             <Trash2 className="h-4 w-4" />
           </Button>
+        </div>
+        <div className="mt-2">
+          <ImageField
+            label="Portrait"
+            value={fam.image || ""}
+            onChange={(v) => setFam({ image: v })}
+            previewClass="h-32 w-32"
+            info="Shown with this statblock on the View sheet. Uploads are stored in the project's image folder."
+          />
         </div>
         <div className="mt-2 grid grid-cols-3 gap-1.5">
           <LabeledInput label="Size" value={fam.size} onChange={(v) => setFam({ size: v })} placeholder="Tiny" />
