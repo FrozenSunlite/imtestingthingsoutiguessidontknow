@@ -1,11 +1,11 @@
-import { i as cn, n as base44, r as Button } from "./router-i0cwoFtD.js";
+import { i as cn, n as base44, r as Button } from "./router-BPmzk7v9.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, Link2, ListTree, Loader2, Lock, Maximize, Minus, MonitorCheck, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, Link2, ListTree, Loader2, Lock, Maximize, Minus, MonitorCheck, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play as Play$1, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -27086,7 +27086,7 @@ function ActionActivationDialog({ open, onClose }) {
 															variant: "outline",
 															disabled: cur >= max,
 															onClick: () => activate(a),
-															children: [/* @__PURE__ */ jsx(Play, { className: "h-3 w-3" }), " Activate"]
+															children: [/* @__PURE__ */ jsx(Play$1, { className: "h-3 w-3" }), " Activate"]
 														}),
 														/* @__PURE__ */ jsx(Button, {
 															size: "sm",
@@ -27100,7 +27100,7 @@ function ActionActivationDialog({ open, onClose }) {
 													size: "sm",
 													variant: "outline",
 													onClick: () => activate(a),
-													children: [/* @__PURE__ */ jsx(Play, { className: "h-3 w-3" }), " Activate"]
+													children: [/* @__PURE__ */ jsx(Play$1, { className: "h-3 w-3" }), " Activate"]
 												})]
 											}),
 											(a.resolve || "none") !== "none" && /* @__PURE__ */ jsxs("div", {
@@ -27157,7 +27157,7 @@ function ActionActivationDialog({ open, onClose }) {
 													variant: "outline",
 													disabled: cur >= total || total <= 0,
 													onClick: () => activate(list.find((a) => a.resolve === "spell") || list[0]),
-													children: [/* @__PURE__ */ jsx(Play, { className: "h-3 w-3" }), " Activate"]
+													children: [/* @__PURE__ */ jsx(Play$1, { className: "h-3 w-3" }), " Activate"]
 												}),
 												/* @__PURE__ */ jsx(Button, {
 													size: "sm",
@@ -27206,7 +27206,7 @@ function ActionActivationDialog({ open, onClose }) {
 										variant: "outline",
 										disabled: hasCharges && cur < Number(act.chargeCost || 0),
 										onClick: () => activateWondrous(it, idx, act),
-										children: [/* @__PURE__ */ jsx(Play, { className: "h-3 w-3" }), " Activate"]
+										children: [/* @__PURE__ */ jsx(Play$1, { className: "h-3 w-3" }), " Activate"]
 									})]
 								}, j))]
 							}, it.name + idx);
@@ -28072,7 +28072,7 @@ function ViewSheet({ onExport }) {
 							size: "sm",
 							variant: "outline",
 							onClick: () => setActOpen(true),
-							children: [/* @__PURE__ */ jsx(Play, { className: "mr-1 h-4 w-4" }), " Actions"]
+							children: [/* @__PURE__ */ jsx(Play$1, { className: "mr-1 h-4 w-4" }), " Actions"]
 						})
 					}),
 					/* @__PURE__ */ jsx(InfoTip, {
@@ -28506,6 +28506,8 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 					className: "space-y-3",
 					children: [
 						menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", startNewTree),
+						"\\n          ",
+						menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit")),
 						menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Load", "Continue a saved character", () => setLoadOpen(true)),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true })),
 						menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Homebuilder", "Design a home, business or bastion plot", () => onHomebuilder?.()),
@@ -37327,7 +37329,7 @@ function PresentationSheet({ innerRef, onExport }) {
 						size: "sm",
 						variant: "outline",
 						onClick: () => setActOpen(true),
-						children: [/* @__PURE__ */ jsx(Play, { className: "mr-1 h-4 w-4" }), " Actions"]
+						children: [/* @__PURE__ */ jsx(Play$1, { className: "mr-1 h-4 w-4" }), " Actions"]
 					}),
 					/* @__PURE__ */ jsxs(Button, {
 						size: "sm",
