@@ -348,6 +348,38 @@ export function SettingsMenu({ open, onClose }) {
                 Each tab has its own start node (this edits "{activeTab?.name || "the active tab"}").
                 The camera centers on it when that tab opens or is switched to.
               </p>
+              <div className="mt-4 border-t pt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs">Auto-save</Label>
+                    <p className="text-[10px] text-muted-foreground">Save changes automatically (interval in seconds).</p>
+                  </div>
+                  <Switch
+                    checked={!!settings.autoSave}
+                    onCheckedChange={(v) => setSettings((s) => ({ ...s, autoSave: v }))}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="w-20 text-xs text-muted-foreground">Interval</Label>
+                  <Input
+                    type="number"
+                    min={10}
+                    className="h-8 flex-1"
+                    value={settings.autoSaveInterval ?? 60}
+                    onChange={(e) => setSettings((s) => ({ ...s, autoSaveInterval: Number(e.target.value) || 60 }))}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs">Cache remote images locally</Label>
+                    <p className="text-[10px] text-muted-foreground">Downloads and caches URL images into the save bundle.</p>
+                  </div>
+                  <Switch
+                    checked={!!settings.cacheRemoteImages}
+                    onCheckedChange={(v) => setSettings((s) => ({ ...s, cacheRemoteImages: v }))}
+                  />
+                </div>
+              </div>
               <div className="mt-4 border-t pt-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>

@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-Chkl_LSF.js";
+import { i as cn, n as base44, r as Button } from "./router-DEeHLWB6.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -3976,6 +3976,9 @@ var DEFAULT_SETTINGS = {
 	placeholderImage: DEFAULT_PLACEHOLDER,
 	placeholderFrame: "",
 	cameraStartNode: "",
+	autoSave: true,
+	autoSaveInterval: 60,
+	cacheRemoteImages: false,
 	levelRules: {
 		talentPoints: 1,
 		heritagePoints: 0,
@@ -5225,7 +5228,10 @@ function TreeProvider({ children }) {
 					name: t.name || `Tree ${(prev.tabs?.length || 0) + 1}`,
 					nodes: t.nodes,
 					connections: t.connections,
-					cameraStartNode: ""
+					cameraStartNode: "",
+					autoSave: true,
+					autoSaveInterval: 60,
+					cacheRemoteImages: false
 				};
 				return {
 					...prev,
@@ -5282,7 +5288,10 @@ function TreeProvider({ children }) {
 				name: `Tree ${(prev.tabs?.length || 0) + 1}`,
 				nodes: [],
 				connections: [],
-				cameraStartNode: ""
+				cameraStartNode: "",
+				autoSave: true,
+				autoSaveInterval: 60,
+				cacheRemoteImages: false
 			};
 			return {
 				...prev,
@@ -6828,6 +6837,59 @@ function SettingsMenu({ open, onClose }) {
 										"Each tab has its own start node (this edits \"",
 										activeTab?.name || "the active tab",
 										"\"). The camera centers on it when that tab opens or is switched to."
+									]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "mt-4 border-t pt-3 space-y-2",
+									children: [
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex items-center justify-between gap-2",
+											children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+												className: "text-xs",
+												children: "Auto-save"
+											}), /* @__PURE__ */ jsx("p", {
+												className: "text-[10px] text-muted-foreground",
+												children: "Save changes automatically (interval in seconds)."
+											})] }), /* @__PURE__ */ jsx(Switch, {
+												checked: !!settings.autoSave,
+												onCheckedChange: (v) => setSettings((s) => ({
+													...s,
+													autoSave: v
+												}))
+											})]
+										}),
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex items-center gap-2",
+											children: [/* @__PURE__ */ jsx(Label, {
+												className: "w-20 text-xs text-muted-foreground",
+												children: "Interval"
+											}), /* @__PURE__ */ jsx(Input, {
+												type: "number",
+												min: 10,
+												className: "h-8 flex-1",
+												value: settings.autoSaveInterval ?? 60,
+												onChange: (e) => setSettings((s) => ({
+													...s,
+													autoSaveInterval: Number(e.target.value) || 60
+												}))
+											})]
+										}),
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex items-center justify-between gap-2",
+											children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+												className: "text-xs",
+												children: "Cache remote images locally"
+											}), /* @__PURE__ */ jsx("p", {
+												className: "text-[10px] text-muted-foreground",
+												children: "Downloads and caches URL images into the save bundle."
+											})] }), /* @__PURE__ */ jsx(Switch, {
+												checked: !!settings.cacheRemoteImages,
+												onCheckedChange: (v) => setSettings((s) => ({
+													...s,
+													cacheRemoteImages: v
+												}))
+											})]
+										})
 									]
 								}),
 								/* @__PURE__ */ jsx("div", {

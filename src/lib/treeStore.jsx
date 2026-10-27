@@ -374,6 +374,9 @@ const DEFAULT_SETTINGS = {
   placeholderImage: DEFAULT_PLACEHOLDER,
   placeholderFrame: "",
   cameraStartNode: "",
+  autoSave: true,
+  autoSaveInterval: 60,
+  cacheRemoteImages: false,
   // Per-level defaults used when a level has no row in the Reference Library.
   levelRules: { talentPoints: 1, heritagePoints: 0, attributePoints: 0 },
   library: DEFAULT_LIBRARY,
@@ -1774,6 +1777,9 @@ export function TreeProvider({ children }) {
           nodes: t.nodes,
           connections: t.connections,
           cameraStartNode: "",
+  autoSave: true,
+  autoSaveInterval: 60,
+  cacheRemoteImages: false,
         };
         return {
           ...prev,
@@ -1831,6 +1837,9 @@ export function TreeProvider({ children }) {
         nodes: [],
         connections: [],
         cameraStartNode: "",
+  autoSave: true,
+  autoSaveInterval: 60,
+  cacheRemoteImages: false,
       };
       return {
         ...prev,
@@ -2479,3 +2488,4 @@ export function poolUsage(tree) {
   });
   return usage;
 }
+
