@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-BRBtRvq8.js";
+import { i as cn, n as base44, r as Button } from "./router-Ci6BlPjg.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28567,7 +28567,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
-	const menuBtn = (icon, title, sub, onClick) => /* @__PURE__ */ jsxs("button", {
+	const menuBtn = (icon, title, sub, onClick, disabled = false) => /* @__PURE__ */ jsxs("button", {
 		onClick,
 		title: sub,
 		className: "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" + (disabled ? " opacity-40 pointer-events-none" : ""),

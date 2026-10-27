@@ -36,7 +36,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
   const [rulebookOpen, setRulebookOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
-  const menuBtn = (icon, title, sub, onClick) => (
+  const menuBtn = (icon, title, sub, onClick, disabled = false) => (
     <button
       onClick={onClick}
       title={sub}
@@ -149,6 +149,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
 
 
 
