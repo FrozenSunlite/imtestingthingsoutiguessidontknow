@@ -82,7 +82,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
           )}
           {menuBtn(
             <Home className="h-5 w-5" />,
-            "Homebuilder",
+            "Architect",
             "Design a home, business or bastion plot",
             () => onHomebuilder?.()
           )}
@@ -129,6 +129,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
 
 
 

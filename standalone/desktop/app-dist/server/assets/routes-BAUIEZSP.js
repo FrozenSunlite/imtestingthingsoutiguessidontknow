@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-Cv2ElyMt.js";
+import { i as cn, n as base44, r as Button } from "./router-gatZfefp.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28520,7 +28520,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 						menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit")),
 						menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Load", "Continue a saved character", () => setLoadOpen(true)),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true })),
-						menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Homebuilder", "Design a home, business or bastion plot", () => onHomebuilder?.()),
+						menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.()),
 						menuBtn(/* @__PURE__ */ jsx(Swords, { className: "h-5 w-5" }), "DM Screen", "Quick rules and a dice roller for running the game", () => onDmScreen?.()),
 						menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read the rulebook — quick start guide and chapters", () => setRulebookOpen(true)),
 						menuBtn(/* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" }), "Settings", "Hotkeys, grid, library and defaults", () => setSettingsOpen(true)),
