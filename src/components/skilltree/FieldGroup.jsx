@@ -4,8 +4,10 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 // A labelled group of editor fields, used to keep the node editor organized.
 // Pass collapsible to hide the body behind a chevron (used to de-clutter the
 // node editor); defaultOpen shows it expanded initially.
+const OPEN_STATE = new Map();
 export function FieldGroup({ label, children, className = "", collapsible = false, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpenState] = useState(() => (OPEN_STATE.has(label) ? OPEN_STATE.get(label) : defaultOpen));
+  const setOpen = (v) => setOpenState((prev) => { const next = typeof v === "function" ? v(prev) : v; OPEN_STATE.set(label, next); return next; });
   if (!collapsible)
     return (
       <section className={`space-y-2 ${className}`}>

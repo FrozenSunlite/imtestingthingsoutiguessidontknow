@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-CU_PzyQU.js";
+import { i as cn, n as base44, r as Button } from "./router--hC0YLD1.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -17664,8 +17664,14 @@ function PanelResizer({ width, onResize, edge = "left" }) {
 }
 //#endregion
 //#region src/components/skilltree/FieldGroup.jsx
+var OPEN_STATE = /* @__PURE__ */ new Map();
 function FieldGroup({ label, children, className = "", collapsible = false, defaultOpen = false }) {
-	const [open, setOpen] = useState(defaultOpen);
+	const [open, setOpenState] = useState(() => OPEN_STATE.has(label) ? OPEN_STATE.get(label) : defaultOpen);
+	const setOpen = (v) => setOpenState((prev) => {
+		const next = typeof v === "function" ? v(prev) : v;
+		OPEN_STATE.set(label, next);
+		return next;
+	});
 	if (!collapsible) return /* @__PURE__ */ jsxs("section", {
 		className: `space-y-2 ${className}`,
 		children: [/* @__PURE__ */ jsx("h4", {
