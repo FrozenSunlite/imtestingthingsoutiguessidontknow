@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-Ci6BlPjg.js";
+import { i as cn, n as base44, r as Button } from "./router-bhMGtWnL.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28590,6 +28590,20 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 		className: "blue-fire relative flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-gradient-to-b from-background via-background to-muted px-4 py-10",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
+				className: "absolute right-4 top-4 flex gap-2",
+				children: [/* @__PURE__ */ jsx("button", {
+					onClick: () => setSettingsOpen(true),
+					title: "Settings",
+					className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
+					children: /* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" })
+				}), /* @__PURE__ */ jsx("button", {
+					onClick: exit,
+					title: "Exit",
+					className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
+					children: /* @__PURE__ */ jsx(Power, { className: "h-5 w-5" })
+				})]
+			}),
+			/* @__PURE__ */ jsxs("div", {
 				className: "my-auto w-full max-w-md space-y-6",
 				children: [/* @__PURE__ */ jsxs("div", {
 					className: "text-center",
@@ -28625,10 +28639,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 						menuBtn(/* @__PURE__ */ jsx(Swords, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "DM Screen", "Quick rules and a dice roller for running the game", () => {
 							if (hasProject) onDmScreen?.();
 						}, !hasProject && !devMode),
-						menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read the rulebook — quick start guide and chapters", () => setRulebookOpen(true)),
-						menuBtn(/* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" }), "Settings", "Hotkeys, grid, library and defaults", () => setSettingsOpen(true)),
-						false,
-						menuBtn(/* @__PURE__ */ jsx(Power, { className: "h-5 w-5" }), "Exit", "Close the app", exit)
+						menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read the rulebook — quick start guide and chapters", () => setRulebookOpen(true))
 					]
 				})]
 			}),

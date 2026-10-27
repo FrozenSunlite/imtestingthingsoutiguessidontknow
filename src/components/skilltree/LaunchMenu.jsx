@@ -61,6 +61,14 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
 
   return (
     <div className="blue-fire relative flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-gradient-to-b from-background via-background to-muted px-4 py-10">
+      <div className="absolute right-4 top-4 flex gap-2">
+        <button onClick={() => setSettingsOpen(true)} title="Settings" className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent">
+          <SettingsIcon className="h-5 w-5" />
+        </button>
+        <button onClick={exit} title="Exit" className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent">
+          <Power className="h-5 w-5" />
+        </button>
+      </div>
       <div className="my-auto w-full max-w-md space-y-6">
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold tracking-tight text-primary drop-shadow-[0_0_16px_rgba(0,229,255,0.5)] sm:text-3xl">
@@ -105,20 +113,6 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
             "Read the rulebook — quick start guide and chapters",
             () => setRulebookOpen(true)
           )}
-          {menuBtn(
-            <SettingsIcon className="h-5 w-5" />,
-            "Settings",
-            "Hotkeys, grid, library and defaults",
-            () => setSettingsOpen(true)
-          )}
-          {!IS_STANDALONE &&
-            menuBtn(
-              <Download className="h-5 w-5" />,
-              "Get a copy",
-              "Download a standalone personal copy",
-              () => setCopyOpen(true)
-            )}
-          {menuBtn(<Power className="h-5 w-5" />, "Exit", "Close the app", exit)}
         </div>
       </div>
       <SaveLoadMenu open={saveOpen} onClose={() => setSaveOpen(false)} />
