@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-__ALiDit.js";
+import { i as cn, n as base44, r as Button } from "./router-ChAtqjj2.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -4661,24 +4661,6 @@ function TreeProvider({ children }) {
 		}, 400);
 		return () => clearTimeout(t);
 	}, [character]);
-	const activeTab = useMemo(() => tree?.tabs?.find((t) => t.id === tree.activeTabId) || null, [tree]);
-	const cameraRanRef = useRef("");
-	useEffect(() => {
-		if (!tree || !activeTab) return;
-		const nm = String(activeTab.cameraStartNode || "").trim().toLowerCase();
-		const key = activeTab.id + "|" + nm;
-		if (cameraRanRef.current === key) return;
-		cameraRanRef.current = key;
-		if (!nm) return;
-		const n = tree.nodes.find((m) => (m.name || "").trim().toLowerCase() === nm);
-		if (!n) return;
-		const el = document.getElementById("canvas-viewport");
-		setView((v) => ({
-			...v,
-			panX: (el?.clientWidth || 800) / 2 - n.x * v.zoom,
-			panY: (el?.clientHeight || 600) / 2 - n.y * v.zoom
-		}));
-	}, [tree, activeTab]);
 	const nodesById = useMemo(() => {
 		const m = {};
 		tree?.nodes.forEach((n) => m[n.id] = n);
@@ -16616,6 +16598,8 @@ function CarryGhost() {
 }
 //#endregion
 //#region src/components/skilltree/SkillTreeCanvas.jsx
+var lastCentredKey = "";
+var emptyTabs = /* @__PURE__ */ new Set();
 function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundContextMenu }) {
 	const { tree, nodesById, grid, ui, setUi, updateNode, addNode, rotateNodes, deleteNodes, deleteConnection, flipNode, investPoint, pools, character, setCharacter, settings, undo, redo, addBend, moveBend, moveNodes, toggleDependency, copyNodes, cutNodes, pasteClipboard, mergedTree, openSubtreePanel, startCarry, exitSubtreeEditor } = useTree();
 	const view = useView();
@@ -16634,6 +16618,26 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		w: 800,
 		h: 600
 	});
+	const centreOnWorld = useCallback((wx, wy) => {
+		const run = () => {
+			const el = containerRef.current;
+			if (!el) return;
+			const w = el.clientWidth;
+			const h = el.clientHeight;
+			if (w < 10 || h < 10) return;
+			const z = viewRef.current.zoom || .16;
+			pendingViewRef.current = null;
+			clearTimeout(commitTimer.current);
+			setView({
+				zoom: z,
+				panX: w / 2 - wx * z,
+				panY: h / 2 - wy * z
+			});
+		};
+		run();
+		requestAnimationFrame(run);
+		setTimeout(run, 140);
+	}, [setView]);
 	const subtreeStackLen = tree?.subtreeEditing?.stack?.length || 0;
 	const prevSubtreeDepthRef = useRef(0);
 	const preSubtreeViewRef = useRef(null);
@@ -16662,6 +16666,23 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		vp,
 		setView
 	]);
+	useEffect(() => {
+		if (!tree) return;
+		const tab = (tree.tabs || []).find((t) => t.id === tree.activeTabId);
+		const tabId = tab?.id || tree.activeTabId || "tab";
+		const nm = String(tab?.cameraStartNode || "").trim().toLowerCase();
+		const key = tabId + "|" + nm;
+		if (!(tree.nodes || []).length) {
+			emptyTabs.add(tabId);
+			lastCentredKey = "";
+			return;
+		}
+		if (!emptyTabs.delete(tabId) && lastCentredKey === key) return;
+		lastCentredKey = key;
+		const node = nm && tree.nodes.find((m) => (m.name || "").trim().toLowerCase() === nm) || tree.nodes[0];
+		if (!node) return;
+		centreOnWorld(node.x, node.y);
+	}, [tree, centreOnWorld]);
 	const dragRef = useRef(null);
 	const rightDragRef = useRef(null);
 	const [altActive, setAltActive] = useState(false);
@@ -17377,6 +17398,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	};
 	const onDoubleClick = (e) => {
 		if (!editable) return;
+		const wasEmpty = !tree?.nodes?.length;
 		const rect = containerRef.current.getBoundingClientRect();
 		const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 		const p = snapPoint(w.x, w.y, grid);
@@ -17386,6 +17408,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			selectedNodeId: id,
 			editingNodeId: id
 		}));
+		if (wasEmpty) centreOnWorld(0, 0);
 	};
 	const commitInvest = (n, delta, optionNames) => {
 		investPoint(n.id, delta);

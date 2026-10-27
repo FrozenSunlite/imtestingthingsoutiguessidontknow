@@ -1128,31 +1128,10 @@ export function TreeProvider({ children }) {
     return () => clearTimeout(t);
   }, [character]);
 
-  // Center the camera on the active tab's starting node (Settings → Camera
-  // start, stored per tab) when the app loads, the tab changes, or its start
-  // node is set. Guarded by a key so editing the tree never re-centers.
-  const activeTab = useMemo(
-    () => tree?.tabs?.find((t) => t.id === tree.activeTabId) || null,
-    [tree]
-  );
-  const cameraRanRef = useRef("");
-  useEffect(() => {
-    if (!tree || !activeTab) return;
-    const nm = String(activeTab.cameraStartNode || "").trim().toLowerCase();
-    const key = activeTab.id + "|" + nm;
-    if (cameraRanRef.current === key) return;
-    cameraRanRef.current = key;
-    if (!nm) return;
-    const n = tree.nodes.find((m) => (m.name || "").trim().toLowerCase() === nm);
-    if (!n) return;
-    const el = document.getElementById("canvas-viewport");
-    setView((v) => ({
-      ...v,
-      panX: (el?.clientWidth || 800) / 2 - n.x * v.zoom,
-      panY: (el?.clientHeight || 600) / 2 - n.y * v.zoom,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, activeTab]);
+  // Camera start: the canvas recentres itself on the active tab's chosen start
+  // node (or its first node) once it is mounted and measured — see
+  // SkillTreeCanvas's camera effect. Kept out of the store so it never runs
+  // while the canvas is hidden (launch menu / character sheet).
 
   const nodesById = useMemo(() => {
     const m = {};

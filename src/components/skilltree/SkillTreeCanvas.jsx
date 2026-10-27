@@ -35,6 +35,13 @@ import { SubtreePickerDialog } from "@/components/skilltree/SubtreePickerDialog"
 import { ConnectorMenu } from "@/components/skilltree/ConnectorMenu";
 import { CarryGhost } from "@/components/skilltree/CarryGhost";
 
+// Camera framing bookkeeping. Module scope on purpose: it must survive canvas
+// unmounts, so returning from the character sheet keeps the current view.
+// lastCentredKey is the tab/start-node pair currently framed; emptyTabs marks
+// tabs with no nodes yet so their first node can pull the camera over.
+let lastCentredKey = "";
+const emptyTabs = new Set();
+
 export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundContextMenu }) {
   const {
     tree,
@@ -91,6 +98,30 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   const containerRef = useRef(null);
   const [vp, setVp] = useState({ w: 800, h: 600 });
 
+  // Move the camera so a world point sits in the middle of the canvas. The
+  // editor panel opens in the same click that creates a node, which resizes
+  // the canvas a moment later, so run again on the next frame and once more
+  // after the layout settles.
+  const centreOnWorld = useCallback(
+    (wx, wy) => {
+      const run = () => {
+        const el = containerRef.current;
+        if (!el) return;
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        if (w < 10 || h < 10) return;
+        const z = viewRef.current.zoom || 0.16;
+        pendingViewRef.current = null;
+        clearTimeout(commitTimer.current);
+        setView({ zoom: z, panX: w / 2 - wx * z, panY: h / 2 - wy * z });
+      };
+      run();
+      requestAnimationFrame(run);
+      setTimeout(run, 140);
+    },
+    [setView]
+  );
+
   // Entering a subtree swaps the canvas over to the branch's own node list;
   // centre the camera on the seeded copy of the host node (the branch root),
   // so the editor opens focused on it instead of the parent-space position.
@@ -116,6 +147,35 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       preSubtreeViewRef.current = null;
     }
   }, [subtreeStackLen, tree, vp, setView]);
+
+  // Auto-centre the camera on the tab's camera-start node — or, when none is
+  // set, on the first node in the tab. Re-centres when the active tab or its
+  // start node changes, and when a tab's very first node is placed; stays put
+  // otherwise (including after leaving for the character sheet and back).
+  useEffect(() => {
+    if (!tree) return;
+    const tab = (tree.tabs || []).find((t) => t.id === tree.activeTabId);
+    const tabId = tab?.id || tree.activeTabId || "tab";
+    const nm = String(tab?.cameraStartNode || "").trim().toLowerCase();
+    const key = tabId + "|" + nm;
+
+    if (!(tree.nodes || []).length) {
+      emptyTabs.add(tabId);
+      lastCentredKey = "";
+      return;
+    }
+
+    const forced = emptyTabs.delete(tabId); // first node just placed here
+    if (!forced && lastCentredKey === key) return;
+    lastCentredKey = key;
+
+    const node =
+      (nm && tree.nodes.find((m) => (m.name || "").trim().toLowerCase() === nm)) ||
+      tree.nodes[0];
+    if (!node) return;
+    centreOnWorld(node.x, node.y);
+  }, [tree, centreOnWorld]);
+
   const dragRef = useRef(null); // {type:'pan'|'node'|'bend', ...}
   const rightDragRef = useRef(null); // last right-drag that moved (suppresses node menu)
   const [altActive, setAltActive] = useState(false);
@@ -859,11 +919,15 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
 
   const onDoubleClick = (e) => {
     if (!editable) return;
+    const wasEmpty = !tree?.nodes?.length;
     const rect = containerRef.current.getBoundingClientRect();
     const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     const p = snapPoint(w.x, w.y, grid);
     const id = addNode(p.x, p.y);
     setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: id }));
+    // The tab's very first node anchors at the world origin — bring the camera
+    // to it so a new tree starts centred instead of in a corner.
+    if (wasEmpty) centreOnWorld(0, 0);
   };
 
   // Point investment. Nodes with ability options (e.g. Fighting Style) open a
