@@ -66,7 +66,42 @@ export function SaveLoadMenu({ open, onClose }) {
     URL.revokeObjectURL(url);
   };
 
-  const doImport = (e) => {
+  const downloadBundle = async (entry) => {
+    try {
+      const json = JSON.stringify(entry);
+      const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"));
+      const blob = await new Response(stream).blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (entry.name || "character").replace(/\\s+/g, "-") + ".gz";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Bundle exported.");
+    } catch (e) {
+      toast.error("Could not create bundle: " + (e?.message || e));
+    }
+  };
+
+  const importBundle = async (file) => {
+    try {
+      const text = file.name.endsWith(".gz")
+        ? await (async () => {
+            const ds = new DecompressionStream("gzip");
+            const stream = file.stream().pipeThrough(ds);
+            return await new Response(stream).text();
+          })()
+        : await file.text();
+      const data = JSON.parse(text);
+      if (!data || (!data.tree && !data.character)) throw new Error("bad file");
+      applyLoadedSave(data, "sheet");
+      onClose();
+    } catch (e) {
+      toast.error("Not a valid bundle: " + (e?.message || e));
+    }
+  };
+
+  const doImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -149,3 +184,5 @@ export function SaveLoadMenu({ open, onClose }) {
     </Dialog>
   );
 }
+
+

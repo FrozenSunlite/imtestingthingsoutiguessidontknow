@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-gatZfefp.js";
+import { i as cn, n as base44, r as Button } from "./router-BAVgSheK.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -14267,7 +14267,7 @@ function SaveLoadMenu({ open, onClose }) {
 		a.click();
 		URL.revokeObjectURL(url);
 	};
-	const doImport = (e) => {
+	const doImport = async (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		const reader = new FileReader();
