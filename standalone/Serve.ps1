@@ -18,7 +18,6 @@ $listener.Prefixes.Add("$url/")
 $listener.Start()
 $launched = $false
 if ($edgePath) { try { Start-Process $edgePath -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true } catch {} }
-if (-not $launched) { try { Start-Process $url } catch {} }
 while ($listener.IsListening) {
   $ctx = $listener.GetContext()
   $path = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath.TrimStart('/'))
@@ -31,3 +30,4 @@ while ($listener.IsListening) {
   $ctx.Response.OutputStream.Write($bytes,0,$bytes.Length)
   $ctx.Response.Close()
 }
+
