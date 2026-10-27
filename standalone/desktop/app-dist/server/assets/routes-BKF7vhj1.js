@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router--hC0YLD1.js";
+import { i as cn, n as base44, r as Button } from "./router-B5h3yU0h.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -6431,6 +6431,24 @@ var FIXED_SHORTCUTS = [
 function SettingsMenu({ open, onClose }) {
 	const { settings, setSettings, tree, patchTab, character, setCharacter } = useTree();
 	const [theme, setTheme] = useTheme();
+	const [devLogs, setDevLogs] = useState([]);
+	useEffect(() => {
+		if (!character?.devMode) return;
+		const origLog = console.log;
+		const origError = console.error;
+		console.log = (...a) => {
+			setDevLogs((l) => [...l, a.join(" ")]);
+			origLog(...a);
+		};
+		console.error = (...a) => {
+			setDevLogs((l) => [...l, "ERROR: " + a.join(" ")]);
+			origError(...a);
+		};
+		return () => {
+			console.log = origLog;
+			console.error = origError;
+		};
+	}, [character?.devMode]);
 	if (!settings) return null;
 	const activeTab = (tree?.tabs || []).find((t) => t.id === tree?.activeTabId);
 	const setHotkey = (action, combo) => setSettings((s) => ({
@@ -6829,6 +6847,26 @@ function SettingsMenu({ open, onClose }) {
 											})
 										})]
 									})
+								}),
+								character?.devMode && /* @__PURE__ */ jsxs("div", {
+									className: "mt-4 border-t pt-3 space-y-2",
+									children: [
+										/* @__PURE__ */ jsx("p", {
+											className: "text-sm font-medium",
+											children: "Console (DevMode)"
+										}),
+										/* @__PURE__ */ jsx("textarea", {
+											className: "h-40 w-full rounded-md border bg-black/80 p-2 font-mono text-xs text-green-300",
+											readOnly: true,
+											value: devLogs.join("\n")
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											onClick: () => setDevLogs([]),
+											children: "Clear"
+										})
+									]
 								})
 							]
 						}),

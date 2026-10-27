@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { HotkeyRow } from "@/components/skilltree/HotkeyRow";
 import { HelpContent } from "@/components/skilltree/HelpContent";
 import { useTheme } from "@/lib/useTheme";
+import { useEffect, useState } from "react";
 
 // Editable hotkeys (rebindable).
 const HOTKEY_LABELS = [
@@ -54,6 +55,15 @@ const FIXED_SHORTCUTS = [
 export function SettingsMenu({ open, onClose }) {
   const { settings, setSettings, tree, patchTab, character, setCharacter } = useTree();
   const [theme, setTheme] = useTheme();
+  const [devLogs, setDevLogs] = useState([]);
+  useEffect(() => {
+    if (!character?.devMode) return;
+    const origLog = console.log;
+    const origError = console.error;
+    console.log = (...a) => { setDevLogs((l) => [...l, a.join(" ")]); origLog(...a); };
+    console.error = (...a) => { setDevLogs((l) => [...l, "ERROR: " + a.join(" ")]); origError(...a); };
+    return () => { console.log = origLog; console.error = origError; };
+  }, [character?.devMode]);
   if (!settings) return null;
   const activeTab = (tree?.tabs || []).find((t) => t.id === tree?.activeTabId);
 
@@ -353,6 +363,17 @@ export function SettingsMenu({ open, onClose }) {
                   />
                 </div>
               </div>
+            {character?.devMode && (
+              <div className="mt-4 border-t pt-3 space-y-2">
+                <p className="text-sm font-medium">Console (DevMode)</p>
+                <textarea
+                  className="h-40 w-full rounded-md border bg-black/80 p-2 font-mono text-xs text-green-300"
+                  readOnly
+                  value={devLogs.join("\n")}
+                />
+                <Button size="sm" variant="outline" onClick={() => setDevLogs([])}>Clear</Button>
+              </div>
+            )}
             </TabsContent>
 
             <TabsContent value="help" className="mt-3">
