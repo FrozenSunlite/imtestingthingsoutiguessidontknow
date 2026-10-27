@@ -13,8 +13,9 @@ $mimes = @{
 }
 $url = "http://localhost:$port"
 $launched = $false
-$edge = (Get-Command "msedge" -ErrorAction SilentlyContinue)
-if ($edge) { try { Start-Process "msedge" -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true } catch {} }
+$edgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+if (-not (Test-Path $edgePath)) { $edgePath = (Get-Command "msedge" -ErrorAction SilentlyContinue).Source }
+if ($edgePath) { try { Start-Process $edgePath -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true } catch {} }
 if (-not $launched) { try { Start-Process $url } catch {} }
 while ($listener.IsListening) {
   $ctx = $listener.GetContext()
@@ -28,4 +29,3 @@ while ($listener.IsListening) {
   $ctx.Response.OutputStream.Write($bytes,0,$bytes.Length)
   $ctx.Response.Close()
 }
-
