@@ -140,6 +140,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
       <SettingsMenu open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SaveLoadMenu open={loadOpen} onClose={() => setLoadOpen(false)} />
       <StandaloneCopyDialog open={copyOpen} onClose={() => setCopyOpen(false)} />
+    <p className="mt-4 text-center text-[10px] text-muted-foreground/70">Not for Commercial Resale</p>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-QhiDbEpr.js";
+import { i as cn, n as base44, r as Button } from "./router-CflW1LuV.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28692,6 +28692,10 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 			/* @__PURE__ */ jsx(StandaloneCopyDialog, {
 				open: copyOpen,
 				onClose: () => setCopyOpen(false)
+			}),
+			/* @__PURE__ */ jsx("p", {
+				className: "mt-4 text-center text-[10px] text-muted-foreground/70",
+				children: "Not for Commercial Resale"
 			})
 		]
 	});
