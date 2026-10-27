@@ -206,6 +206,16 @@ export const DEFAULT_DUNGEON_ROOMS = [
     notes: "A visible pit with a narrow rim and a reward below.",
   },
   {
+    id: "room-animal-den",
+    name: "Animal Den",
+    category: "Chamber",
+    minW: 5, maxW: 8, minH: 4, maxH: 6,
+    environment: "Fungal cavern", elevation: "Flat", cover: "Fog (lightly obscured)",
+    connector: "Rubble passage", traps: [], spawns: ["CR 0 animals"], loot: ["1 natural treasure roll"],
+    notes: "A CR 0-only den: beasts and swarms, not soldiers.",
+    cr0Only: true,
+  },
+  {
     id: "room-bridge",
     name: "Broken Bridge",
     category: "Corridor",
@@ -309,6 +319,7 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
     spawns,
     loot,
     notes: template.notes || "",
+    cr0Only: !!template.cr0Only,
   };
 }
 
@@ -441,6 +452,98 @@ export function generateDungeon({
     connections,
     notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
     createdAt: new Date().toISOString(),
+  };
+}
+
+export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
+  const t = template || DEFAULT_DUNGEON_ROOMS[0];
+  const w = Math.max(t.minW || 4, Math.round(((t.minW || 4) + (t.maxW || t.minW || 6)) / 2));
+  const h = Math.max(t.minH || 4, Math.round(((t.minH || 4) + (t.maxH || t.minH || 6)) / 2));
+  return {
+    id: uid("room"),
+    templateId: t.id,
+    name: t.name || "Room",
+    category: t.category || "Chamber",
+    x,
+    y,
+    w,
+    h,
+    environment: t.environment || "",
+    elevation: t.elevation || "Flat",
+    cover: t.cover || "Open",
+    connector: t.connector || "Doorway",
+    traps: [...(t.traps || [])],
+    spawns: [...(t.spawns || [])],
+    loot: [...(t.loot || [])],
+    notes: t.notes || "",
+    cr0Only: !!t.cr0Only,
+  };
+}
+
+export const CR_STEPS = [
+  "0", "1/8", "1/4", "1/2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+  "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23",
+  "24", "25", "26", "27", "28", "29", "30",
+];
+
+export function crValue(cr) {
+  const s = String(cr ?? "").trim();
+  if (s === "1/8") return 0.125;
+  if (s === "1/4") return 0.25;
+  if (s === "1/2") return 0.5;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function crTargets(level) {
+  const lv = Math.max(1, Math.round(Number(level) || 1));
+  let maxIdx = CR_STEPS.findIndex((s) => crValue(s) >= lv);
+  if (maxIdx < 0) maxIdx = CR_STEPS.length - 1;
+  maxIdx = Math.max(1, maxIdx);
+  const targetIdx = Math.max(1, maxIdx - 2);
+  return { maxIdx, targetIdx, maxCR: CR_STEPS[maxIdx], targetCR: CR_STEPS[targetIdx] };
+}
+
+// Pick monsters for every room using the party size and level. Two monsters per
+// player is the baseline; the target CR is two steps below the party level, and
+// never above it. CR0-only rooms (animal dens) draw from CR 0 creatures.
+export function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [] } = {}) {
+  const party = Math.max(1, Math.round(Number(players) || 1));
+  const level = Math.max(1, Math.round(Number(partyLevel) || 1));
+  const { targetIdx, maxIdx, maxCR, targetCR } = crTargets(level);
+  const pool = (monsters || []).filter((m) => m?.name);
+  return {
+    ...dungeon,
+    rooms: (dungeon.rooms || []).map((room) => {
+      if (!pool.length) return room;
+      const cr0 = !!room.cr0Only;
+      let candidates = pool.filter((m) => {
+        const v = crValue(m.cr);
+        return cr0 ? v === 0 : v >= 0.125 && v <= maxCR;
+      });
+      if (!candidates.length)
+        candidates = pool.filter((m) => {
+          const v = crValue(m.cr);
+          return cr0 ? v === 0 : v <= maxCR;
+        });
+      if (!candidates.length) return room;
+      const near = candidates.filter((m) => {
+        const v = crValue(m.cr);
+        const targetNum = crValue(targetCR);
+        return Math.abs(v - (cr0 ? 0 : targetNum)) <= Math.max(0.5, targetNum * 0.5);
+      });
+      const chosenPool = near.length ? near : candidates;
+      const groups = room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, chosenPool.length);
+      const total = room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
+      const picked = [];
+      for (let i = 0; i < groups; i++) {
+        const m = chosenPool[Math.floor(Math.random() * chosenPool.length)];
+        const count = Math.max(1, Math.round(total / groups));
+        picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
+      }
+      return { ...room, spawns: picked };
+    }),
+    encounterScale: { players: party, partyLevel: level, targetCR: CR_STEPS[targetIdx], maxCR: CR_STEPS[maxIdx] },
   };
 }
 

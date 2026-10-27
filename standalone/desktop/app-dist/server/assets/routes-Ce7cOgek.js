@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-DsNxrWnQ.js";
+import { n as Button, r as cn } from "./router-ChJNNC0s.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, ImagePlus, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, Maximize, Minus, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FileUp, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, ImagePlus, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, Maximize, Minus, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -3405,6 +3405,24 @@ var DEFAULT_DUNGEON_ROOMS = [
 		notes: "A visible pit with a narrow rim and a reward below."
 	},
 	{
+		id: "room-animal-den",
+		name: "Animal Den",
+		category: "Chamber",
+		minW: 5,
+		maxW: 8,
+		minH: 4,
+		maxH: 6,
+		environment: "Fungal cavern",
+		elevation: "Flat",
+		cover: "Fog (lightly obscured)",
+		connector: "Rubble passage",
+		traps: [],
+		spawns: ["CR 0 animals"],
+		loot: ["1 natural treasure roll"],
+		notes: "A CR 0-only den: beasts and swarms, not soldiers.",
+		cr0Only: true
+	},
+	{
 		id: "room-bridge",
 		name: "Broken Bridge",
 		category: "Corridor",
@@ -3518,7 +3536,8 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
 		traps,
 		spawns,
 		loot,
-		notes: template.notes || ""
+		notes: template.notes || "",
+		cr0Only: !!template.cr0Only
 	};
 }
 var link = (from, to, type = "Doorway") => ({
@@ -3642,6 +3661,133 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		connections,
 		notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
+	};
+}
+function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
+	const t = template || DEFAULT_DUNGEON_ROOMS[0];
+	const w = Math.max(t.minW || 4, Math.round(((t.minW || 4) + (t.maxW || t.minW || 6)) / 2));
+	const h = Math.max(t.minH || 4, Math.round(((t.minH || 4) + (t.maxH || t.minH || 6)) / 2));
+	return {
+		id: uid("room"),
+		templateId: t.id,
+		name: t.name || "Room",
+		category: t.category || "Chamber",
+		x,
+		y,
+		w,
+		h,
+		environment: t.environment || "",
+		elevation: t.elevation || "Flat",
+		cover: t.cover || "Open",
+		connector: t.connector || "Doorway",
+		traps: [...t.traps || []],
+		spawns: [...t.spawns || []],
+		loot: [...t.loot || []],
+		notes: t.notes || "",
+		cr0Only: !!t.cr0Only
+	};
+}
+var CR_STEPS = [
+	"0",
+	"1/8",
+	"1/4",
+	"1/2",
+	"1",
+	"2",
+	"3",
+	"4",
+	"5",
+	"6",
+	"7",
+	"8",
+	"9",
+	"10",
+	"11",
+	"12",
+	"13",
+	"14",
+	"15",
+	"16",
+	"17",
+	"18",
+	"19",
+	"20",
+	"21",
+	"22",
+	"23",
+	"24",
+	"25",
+	"26",
+	"27",
+	"28",
+	"29",
+	"30"
+];
+function crValue(cr) {
+	const s = String(cr ?? "").trim();
+	if (s === "1/8") return .125;
+	if (s === "1/4") return .25;
+	if (s === "1/2") return .5;
+	const n = Number(s);
+	return Number.isFinite(n) ? n : 0;
+}
+function crTargets(level) {
+	const lv = Math.max(1, Math.round(Number(level) || 1));
+	let maxIdx = CR_STEPS.findIndex((s) => crValue(s) >= lv);
+	if (maxIdx < 0) maxIdx = CR_STEPS.length - 1;
+	maxIdx = Math.max(1, maxIdx);
+	const targetIdx = Math.max(1, maxIdx - 2);
+	return {
+		maxIdx,
+		targetIdx,
+		maxCR: CR_STEPS[maxIdx],
+		targetCR: CR_STEPS[targetIdx]
+	};
+}
+function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [] } = {}) {
+	const party = Math.max(1, Math.round(Number(players) || 1));
+	const level = Math.max(1, Math.round(Number(partyLevel) || 1));
+	const { targetIdx, maxIdx, maxCR, targetCR } = crTargets(level);
+	const pool = (monsters || []).filter((m) => m?.name);
+	return {
+		...dungeon,
+		rooms: (dungeon.rooms || []).map((room) => {
+			if (!pool.length) return room;
+			const cr0 = !!room.cr0Only;
+			let candidates = pool.filter((m) => {
+				const v = crValue(m.cr);
+				return cr0 ? v === 0 : v >= .125 && v <= maxCR;
+			});
+			if (!candidates.length) candidates = pool.filter((m) => {
+				const v = crValue(m.cr);
+				return cr0 ? v === 0 : v <= maxCR;
+			});
+			if (!candidates.length) return room;
+			const near = candidates.filter((m) => {
+				const v = crValue(m.cr);
+				const targetNum = crValue(targetCR);
+				return Math.abs(v - (cr0 ? 0 : targetNum)) <= Math.max(.5, targetNum * .5);
+			});
+			const chosenPool = near.length ? near : candidates;
+			const groups = room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, chosenPool.length);
+			const total = room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
+			const picked = [];
+			for (let i = 0; i < groups; i++) {
+				const m = chosenPool[Math.floor(Math.random() * chosenPool.length)];
+				const count = Math.max(1, Math.round(total / groups));
+				picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
+			}
+			return {
+				...room,
+				spawns: picked
+			};
+		}),
+		encounterScale: {
+			players: party,
+			partyLevel: level,
+			targetCR: CR_STEPS[targetIdx],
+			maxCR: CR_STEPS[maxIdx]
+		}
 	};
 }
 function dungeonBounds(dungeon) {
@@ -10728,11 +10874,27 @@ function rollLootPool(poolName, pools, depth = 0, path = []) {
 		error: null
 	};
 }
-function rollEncounter(table) {
-	return (table.rows || []).filter((r) => r?.monster).map((r) => ({
-		monster: r.monster,
-		count: rollExpr(r.count)
-	})).filter((r) => r.count > 0);
+function rollEncounter(table, monsters = []) {
+	return (table.rows || []).map((r) => {
+		if (!r) return null;
+		let name = r.monster || r.tag || "";
+		if (!name) return null;
+		if (r.kind === "tag" || r.tag) {
+			const tag = String(r.tag || r.monster || "").toLowerCase();
+			const pool = (monsters || []).filter((m) => {
+				return [
+					m?.type,
+					m?.category,
+					...Array.isArray(m?.tags) ? m.tags : []
+				].filter(Boolean).map((x) => String(x).toLowerCase()).some((h) => h === tag || h.includes(tag));
+			});
+			if (pool.length) name = pool[Math.floor(Math.random() * pool.length)].name;
+		}
+		return {
+			monster: name,
+			count: rollExpr(r.count)
+		};
+	}).filter((r) => r && r.count > 0);
 }
 //#endregion
 //#region src/components/skilltree/library/LootPoolsTab.jsx
@@ -11095,7 +11257,12 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 	const [open, setOpen] = useState(false);
 	const [result, setResult] = useState(null);
 	const rows = table.rows || [];
-	const doRoll = () => setResult(rollEncounter(table));
+	const tagOptions = [...new Set(monsters.flatMap((m) => [
+		m.type,
+		m.category,
+		...m.tags || []
+	]).filter(Boolean))];
+	const doRoll = () => setResult(rollEncounter(table, monsters));
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
 		children: [
@@ -11152,64 +11319,113 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 								rows.length,
 								")"
 							]
-						}), /* @__PURE__ */ jsxs(Button, {
-							size: "sm",
-							variant: "ghost",
-							onClick: () => onChange({
-								...table,
-								rows: [...rows, {
-									monster: "",
-									count: "1"
-								}]
-							}),
-							children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Add row"]
-						})]
-					}),
-					rows.map((row, i) => /* @__PURE__ */ jsxs("div", {
-						className: "flex items-center gap-1 rounded border bg-accent/20 p-1.5",
-						children: [
-							/* @__PURE__ */ jsxs(Select, {
-								value: row.monster || "",
-								onValueChange: (v) => onChange({
-									...table,
-									rows: rows.map((r, j) => j === i ? {
-										...r,
-										monster: v
-									} : r)
-								}),
-								children: [/* @__PURE__ */ jsx(SelectTrigger, {
-									className: "h-7 min-w-36 flex-1 text-xs",
-									children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Monster…" })
-								}), /* @__PURE__ */ jsx(SelectContent, { children: monsters.map((m) => /* @__PURE__ */ jsxs(SelectItem, {
-									value: m.name,
-									children: [m.name, m.cr ? ` (CR ${m.cr})` : ""]
-								}, m.name)) })]
-							}),
-							/* @__PURE__ */ jsx(InfoTip, {
-								label: "How many appear — a number or dice like 1d6.",
-								children: /* @__PURE__ */ jsx(Input, {
-									className: "h-7 w-16 text-center",
-									value: row.count ?? "1",
-									onChange: (e) => onChange({
-										...table,
-										rows: rows.map((r, j) => j === i ? {
-											...r,
-											count: e.target.value
-										} : r)
-									})
-								})
-							}),
-							/* @__PURE__ */ jsx(Button, {
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "flex items-center gap-1",
+							children: [/* @__PURE__ */ jsxs(Button, {
 								size: "sm",
 								variant: "ghost",
 								onClick: () => onChange({
 									...table,
-									rows: rows.filter((_, j) => j !== i)
+									rows: [...rows, {
+										kind: "monster",
+										monster: "",
+										count: "1"
+									}]
 								}),
-								children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
-							})
-						]
-					}, i)),
+								children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Monster"]
+							}), /* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "ghost",
+								onClick: () => onChange({
+									...table,
+									rows: [...rows, {
+										kind: "tag",
+										tag: "",
+										count: "1"
+									}]
+								}),
+								children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Tag"]
+							})]
+						})]
+					}),
+					rows.map((row, i) => {
+						const isTag = row.kind === "tag" || !!row.tag;
+						const updateRow = (p) => onChange({
+							...table,
+							rows: rows.map((r, j) => j === i ? {
+								...r,
+								...p
+							} : r)
+						});
+						return /* @__PURE__ */ jsxs("div", {
+							className: "flex items-center gap-1 rounded border bg-accent/20 p-1.5",
+							children: [
+								/* @__PURE__ */ jsxs(Select, {
+									value: isTag ? "tag" : "monster",
+									onValueChange: (v) => updateRow(v === "tag" ? {
+										kind: "tag",
+										tag: row.tag || "",
+										monster: ""
+									} : {
+										kind: "monster",
+										monster: row.monster || "",
+										tag: ""
+									}),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-7 w-20 shrink-0 text-xs",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+										value: "monster",
+										children: "Monster"
+									}), /* @__PURE__ */ jsx(SelectItem, {
+										value: "tag",
+										children: "Tag"
+									})] })]
+								}),
+								isTag ? /* @__PURE__ */ jsx(InfoTip, {
+									label: "Pick a monster tag, type or category. Rolling chooses a random matching monster.",
+									children: /* @__PURE__ */ jsx(Input, {
+										className: "h-7 min-w-32 flex-1 text-xs",
+										list: "encounter-tags",
+										placeholder: "Tag or category…",
+										value: row.tag || "",
+										onChange: (e) => updateRow({ tag: e.target.value })
+									})
+								}) : /* @__PURE__ */ jsxs(Select, {
+									value: row.monster || "",
+									onValueChange: (v) => updateRow({ monster: v }),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-7 min-w-36 flex-1 text-xs",
+										children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Monster…" })
+									}), /* @__PURE__ */ jsx(SelectContent, { children: monsters.map((m) => /* @__PURE__ */ jsxs(SelectItem, {
+										value: m.name,
+										children: [m.name, m.cr ? ` (CR ${m.cr})` : ""]
+									}, m.name)) })]
+								}),
+								/* @__PURE__ */ jsx(InfoTip, {
+									label: "How many appear — a number or dice like 1d6.",
+									children: /* @__PURE__ */ jsx(Input, {
+										className: "h-7 w-16 text-center",
+										value: row.count ?? "1",
+										onChange: (e) => updateRow({ count: e.target.value })
+									})
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "ghost",
+									onClick: () => onChange({
+										...table,
+										rows: rows.filter((_, j) => j !== i)
+									}),
+									children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
+								})
+							]
+						}, i);
+					}),
+					/* @__PURE__ */ jsx("datalist", {
+						id: "encounter-tags",
+						children: tagOptions.map((t) => /* @__PURE__ */ jsx("option", { value: t }, t))
+					}),
 					rows.length === 0 && /* @__PURE__ */ jsx("p", {
 						className: "text-xs text-muted-foreground",
 						children: "Add rows of monsters to fill the table."
@@ -14069,6 +14285,64 @@ function ImageField({ label = "Image", value = "", onChange, placeholder = "Imag
 	});
 }
 //#endregion
+//#region src/lib/monsterSpeeds.js
+var TYPE_ALIASES = {
+	walk: "Standard",
+	land: "Standard",
+	standard: "Standard",
+	fly: "Flying",
+	flying: "Flying",
+	swim: "Swimming",
+	swimming: "Swimming",
+	climb: "Climbing",
+	climbing: "Climbing",
+	burrow: "Burrowing",
+	burrowing: "Burrowing"
+};
+var title = (s) => String(s || "").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+function speedTypeName(type) {
+	return TYPE_ALIASES[String(type || "").trim().toLowerCase()] || title(type);
+}
+var toSpaces = (value) => {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return 0;
+	return Math.round(n / 5 * 10) / 10;
+};
+function speedEntries(speed) {
+	if (speed == null || speed === "") return [];
+	if (Array.isArray(speed)) return speed.map((e) => {
+		if (typeof e === "object" && e) {
+			const name = e.type || e.name || "Standard";
+			const spaces = e.spaces ?? e.value ?? e.number;
+			return {
+				type: speedTypeName(name),
+				spaces: Number(spaces) || 0
+			};
+		}
+		return null;
+	}).filter(Boolean);
+	if (typeof speed === "number") return [{
+		type: "Standard",
+		spaces: toSpaces(speed)
+	}];
+	if (typeof speed === "string") return feetToSpacesText(speed).split(",").map((part) => {
+		const m = part.trim().match(/^(?:([a-z][a-z ]*?)\s*)?(\d+(?:\.\d+)?)\s*(?:spaces?|ft\.?|feet|foot)?$/i);
+		if (!m) return null;
+		return {
+			type: speedTypeName(m[1] || "Standard"),
+			spaces: Number(m[2]) || 0
+		};
+	}).filter(Boolean);
+	if (typeof speed === "object") return Object.entries(speed).filter(([, v]) => typeof v === "number" || v && typeof v === "object" && Number.isFinite(Number(v.number ?? v.value))).map(([type, v]) => ({
+		type: speedTypeName(type),
+		spaces: toSpaces(typeof v === "object" ? v.number ?? v.value : v)
+	}));
+	return [];
+}
+function speedTextFromEntries(entries) {
+	return (entries || []).filter((e) => e && e.type && Number.isFinite(Number(e.spaces))).map((e) => e.type === "Standard" ? `${e.spaces} spaces` : `${e.type} ${e.spaces} spaces`).join(", ");
+}
+//#endregion
 //#region src/components/skilltree/FamiliarTab.jsx
 var ABILITIES = [
 	["str", "STR"],
@@ -14113,6 +14387,7 @@ var BLANK$1 = {
 	hpMax: 1,
 	hpCurrent: 1,
 	speed: "",
+	speeds: [],
 	str: 10,
 	dex: 10,
 	con: 10,
@@ -14147,7 +14422,8 @@ function monsterToStatblock(m) {
 		ac: toNum(m?.ac) || 10,
 		hpMax: toNum(m?.hp) || 1,
 		hpCurrent: toNum(m?.hp) || 1,
-		speed: feetToSpacesText(m?.speed || ""),
+		speed: speedTextFromEntries(m?.speeds) || feetToSpacesText(m?.speed || ""),
+		speeds: speedEntries(Array.isArray(m?.speeds) && m.speeds.length ? m.speeds : m?.speed),
 		str: abil.str ?? 10,
 		dex: abil.dex ?? 10,
 		con: abil.con ?? 10,
@@ -14192,6 +14468,7 @@ function statblockToMonster(f) {
 		ac: f?.ac ?? "",
 		hp: f?.hpMax ?? "",
 		speed: feetToSpacesText(f?.speed || ""),
+		speeds: speedEntries(f?.speed),
 		abilities: ABILITIES.map(([k, l]) => `${l} ${f?.[k] ?? 10}`).join(", "),
 		senses: feetToSpacesText(f?.senses || ""),
 		languages: f?.languages || "",
@@ -14685,12 +14962,131 @@ function FamiliarTab() {
 	});
 }
 //#endregion
+//#region src/lib/monsterImport.js
+var textOf = (value) => {
+	if (value == null) return "";
+	if (typeof value === "string") return value;
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join("\n");
+	if (typeof value === "object") {
+		if (value.entries) return textOf(value.entries);
+		if (value.text) return textOf(value.text);
+		if (value.desc) return textOf(value.desc);
+		return value.name ? String(value.name) : "";
+	}
+	return String(value);
+};
+var listOf = (value) => {
+	if (!value) return [];
+	return (Array.isArray(value) ? value : [value]).map((x) => {
+		if (typeof x === "string") return {
+			name: "",
+			text: x
+		};
+		return {
+			name: x?.name || "",
+			text: textOf(x?.entries ?? x?.text ?? x?.desc ?? x)
+		};
+	}).filter((x) => x.name || x.text);
+};
+var join = (value) => Array.isArray(value) ? value.filter(Boolean).join(", ") : textOf(value);
+var mods = (value) => {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+	return Object.entries(value).map(([key, v]) => `${key.toUpperCase()} ${Number(v) >= 0 ? "+" : ""}${v}`).join(", ");
+};
+var sourceTag = (raw) => {
+	const type = typeof raw?.type === "object" ? raw.type?.type : raw?.type;
+	const typeTags = typeof raw?.type === "object" ? raw.type?.tags || [] : [];
+	return [...new Set([
+		type,
+		...typeTags,
+		...raw?.tags || []
+	].filter(Boolean).map(String))];
+};
+function normalizeImportedMonster(raw) {
+	if (!raw || typeof raw !== "object") return null;
+	const abil = raw.abilities || {};
+	const score = (k) => Number(abil[k]?.score ?? abil[k] ?? raw[k] ?? 10) || 10;
+	const acRaw = raw.ac ?? raw.armorClass ?? raw.armor_class;
+	const ac = Array.isArray(acRaw) ? acRaw[0]?.ac ?? acRaw[0]?.value ?? acRaw[0] : typeof acRaw === "object" ? acRaw.ac ?? acRaw.value : acRaw;
+	const hpRaw = raw.hp ?? raw.hitPoints ?? raw.hit_points;
+	const hp = typeof hpRaw === "object" ? hpRaw.average ?? hpRaw.value : hpRaw;
+	const cr = typeof raw.cr === "object" ? raw.cr?.cr ?? raw.cr?.value : raw.cr;
+	const speed = raw.speed ?? raw.movement;
+	const type = typeof raw.type === "object" ? raw.type?.type : raw.type;
+	const tags = sourceTag(raw);
+	const sizeMap = {
+		T: "Tiny",
+		S: "Small",
+		M: "Medium",
+		L: "Large",
+		H: "Huge",
+		G: "Gargantuan"
+	};
+	const sizeText = (Array.isArray(raw.size) ? raw.size : [raw.size]).filter(Boolean).map((s) => sizeMap[s] || s).join(", ");
+	const speeds = speedEntries(speed);
+	return {
+		name: raw.name || "",
+		image: raw.image || raw.img || "",
+		size: sizeText,
+		type: type || "",
+		category: raw.category || "",
+		tags,
+		source: raw.source || "",
+		alignment: join(raw.alignment),
+		cr: cr == null ? "" : String(cr),
+		description: raw.description || raw.flavor || "",
+		flavor: raw.flavor || "",
+		ac: ac == null ? "" : String(ac),
+		hp: hp == null ? "" : String(hp),
+		speed: speedTextFromEntries(speeds) || feetToSpacesText(typeof speed === "string" ? speed : ""),
+		speeds,
+		abilities: [
+			"STR",
+			"DEX",
+			"CON",
+			"INT",
+			"WIS",
+			"CHA"
+		].map((k) => `${k} ${score(k.toLowerCase())}`).join(", "),
+		senses: feetToSpacesText(join(raw.senses)),
+		languages: join(raw.languages),
+		saves: mods(raw.saves),
+		skills: mods(raw.skills),
+		damageVulnerabilities: join(raw.damageVuln ?? raw.vulnerabilities),
+		damageResistances: join(raw.damageResist ?? raw.resistances),
+		damageImmunities: join(raw.damageImmune ?? raw.immunities),
+		conditionImmunities: join(raw.conditionImmune ?? raw.conditionImmunities),
+		initiative: raw.initiative?.mod != null ? String(raw.initiative.mod) : raw.initiative ?? "",
+		proficiencyBonus: raw.pb ?? raw.proficiencyBonus ?? "",
+		xp: raw.xp ?? raw.cr?.xp ?? "",
+		gear: Array.isArray(raw.gear) ? raw.gear.map((g) => typeof g === "string" ? g : g?.name).filter(Boolean).join(", ") : textOf(raw.gear),
+		spellcasting: textOf(raw.spellcasting),
+		traits: listOf(raw.traits ?? raw.trait),
+		actions: listOf(raw.actions ?? raw.action),
+		bonusActions: listOf(raw.bonus ?? raw.bonusActions),
+		reactions: listOf(raw.reactions ?? raw.reaction),
+		legendaryActions: listOf(raw.legendary ?? raw.legendaryActions),
+		lairActions: listOf(raw.lair ?? raw.lairActions),
+		mythicActions: listOf(raw.mythic ?? raw.mythicActions),
+		proficiencies: listOf(raw.proficiencies),
+		inventory: listOf(raw.inventory),
+		templates: Array.isArray(raw.templates) ? [...raw.templates] : []
+	};
+}
+function importMonsterPayload(data) {
+	return (Array.isArray(data) ? data : Array.isArray(data?.monsters) ? data.monsters : Array.isArray(data?.monster) ? data.monster : data && typeof data === "object" ? [data] : []).map(normalizeImportedMonster).filter((m) => m?.name);
+}
+//#endregion
 //#region src/components/skilltree/library/MonstersTab.jsx
 var BLANK = {
 	name: "",
 	image: "",
 	size: "",
 	type: "",
+	category: "",
+	tags: [],
+	source: "",
 	alignment: "",
 	cr: "",
 	description: "",
@@ -14698,12 +15094,28 @@ var BLANK = {
 	ac: "",
 	hp: "",
 	speed: "",
+	speeds: [],
 	abilities: "",
 	senses: "",
 	languages: "",
+	saves: "",
+	skills: "",
+	damageVulnerabilities: "",
+	damageResistances: "",
+	damageImmunities: "",
+	conditionImmunities: "",
+	initiative: "",
+	proficiencyBonus: "",
+	xp: "",
+	gear: "",
+	spellcasting: "",
 	traits: [],
 	actions: [],
+	bonusActions: [],
 	reactions: [],
+	legendaryActions: [],
+	lairActions: [],
+	mythicActions: [],
 	proficiencies: [],
 	inventory: [],
 	templates: []
@@ -14888,7 +15300,7 @@ function MiniList({ label, items, onChange }) {
 		}, i))]
 	});
 }
-function Field({ label, value, onChange, placeholder, className }) {
+function Field({ label, value, onChange, placeholder, className, list }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-0.5",
 		children: [/* @__PURE__ */ jsx(Label, {
@@ -14896,6 +15308,7 @@ function Field({ label, value, onChange, placeholder, className }) {
 			children: label
 		}), /* @__PURE__ */ jsx(Input, {
 			className: `h-8 ${className || ""}`,
+			list,
 			placeholder,
 			value: value ?? "",
 			onChange: (e) => onChange(e.target.value)
@@ -14909,6 +15322,16 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 	const weaponNames = (lib.weapons || []).map((w) => w.name).filter(Boolean);
 	const armorNames = (lib.armor || []).map((a) => a.name).filter(Boolean);
 	const summary = [m.size, m.type].filter(Boolean).join(" ");
+	const movement = Array.isArray(m.speeds) && m.speeds.length ? m.speeds : speedEntries(m.speed);
+	const speedTypeOptions = [.../* @__PURE__ */ new Set([
+		"Standard",
+		...(lib.speedTypes || []).map((s) => s?.name || s).filter(Boolean),
+		...movement.map((e) => e.type).filter(Boolean)
+	])];
+	const setMovement = (next) => patch({
+		speeds: next,
+		speed: speedTextFromEntries(next)
+	});
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
 		children: [
@@ -15014,26 +15437,83 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 								]
 							}),
 							/* @__PURE__ */ jsxs("div", {
-								className: "mt-2 grid grid-cols-3 gap-1.5",
+								className: "mt-2 grid grid-cols-2 gap-1.5",
+								children: [/* @__PURE__ */ jsx(Field, {
+									label: "AC",
+									value: m.ac,
+									onChange: (v) => patch({ ac: v }),
+									placeholder: "13"
+								}), /* @__PURE__ */ jsx(Field, {
+									label: "HP",
+									value: m.hp,
+									onChange: (v) => patch({ hp: v }),
+									placeholder: "45"
+								})]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "mt-2 space-y-1 rounded-md border p-2",
 								children: [
-									/* @__PURE__ */ jsx(Field, {
-										label: "AC",
-										value: m.ac,
-										onChange: (v) => patch({ ac: v }),
-										placeholder: "13"
+									/* @__PURE__ */ jsxs("div", {
+										className: "flex items-center justify-between",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px] font-bold uppercase tracking-wider text-muted-foreground",
+											children: "Movement"
+										}), /* @__PURE__ */ jsxs(Button, {
+											size: "sm",
+											variant: "ghost",
+											className: "h-7 px-2 text-xs",
+											onClick: () => setMovement([...movement, {
+												type: speedTypeOptions.find((t) => !movement.some((e) => e.type === t)) || "Standard",
+												spaces: 6
+											}]),
+											children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Add movement"]
+										})]
 									}),
-									/* @__PURE__ */ jsx(Field, {
-										label: "HP",
-										value: m.hp,
-										onChange: (v) => patch({ hp: v }),
-										placeholder: "45"
+									movement.length === 0 && /* @__PURE__ */ jsx("p", {
+										className: "text-[10px] text-muted-foreground",
+										children: "No movement set. Add a speed type from the Reference Library."
 									}),
-									/* @__PURE__ */ jsx(Field, {
-										label: "Speed",
-										value: feetToSpacesText(m.speed) || "",
-										onChange: (v) => patch({ speed: v }),
-										placeholder: "6 spaces, fly 12 spaces"
-									})
+									movement.map((row, idx) => /* @__PURE__ */ jsxs("div", {
+										className: "flex items-center gap-1",
+										children: [
+											/* @__PURE__ */ jsxs(Select, {
+												value: row.type || "Standard",
+												onValueChange: (v) => setMovement(movement.map((r, j) => j === idx ? {
+													...r,
+													type: v
+												} : r)),
+												children: [/* @__PURE__ */ jsx(SelectTrigger, {
+													className: "h-8 min-w-0 flex-1 text-xs",
+													children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Speed Type" })
+												}), /* @__PURE__ */ jsx(SelectContent, { children: speedTypeOptions.map((t) => /* @__PURE__ */ jsx(SelectItem, {
+													value: t,
+													children: t
+												}, t)) })]
+											}),
+											/* @__PURE__ */ jsx(Input, {
+												className: "h-8 w-20 text-center",
+												type: "number",
+												min: 0,
+												step: .5,
+												value: row.spaces ?? 0,
+												onChange: (e) => setMovement(movement.map((r, j) => j === idx ? {
+													...r,
+													spaces: Math.max(0, Number(e.target.value) || 0)
+												} : r))
+											}),
+											/* @__PURE__ */ jsx("span", {
+												className: "text-[10px] text-muted-foreground",
+												children: "spaces"
+											}),
+											/* @__PURE__ */ jsx(Button, {
+												size: "sm",
+												variant: "ghost",
+												className: "h-7 w-7 p-0",
+												onClick: () => setMovement(movement.filter((_, j) => j !== idx)),
+												children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
+											})
+										]
+									}, idx))
 								]
 							})
 						]
@@ -15065,6 +15545,114 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 							})
 						]
 					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-3 gap-1.5",
+						children: [
+							/* @__PURE__ */ jsx(Field, {
+								label: "Category",
+								value: m.category,
+								onChange: (v) => patch({ category: v }),
+								placeholder: "Undead, Goblinoid, Boss…"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Tags (comma-separated)",
+								value: (m.tags || []).join(", "),
+								onChange: (v) => patch({ tags: v.split(",").map((t) => t.trim()).filter(Boolean) }),
+								placeholder: "undead, minion, flying",
+								list: "monster-tags"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Source",
+								value: m.source,
+								onChange: (v) => patch({ source: v }),
+								placeholder: "MM 2014 / MM 2024"
+							})
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-3 gap-1.5",
+						children: [
+							/* @__PURE__ */ jsx(Field, {
+								label: "Initiative",
+								value: m.initiative,
+								onChange: (v) => patch({ initiative: v }),
+								placeholder: "+2"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Prof. Bonus",
+								value: m.proficiencyBonus,
+								onChange: (v) => patch({ proficiencyBonus: v }),
+								placeholder: "+2"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "XP",
+								value: m.xp,
+								onChange: (v) => patch({ xp: v }),
+								placeholder: "50"
+							})
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-1.5",
+						children: [
+							/* @__PURE__ */ jsx(Field, {
+								label: "Saving Throws",
+								value: m.saves,
+								onChange: (v) => patch({ saves: v }),
+								placeholder: "DEX +4, CON +2"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Skills",
+								value: m.skills,
+								onChange: (v) => patch({ skills: v }),
+								placeholder: "Perception +4, Stealth +6"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Damage Vulnerabilities",
+								value: m.damageVulnerabilities,
+								onChange: (v) => patch({ damageVulnerabilities: v }),
+								placeholder: "Radiant"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Damage Resistances",
+								value: m.damageResistances,
+								onChange: (v) => patch({ damageResistances: v }),
+								placeholder: "Cold, fire"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Damage Immunities",
+								value: m.damageImmunities,
+								onChange: (v) => patch({ damageImmunities: v }),
+								placeholder: "Poison"
+							}),
+							/* @__PURE__ */ jsx(Field, {
+								label: "Condition Immunities",
+								value: m.conditionImmunities,
+								onChange: (v) => patch({ conditionImmunities: v }),
+								placeholder: "Charmed, frightened"
+							})
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+						className: "text-[10px] text-muted-foreground",
+						children: "Spellcasting / innate spells"
+					}), /* @__PURE__ */ jsx(Textarea, {
+						className: "min-h-12 text-xs",
+						rows: 2,
+						placeholder: "Innate spellcasting, spell save DC, slots…",
+						value: m.spellcasting || "",
+						onChange: (e) => patch({ spellcasting: e.target.value })
+					})] }),
+					/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+						className: "text-[10px] text-muted-foreground",
+						children: "Gear / equipment"
+					}), /* @__PURE__ */ jsx(Textarea, {
+						className: "min-h-10 text-xs",
+						rows: 2,
+						placeholder: "Weapons, armor, carried items…",
+						value: m.gear || "",
+						onChange: (e) => patch({ gear: e.target.value })
+					})] }),
 					/* @__PURE__ */ jsx(Textarea, {
 						className: "min-h-12 text-xs",
 						placeholder: "Description (statblock flavor)…",
@@ -15231,9 +15819,53 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
 						onChange: (a) => patch({ actions: a })
 					}),
 					/* @__PURE__ */ jsx(MiniList, {
+						label: "Bonus Actions",
+						items: m.bonusActions,
+						onChange: (a) => patch({ bonusActions: a })
+					}),
+					/* @__PURE__ */ jsx(MiniList, {
 						label: "Reactions",
 						items: m.reactions,
 						onChange: (r) => patch({ reactions: r })
+					}),
+					/* @__PURE__ */ jsx(MiniList, {
+						label: "Legendary Actions",
+						items: m.legendaryActions,
+						onChange: (a) => patch({ legendaryActions: a })
+					}),
+					/* @__PURE__ */ jsx(MiniList, {
+						label: "Lair Actions",
+						items: m.lairActions,
+						onChange: (a) => patch({ lairActions: a })
+					}),
+					/* @__PURE__ */ jsx(MiniList, {
+						label: "Mythic Actions",
+						items: m.mythicActions,
+						onChange: (a) => patch({ mythicActions: a })
+					}),
+					/* @__PURE__ */ jsx("datalist", {
+						id: "monster-tags",
+						children: [
+							"undead",
+							"goblinoid",
+							"beast",
+							"fiend",
+							"celestial",
+							"dragon",
+							"giant",
+							"fey",
+							"elemental",
+							"construct",
+							"monstrosity",
+							"ooze",
+							"plant",
+							"aquatic",
+							"flying",
+							"minion",
+							"elite",
+							"boss",
+							"animal"
+						].map((t) => /* @__PURE__ */ jsx("option", { value: t }, t))
 					}),
 					/* @__PURE__ */ jsx("datalist", {
 						id: "monster-item-names",
@@ -15357,6 +15989,7 @@ function MonstersTab() {
 	const [q, setQ] = useState("");
 	const [sort, setSort] = useState("name");
 	const [desc, setDesc] = useState(false);
+	const importRef = useRef(null);
 	if (!settings) return null;
 	const lib = settings.library;
 	const setLib = (patch) => setSettings((s) => ({
@@ -15377,6 +16010,40 @@ function MonstersTab() {
 		setLib({ monsters: next });
 	};
 	const remove = (i) => setLib({ monsters: monsters.filter((_, j) => j !== i) });
+	const importMonsters = (file) => {
+		if (!file) return;
+		const reader = new FileReader();
+		reader.onload = () => {
+			try {
+				const imported = importMonsterPayload(JSON.parse(reader.result));
+				if (!imported.length) {
+					toast.error("No monsters found in that file.");
+					return;
+				}
+				const byName = new Map(monsters.map((m) => [String(m.name || "").toLowerCase(), m]));
+				let added = 0;
+				let replaced = 0;
+				imported.forEach((m) => {
+					const key = m.name.toLowerCase();
+					if (byName.has(key)) {
+						byName.set(key, {
+							...byName.get(key),
+							...m
+						});
+						replaced += 1;
+					} else {
+						byName.set(key, m);
+						added += 1;
+					}
+				});
+				setLib({ monsters: [...byName.values()] });
+				toast.success(`Imported ${imported.length} monsters — ${added} new, ${replaced} updated.`);
+			} catch {
+				toast.error("Could not read that monster file. Expected JSON.");
+			}
+		};
+		reader.readAsText(file);
+	};
 	const importToFamiliars = (m) => {
 		const block = monsterToStatblock(m);
 		setCharacter((c) => {
@@ -15391,7 +16058,12 @@ function MonstersTab() {
 	const shown = monsters.map((m, i) => ({
 		m,
 		i
-	})).filter(({ m }) => matchesQuery(m?.name, q)).sort((a, b) => {
+	})).filter(({ m }) => matchesQuery([
+		m?.name,
+		m?.type,
+		m?.category,
+		...Array.isArray(m?.tags) ? m.tags : []
+	].filter(Boolean).join(" "), q)).sort((a, b) => {
 		let d = 0;
 		if (sort === "cr") d = crNum(a.m.cr) - crNum(b.m.cr);
 		else if (sort === "hp") d = (Number(a.m.hp) || -1) - (Number(b.m.hp) || -1);
@@ -15403,11 +16075,33 @@ function MonstersTab() {
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-between gap-2",
-				children: [/* @__PURE__ */ jsxs(Button, {
-					size: "sm",
-					variant: "outline",
-					onClick: add,
-					children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add monster"]
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center gap-1",
+					children: [
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: add,
+							children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add monster"]
+						}),
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: () => importRef.current?.click(),
+							children: [/* @__PURE__ */ jsx(FileUp, { className: "mr-1 h-4 w-4" }), " Import"]
+						}),
+						/* @__PURE__ */ jsx("input", {
+							ref: importRef,
+							type: "file",
+							accept: "application/json,.json",
+							className: "hidden",
+							onChange: (e) => {
+								const f = e.target.files?.[0];
+								e.target.value = "";
+								importMonsters(f);
+							}
+						})
+					]
 				}), /* @__PURE__ */ jsxs("div", {
 					className: "flex items-center gap-1",
 					children: [
@@ -29349,6 +30043,20 @@ function CharacterSheet({ onExport, fill = false }) {
 						})
 					})] }),
 					/* @__PURE__ */ jsx(StatusSection, {}),
+					/* @__PURE__ */ jsx(SpeedSection, {
+						sheet: charSheet,
+						character,
+						setCharacter,
+						tree,
+						types: speedTypeList(character, settings?.library || {}),
+						enc: encumbranceInfo(character, tree)
+					}),
+					/* @__PURE__ */ jsx(SensesSection, {
+						sheet: charSheet,
+						character,
+						setCharacter,
+						senses: senseList(character, settings?.library || {})
+					}),
 					/* @__PURE__ */ jsxs("div", { children: [
 						/* @__PURE__ */ jsx(Label, {
 							className: "mb-1.5 block",
@@ -31998,7 +32706,7 @@ function EncountersLoot({ monsters, pools, encounterTables, onEncounter }) {
 	const rollEnc = () => {
 		const t = encounterTables.find((x) => x.name === tableId);
 		if (!t) return;
-		const spawned = rollEncounter(t);
+		const spawned = rollEncounter(t, monsters);
 		setEncResult({
 			table: t.name,
 			spawned
@@ -32461,135 +33169,415 @@ function DmDiceRoller() {
 //#region src/components/skilltree/dungeon/DungeonMap.jsx
 var PX = 7;
 var PAD = 7;
-function DungeonMap({ dungeon, selectedId, onSelect }) {
+function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom }) {
 	const rooms = dungeon?.rooms || [];
 	const connections = dungeon?.connections || [];
 	const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
-	const toX = (x) => (x - b.minX + PAD) * PX;
-	const toY = (y) => (y - b.minY + PAD) * PX;
-	const width = (b.w + 14) * PX;
-	const height = (b.h + 14) * PX;
+	const [zoom, setZoom] = useState(1);
+	const [drag, setDrag] = useState(null);
+	const dragRef = useRef(null);
+	useEffect(() => {
+		dragRef.current = drag;
+	}, [drag]);
+	const svgRef = useRef(null);
+	const wrapRef = useRef(null);
+	const px = PX * zoom;
+	const toX = (x) => (x - b.minX + PAD) * px;
+	const toY = (y) => (y - b.minY + PAD) * px;
+	const width = (b.w + 14) * px;
+	const height = (b.h + 14) * px;
+	const pointToWorld = (e) => {
+		const rect = svgRef.current?.getBoundingClientRect();
+		if (!rect) return {
+			x: 0,
+			y: 0
+		};
+		const sx = (e.clientX - rect.left) / rect.width * Math.max(640, width);
+		const sy = (e.clientY - rect.top) / rect.height * Math.max(420, height);
+		return {
+			x: sx / px + b.minX - PAD,
+			y: sy / px + b.minY - PAD
+		};
+	};
+	useEffect(() => {
+		if (!drag) return;
+		const move = (e) => {
+			const w = pointToWorld(e);
+			if (drag.kind === "move") setDrag((d) => ({
+				...d,
+				x: Math.max(0, Math.round(drag.ox + (w.x - drag.sx))),
+				y: Math.max(0, Math.round(drag.oy + (w.y - drag.sy)))
+			}));
+			else setDrag((d) => ({
+				...d,
+				w: Math.max(2, Math.round(drag.ow + (w.x - drag.sx))),
+				h: Math.max(2, Math.round(drag.oh + (w.y - drag.sy)))
+			}));
+			e.preventDefault();
+		};
+		const up = () => {
+			const d = dragRef.current;
+			if (d?.kind === "move") onMoveRoom?.(d.id, d.x, d.y);
+			else if (d?.kind === "resize") onResizeRoom?.(d.id, d.w, d.h);
+			setDrag(null);
+		};
+		window.addEventListener("pointermove", move);
+		window.addEventListener("pointerup", up);
+		return () => {
+			window.removeEventListener("pointermove", move);
+			window.removeEventListener("pointerup", up);
+		};
+	}, [
+		drag?.id,
+		drag?.kind,
+		drag?.sx,
+		drag?.sy,
+		drag?.ox,
+		drag?.oy,
+		drag?.ow,
+		drag?.oh
+	]);
+	const startMove = (e, room) => {
+		if (e.button !== 0) return;
+		e.stopPropagation();
+		onSelect?.(room.id);
+		const w = pointToWorld(e);
+		setDrag({
+			kind: "move",
+			id: room.id,
+			sx: w.x,
+			sy: w.y,
+			ox: room.x,
+			oy: room.y,
+			x: room.x,
+			y: room.y,
+			w: room.w,
+			h: room.h
+		});
+	};
+	const startResize = (e, room) => {
+		if (e.button !== 0) return;
+		e.stopPropagation();
+		const w = pointToWorld(e);
+		setDrag({
+			kind: "resize",
+			id: room.id,
+			sx: w.x,
+			sy: w.y,
+			ox: room.x,
+			oy: room.y,
+			x: room.x,
+			y: room.y,
+			ow: room.w,
+			oh: room.h,
+			w: room.w,
+			h: room.h
+		});
+	};
+	const fit = () => {
+		const cw = wrapRef.current?.clientWidth || 800;
+		const ch = wrapRef.current?.clientHeight || 500;
+		const z = Math.min((cw - 20) / ((b.w + 14) * PX), (ch - 20) / ((b.h + 14) * PX), 1);
+		setZoom(Math.max(.25, Math.min(1.6, z)));
+	};
 	if (!rooms.length) return /* @__PURE__ */ jsx("div", {
 		className: "flex h-full min-h-[16rem] items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground",
 		children: "Generate a dungeon to see its map."
 	});
-	return /* @__PURE__ */ jsx("div", {
-		className: "h-full overflow-auto rounded-md border bg-background",
-		children: /* @__PURE__ */ jsxs("svg", {
-			width: Math.max(640, width),
-			height: Math.max(420, height),
-			viewBox: `0 0 ${Math.max(640, width)} ${Math.max(420, height)}`,
-			className: "block",
-			style: { minWidth: "100%" },
+	return /* @__PURE__ */ jsxs("div", {
+		className: "relative h-full min-h-[300px] overflow-hidden rounded-md border bg-background",
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "absolute right-2 top-2 z-10 flex gap-1",
 			children: [
-				/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
-					id: "dungeon-grid",
-					width: 14,
-					height: 14,
-					patternUnits: "userSpaceOnUse",
-					children: /* @__PURE__ */ jsx("path", {
-						d: `M 14 0 L 0 0 0 14`,
-						fill: "none",
-						stroke: "currentColor",
-						strokeOpacity: "0.06",
-						strokeWidth: "1"
-					})
-				}) }),
-				/* @__PURE__ */ jsx("rect", {
-					width: "100%",
-					height: "100%",
-					fill: "url(#dungeon-grid)"
+				/* @__PURE__ */ jsx("button", {
+					type: "button",
+					className: "h-7 w-7 rounded border bg-background text-xs",
+					title: "Zoom out",
+					onClick: () => setZoom((z) => Math.max(.25, z / 1.2)),
+					children: "−"
 				}),
-				connections.map((c) => {
-					const from = rooms.find((r) => r.id === c.from);
-					const to = rooms.find((r) => r.id === c.to);
-					if (!from || !to) return null;
-					const x1 = toX(from.x + from.w / 2);
-					const y1 = toY(from.y + from.h / 2);
-					const x2 = toX(to.x + to.w / 2);
-					const y2 = toY(to.y + to.h / 2);
-					return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("line", {
-						x1,
-						y1,
-						x2,
-						y2,
-						stroke: "hsl(var(--muted-foreground))",
-						strokeOpacity: "0.55",
-						strokeWidth: "1.5"
-					}), /* @__PURE__ */ jsx("text", {
-						x: (x1 + x2) / 2,
-						y: (y1 + y2) / 2 - 3,
-						textAnchor: "middle",
-						fontSize: "7",
-						fill: "hsl(var(--muted-foreground))",
-						fillOpacity: "0.8",
-						children: c.type
-					})] }, c.id);
+				/* @__PURE__ */ jsx("button", {
+					type: "button",
+					className: "h-7 w-7 rounded border bg-background text-xs",
+					title: "Zoom in",
+					onClick: () => setZoom((z) => Math.min(1.8, z * 1.2)),
+					children: "+"
 				}),
-				rooms.map((room) => {
-					const x = toX(room.x);
-					const y = toY(room.y);
-					const w = room.w * PX;
-					const h = room.h * PX;
-					const selected = selectedId === room.id;
-					const color = categoryColor(room.category);
-					const badges = [
-						room.traps?.length ? "T" : "",
-						room.spawns?.length ? "S" : "",
-						room.loot?.length ? "L" : "",
-						room.elevation && room.elevation !== "Flat" ? "E" : "",
-						room.cover && room.cover !== "Open" ? "C" : ""
-					].filter(Boolean);
-					return /* @__PURE__ */ jsxs("g", {
-						onClick: () => onSelect?.(room.id),
-						style: { cursor: "pointer" },
-						children: [
-							/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
-							/* @__PURE__ */ jsx("rect", {
-								x,
-								y,
-								width: w,
-								height: h,
-								rx: 3,
-								fill: color,
-								fillOpacity: selected ? .35 : .16,
-								stroke: selected ? "hsl(var(--primary))" : color,
-								strokeWidth: selected ? 2.5 : 1.3
-							}),
-							/* @__PURE__ */ jsx("text", {
-								x: x + 4,
-								y: y + 12,
-								fontSize: "9",
-								fontWeight: "600",
-								fill: "hsl(var(--foreground))",
-								children: String(room.name || room.category).slice(0, 26)
-							}),
-							/* @__PURE__ */ jsxs("text", {
-								x: x + 4,
-								y: y + 21,
-								fontSize: "7",
-								fill: "hsl(var(--muted-foreground))",
-								children: [
-									room.category,
-									" · ",
-									room.w,
-									"×",
-									room.h
-								]
-							}),
-							badges.length > 0 && /* @__PURE__ */ jsx("text", {
-								x: x + 4,
-								y: y + h - 5,
-								fontSize: "7",
-								fontWeight: "600",
-								fill: color,
-								children: badges.join(" ")
-							})
-						]
-					}, room.id);
+				/* @__PURE__ */ jsx("button", {
+					type: "button",
+					className: "h-7 rounded border bg-background px-2 text-[10px]",
+					title: "Fit the dungeon in view",
+					onClick: fit,
+					children: "Fit"
 				})
 			]
-		})
+		}), /* @__PURE__ */ jsx("div", {
+			ref: wrapRef,
+			className: "h-full overflow-auto",
+			children: /* @__PURE__ */ jsxs("svg", {
+				ref: svgRef,
+				width: Math.max(640, width),
+				height: Math.max(420, height),
+				viewBox: `0 0 ${Math.max(640, width)} ${Math.max(420, height)}`,
+				className: "block",
+				style: { minWidth: "100%" },
+				onWheel: (e) => {
+					if (!e.ctrlKey) return;
+					e.preventDefault();
+					setZoom((z) => Math.max(.25, Math.min(1.8, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
+				},
+				children: [
+					/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
+						id: "dungeon-grid",
+						width: px * 2,
+						height: px * 2,
+						patternUnits: "userSpaceOnUse",
+						children: /* @__PURE__ */ jsx("path", {
+							d: `M ${px * 2} 0 L 0 0 0 ${px * 2}`,
+							fill: "none",
+							stroke: "currentColor",
+							strokeOpacity: "0.06",
+							strokeWidth: "1"
+						})
+					}) }),
+					/* @__PURE__ */ jsx("rect", {
+						width: "100%",
+						height: "100%",
+						fill: "url(#dungeon-grid)"
+					}),
+					connections.map((c) => {
+						const from = rooms.find((r) => r.id === c.from);
+						const to = rooms.find((r) => r.id === c.to);
+						if (!from || !to) return null;
+						const x1 = toX(from.x + from.w / 2);
+						const y1 = toY(from.y + from.h / 2);
+						const x2 = toX(to.x + to.w / 2);
+						const y2 = toY(to.y + to.h / 2);
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("line", {
+							x1,
+							y1,
+							x2,
+							y2,
+							stroke: "hsl(var(--muted-foreground))",
+							strokeOpacity: "0.55",
+							strokeWidth: "1.5"
+						}), /* @__PURE__ */ jsx("text", {
+							x: (x1 + x2) / 2,
+							y: (y1 + y2) / 2 - 3,
+							textAnchor: "middle",
+							fontSize: "7",
+							fill: "hsl(var(--muted-foreground))",
+							fillOpacity: "0.8",
+							children: c.type
+						})] }, c.id);
+					}),
+					rooms.map((room) => {
+						const preview = drag?.id === room.id ? {
+							...room,
+							...drag
+						} : room;
+						const x = toX(preview.x);
+						const y = toY(preview.y);
+						const w = preview.w * px;
+						const h = preview.h * px;
+						const selected = selectedId === room.id;
+						const color = categoryColor(room.category);
+						const badges = [
+							room.traps?.length ? "T" : "",
+							room.spawns?.length ? "S" : "",
+							room.loot?.length ? "L" : "",
+							room.elevation && room.elevation !== "Flat" ? "E" : "",
+							room.cover && room.cover !== "Open" ? "C" : ""
+						].filter(Boolean);
+						return /* @__PURE__ */ jsxs("g", {
+							onPointerDown: (e) => startMove(e, room),
+							style: { cursor: "grab" },
+							children: [
+								/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
+								/* @__PURE__ */ jsx("rect", {
+									x,
+									y,
+									width: w,
+									height: h,
+									rx: 3,
+									fill: color,
+									fillOpacity: selected ? .35 : .16,
+									stroke: selected ? "hsl(var(--primary))" : color,
+									strokeWidth: selected ? 2.5 : 1.3
+								}),
+								/* @__PURE__ */ jsx("text", {
+									x: x + 4,
+									y: y + 12,
+									fontSize: "9",
+									fontWeight: "600",
+									fill: "hsl(var(--foreground))",
+									children: String(room.name || room.category).slice(0, 26)
+								}),
+								/* @__PURE__ */ jsxs("text", {
+									x: x + 4,
+									y: y + 21,
+									fontSize: "7",
+									fill: "hsl(var(--muted-foreground))",
+									children: [
+										room.category,
+										" · ",
+										preview.w,
+										"×",
+										preview.h
+									]
+								}),
+								badges.length > 0 && /* @__PURE__ */ jsx("text", {
+									x: x + 4,
+									y: y + h - 5,
+									fontSize: "7",
+									fontWeight: "600",
+									fill: color,
+									children: badges.join(" ")
+								}),
+								selected && /* @__PURE__ */ jsx("rect", {
+									x: x + w - 6,
+									y: y + h - 6,
+									width: 10,
+									height: 10,
+									fill: "hsl(var(--primary))",
+									stroke: "hsl(var(--background))",
+									strokeWidth: "1",
+									style: { cursor: "nwse-resize" },
+									onPointerDown: (e) => startResize(e, room)
+								})
+							]
+						}, room.id);
+					})
+				]
+			})
+		})]
+	});
+}
+//#endregion
+//#region src/components/skilltree/dungeon/RoomBattleMap.jsx
+function RoomBattleMap({ room }) {
+	if (!room) return null;
+	const SIZE = 20;
+	const w = Math.max(10, Math.min(16, Number(room.w) || 10));
+	const h = Math.max(10, Math.min(16, Number(room.h) || 10));
+	const x0 = (SIZE - w) / 2;
+	const y0 = (SIZE - h) / 2;
+	const cell = 10;
+	const px = 200;
+	const label = (x, y, text, fill = "hsl(var(--muted-foreground))") => /* @__PURE__ */ jsx("text", {
+		x,
+		y,
+		fontSize: "6",
+		fill,
+		textAnchor: "middle",
+		children: text
+	});
+	const traps = room.traps || [];
+	const spawns = room.spawns || [];
+	const loot = room.loot || [];
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-1",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between",
+				children: [/* @__PURE__ */ jsx("p", {
+					className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+					children: "Battle map · 20 × 20 spaces"
+				}), /* @__PURE__ */ jsx("span", {
+					className: "text-[9px] text-muted-foreground",
+					children: room.environment || "—"
+				})]
+			}),
+			/* @__PURE__ */ jsxs("svg", {
+				viewBox: `0 0 ${px} ${px}`,
+				className: "w-full rounded-md border bg-background",
+				children: [
+					/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
+						id: "battle-grid",
+						width: cell,
+						height: cell,
+						patternUnits: "userSpaceOnUse",
+						children: /* @__PURE__ */ jsx("path", {
+							d: `M ${cell} 0 L 0 0 0 ${cell}`,
+							fill: "none",
+							stroke: "currentColor",
+							strokeOpacity: "0.12",
+							strokeWidth: "0.6"
+						})
+					}) }),
+					/* @__PURE__ */ jsx("rect", {
+						width: px,
+						height: px,
+						fill: "url(#battle-grid)"
+					}),
+					/* @__PURE__ */ jsx("rect", {
+						x: x0 * cell,
+						y: y0 * cell,
+						width: w * cell,
+						height: h * cell,
+						fill: "hsl(var(--muted))",
+						fillOpacity: "0.25",
+						stroke: "hsl(var(--foreground))",
+						strokeWidth: "1.4"
+					}),
+					room.elevation && room.elevation !== "Flat" && /* @__PURE__ */ jsx("rect", {
+						x: (x0 + w * .28) * cell,
+						y: (y0 + h * .28) * cell,
+						width: w * .44 * cell,
+						height: h * .44 * cell,
+						rx: 3,
+						fill: "hsl(var(--primary))",
+						fillOpacity: "0.12",
+						stroke: "hsl(var(--primary))",
+						strokeDasharray: "2 2"
+					}),
+					room.cover && room.cover !== "Open" && [
+						[x0 + 1, y0 + 1],
+						[x0 + w - 2, y0 + 1],
+						[x0 + 1, y0 + h - 2],
+						[x0 + w - 2, y0 + h - 2]
+					].map(([cx, cy], i) => /* @__PURE__ */ jsx("rect", {
+						x: cx * cell,
+						y: cy * cell,
+						width: cell * .9,
+						height: cell * .9,
+						fill: "hsl(var(--muted-foreground))",
+						fillOpacity: "0.5"
+					}, `c${i}`)),
+					traps.map((t, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("polygon", {
+						points: `${(x0 + w * .25 + i * .7) * cell},${(y0 + h * .7) * cell} ${(x0 + w * .25 + i * .7 + .35) * cell},${(y0 + h * .7 + .7) * cell} ${(x0 + w * .25 + i * .7 - .35) * cell},${(y0 + h * .7 + .7) * cell}`,
+						fill: "hsl(var(--destructive))",
+						fillOpacity: "0.75"
+					}), label((x0 + w * .25 + i * .7) * cell, (y0 + h * .7 - .2) * cell, "T", "hsl(var(--destructive))")] }, `t${i}`)),
+					spawns.map((s, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
+						cx: (x0 + w * .25 + i * .7) * cell,
+						cy: (y0 + h * .32) * cell,
+						r: cell * .32,
+						fill: "hsl(var(--primary))",
+						fillOpacity: "0.7"
+					}), label((x0 + w * .25 + i * .7) * cell, (y0 + h * .32 - .45) * cell, String(i + 1), "hsl(var(--foreground))")] }, `s${i}`)),
+					loot.length > 0 && /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
+						x: (x0 + w / 2 - .4) * cell,
+						y: (y0 + h / 2 - .4) * cell,
+						width: cell * .8,
+						height: cell * .8,
+						transform: `rotate(45 ${(x0 + w / 2) * cell} ${(y0 + h / 2) * cell})`,
+						fill: "hsl(45 95% 55%)",
+						fillOpacity: "0.8"
+					}), label((x0 + w / 2) * cell, (y0 + h / 2 - .8) * cell, "L", "hsl(var(--foreground))")] })
+				]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap gap-2 text-[9px] text-muted-foreground",
+				children: [
+					/* @__PURE__ */ jsx("span", { children: "▲ trap" }),
+					/* @__PURE__ */ jsx("span", { children: "● spawn" }),
+					/* @__PURE__ */ jsx("span", { children: "◆ loot" }),
+					/* @__PURE__ */ jsx("span", { children: "▭ cover" }),
+					/* @__PURE__ */ jsx("span", { children: "◌ elevation" })
+				]
+			})
+		]
 	});
 }
 //#endregion
@@ -32616,6 +33604,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const [mode, setMode] = useState("single");
 	const [rank, setRank] = useState("E");
 	const [seed, setSeed] = useState(randomSeed);
+	const [players, setPlayers] = useState(4);
+	const [partyLevel, setPartyLevel] = useState(1);
 	const [dungeon, setDungeon] = useState(null);
 	const [selectedId, setSelectedId] = useState(null);
 	const [includeTraps, setIncludeTraps] = useState(true);
@@ -32623,8 +33613,12 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const [includeLoot, setIncludeLoot] = useState(true);
 	const [savedId, setSavedId] = useState("");
 	const [roomQuery, setRoomQuery] = useState("");
+	const pastRef = useRef([]);
+	const futureRef = useRef([]);
+	const clipRef = useRef(null);
 	const selected = dungeon?.rooms?.find((r) => r.id === selectedId) || null;
 	const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const targets = crTargets(partyLevel);
 	const filteredTemplates = roomTemplates.filter((r) => {
 		const q = roomQuery.trim().toLowerCase();
 		return !q || `${r.name} ${r.category}`.toLowerCase().includes(q);
@@ -32639,6 +33633,118 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			connections: dungeon?.connections?.length || 0
 		};
 	}, [dungeon]);
+	const commit = (next) => {
+		if (!next) return;
+		if (dungeon) {
+			pastRef.current.push(dungeon);
+			if (pastRef.current.length > 80) pastRef.current.shift();
+			futureRef.current = [];
+		}
+		setDungeon(next);
+	};
+	const undo = () => {
+		const prev = pastRef.current.pop();
+		if (!prev) return;
+		if (dungeon) futureRef.current.push(dungeon);
+		setDungeon(prev);
+		setSelectedId(null);
+	};
+	const redo = () => {
+		const next = futureRef.current.pop();
+		if (!next) return;
+		if (dungeon) pastRef.current.push(dungeon);
+		setDungeon(next);
+		setSelectedId(null);
+	};
+	const copyRoom = () => {
+		if (selected) {
+			clipRef.current = selected;
+			toast("Room copied.");
+		}
+	};
+	const cutRoom = () => {
+		if (!selected) return;
+		clipRef.current = selected;
+		removeRoom(selected.id);
+		toast("Room cut.");
+	};
+	const pasteRoom = () => {
+		if (!dungeon || !clipRef.current) return;
+		const src = clipRef.current;
+		const room = {
+			...src,
+			id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+			x: src.x + 2,
+			y: src.y + 2
+		};
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room]
+		});
+		setSelectedId(room.id);
+		toast("Room pasted.");
+	};
+	const removeRoom = (id) => {
+		if (!dungeon) return;
+		commit({
+			...dungeon,
+			rooms: dungeon.rooms.filter((r) => r.id !== id),
+			connections: dungeon.connections.filter((c) => c.from !== id && c.to !== id)
+		});
+		if (selectedId === id) setSelectedId(null);
+	};
+	const rotateRoom = () => {
+		if (!selected || !dungeon) return;
+		commit({
+			...dungeon,
+			rooms: dungeon.rooms.map((r) => r.id === selected.id ? {
+				...r,
+				w: r.h,
+				h: r.w
+			} : r)
+		});
+	};
+	const addTemplate = (template) => {
+		if (!dungeon) {
+			toast("Generate or load a dungeon first.");
+			return;
+		}
+		const room = roomFromTemplate(template, {
+			x: Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w)) + 4,
+			y: 0
+		});
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room]
+		});
+		setSelectedId(room.id);
+	};
+	const addBlankRoom = () => {
+		if (!dungeon) {
+			toast("Generate or load a dungeon first.");
+			return;
+		}
+		const room = roomFromTemplate({
+			name: "New Room",
+			category: "Chamber",
+			minW: 12,
+			maxW: 20,
+			minH: 12,
+			maxH: 20,
+			environment: "",
+			elevation: "Flat",
+			cover: "Open",
+			connector: "Doorway"
+		}, {
+			x: Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w)) + 4,
+			y: 0
+		});
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room]
+		});
+		setSelectedId(room.id);
+	};
 	const generate = () => {
 		const d = generateDungeon({
 			mode,
@@ -32648,19 +33754,26 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			monsters,
 			lootPools
 		});
-		const rooms = (d.rooms || []).map((r) => ({
+		const scaled = scaleEncounters(d, {
+			players,
+			partyLevel,
+			monsters
+		});
+		const rooms = (scaled.rooms || []).map((r) => ({
 			...r,
 			traps: includeTraps ? r.traps : [],
 			spawns: includeSpawns ? r.spawns : [],
 			loot: includeLoot ? r.loot : []
 		}));
+		pastRef.current = [];
+		futureRef.current = [];
 		setDungeon({
-			...d,
+			...scaled,
 			rooms
 		});
 		setSeed(d.seed);
 		setSelectedId(rooms[0]?.id || null);
-		toast.success(`${rankInfo.nickname} ${mode === "spire" ? "spire" : "dungeon"} generated.`);
+		toast.success(`${rankInfo.nickname} ${mode === "spire" ? "spire" : "dungeon"} generated${includeSpawns ? ` · target CR ${scaled.encounterScale?.targetCR || "?"}` : ""}.`);
 	};
 	const save = () => {
 		if (!dungeon) return;
@@ -32683,10 +33796,14 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const load = (id) => {
 		const d = saved.find((x) => x.id === id);
 		if (!d) return;
+		pastRef.current = [];
+		futureRef.current = [];
 		setDungeon(d);
 		setMode(d.mode || "single");
 		setRank(d.rank || "E");
 		setSeed(d.seed || "");
+		if (d.encounterScale?.players) setPlayers(d.encounterScale.players);
+		if (d.encounterScale?.partyLevel) setPartyLevel(d.encounterScale.partyLevel);
 		setSavedId(id);
 		setSelectedId(d.rooms?.[0]?.id || null);
 	};
@@ -32713,7 +33830,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	};
 	const patchSelected = (patch) => {
 		if (!dungeon || !selected) return;
-		setDungeon({
+		commit({
 			...dungeon,
 			rooms: dungeon.rooms.map((r) => r.id === selected.id ? {
 				...r,
@@ -32722,13 +33839,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		});
 	};
 	const removeSelected = () => {
-		if (!dungeon || !selected) return;
-		setDungeon({
-			...dungeon,
-			rooms: dungeon.rooms.filter((r) => r.id !== selected.id),
-			connections: dungeon.connections.filter((c) => c.from !== selected.id && c.to !== selected.id)
-		});
-		setSelectedId(null);
+		if (!selected) return;
+		removeRoom(selected.id);
 	};
 	const saveSelectedAsTemplate = () => {
 		if (!selected) return;
@@ -32747,7 +33859,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			traps: [...selected.traps || []],
 			spawns: [...selected.spawns || []],
 			loot: [...selected.loot || []],
-			notes: selected.notes
+			notes: selected.notes,
+			cr0Only: !!selected.cr0Only
 		};
 		setSettings((s) => ({
 			...s,
@@ -32758,6 +33871,70 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		}));
 		toast.success("Room added to the Reference Library's Dungeon Rooms.");
 	};
+	const moveRoom = (id, x, y) => {
+		if (!dungeon) return;
+		commit({
+			...dungeon,
+			rooms: dungeon.rooms.map((r) => r.id === id ? {
+				...r,
+				x: Math.max(0, Math.round(x)),
+				y: Math.max(0, Math.round(y))
+			} : r)
+		});
+	};
+	const resizeRoom = (id, w, h) => {
+		if (!dungeon) return;
+		commit({
+			...dungeon,
+			rooms: dungeon.rooms.map((r) => r.id === id ? {
+				...r,
+				w: Math.max(2, Math.min(30, Math.round(w))),
+				h: Math.max(2, Math.min(30, Math.round(h)))
+			} : r)
+		});
+	};
+	useEffect(() => {
+		const onKey = (e) => {
+			const tag = document.activeElement?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+			const meta = e.ctrlKey || e.metaKey;
+			if (e.key === "Escape") {
+				setSelectedId(null);
+				return;
+			}
+			if (meta && (e.key === "z" || e.key === "Z")) {
+				if (e.shiftKey) redo();
+				else undo();
+				return;
+			}
+			if (meta && (e.key === "y" || e.key === "Y")) {
+				redo();
+				return;
+			}
+			if (meta && (e.key === "c" || e.key === "C")) {
+				copyRoom();
+				return;
+			}
+			if (meta && (e.key === "x" || e.key === "X")) {
+				cutRoom();
+				return;
+			}
+			if (meta && (e.key === "v" || e.key === "V")) {
+				pasteRoom();
+				return;
+			}
+			if (e.key === "Delete" || e.key === "Backspace") {
+				if (selectedId) {
+					e.preventDefault();
+					removeRoom(selectedId);
+				}
+				return;
+			}
+			if ((e.key === "r" || e.key === "R") && !meta) rotateRoom();
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	});
 	return /* @__PURE__ */ jsxs("div", {
 		className: `flex flex-col bg-background text-foreground ${embedded ? "h-[74vh] min-h-[560px]" : "h-screen"}`,
 		children: [/* @__PURE__ */ jsxs("header", {
@@ -32843,7 +34020,11 @@ function DungeonGenerator({ onExit, embedded = false }) {
 										children: "Rank"
 									}), /* @__PURE__ */ jsxs(Select, {
 										value: rank,
-										onValueChange: setRank,
+										onValueChange: (v) => {
+											setRank(v);
+											const first = Number(String(DUNGEON_RANKS[v]?.level || "1").match(/\d+/)?.[0] || 1);
+											setPartyLevel(Math.max(1, first));
+										},
 										children: [/* @__PURE__ */ jsx(SelectTrigger, {
 											className: "h-8",
 											children: /* @__PURE__ */ jsx(SelectValue, {})
@@ -32885,6 +34066,43 @@ function DungeonGenerator({ onExit, embedded = false }) {
 										rankInfo.level,
 										" · prof +",
 										rankInfo.prof
+									]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "grid grid-cols-2 gap-1.5",
+									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Players"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										type: "number",
+										min: 1,
+										max: 12,
+										value: players,
+										onChange: (e) => setPlayers(Math.max(1, Math.min(12, Number(e.target.value) || 1)))
+									})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Party level"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										type: "number",
+										min: 0,
+										max: 30,
+										value: partyLevel,
+										onChange: (e) => setPartyLevel(Math.max(0, Math.min(30, Number(e.target.value) || 0)))
+									})] })]
+								}),
+								/* @__PURE__ */ jsxs("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: [
+										"~",
+										players * 2,
+										" monsters total per combat room · target CR",
+										" ",
+										dungeon?.encounterScale?.targetCR ?? targets.targetCR,
+										" · max CR",
+										" ",
+										dungeon?.encounterScale?.maxCR ?? targets.maxCR
 									]
 								})
 							]
@@ -32967,10 +34185,20 @@ function DungeonGenerator({ onExit, embedded = false }) {
 									value: roomQuery,
 									onChange: (e) => setRoomQuery(e.target.value)
 								}),
+								/* @__PURE__ */ jsxs(Button, {
+									size: "sm",
+									variant: "outline",
+									className: "h-7 w-full text-xs",
+									onClick: addBlankRoom,
+									children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Add blank room"]
+								}),
 								/* @__PURE__ */ jsx("div", {
 									className: "max-h-52 space-y-1 overflow-y-auto pr-1",
-									children: filteredTemplates.map((r) => /* @__PURE__ */ jsxs("div", {
-										className: "rounded border px-1.5 py-1 text-[10px]",
+									children: filteredTemplates.map((r) => /* @__PURE__ */ jsxs("button", {
+										type: "button",
+										onClick: () => addTemplate(r),
+										className: "w-full rounded border px-1.5 py-1 text-left text-[10px] hover:bg-accent",
+										title: "Add this room to the dungeon",
 										children: [/* @__PURE__ */ jsx("div", {
 											className: "truncate font-medium",
 											children: r.name
@@ -33032,7 +34260,9 @@ function DungeonGenerator({ onExit, embedded = false }) {
 							children: /* @__PURE__ */ jsx(DungeonMap, {
 								dungeon,
 								selectedId,
-								onSelect: setSelectedId
+								onSelect: setSelectedId,
+								onMoveRoom: moveRoom,
+								onResizeRoom: resizeRoom
 							})
 						}),
 						/* @__PURE__ */ jsx("div", {
@@ -33187,21 +34417,39 @@ function DungeonGenerator({ onExit, embedded = false }) {
 								value: selected.notes || "",
 								onChange: (e) => patchSelected({ notes: e.target.value })
 							})] }),
+							/* @__PURE__ */ jsxs("label", {
+								className: "flex items-center justify-between rounded border px-2 py-1 text-[10px]",
+								children: ["CR 0 creatures only (animal den)", /* @__PURE__ */ jsx(Switch, {
+									checked: !!selected.cr0Only,
+									onCheckedChange: (v) => patchSelected({ cr0Only: v })
+								})]
+							}),
+							/* @__PURE__ */ jsx(RoomBattleMap, { room: selected }),
 							/* @__PURE__ */ jsxs("div", {
 								className: "flex flex-wrap gap-1.5 border-t pt-2",
-								children: [/* @__PURE__ */ jsx(Button, {
-									size: "sm",
-									variant: "outline",
-									className: "h-7 text-xs",
-									onClick: saveSelectedAsTemplate,
-									children: "Save as room template"
-								}), /* @__PURE__ */ jsxs(Button, {
-									size: "sm",
-									variant: "ghost",
-									className: "h-7 text-xs text-destructive",
-									onClick: removeSelected,
-									children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Remove room"]
-								})]
+								children: [
+									/* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 text-xs",
+										onClick: saveSelectedAsTemplate,
+										children: "Save as room template"
+									}),
+									/* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 text-xs",
+										onClick: rotateRoom,
+										children: "Rotate 90°"
+									}),
+									/* @__PURE__ */ jsxs(Button, {
+										size: "sm",
+										variant: "ghost",
+										className: "h-7 text-xs text-destructive",
+										onClick: removeSelected,
+										children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Remove room"]
+									})
+								]
 							})
 						]
 					}) : /* @__PURE__ */ jsx("p", {
@@ -41158,6 +42406,9 @@ function PresentationSheet({ innerRef, onExport }) {
 	const aggregated = aggregateResources(tree, character, levels);
 	const profBonus = profBonusFor(character.level || 1, levels);
 	const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
+	const speedTypes = speedTypeList(character, settings?.library || {});
+	const senses = senseList(character, settings?.library || {});
+	encumbranceInfo(character, tree);
 	const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
 	const actions = mergeLibraryActions(settings?.library?.actions || [], collectActions(tree, vars), vars);
 	const spent = character.actionUses || {};
@@ -41323,6 +42574,46 @@ function PresentationSheet({ innerRef, onExport }) {
 								label,
 								value
 							}, label))
+						})
+					}),
+					/* @__PURE__ */ jsxs(Section, {
+						title: "Speed",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "grid grid-cols-3 gap-2",
+							children: [
+								speedTypes.map((t) => {
+									const key = t === "Standard" ? "Speed" : `${t} Speed`;
+									return /* @__PURE__ */ jsx(StatCard, {
+										label: t,
+										value: `${sheet[key]?.final ?? 0} spaces`
+									}, t);
+								}),
+								/* @__PURE__ */ jsx(StatCard, {
+									label: "Horizontal Jump",
+									value: `${sheet["Horizontal Jump"]?.final ?? character.jumpH ?? 2} spaces`
+								}),
+								/* @__PURE__ */ jsx(StatCard, {
+									label: "Vertical Jump",
+									value: `${sheet["Vertical Jump"]?.final ?? character.jumpV ?? 1} spaces`
+								})
+							]
+						}), (sheet.Speed?.encPenalty > 0 || sheet.Speed?.exhaustPenalty > 0 || sheet.Speed?.exertPenalty > 0) && /* @__PURE__ */ jsxs("p", {
+							className: "mt-1 text-[9px] text-slate-500",
+							children: [
+								sheet.Speed?.encPenalty > 0 ? `Encumbered −${sheet.Speed.encPenalty}. ` : "",
+								sheet.Speed?.exhaustPenalty > 0 ? `Exhaustion −${sheet.Speed.exhaustPenalty}. ` : "",
+								sheet.Speed?.exertPenalty > 0 ? `Exertion −${sheet.Speed.exertPenalty}.` : ""
+							]
+						})]
+					}),
+					/* @__PURE__ */ jsx(Section, {
+						title: "Senses",
+						children: /* @__PURE__ */ jsx("div", {
+							className: "grid grid-cols-4 gap-2",
+							children: senses.map((s) => /* @__PURE__ */ jsx(StatCard, {
+								label: s,
+								value: `${sheet[s]?.final ?? 0} spaces`
+							}, s))
 						})
 					}),
 					/* @__PURE__ */ jsx(Section, {

@@ -91,10 +91,32 @@ export function rollLootPool(poolName, pools, depth = 0, path = []) {
 }
 
 // Roll an encounter table: each row's count is rolled (dice allowed) and the
-// surviving monsters are returned as [{ monster, count }].
-export function rollEncounter(table) {
+// surviving monsters are returned as [{ monster, count }]. A row can name a
+// specific monster or a tag/category; tag rows resolve to a random monster
+// carrying that tag, type or category.
+export function rollEncounter(table, monsters = []) {
   return (table.rows || [])
-    .filter((r) => r?.monster)
-    .map((r) => ({ monster: r.monster, count: rollExpr(r.count) }))
-    .filter((r) => r.count > 0);
+    .map((r) => {
+      if (!r) return null;
+      let name = r.monster || r.tag || "";
+      if (!name) return null;
+      if (r.kind === "tag" || r.tag) {
+        const tag = String(r.tag || r.monster || "").toLowerCase();
+        const pool = (monsters || []).filter((m) => {
+          const hay = [
+            m?.type,
+            m?.category,
+            ...(Array.isArray(m?.tags) ? m.tags : []),
+          ]
+            .filter(Boolean)
+            .map((x) => String(x).toLowerCase());
+          return hay.some((h) => h === tag || h.includes(tag));
+        });
+        if (pool.length) {
+          name = pool[Math.floor(Math.random() * pool.length)].name;
+        }
+      }
+      return { monster: name, count: rollExpr(r.count) };
+    })
+    .filter((r) => r && r.count > 0);
 }

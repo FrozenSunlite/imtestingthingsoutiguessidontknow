@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import {
   DUNGEON_CATEGORIES,
@@ -7,8 +7,12 @@ import {
   categoryColor,
   generateDungeon,
   randomSeed,
+  roomFromTemplate,
+  scaleEncounters,
+  crTargets,
 } from "@/lib/dungeonGen";
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
+import { RoomBattleMap } from "@/components/skilltree/dungeon/RoomBattleMap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Dices, Download, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Dices, Download, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const lines = (arr) => (arr || []).join("\n");
@@ -48,6 +52,8 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const [mode, setMode] = useState("single");
   const [rank, setRank] = useState("E");
   const [seed, setSeed] = useState(randomSeed);
+  const [players, setPlayers] = useState(4);
+  const [partyLevel, setPartyLevel] = useState(1);
   const [dungeon, setDungeon] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [includeTraps, setIncludeTraps] = useState(true);
@@ -55,9 +61,13 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const [includeLoot, setIncludeLoot] = useState(true);
   const [savedId, setSavedId] = useState("");
   const [roomQuery, setRoomQuery] = useState("");
+  const pastRef = useRef([]);
+  const futureRef = useRef([]);
+  const clipRef = useRef(null);
 
   const selected = dungeon?.rooms?.find((r) => r.id === selectedId) || null;
   const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+  const targets = crTargets(partyLevel);
   const filteredTemplates = roomTemplates.filter((r) => {
     const q = roomQuery.trim().toLowerCase();
     return !q || `${r.name} ${r.category}`.toLowerCase().includes(q);
@@ -73,6 +83,107 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     };
   }, [dungeon]);
 
+  const commit = (next) => {
+    if (!next) return;
+    if (dungeon) {
+      pastRef.current.push(dungeon);
+      if (pastRef.current.length > 80) pastRef.current.shift();
+      futureRef.current = [];
+    }
+    setDungeon(next);
+  };
+  const undo = () => {
+    const prev = pastRef.current.pop();
+    if (!prev) return;
+    if (dungeon) futureRef.current.push(dungeon);
+    setDungeon(prev);
+    setSelectedId(null);
+  };
+  const redo = () => {
+    const next = futureRef.current.pop();
+    if (!next) return;
+    if (dungeon) pastRef.current.push(dungeon);
+    setDungeon(next);
+    setSelectedId(null);
+  };
+  const copyRoom = () => {
+    if (selected) {
+      clipRef.current = selected;
+      toast("Room copied.");
+    }
+  };
+  const cutRoom = () => {
+    if (!selected) return;
+    clipRef.current = selected;
+    removeRoom(selected.id);
+    toast("Room cut.");
+  };
+  const pasteRoom = () => {
+    if (!dungeon || !clipRef.current) return;
+    const src = clipRef.current;
+    const room = {
+      ...src,
+      id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+      x: src.x + 2,
+      y: src.y + 2,
+    };
+    commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
+    setSelectedId(room.id);
+    toast("Room pasted.");
+  };
+  const removeRoom = (id) => {
+    if (!dungeon) return;
+    commit({
+      ...dungeon,
+      rooms: dungeon.rooms.filter((r) => r.id !== id),
+      connections: dungeon.connections.filter((c) => c.from !== id && c.to !== id),
+    });
+    if (selectedId === id) setSelectedId(null);
+  };
+  const rotateRoom = () => {
+    if (!selected || !dungeon) return;
+    commit({
+      ...dungeon,
+      rooms: dungeon.rooms.map((r) =>
+        r.id === selected.id ? { ...r, w: r.h, h: r.w } : r
+      ),
+    });
+  };
+  const addTemplate = (template) => {
+    if (!dungeon) {
+      toast("Generate or load a dungeon first.");
+      return;
+    }
+    const maxX = Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w));
+    const room = roomFromTemplate(template, { x: maxX + 4, y: 0 });
+    commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
+    setSelectedId(room.id);
+  };
+  const addBlankRoom = () => {
+    if (!dungeon) {
+      toast("Generate or load a dungeon first.");
+      return;
+    }
+    const maxX = Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w));
+    const room = roomFromTemplate(
+      {
+        name: "New Room",
+        category: "Chamber",
+        minW: 12,
+        maxW: 20,
+        minH: 12,
+        maxH: 20,
+        environment: "",
+        elevation: "Flat",
+        cover: "Open",
+        connector: "Doorway",
+      },
+      { x: maxX + 4, y: 0 }
+    );
+    commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
+    setSelectedId(room.id);
+  };
+
   const generate = () => {
     const d = generateDungeon({
       mode,
@@ -82,16 +193,23 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       monsters,
       lootPools,
     });
-    const rooms = (d.rooms || []).map((r) => ({
+    const scaled = scaleEncounters(d, { players, partyLevel, monsters });
+    const rooms = (scaled.rooms || []).map((r) => ({
       ...r,
       traps: includeTraps ? r.traps : [],
       spawns: includeSpawns ? r.spawns : [],
       loot: includeLoot ? r.loot : [],
     }));
-    setDungeon({ ...d, rooms });
+    pastRef.current = [];
+    futureRef.current = [];
+    setDungeon({ ...scaled, rooms });
     setSeed(d.seed);
     setSelectedId(rooms[0]?.id || null);
-    toast.success(`${rankInfo.nickname} ${mode === "spire" ? "spire" : "dungeon"} generated.`);
+    toast.success(
+      `${rankInfo.nickname} ${mode === "spire" ? "spire" : "dungeon"} generated${
+        includeSpawns ? ` · target CR ${scaled.encounterScale?.targetCR || "?"}` : ""
+      }.`
+    );
   };
 
   const save = () => {
@@ -110,10 +228,14 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const load = (id) => {
     const d = saved.find((x) => x.id === id);
     if (!d) return;
+    pastRef.current = [];
+    futureRef.current = [];
     setDungeon(d);
     setMode(d.mode || "single");
     setRank(d.rank || "E");
     setSeed(d.seed || "");
+    if (d.encounterScale?.players) setPlayers(d.encounterScale.players);
+    if (d.encounterScale?.partyLevel) setPartyLevel(d.encounterScale.partyLevel);
     setSavedId(id);
     setSelectedId(d.rooms?.[0]?.id || null);
   };
@@ -143,22 +265,15 @@ export function DungeonGenerator({ onExit, embedded = false }) {
 
   const patchSelected = (patch) => {
     if (!dungeon || !selected) return;
-    setDungeon({
+    commit({
       ...dungeon,
       rooms: dungeon.rooms.map((r) => (r.id === selected.id ? { ...r, ...patch } : r)),
     });
   };
 
   const removeSelected = () => {
-    if (!dungeon || !selected) return;
-    setDungeon({
-      ...dungeon,
-      rooms: dungeon.rooms.filter((r) => r.id !== selected.id),
-      connections: dungeon.connections.filter(
-        (c) => c.from !== selected.id && c.to !== selected.id
-      ),
-    });
-    setSelectedId(null);
+    if (!selected) return;
+    removeRoom(selected.id);
   };
 
   const saveSelectedAsTemplate = () => {
@@ -179,6 +294,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       spawns: [...(selected.spawns || [])],
       loot: [...(selected.loot || [])],
       notes: selected.notes,
+      cr0Only: !!selected.cr0Only,
     };
     setSettings((s) => ({
       ...s,
@@ -189,6 +305,74 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     }));
     toast.success("Room added to the Reference Library's Dungeon Rooms.");
   };
+
+  const moveRoom = (id, x, y) => {
+    if (!dungeon) return;
+    commit({
+      ...dungeon,
+      rooms: dungeon.rooms.map((r) =>
+        r.id === id ? { ...r, x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) } : r
+      ),
+    });
+  };
+  const resizeRoom = (id, w, h) => {
+    if (!dungeon) return;
+    commit({
+      ...dungeon,
+      rooms: dungeon.rooms.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              w: Math.max(2, Math.min(30, Math.round(w))),
+              h: Math.max(2, Math.min(30, Math.round(h))),
+            }
+          : r
+      ),
+    });
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const meta = e.ctrlKey || e.metaKey;
+      if (e.key === "Escape") {
+        setSelectedId(null);
+        return;
+      }
+      if (meta && (e.key === "z" || e.key === "Z")) {
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (meta && (e.key === "y" || e.key === "Y")) {
+        redo();
+        return;
+      }
+      if (meta && (e.key === "c" || e.key === "C")) {
+        copyRoom();
+        return;
+      }
+      if (meta && (e.key === "x" || e.key === "X")) {
+        cutRoom();
+        return;
+      }
+      if (meta && (e.key === "v" || e.key === "V")) {
+        pasteRoom();
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedId) {
+          e.preventDefault();
+          removeRoom(selectedId);
+        }
+        return;
+      }
+      if ((e.key === "r" || e.key === "R") && !meta) rotateRoom();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   return (
     <div className={`flex flex-col bg-background text-foreground ${embedded ? "h-[74vh] min-h-[560px]" : "h-screen"}`}>
@@ -238,7 +422,11 @@ export function DungeonGenerator({ onExit, embedded = false }) {
               </div>
               <div>
                 <Label className="text-[10px]">Rank</Label>
-                <Select value={rank} onValueChange={setRank}>
+                <Select value={rank} onValueChange={(v) => {
+                  setRank(v);
+                  const first = Number(String(DUNGEON_RANKS[v]?.level || "1").match(/\d+/)?.[0] || 1);
+                  setPartyLevel(Math.max(1, first));
+                }}>
                   <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.values(DUNGEON_RANKS).map((r) => (
@@ -259,6 +447,35 @@ export function DungeonGenerator({ onExit, embedded = false }) {
             </div>
             <p className="text-[10px] text-muted-foreground">
               {rankInfo.rooms} encounters · levels {rankInfo.level} · prof +{rankInfo.prof}
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <Label className="text-[10px]">Players</Label>
+                <Input
+                  className="h-8"
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={players}
+                  onChange={(e) => setPlayers(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+                />
+              </div>
+              <div>
+                <Label className="text-[10px]">Party level</Label>
+                <Input
+                  className="h-8"
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={partyLevel}
+                  onChange={(e) => setPartyLevel(Math.max(0, Math.min(30, Number(e.target.value) || 0)))}
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              ~{players * 2} monsters total per combat room · target CR{" "}
+              {dungeon?.encounterScale?.targetCR ?? targets.targetCR} · max CR{" "}
+              {dungeon?.encounterScale?.maxCR ?? targets.maxCR}
             </p>
           </div>
 
@@ -309,14 +526,23 @@ export function DungeonGenerator({ onExit, embedded = false }) {
               value={roomQuery}
               onChange={(e) => setRoomQuery(e.target.value)}
             />
+            <Button size="sm" variant="outline" className="h-7 w-full text-xs" onClick={addBlankRoom}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Add blank room
+            </Button>
             <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
               {filteredTemplates.map((r) => (
-                <div key={r.id} className="rounded border px-1.5 py-1 text-[10px]">
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => addTemplate(r)}
+                  className="w-full rounded border px-1.5 py-1 text-left text-[10px] hover:bg-accent"
+                  title="Add this room to the dungeon"
+                >
                   <div className="truncate font-medium">{r.name}</div>
                   <div className="truncate text-muted-foreground">
                     {r.category} · {r.minW}–{r.maxW}×{r.minH}–{r.maxH}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
@@ -336,7 +562,13 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 <span>· {stats.loot} with loot</span>
               </div>
               <div className="min-h-0 flex-1">
-                <DungeonMap dungeon={dungeon} selectedId={selectedId} onSelect={setSelectedId} />
+                <DungeonMap
+                  dungeon={dungeon}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onMoveRoom={moveRoom}
+                  onResizeRoom={resizeRoom}
+                />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {DUNGEON_CATEGORIES.map(([cat, color]) => (
@@ -437,9 +669,20 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                   onChange={(e) => patchSelected({ notes: e.target.value })}
                 />
               </div>
+              <label className="flex items-center justify-between rounded border px-2 py-1 text-[10px]">
+                CR 0 creatures only (animal den)
+                <Switch
+                  checked={!!selected.cr0Only}
+                  onCheckedChange={(v) => patchSelected({ cr0Only: v })}
+                />
+              </label>
+              <RoomBattleMap room={selected} />
               <div className="flex flex-wrap gap-1.5 border-t pt-2">
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={saveSelectedAsTemplate}>
                   Save as room template
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={rotateRoom}>
+                  Rotate 90°
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={removeSelected}>
                   <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove room

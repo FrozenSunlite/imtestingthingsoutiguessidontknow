@@ -21,7 +21,7 @@ import {
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { Plus, X, Download } from "lucide-react";
 import { toast } from "sonner";
-import { SIZE_LADDER, SIZE_LABELS, derivedSheet } from "@/lib/resources";
+import { SIZE_LADDER, SIZE_LABELS, derivedSheet, speedTypeList, senseList, encumbranceInfo } from "@/lib/resources";
 import { statOr10 } from "@/lib/skills";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "@/components/skilltree/PanelResizer";
@@ -37,6 +37,8 @@ import { DerivedResourcesSection } from "@/components/skilltree/DerivedResources
 import { TokenForge } from "@/components/skilltree/TokenForge";
 import { PortraitDisplay } from "@/components/skilltree/PortraitDisplay";
 import { StatusSection } from "@/components/skilltree/StatusSection";
+import { SpeedSection } from "@/components/skilltree/SpeedSection";
+import { SensesSection } from "@/components/skilltree/SensesSection";
 import { SheetDetailsSection } from "@/components/skilltree/SheetDetailsSection";
 
 const STATS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
@@ -269,6 +271,21 @@ export function CharacterSheet({ onExport, fill = false }) {
         </div>
 
         <StatusSection />
+
+        <SpeedSection
+          sheet={charSheet}
+          character={character}
+          setCharacter={setCharacter}
+          tree={tree}
+          types={speedTypeList(character, settings?.library || {})}
+          enc={encumbranceInfo(character, tree)}
+        />
+        <SensesSection
+          sheet={charSheet}
+          character={character}
+          setCharacter={setCharacter}
+          senses={senseList(character, settings?.library || {})}
+        />
 
         <div>
           <Label className="mb-1.5 block">Point Pools</Label>

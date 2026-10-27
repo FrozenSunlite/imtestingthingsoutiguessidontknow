@@ -14,6 +14,7 @@ import {
 import { ArrowUpDown, Plus, Save, Trash2, X } from "lucide-react";
 import { ImageField } from "@/components/skilltree/ImageField";
 import { feetToSpacesText } from "@/lib/resources";
+import { speedEntries, speedTextFromEntries } from "@/lib/monsterSpeeds";
 
 // The View sheet's Familiar tab: a monster-manual style statblock for the
 // character's companion. Pick one from the Reference Library's Monsters list
@@ -155,6 +156,7 @@ const BLANK = {
   hpMax: 1,
   hpCurrent: 1,
   speed: "",
+  speeds: [],
   str: 10,
   dex: 10,
   con: 10,
@@ -194,7 +196,8 @@ export function monsterToStatblock(m) {
     ac: toNum(m?.ac) || 10,
     hpMax: toNum(m?.hp) || 1,
     hpCurrent: toNum(m?.hp) || 1,
-    speed: feetToSpacesText(m?.speed || ""),
+    speed: speedTextFromEntries(m?.speeds) || feetToSpacesText(m?.speed || ""),
+    speeds: speedEntries(Array.isArray(m?.speeds) && m.speeds.length ? m.speeds : m?.speed),
     str: abil.str ?? 10,
     dex: abil.dex ?? 10,
     con: abil.con ?? 10,
@@ -229,6 +232,7 @@ export function statblockToMonster(f) {
     ac: f?.ac ?? "",
     hp: f?.hpMax ?? "",
     speed: feetToSpacesText(f?.speed || ""),
+    speeds: speedEntries(f?.speed),
     abilities: ABILITIES.map(([k, l]) => `${l} ${f?.[k] ?? 10}`).join(", "),
     senses: feetToSpacesText(f?.senses || ""),
     languages: f?.languages || "",

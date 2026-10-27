@@ -24,7 +24,7 @@ export function EncountersLoot({ monsters, pools, encounterTables, onEncounter }
   const rollEnc = () => {
     const t = encounterTables.find((x) => x.name === tableId);
     if (!t) return;
-    const spawned = rollEncounter(t);
+    const spawned = rollEncounter(t, monsters);
     setEncResult({ table: t.name, spawned });
     if (spawned.length) onEncounter(spawned, t.name);
   };

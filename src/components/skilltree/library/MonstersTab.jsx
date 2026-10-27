@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { ListHeader, EmptyNote } from "./shared";
 import { matchesQuery } from "@/lib/textSearch";
@@ -13,10 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, Plus, X, ArrowUpDown, UserPlus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, X, ArrowUpDown, UserPlus, FileUp } from "lucide-react";
 import { monsterToStatblock } from "@/components/skilltree/FamiliarTab";
 import { ImageField } from "@/components/skilltree/ImageField";
 import { feetToSpacesText } from "@/lib/resources";
+import { speedEntries, speedTextFromEntries } from "@/lib/monsterSpeeds";
+import { importMonsterPayload } from "@/lib/monsterImport";
+import { toast } from "sonner";
 
 // Reference Library tab: a log of monsters. Each entry is a full statblock
 // (sorted by name, CR, type, alignment…), can carry inventory — a weapon adds
@@ -25,9 +28,12 @@ import { feetToSpacesText } from "@/lib/resources";
 // legendary resistances…) defined in the tab's template section.
 
 const BLANK = {
-  name: "", image: "", size: "", type: "", alignment: "", cr: "", description: "", flavor: "",
-  ac: "", hp: "", speed: "", abilities: "", senses: "", languages: "",
-  traits: [], actions: [], reactions: [], proficiencies: [], inventory: [], templates: [],
+  name: "", image: "", size: "", type: "", category: "", tags: [], source: "", alignment: "", cr: "", description: "", flavor: "",
+  ac: "", hp: "", speed: "", speeds: [], abilities: "", senses: "", languages: "",
+  saves: "", skills: "", damageVulnerabilities: "", damageResistances: "", damageImmunities: "",
+  conditionImmunities: "", initiative: "", proficiencyBonus: "", xp: "", gear: "", spellcasting: "",
+  traits: [], actions: [], bonusActions: [], reactions: [], legendaryActions: [], lairActions: [], mythicActions: [],
+  proficiencies: [], inventory: [], templates: [],
 };
 const BLANK_TEMPLATE = {
   name: "", description: "", acBonus: "", hpBonus: "", spellcasting: "",
@@ -190,13 +196,13 @@ function MiniList({ label, items, onChange }) {
   );
 }
 
-function Field({ label, value, onChange, placeholder, className }) {
+function Field({ label, value, onChange, placeholder, className, list }) {
   return (
     <div className="space-y-0.5">
       <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </Label>
-      <Input className={`h-8 ${className || ""}`} placeholder={placeholder} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
+      <Input className={`h-8 ${className || ""}`} list={list} placeholder={placeholder} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
@@ -209,6 +215,16 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
   const weaponNames = (lib.weapons || []).map((w) => w.name).filter(Boolean);
   const armorNames = (lib.armor || []).map((a) => a.name).filter(Boolean);
   const summary = [m.size, m.type].filter(Boolean).join(" ");
+  const movement = Array.isArray(m.speeds) && m.speeds.length ? m.speeds : speedEntries(m.speed);
+  const speedTypeOptions = [
+    ...new Set([
+      "Standard",
+      ...(lib.speedTypes || []).map((s) => s?.name || s).filter(Boolean),
+      ...movement.map((e) => e.type).filter(Boolean),
+    ]),
+  ];
+  const setMovement = (next) =>
+    patch({ speeds: next, speed: speedTextFromEntries(next) });
   return (
     <div className="rounded-md border p-2">
       <div className="flex items-center gap-1.5">
@@ -277,10 +293,79 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
               <Field label="Type" value={m.type} onChange={(v) => patch({ type: v })} placeholder="Beast" />
               <Field label="Alignment" value={m.alignment} onChange={(v) => patch({ alignment: v })} placeholder="Unaligned" />
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
               <Field label="AC" value={m.ac} onChange={(v) => patch({ ac: v })} placeholder="13" />
               <Field label="HP" value={m.hp} onChange={(v) => patch({ hp: v })} placeholder="45" />
-              <Field label="Speed" value={feetToSpacesText(m.speed) || ""} onChange={(v) => patch({ speed: v })} placeholder="6 spaces, fly 12 spaces" />
+            </div>
+            <div className="mt-2 space-y-1 rounded-md border p-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Movement
+                </Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    setMovement([
+                      ...movement,
+                      {
+                        type: speedTypeOptions.find((t) => !movement.some((e) => e.type === t)) || "Standard",
+                        spaces: 6,
+                      },
+                    ])
+                  }
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add movement
+                </Button>
+              </div>
+              {movement.length === 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  No movement set. Add a speed type from the Reference Library.
+                </p>
+              )}
+              {movement.map((row, idx) => (
+                <div key={idx} className="flex items-center gap-1">
+                  <Select
+                    value={row.type || "Standard"}
+                    onValueChange={(v) =>
+                      setMovement(movement.map((r, j) => (j === idx ? { ...r, type: v } : r)))
+                    }
+                  >
+                    <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
+                      <SelectValue placeholder="Speed Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {speedTypeOptions.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="h-8 w-20 text-center"
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={row.spaces ?? 0}
+                    onChange={(e) =>
+                      setMovement(
+                        movement.map((r, j) =>
+                          j === idx ? { ...r, spaces: Math.max(0, Number(e.target.value) || 0) } : r
+                        )
+                      )
+                    }
+                  />
+                  <span className="text-[10px] text-muted-foreground">spaces</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setMovement(movement.filter((_, j) => j !== idx))}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -291,6 +376,50 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
             <Field label="CR" value={m.cr} onChange={(v) => patch({ cr: v })} placeholder="1/2" />
             <Field label="Senses" value={feetToSpacesText(m.senses) || ""} onChange={(v) => patch({ senses: v })} placeholder="Darkvision 12 spaces" />
             <Field label="Languages" value={m.languages} onChange={(v) => patch({ languages: v })} placeholder="—" />
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <Field label="Category" value={m.category} onChange={(v) => patch({ category: v })} placeholder="Undead, Goblinoid, Boss…" />
+            <Field
+              label="Tags (comma-separated)"
+              value={(m.tags || []).join(", ")}
+              onChange={(v) => patch({ tags: v.split(",").map((t) => t.trim()).filter(Boolean) })}
+              placeholder="undead, minion, flying"
+              list="monster-tags"
+            />
+            <Field label="Source" value={m.source} onChange={(v) => patch({ source: v })} placeholder="MM 2014 / MM 2024" />
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <Field label="Initiative" value={m.initiative} onChange={(v) => patch({ initiative: v })} placeholder="+2" />
+            <Field label="Prof. Bonus" value={m.proficiencyBonus} onChange={(v) => patch({ proficiencyBonus: v })} placeholder="+2" />
+            <Field label="XP" value={m.xp} onChange={(v) => patch({ xp: v })} placeholder="50" />
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Field label="Saving Throws" value={m.saves} onChange={(v) => patch({ saves: v })} placeholder="DEX +4, CON +2" />
+            <Field label="Skills" value={m.skills} onChange={(v) => patch({ skills: v })} placeholder="Perception +4, Stealth +6" />
+            <Field label="Damage Vulnerabilities" value={m.damageVulnerabilities} onChange={(v) => patch({ damageVulnerabilities: v })} placeholder="Radiant" />
+            <Field label="Damage Resistances" value={m.damageResistances} onChange={(v) => patch({ damageResistances: v })} placeholder="Cold, fire" />
+            <Field label="Damage Immunities" value={m.damageImmunities} onChange={(v) => patch({ damageImmunities: v })} placeholder="Poison" />
+            <Field label="Condition Immunities" value={m.conditionImmunities} onChange={(v) => patch({ conditionImmunities: v })} placeholder="Charmed, frightened" />
+          </div>
+          <div>
+            <Label className="text-[10px] text-muted-foreground">Spellcasting / innate spells</Label>
+            <Textarea
+              className="min-h-12 text-xs"
+              rows={2}
+              placeholder="Innate spellcasting, spell save DC, slots…"
+              value={m.spellcasting || ""}
+              onChange={(e) => patch({ spellcasting: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label className="text-[10px] text-muted-foreground">Gear / equipment</Label>
+            <Textarea
+              className="min-h-10 text-xs"
+              rows={2}
+              placeholder="Weapons, armor, carried items…"
+              value={m.gear || ""}
+              onChange={(e) => patch({ gear: e.target.value })}
+            />
           </div>
           <Textarea
             className="min-h-12 text-xs"
@@ -446,7 +575,16 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
           <MiniList label="Proficiencies" items={m.proficiencies} onChange={(p) => patch({ proficiencies: p })} />
           <MiniList label="Traits" items={m.traits} onChange={(t) => patch({ traits: t })} />
           <MiniList label="Actions" items={m.actions} onChange={(a) => patch({ actions: a })} />
+          <MiniList label="Bonus Actions" items={m.bonusActions} onChange={(a) => patch({ bonusActions: a })} />
           <MiniList label="Reactions" items={m.reactions} onChange={(r) => patch({ reactions: r })} />
+          <MiniList label="Legendary Actions" items={m.legendaryActions} onChange={(a) => patch({ legendaryActions: a })} />
+          <MiniList label="Lair Actions" items={m.lairActions} onChange={(a) => patch({ lairActions: a })} />
+          <MiniList label="Mythic Actions" items={m.mythicActions} onChange={(a) => patch({ mythicActions: a })} />
+          <datalist id="monster-tags">
+            {["undead", "goblinoid", "beast", "fiend", "celestial", "dragon", "giant", "fey", "elemental", "construct", "monstrosity", "ooze", "plant", "aquatic", "flying", "minion", "elite", "boss", "animal"].map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
           <datalist id="monster-item-names">
             {[...weaponNames, ...armorNames].map((n) => (
               <option key={n} value={n} />
@@ -526,6 +664,7 @@ export function MonstersTab() {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("name");
   const [desc, setDesc] = useState(false);
+  const importRef = useRef(null);
   if (!settings) return null;
   const lib = settings.library;
   const setLib = (patch) => setSettings((s) => ({ ...s, library: { ...s.library, ...patch } }));
@@ -539,6 +678,38 @@ export function MonstersTab() {
   };
   const remove = (i) => setLib({ monsters: monsters.filter((_, j) => j !== i) });
 
+  const importMonsters = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = importMonsterPayload(JSON.parse(reader.result));
+        if (!imported.length) {
+          toast.error("No monsters found in that file.");
+          return;
+        }
+        const byName = new Map(monsters.map((m) => [String(m.name || "").toLowerCase(), m]));
+        let added = 0;
+        let replaced = 0;
+        imported.forEach((m) => {
+          const key = m.name.toLowerCase();
+          if (byName.has(key)) {
+            byName.set(key, { ...byName.get(key), ...m });
+            replaced += 1;
+          } else {
+            byName.set(key, m);
+            added += 1;
+          }
+        });
+        setLib({ monsters: [...byName.values()] });
+        toast.success(`Imported ${imported.length} monsters — ${added} new, ${replaced} updated.`);
+      } catch {
+        toast.error("Could not read that monster file. Expected JSON.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // Send a library monster to the character sheet as a new familiar statblock.
   const importToFamiliars = (m) => {
     const block = monsterToStatblock(m);
@@ -551,7 +722,17 @@ export function MonstersTab() {
 
   const shown = monsters
     .map((m, i) => ({ m, i }))
-    .filter(({ m }) => matchesQuery(m?.name, q))
+    .filter(({ m }) =>
+      matchesQuery(
+        [
+          m?.name,
+          m?.type,
+          m?.category,
+          ...(Array.isArray(m?.tags) ? m.tags : []),
+        ].filter(Boolean).join(" "),
+        q
+      )
+    )
     .sort((a, b) => {
       let d = 0;
       if (sort === "cr") d = crNum(a.m.cr) - crNum(b.m.cr);
@@ -563,9 +744,25 @@ export function MonstersTab() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <Button size="sm" variant="outline" onClick={add}>
-          <Plus className="mr-1 h-4 w-4" /> Add monster
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" onClick={add}>
+            <Plus className="mr-1 h-4 w-4" /> Add monster
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => importRef.current?.click()}>
+            <FileUp className="mr-1 h-4 w-4" /> Import
+          </Button>
+          <input
+            ref={importRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              importMonsters(f);
+            }}
+          />
+        </div>
         <div className="flex items-center gap-1">
           <Select value={sort} onValueChange={setSort}>
             <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>

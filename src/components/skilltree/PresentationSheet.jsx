@@ -16,6 +16,9 @@ import {
   totalCarried,
   repeatsFor,
   customResourceList,
+  speedTypeList,
+  senseList,
+  encumbranceInfo,
 } from "@/lib/resources";
 import { resolveResourceDie } from "@/lib/dieScaling";
 import { CapacityBar } from "./CapacityBar";
@@ -68,6 +71,9 @@ export function PresentationSheet({ innerRef, onExport }) {
   const aggregated = aggregateResources(tree, character, levels);
   const profBonus = profBonusFor(character.level || 1, levels);
   const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
+  const speedTypes = speedTypeList(character, settings?.library || {});
+  const senses = senseList(character, settings?.library || {});
+  const enc = encumbranceInfo(character, tree);
   const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
   const actions = mergeLibraryActions(
     settings?.library?.actions || [],
@@ -203,6 +209,39 @@ export function PresentationSheet({ innerRef, onExport }) {
           <div className="grid grid-cols-4 gap-2">
             {coreCards.map(([label, value]) => (
               <StatCard key={label} label={label} value={value} />
+            ))}
+          </div>
+        </Section>
+
+        {/* Speed and senses are their own sections, not buried in Derived. */}
+        <Section title="Speed">
+          <div className="grid grid-cols-3 gap-2">
+            {speedTypes.map((t) => {
+              const key = t === "Standard" ? "Speed" : `${t} Speed`;
+              return (
+                <StatCard
+                  key={t}
+                  label={t}
+                  value={`${sheet[key]?.final ?? 0} spaces`}
+                />
+              );
+            })}
+            <StatCard label="Horizontal Jump" value={`${sheet["Horizontal Jump"]?.final ?? character.jumpH ?? 2} spaces`} />
+            <StatCard label="Vertical Jump" value={`${sheet["Vertical Jump"]?.final ?? character.jumpV ?? 1} spaces`} />
+          </div>
+          {(sheet.Speed?.encPenalty > 0 || sheet.Speed?.exhaustPenalty > 0 || sheet.Speed?.exertPenalty > 0) && (
+            <p className="mt-1 text-[9px] text-slate-500">
+              {sheet.Speed?.encPenalty > 0 ? `Encumbered −${sheet.Speed.encPenalty}. ` : ""}
+              {sheet.Speed?.exhaustPenalty > 0 ? `Exhaustion −${sheet.Speed.exhaustPenalty}. ` : ""}
+              {sheet.Speed?.exertPenalty > 0 ? `Exertion −${sheet.Speed.exertPenalty}.` : ""}
+            </p>
+          )}
+        </Section>
+
+        <Section title="Senses">
+          <div className="grid grid-cols-4 gap-2">
+            {senses.map((s) => (
+              <StatCard key={s} label={s} value={`${sheet[s]?.final ?? 0} spaces`} />
             ))}
           </div>
         </Section>
