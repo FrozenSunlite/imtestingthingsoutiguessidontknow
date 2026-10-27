@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { InfoTip } from "@/components/skilltree/InfoTip";
 import { Plus, X, Download } from "lucide-react";
 import { toast } from "sonner";
 import { SIZE_LADDER, SIZE_LABELS, derivedSheet } from "@/lib/resources";
@@ -318,15 +326,57 @@ export function CharacterSheet({ onExport, fill = false }) {
         <div>
           <div className="flex items-center justify-between">
             <Label>Manual Resources</Label>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                set({ manualResources: [...(character.manualResources || []), { name: "", value: "", color: "#ffffff" }] })
-              }
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <InfoTip label="Add a resource defined in the Reference Library, with its die size.">
+                <Select
+                  value=""
+                  onValueChange={(name) => {
+                    const lib = (settings?.library?.resources || []).find((r) => r.name === name);
+                    if (!lib) return;
+                    set({
+                      manualResources: [
+                        ...(character.manualResources || []),
+                        {
+                          name: lib.name,
+                          value: "0",
+                          color: lib.color || "#ffffff",
+                          dieSize: lib.dieSize || "",
+                        },
+                      ],
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-40 text-xs">
+                    <SelectValue placeholder="Add from library…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(settings?.library?.resources || [])
+                      .filter(
+                        (r) =>
+                          r.name &&
+                          !(character.manualResources || []).some(
+                            (m) => (m.name || "").toLowerCase() === r.name.toLowerCase()
+                          )
+                      )
+                      .map((r) => (
+                        <SelectItem key={r.name} value={r.name}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </InfoTip>
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Add a blank resource"
+                onClick={() =>
+                  set({ manualResources: [...(character.manualResources || []), { name: "", value: "", color: "#ffffff" }] })
+                }
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="mt-1.5 space-y-1">
             {(character.manualResources || []).map((r, i) => (
@@ -351,6 +401,28 @@ export function CharacterSheet({ onExport, fill = false }) {
                     set({ manualResources: mr });
                   }}
                 />
+                <InfoTip label="Optional scaling die shown next to this resource on the sheet.">
+                  <Select
+                    value={r.dieSize || "none"}
+                    onValueChange={(v) => {
+                      const mr = [...character.manualResources];
+                      mr[i] = { ...r, dieSize: v === "none" ? "" : v };
+                      set({ manualResources: mr });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[4.5rem] text-xs">
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      {["d4", "d6", "d8", "d10", "d12", "d20"].map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </InfoTip>
                 <input
                   type="color"
                   value={r.color || "#ffffff"}

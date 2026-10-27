@@ -19,7 +19,7 @@ import {
   SIZE_MULT,
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
-import { optionAtPath } from "@/lib/optionTree";
+import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";import { optionAtPath } from "@/lib/optionTree";
 import {
   DEFAULT_SUBTREE,
   flattenSubtreeForPlay,
@@ -27,8 +27,18 @@ import {
   subtreeChainHasNode,
   makeHostCopy,
   nextSubtreeId,
+  autoGrantFirstNode,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
+import {
+  LEGACY_KEYS,
+  readProjectValue,
+  writeProjectValue,
+  listSaves,
+  putSave,
+  removeSave,
+  migrateLegacyStorage,
+} from "@/lib/projectStore";
 import { toast } from "sonner";
 
 export const TIME_PERIODS = ["Medieval", "Renaissance", "Modern", "Futuristic"];
@@ -151,6 +161,20 @@ export const DEFAULT_LIBRARY = {
   trinkets: [],
   trinketTables: [],
   damageTypes: [],
+  // Movement and sense types shown on the sheet (names only).
+  speedTypes: [],
+  senses: [],
+  // The die-scaling ladder used when a node raises or lowers a die. Entries
+  // are editable in the Reference Library, so homebrew ladders are possible.
+  dieScaling: DEFAULT_DIE_SCALING.map((name) => ({ name })),
+  // Custom resources tracked on the sheet. A resource can carry a scaling die
+  // (e.g. a Martial Arts-style d6 → d10) that the sheet displays next to it.
+  resources: [
+    { name: "Arcanovital Energy", color: "#a855f7", dieSize: "", description: "" },
+    { name: "Channel Divinity", color: "#f59e0b", dieSize: "", description: "" },
+    { name: "Metamagic Points", color: "#ec4899", dieSize: "", description: "" },
+    { name: "Ki Points", color: "#22c55e", dieSize: "", description: "" },
+  ],
   rollTables: [],
   explosives: [],
   wondrousItems: [],
@@ -385,6 +409,23 @@ const DEFAULT_SETTINGS = {
   library: DEFAULT_LIBRARY,
 };
 
+// Library list entries used to be plain names; both movement/sense types and
+// resources now carry optional extra fields.
+const normalizeTypeEntry = (e) =>
+  typeof e === "string" ? { name: e, description: "" } : { name: e?.name || "", ...e };
+const normalizeResourceEntry = (e) =>
+  typeof e === "string"
+    ? { name: e, color: "", dieMode: "", dieSize: "", dieCount: 1, dieScale: "", description: "" }
+    : {
+        name: e?.name || "",
+        color: e?.color || "",
+        dieMode: e?.dieMode || "",
+        dieSize: e?.dieSize || "",
+        dieCount: e?.dieCount ?? 1,
+        dieScale: e?.dieScale || "",
+        ...e,
+      };
+
 function mergeLibrary(lib) {
   const d = DEFAULT_LIBRARY;
   return {
@@ -455,6 +496,17 @@ function mergeLibrary(lib) {
     trinkets: lib?.trinkets || [],
     trinketTables: lib?.trinketTables || [],
     damageTypes: lib?.damageTypes || [],
+    speedTypes: (lib?.speedTypes || []).map(normalizeTypeEntry).filter((t) => t.name),
+    senses: (lib?.senses || []).map(normalizeTypeEntry).filter((t) => t.name),
+    // The die-scaling ladder is seeded with the standard progression; saved
+    // libraries refresh to it until the user edits their own ladder.
+    dieScaling: (lib?.dieScaling?.length ? lib.dieScaling : d.dieScaling)
+      .map(normalizeTypeEntry)
+      .filter((t) => dieText(t)),
+    // Older saves have no resource list: seed the built-in defaults.
+    resources: (Array.isArray(lib?.resources) ? lib.resources : d.resources)
+      .map(normalizeResourceEntry)
+      .filter((r) => r.name),
     rollTables: lib?.rollTables || [],
     explosives: lib?.explosives || [],
     wondrousItems: lib?.wondrousItems || [],
@@ -511,11 +563,13 @@ export function ensureTabs(tree) {
 }
 
 // One-time carry-over: a camera start node saved in the old global setting
-// becomes the first tab's per-tab camera start.
-export function seedCameraStart(tree) {
+// becomes the first tab's per-tab camera start. The stored settings are passed
+// in during hydration (the legacy localStorage copy is gone by then).
+export function seedCameraStart(tree, savedSettings = null) {
   if (!tree || !tree.tabs?.length || tree.tabs[0].cameraStartNode != null) return tree;
   try {
-    const s = JSON.parse(localStorage.getItem("skilltree:settings") || "null");
+    const s =
+      savedSettings || JSON.parse(localStorage.getItem(LEGACY_KEYS.settings) || "null");
     if (!s?.cameraStartNode) return tree;
     return {
       ...tree,
@@ -530,44 +584,54 @@ export function seedCameraStart(tree) {
 
 // Character save slots: a bundle of the tree, character, point pools and the
 // reference library. Images travel with the data — node artwork is stored as
-// permanent upload URLs and portraits as permanent file references.
+// permanent upload URLs and portraits as permanent file references. Slots live
+// in IndexedDB because a bundle is easily bigger than localStorage allows.
 export function listCharacterSaves() {
-  try {
-    return JSON.parse(localStorage.getItem("skilltree:characterSaves") || "[]");
-  } catch {
-    return [];
-  }
+  return listSaves();
 }
 
-export function writeCharacterSave(name, bundle) {
+const MAX_SAVES = 40;
+
+export async function writeCharacterSave(name, bundle) {
   const entry = {
     id: "save-" + Date.now(),
     name: name || "Untitled character",
     date: new Date().toISOString(),
     ...bundle,
   };
-  const saves = [entry, ...listCharacterSaves()].slice(0, 40);
   try {
-    localStorage.setItem("skilltree:characterSaves", JSON.stringify(saves));
-  } catch {
-    throw new Error("Local storage is full — delete an older save or export one as a file.");
+    await putSave(entry);
+    // Keep the slot list bounded: drop the oldest bundles past the limit.
+    const existing = (await listSaves()).filter((s) => s.id !== entry.id);
+    for (const old of existing.slice(MAX_SAVES - 1)) await removeSave(old.id);
+  } catch (e) {
+    throw new Error(
+      "Could not save the project: " + (e?.message || "the browser refused the write.")
+    );
   }
   return entry;
 }
 
-export function deleteCharacterSave(id) {
-  const saves = listCharacterSaves().filter((s) => s.id !== id);
+export async function deleteCharacterSave(id) {
   try {
-    localStorage.setItem("skilltree:characterSaves", JSON.stringify(saves));
+    await removeSave(id);
   } catch {
-    /* ignore */
+    /* already gone */
   }
 }
 
 export function TreeProvider({ children }) {
   const [treeRaw, setTreeRaw] = useState(null);
+  // Unsaved-changes tracking: any edit marks the project dirty, while an
+  // explicit save, a load and New clear it again. Only a dirty project warns
+  // when the program is closed — backing out to the menu never nags.
+  const [dirty, setDirty] = useState(false);
+  const hydratedRef = useRef(false);
+  const markDirty = useCallback(() => setDirty(true), []);
+  const clearDirty = useCallback(() => setDirty(false), []);
 
   const setTree = useCallback((updater) => {
+    markDirty();
     setTreeRaw((prev) => {
       if (!prev) return prev;
       const next = typeof updater === "function" ? updater(prev) : updater;
@@ -579,7 +643,7 @@ export function TreeProvider({ children }) {
       );
       return { ...next, tabs };
     });
-  }, []);
+  }, [markDirty]);
 
   const tree = treeRaw;
 
@@ -711,18 +775,32 @@ export function TreeProvider({ children }) {
     setTreeRaw((prev) => {
       if (!prev) return prev;
       const host = prev.nodes.find((n) => n.id === hostId);
-      const st = (host?.subtrees || [])[subIndex ?? 0];
-      if (!host || !st) return prev;
+      const stored = (host?.subtrees || [])[subIndex ?? 0];
+      if (!host || !stored) return prev;
+      // A purchased talent grants its tree's first node for free. Granting on
+      // open also covers trees authored after the talent was bought.
+      const st = (host.currentPoints || 0) > 0 ? autoGrantFirstNode(stored) : stored;
+      const hostNow =
+        st === stored
+          ? host
+          : {
+              ...host,
+              subtrees: (host.subtrees || []).map((s, i) =>
+                i === (subIndex ?? 0) ? st : s
+              ),
+            };
+      const nodesNow = st === stored ? prev.nodes : prev.nodes.map((n) => (n.id === hostId ? hostNow : n));
       const side = prev.sideTrees || { left: { kind: "main" }, right: null };
       const openSlot = ["left", "right"].find(
         (s) => side[s]?.subtreeHostId === hostId && side[s]?.subtreeIndex === (subIndex ?? 0) && !side[s]?.closed
       );
       if (openSlot)
         return { ...prev, sideTrees: { ...side, [openSlot]: { ...side[openSlot], closed: true } } };
-      const flat = flattenSubtreeForPlay(host, subIndex ?? 0, !!devModeRef.current);
+      const flat = flattenSubtreeForPlay(hostNow, subIndex ?? 0, !!devModeRef.current);
       const slot = !side.right || side.right.closed ? "right" : !side.left || side.left.closed ? "left" : "right";
       return {
         ...prev,
+        nodes: nodesNow,
         sideTrees: {
           ...side,
           [slot]: {
@@ -782,6 +860,7 @@ export function TreeProvider({ children }) {
         grantedPoints: 3,
         poolName: "",
         exclusive: false,
+        autoGrantFirst: true,
       };
       // Every subtree is seeded with a copy of its host node; new arrivals
       // are connected to it.
@@ -952,6 +1031,7 @@ export function TreeProvider({ children }) {
           grantedPoints: 3,
           poolName: "",
           exclusive: false,
+          autoGrantFirst: true,
         };
         const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
         const clones = [];
@@ -1035,19 +1115,12 @@ export function TreeProvider({ children }) {
   );
   const clearTreeFocus = useCallback(() => setTreeFocus(null), []);
 
+  // Hydrate the working project from IndexedDB once. Old localStorage copies
+  // (from earlier builds) are migrated first, then deleted so the space they
+  // held is released.
   useEffect(() => {
-    const saved = localStorage.getItem("skilltree:tree");
-    if (saved) {
-      try {
-        setTreeRaw(seedCameraStart(ensureTabs(migrateTree(JSON.parse(saved)))));
-        setLoading(false);
-        return;
-      } catch {
-        /* ignore */
-      }
-    }
-    // No hardcoded starting tree: a fresh launch begins with a blank project.
-    setTreeRaw(
+    let alive = true;
+    const blankProject = () =>
       seedCameraStart(
         ensureTabs({
           name: "New Skill Tree",
@@ -1056,82 +1129,111 @@ export function TreeProvider({ children }) {
           tabs: [{ id: "tab-main", name: "Main", nodes: [], connections: [] }],
           activeTabId: "tab-main",
         })
-      )
-    );
-    setLoading(false);
+      );
+
+    (async () => {
+      await migrateLegacyStorage();
+      const [storedTree, storedCharacter, storedSettings] = await Promise.all([
+        readProjectValue(LEGACY_KEYS.tree),
+        readProjectValue(LEGACY_KEYS.character),
+        readProjectValue(LEGACY_KEYS.settings),
+      ]);
+      if (!alive) return;
+
+      if (storedSettings) {
+        setSettings({
+          hotkeys: { ...DEFAULT_HOTKEYS, ...(storedSettings.hotkeys || {}) },
+          connector: { ...DEFAULT_SETTINGS.connector, ...(storedSettings.connector || {}) },
+          placeholderImage: isLegacyHostedImage(storedSettings.placeholderImage)
+            ? DEFAULT_SETTINGS.placeholderImage
+            : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
+          placeholderFrame: isLegacyHostedImage(storedSettings.placeholderFrame)
+            ? ""
+            : storedSettings.placeholderFrame || "",
+          cameraStartNode: storedSettings.cameraStartNode || "",
+          levelRules: { ...DEFAULT_SETTINGS.levelRules, ...(storedSettings.levelRules || {}) },
+          library: mergeLibrary(storedSettings.library),
+        });
+      }
+
+      if (storedTree) {
+        try {
+          setTreeRaw(
+            seedCameraStart(
+              ensureTabs(migrateTree(storedTree)),
+              storedSettings
+            )
+          );
+        } catch {
+          setTreeRaw(blankProject());
+        }
+      } else {
+        // No hardcoded starting tree: a fresh launch begins with a blank project.
+        setTreeRaw(blankProject());
+      }
+
+      if (storedCharacter) {
+        setCharacter({
+          ...DEFAULT_CHARACTER,
+          ...storedCharacter,
+          stats: { ...DEFAULT_CHARACTER.stats, ...(storedCharacter.stats || {}) },
+          abilityChoices: storedCharacter.abilityChoices || {},
+          appearance: { ...DEFAULT_CHARACTER.appearance, ...(storedCharacter.appearance || {}) },
+          // Movement switched from feet to spaces: migrate the old 30 ft default.
+          ...(storedCharacter.speed === 30 ? { speed: 6 } : {}),
+        });
+      }
+
+      hydratedRef.current = true;
+      setLoading(false);
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
+  // Autosave the working project so Continue resumes where the player left
+  // off. IndexedDB has no practical size cap, so big trees and save bundles no
+  // longer fail to write.
   useEffect(() => {
-    if (!tree) return;
+    if (!tree || !hydratedRef.current) return;
     const t = setTimeout(() => {
-      try {
-        localStorage.setItem("skilltree:tree", JSON.stringify(tree));
-      } catch {
-        /* quota */
-      }
+      writeProjectValue(LEGACY_KEYS.tree, tree).catch(() => {
+        /* reported by the explicit Save action */
+      });
     }, 800);
     return () => clearTimeout(t);
   }, [tree]);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("skilltree:settings") || "null");
-      setSettings({
-        hotkeys: { ...DEFAULT_HOTKEYS, ...(saved?.hotkeys || {}) },
-        connector: { ...DEFAULT_SETTINGS.connector, ...(saved?.connector || {}) },
-        placeholderImage: isLegacyHostedImage(saved?.placeholderImage)
-          ? DEFAULT_SETTINGS.placeholderImage
-          : saved?.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
-        placeholderFrame: isLegacyHostedImage(saved?.placeholderFrame) ? "" : saved?.placeholderFrame || "",
-        cameraStartNode: saved?.cameraStartNode || "",
-        levelRules: { ...DEFAULT_SETTINGS.levelRules, ...(saved?.levelRules || {}) },
-        library: mergeLibrary(saved?.library),
-      });
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
+    if (!hydratedRef.current) return;
     const t = setTimeout(() => {
-      try {
-        localStorage.setItem("skilltree:settings", JSON.stringify(settings));
-      } catch {
-        /* quota */
-      }
+      writeProjectValue(LEGACY_KEYS.settings, settings).catch(() => {});
     }, 400);
     return () => clearTimeout(t);
   }, [settings]);
 
-  // Character persists across reloads.
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("skilltree:character") || "null");
-      if (saved)
-        setCharacter({
-          ...DEFAULT_CHARACTER,
-          ...saved,
-          stats: { ...DEFAULT_CHARACTER.stats, ...(saved.stats || {}) },
-          abilityChoices: saved.abilityChoices || {},
-          appearance: { ...DEFAULT_CHARACTER.appearance, ...(saved.appearance || {}) },
-          // Movement switched from feet to spaces: migrate the old 30 ft default.
-          ...(saved.speed === 30 ? { speed: 6 } : {}),
-        });
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
+    if (!hydratedRef.current) return;
     const t = setTimeout(() => {
-      try {
-        localStorage.setItem("skilltree:character", JSON.stringify(character));
-      } catch {
-        /* quota */
-      }
+      writeProjectValue(LEGACY_KEYS.character, character).catch(() => {});
     }, 400);
     return () => clearTimeout(t);
   }, [character]);
+
+  // Warn before the program closes only while edits are unsaved. Leaving the
+  // workspace for the main menu deliberately does not ask.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   // Camera start: the canvas recentres itself on the active tab's chosen start
   // node (or its first node) once it is mounted and measured — see
@@ -1576,9 +1678,15 @@ export function TreeProvider({ children }) {
             const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
             const cur = Number(n.currentPoints) || 0;
             const next = Math.max(0, Math.min(max, cur + delta));
+            // First purchase of a talent with its own trees: grant each
+            // subtree's first node for free (no pool is charged for it).
+            const granted =
+              cur === 0 && next > 0 && (n.subtrees || []).length
+                ? { subtrees: n.subtrees.map(autoGrantFirstNode) }
+                : {};
             if (cur === 0 && next > 0 && !n.acquiredOrder)
-              return { ...n, currentPoints: next, acquiredOrder: seq };
-            return { ...n, currentPoints: next };
+              return { ...n, ...granted, currentPoints: next, acquiredOrder: seq };
+            return { ...n, ...granted, currentPoints: next };
           }),
         };
       });
@@ -1818,9 +1926,6 @@ export function TreeProvider({ children }) {
         nodes: [],
         connections: [],
         cameraStartNode: "",
-  autoSave: true,
-  autoSaveInterval: 60,
-  cacheRemoteImages: false,
       };
       return {
         ...prev,
@@ -1893,10 +1998,9 @@ export function TreeProvider({ children }) {
     setScreen("app");
   }, []);
 
-  // "New" on the launch menu: a fresh blank project.
+  // "New" on the launch menu: a fresh blank project. The LaunchMenu asks for
+  // confirmation itself, so no second prompt here.
   const startNewTree = useCallback(() => {
-    const hasWork = (tree?.nodes?.length || 0) > 0 || !!character?.name;
-    if (hasWork && !window.confirm("Starting a new project will erase your current work. Continue?")) return;
     setTreeRaw({
       name: "New Skill Tree",
       nodes: [],
@@ -1914,8 +2018,9 @@ export function TreeProvider({ children }) {
       pinnedNodeIds: [],
       pinPositions: {},
     }));
+    clearDirty();
     enterApp("edit");
-  }, [enterApp]);
+  }, [enterApp, clearDirty]);
 
   // Load a saved character bundle (tree + character + pools + library).
   const applyLoadedSave = useCallback(
@@ -1945,9 +2050,34 @@ export function TreeProvider({ children }) {
         pinnedNodeIds: [],
         pinPositions: {},
       }));
+      clearDirty();
       enterApp(nextMode || "sheet");
     },
-    [enterApp]
+    [enterApp, clearDirty]
+  );
+
+  // Edits made from the interface mark the project dirty. Loading, New and the
+  // initial hydration use the raw setters above, so they stay clean.
+  const editCharacter = useCallback(
+    (next) => {
+      markDirty();
+      setCharacter(next);
+    },
+    [markDirty]
+  );
+  const editPools = useCallback(
+    (next) => {
+      markDirty();
+      setPools(next);
+    },
+    [markDirty]
+  );
+  const editSettings = useCallback(
+    (next) => {
+      markDirty();
+      setSettings(next);
+    },
+    [markDirty]
   );
 
   const value = {
@@ -1964,7 +2094,9 @@ export function TreeProvider({ children }) {
     character,
     loading,
     settings,
-    setSettings,
+    setSettings: editSettings,
+    dirty,
+    clearDirty,
     undo,
     redo,
     addBend,
@@ -1974,8 +2106,8 @@ export function TreeProvider({ children }) {
     setGrid,
     setMode,
     setUi,
-    setPools,
-    setCharacter,
+    setPools: editPools,
+    setCharacter: editCharacter,
     treeFocus,
     focusNode,
     clearTreeFocus,
@@ -2217,11 +2349,19 @@ export function aggregateResources(tree, character, levels = []) {
         typeParts: [],
         grant: null,
         replaced: null,
+        dieSize: "",
+        dieAdjust: 0,
+        dieOverride: "",
         recovery: "",
         recoveryAmount: "",
       });
     const entry = map.get(key);
     if (r.color) entry.color = r.color;
+    if (r.dieSize) entry.dieSize = r.dieSize;
+    // Nodes raise/lower a resource's die by steps and can pin it outright;
+    // multiple invested nodes stack their adjustments.
+    if (r.dieAdjust) entry.dieAdjust += Number(r.dieAdjust) || 0;
+    if (r.dieOverride) entry.dieOverride = r.dieOverride;
     if (r.recovery && r.recovery !== "none") {
       entry.recovery = r.recovery;
       if (r.recoveryAmount) entry.recoveryAmount = r.recoveryAmount;

@@ -24,6 +24,7 @@ import {
   senseList,
   DEFAULT_SENSES,
 } from "@/lib/resources";
+import { resolveResourceDie } from "@/lib/dieScaling";
 import { SpeedSection } from "./SpeedSection";
 import { SensesSection } from "./SensesSection";
 import { DamageAffinitiesSection } from "./DamageAffinitiesSection";
@@ -308,7 +309,9 @@ export function CharacterTab() {
           )}
           {customs.length > 0 && (
             <div className={derivedShown.length > 0 ? "mt-2 space-y-1" : "space-y-1"}>
-              {customs.map((r) => (
+              {customs.map((r) => {
+                const die = resolveResourceDie(r, settings?.library);
+                return (
                 <div
                   key={r.name}
                   className="flex items-center justify-between rounded-lg bg-accent/40 px-2.5 py-1.5 text-xs"
@@ -316,6 +319,7 @@ export function CharacterTab() {
                   <span className="font-medium">{r.name}</span>
                   <span className="font-mono text-muted-foreground">
                     {r.value}
+                    {die && /\d*d\d/.test(die.text) ? ` · ${die.text}` : ""}
                     {r.grant
                       ? ` → ${r.grant.pool === "heritage" ? "Heritage" : r.grant.pool === "attribute" ? "Attribute" : "Talent"}${r.grant.variant === "specific" ? ` (${r.grant.name})` : ""} pts`
                       : ""}
@@ -324,7 +328,8 @@ export function CharacterTab() {
                       : ""}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </SectionCard>

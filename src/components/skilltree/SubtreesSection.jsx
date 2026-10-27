@@ -37,6 +37,7 @@ export function SubtreesSection({ node, set }) {
           grantedPoints: 3,
           poolName: "",
           exclusive: false,
+          autoGrantFirst: true,
           abilityReqs: [],
         },
       ],
@@ -125,6 +126,13 @@ export function SubtreesSection({ node, set }) {
               onCheckedChange={(v) => patch(i, { exclusive: v })}
             />
             Mutually exclusive (only one root branch)
+          </label>
+          <label className="flex items-center gap-1.5 text-xs">
+            <Switch
+              checked={st.autoGrantFirst !== false}
+              onCheckedChange={(v) => patch(i, { autoGrantFirst: v })}
+            />
+            Grant the first node free when this talent is bought
           </label>
           <AbilityReqEditor
             reqs={st.abilityReqs || []}

@@ -17,6 +17,7 @@ import {
   totalCarried,
   repeatsFor,
 } from "@/lib/resources";
+import { resolveResourceDie } from "@/lib/dieScaling";
 import { CapacityBar } from "./CapacityBar";
 import { ActionActivationDialog } from "./ActionActivationDialog";
 import { DiceRoller } from "./DiceRoller";
@@ -240,18 +241,22 @@ export function PresentationSheet({ innerRef, onExport }) {
           </div>
           {customs.length > 0 && (
             <div className="mt-2 space-y-1">
-              {customs.map((r) => (
+              {customs.map((r) => {
+                const die = resolveResourceDie(r, settings?.library);
+                return (
                 <div key={r.name} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-xs">
                   <span className="font-medium">{r.name}</span>
                   <span className="font-mono text-slate-700">
                     {r.value}
+                    {die && /\d*d\d/.test(die.text) ? ` · ${die.text}` : ""}
                     {r.grant ? ` → ${r.grant.pool === "heritage" ? "Heritage" : r.grant.pool === "attribute" ? "Attribute" : "Talent"}${r.grant.variant === "specific" ? ` (${r.grant.name})` : ""} pts` : ""}
                     {r.recovery === "short" || r.recovery === "long"
                       ? ` · ${REST_LABEL[r.recovery]}${r.recoveryAmount ? ` +${r.recoveryAmount}` : " (full)"}`
                       : ""}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Section>

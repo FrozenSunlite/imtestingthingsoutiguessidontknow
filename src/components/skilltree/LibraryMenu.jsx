@@ -49,6 +49,8 @@ import { WeaponPropertiesTab } from "./library/WeaponPropertiesTab";
 import { LevelsTab } from "./library/LevelsTab";
 import { CreatureTypesTab } from "./library/CreatureTypesTab";
 import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
+import { ResourcesTab } from "./library/ResourcesTab";
+import { DieScalingTab } from "./library/DieScalingTab";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
 import { SpellSchoolsTab } from "./library/SpellSchoolsTab";
@@ -64,6 +66,7 @@ const TAB_GROUPS = [
   ["Character & Progression", [
     ["levels", "Levels"], ["attributes", "Attributes"], ["skills", "Skills"], ["tools", "Tools"],
     ["languages", "Languages"], ["speedTypes", "Speed Types"], ["senses", "Senses"],
+    ["resources", "Resources"], ["dieScaling", "Die Scaling"],
   ]],
   ["Combat", [
     ["weapons", "Weapons"], ["weaponUpgrades", "Weapon Upgrades"], ["armor", "Armor"],
@@ -78,12 +81,11 @@ const TAB_GROUPS = [
     ["gear", "Adventuring Gear"], ["gearCategories", "Gear Categories"],
     ["ammo", "Ammunition"], ["trinkets", "Trinkets"], ["explosives", "Explosives"],
     ["wondrous", "Wondrous Items"], ["siege", "Siege Equipment"], ["vehicles", "Vehicles"],
+    ["currency", "Currency"], ["trade", "Trade Goods"], ["poisons", "Poisons"],
   ]],
   ["Economy & Tables", [
     ["shop", "Shop"], ["rollTables", "Roll Tables"], ["lootTables", "Loot Tables"],
     ["lootPools", "Loot Pools"], ["encounterTables", "Encounter Tables"],
-    ["currency", "Currency"],
-    ["trade", "Trade Goods"], ["poisons", "Poisons"],
   ]],
 ];
 
@@ -114,8 +116,10 @@ const SEARCH_CATEGORIES = (lib) => [
   ["Siege Equipment", "siege", lib.siege || []],
   ["Vehicles", "vehicles", lib.vehicles || []],
   ["Creature Types", "types", (lib.creatureTypes || []).map((n) => ({ name: n }))],
-  ["Speed Types", "speedTypes", (lib.speedTypes || []).map((n) => ({ name: n }))],
-  ["Senses", "senses", (lib.senses || []).map((n) => ({ name: n }))],
+  ["Speed Types", "speedTypes", (lib.speedTypes || []).map((n) => ({ name: n?.name || n }))],
+  ["Senses", "senses", (lib.senses || []).map((n) => ({ name: n?.name || n }))],
+  ["Resources", "resources", lib.resources || []],
+  ["Die Scaling", "dieScaling", (lib.dieScaling || []).map((n) => ({ name: n?.name || n }))],
   ["Monsters", "monsters", lib.monsters || []],
   ["Monster Templates", "monsters", lib.monsterTemplates || []],
   ["Spell Schools", "spellSchools", (lib.spellSchools || []).map((n) => ({ name: n }))],
@@ -581,6 +585,19 @@ export function LibraryMenu({ open, onClose }) {
 
             <TabsContent value="languages" className="mt-0">
               <LanguagesTab />
+            </TabsContent>
+
+            <TabsContent value="speedTypes" className="mt-0">
+              <SpeedTypesTab />
+            </TabsContent>
+            <TabsContent value="senses" className="mt-0">
+              <SensesLibraryTab />
+            </TabsContent>
+            <TabsContent value="resources" className="mt-0">
+              <ResourcesTab />
+            </TabsContent>
+            <TabsContent value="dieScaling" className="mt-0">
+              <DieScalingTab />
             </TabsContent>
 
             <TabsContent value="categories" className="mt-0 space-y-2">

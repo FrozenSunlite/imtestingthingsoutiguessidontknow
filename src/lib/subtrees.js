@@ -16,7 +16,41 @@ export const DEFAULT_SUBTREE = {
   grantedPoints: 3,
   poolName: "",
   exclusive: false,
+  // The first node of a freshly created subtree is granted for free when the
+  // host talent is first purchased (see autoGrantFirstNode).
+  autoGrantFirst: true,
 };
+
+// The first playable node of a subtree: the first root (a node with no
+// dependency inside the subtree). The starter host copy is skipped.
+export function firstSubtreeNode(subtree) {
+  const nodes = (subtree?.nodes || []).filter((n) => !n.__hostCopy);
+  if (!nodes.length) return null;
+  const ids = new Set(nodes.map((n) => n.id));
+  return nodes.find((n) => !(n.dependencies || []).some((d) => ids.has(d))) || nodes[0];
+}
+
+// Grant the first node without charging any point pool. The node is flagged
+// `__autoGranted` so the subtree panel excludes it from its spend count and
+// the sheet can show it once (host copies are never listed).
+export function autoGrantFirstNode(subtree) {
+  if (!subtree || subtree.autoGrantFirst === false) return subtree;
+  const first = firstSubtreeNode(subtree);
+  if (!first || Number(first.currentPoints) > 0) return subtree;
+  return {
+    ...subtree,
+    nodes: (subtree.nodes || []).map((n) =>
+      n.id === first.id
+        ? {
+            ...n,
+            currentPoints: 1,
+            __autoGranted: true,
+            acquiredOrder: n.acquiredOrder || Date.now(),
+          }
+        : n
+    ),
+  };
+}
 
 let subSeq = 0;
 export function nextSubtreeId() {

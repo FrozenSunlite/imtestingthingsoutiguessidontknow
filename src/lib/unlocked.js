@@ -5,7 +5,9 @@ import { poolForNode } from "@/lib/treeStore";
 // Talent Type, types alphabetized (untagged last), and nodes inside each
 // group in acquisition order (the order their points were invested).
 export function groupUnlocked(nodes) {
-  const list = nodes || [];
+  // Starter copies inside a subtree represent their host node — listing them
+  // would show that talent twice on the sheet.
+  const list = (nodes || []).filter((n) => !n.__hostCopy);
   const byAcquired = (a, b) =>
     (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
   const heritage = list.filter((n) => poolForNode(n) === "heritage").sort(byAcquired);

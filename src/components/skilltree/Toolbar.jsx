@@ -38,7 +38,6 @@ import {
   Upload,
   Download,
   Save,
-  ArrowLeft,
   ArrowLeftRight,
   DoorOpen,
   ZoomIn,
@@ -52,7 +51,6 @@ import {
 } from "lucide-react";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
-import { MenuExitDialog } from "@/components/skilltree/MenuExitDialog";
 import { TabBar } from "@/components/skilltree/TabBar";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { SearchBox } from "@/components/skilltree/SearchBox";
@@ -84,7 +82,6 @@ export function Toolbar({ onAddPoolWindow }) {
   const fileRef = useRef(null);
   const [importData, setImportData] = useState(null);
   const [saveOpen, setSaveOpen] = useState(false);
-  const [exitOpen, setExitOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -233,7 +230,8 @@ export function Toolbar({ onAddPoolWindow }) {
   return (
     <div>
       <TabBar />
-      <div className="flex max-h-[40vh] flex-wrap items-center gap-x-4 gap-y-2 overflow-y-auto border-b bg-card px-3 py-2 text-sm">
+      <div className="max-h-[40vh] overflow-y-auto border-b bg-card px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
       <InfoTip label="Project name — used for export file names">
         <Input
           className="h-8 w-44"
@@ -264,8 +262,52 @@ export function Toolbar({ onAddPoolWindow }) {
       </InfoTip>
       <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={onImport} />
 
-      <div className="h-6 w-px bg-border" />
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <SearchBox onPick={pickSearchNode} />
+        <div className="h-6 w-px bg-border" />
+        {/* Back to the main menu sits next to Settings. Returning to the menu
+            keeps the working project; only closing the program while dirty
+            warns, so there is no exit dialog here. */}
+        <InfoTip label="Back to the main menu">
+          <Button size="sm" variant="outline" onClick={() => setScreen("launch")}>
+            <DoorOpen className="mr-1 h-4 w-4" /> Menu
+          </Button>
+        </InfoTip>
+        <InfoTip label="Settings: hotkeys, camera start, connectors, default artwork">
+          <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
+            <Settings className="mr-1 h-4 w-4" /> Settings
+          </Button>
+        </InfoTip>
+        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+          {/* The Character Creator is view-only; its Edit button stays hidden
+              unless Dev Mode is on. */}
+          {(!sheetOnly || character.devMode) && (
+            <InfoTip label="Edit mode: build, move and configure nodes">
+              <Button
+                size="sm"
+                variant={mode === "edit" ? "default" : "ghost"}
+                onClick={() => setMode("edit")}
+              >
+                <Pencil className="mr-1 h-4 w-4" /> Edit
+              </Button>
+            </InfoTip>
+          )}
+          <InfoTip label="View mode: the character screen, with tree panels on either side for investing points">
+            <Button
+              size="sm"
+              variant={mode === "sheet" ? "default" : "ghost"}
+              onClick={() => setMode("sheet")}
+            >
+              <Eye className="mr-1 h-4 w-4" /> View
+            </Button>
+          </InfoTip>
+        </div>
+      </div>
+      </div>
 
+      {/* Canvas options: grid, connectors and zoom on the left; character
+          progress and reference tools on the right. */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 border-t pt-2">
       <div className="flex items-center gap-2">
         <Grid3x3 className="h-4 w-4 text-muted-foreground" />
         <Select
@@ -375,28 +417,25 @@ export function Toolbar({ onAddPoolWindow }) {
 
       <div className="h-6 w-px bg-border" />
 
-      <SearchBox onPick={pickSearchNode} />
-
-      <div className="ml-auto flex items-center gap-2">
-        {/* Character creation: a plain back arrow straight to the menu, like
-            the Homebuilder. The tree editor keeps the exit dialog. */}
-        {sheetOnly ? (
-          <Button
-            size="icon"
-            variant="outline"
-            className="h-8 w-8"
-            title="Back to menu"
-            onClick={() => setScreen("launch")}
-          >
-            <ArrowLeft className="h-4 w-4" />
+      <div className="flex items-center gap-1">
+        <InfoTip label="Zoom out">
+          <Button size="sm" variant="ghost" onClick={() => zoomBy(1 / 1.2)}>
+            <ZoomOut className="h-4 w-4" />
           </Button>
-        ) : (
-          <InfoTip label="Back to the main menu">
-            <Button size="sm" variant="ghost" onClick={() => setExitOpen(true)}>
-              <DoorOpen className="h-4 w-4" />
-            </Button>
-          </InfoTip>
-        )}
+        </InfoTip>
+        <InfoTip label="Zoom in">
+          <Button size="sm" variant="ghost" onClick={() => zoomBy(1.2)}>
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </InfoTip>
+        <InfoTip label="Fit the whole tree in view">
+          <Button size="sm" variant="ghost" onClick={fit}>
+            <Maximize className="h-4 w-4" />
+          </Button>
+        </InfoTip>
+      </div>
+
+      <div className="ml-auto flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
           <span className="text-amber-600">Heritage</span>
           <span className="text-muted-foreground">{usage.heritage}/{eff.heritage.total}</span>
@@ -459,68 +498,13 @@ export function Toolbar({ onAddPoolWindow }) {
           </Button>
         </InfoTip>
 
-        <div className="flex items-center gap-1">
-          <InfoTip label="Zoom out">
-            <Button size="sm" variant="ghost" onClick={() => zoomBy(1 / 1.2)}>
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-          </InfoTip>
-          <InfoTip label="Zoom in">
-            <Button size="sm" variant="ghost" onClick={() => zoomBy(1.2)}>
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-          </InfoTip>
-          <InfoTip label="Fit the whole tree in view">
-            <Button size="sm" variant="ghost" onClick={fit}>
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </InfoTip>
-        </div>
-
-        <InfoTip label="Reference library: weapons, armor, properties, levels, attributes and lists">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setLibraryOpen(true)}
-          >
-            <BookOpen className="h-4 w-4" />
+        <InfoTip label="Reference library: weapons, armor, speed types, senses, resources and lists">
+          <Button size="sm" variant="ghost" onClick={() => setLibraryOpen(true)}>
+            <BookOpen className="mr-1 h-4 w-4" /> Library
           </Button>
         </InfoTip>
-
-        <InfoTip label="Settings: hotkeys, camera start, connectors, default artwork">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        </InfoTip>
-
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
-          {/* The Character Creator is view-only; its Edit button stays hidden
-              unless Dev Mode is on. */}
-          {(!sheetOnly || character.devMode) && (
-            <InfoTip label="Edit mode: build, move and configure nodes">
-              <Button
-                size="sm"
-                variant={mode === "edit" ? "default" : "ghost"}
-                onClick={() => setMode("edit")}
-              >
-                <Pencil className="mr-1 h-4 w-4" /> Edit
-              </Button>
-            </InfoTip>
-          )}
-          <InfoTip label="View mode: the character screen, with tree panels on either side for investing points">
-            <Button
-              size="sm"
-              variant={mode === "sheet" ? "default" : "ghost"}
-              onClick={() => setMode("sheet")}
-            >
-              <Eye className="mr-1 h-4 w-4" /> View
-            </Button>
-          </InfoTip>
-        </div>
+      </div>
+      </div>
       </div>
 
       <Dialog open={!!importData} onOpenChange={(v) => !v && setImportData(null)}>
@@ -545,15 +529,6 @@ export function Toolbar({ onAddPoolWindow }) {
       <LibraryMenu open={libraryOpen} onClose={() => setLibraryOpen(false)} />
       <SaveLoadMenu open={saveOpen} onClose={() => setSaveOpen(false)} />
       <LevelUpDialog open={hpDialog} onClose={() => setHpDialog(false)} />
-      <MenuExitDialog
-        open={exitOpen}
-        onClose={() => setExitOpen(false)}
-        onExit={() => {
-          setExitOpen(false);
-          setScreen("launch");
-        }}
-      />
-      </div>
     </div>
   );
 }

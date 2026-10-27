@@ -7,6 +7,7 @@ import {
   SIZE_LABELS,
   STATS,
 } from "@/lib/resources";
+import { resolveResourceDie } from "@/lib/dieScaling";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -43,7 +44,26 @@ export function DerivedResourcesSection() {
     return Number.isFinite(v) ? v : null;
   };
 
-  const customs = aggregated.filter((e) => !BUILTIN_KEYS.has(e.name));
+  // Library-defined resources act as the catalogue for the sheet: a resource
+  // listed there supplies the display colour (unless the character's own
+  // entry overrides it). Its die (static or scaling) is resolved separately,
+  // so node step adjustments and overrides are applied on top.
+  const libResources = settings?.library?.resources || [];
+  const libByName = new Map(
+    libResources
+      .filter((r) => r?.name)
+      .map((r) => [String(r.name).toLowerCase(), r])
+  );
+  const customs = aggregated
+    .filter((e) => !BUILTIN_KEYS.has(e.name))
+    .map((e) => {
+      const lib = libByName.get(String(e.name).toLowerCase());
+      if (!lib) return e;
+      return {
+        ...e,
+        color: e.color === "#ffffff" ? lib.color || e.color : e.color,
+      };
+    });
   const set = (patch) => setCharacter({ ...character, ...patch });
 
   // The hit-dice field is free text: "#d#" (e.g. "3d8") overrides both the
@@ -207,13 +227,17 @@ export function DerivedResourcesSection() {
 
       {customs.length > 0 && (
         <div className="mt-2 space-y-1 border-t pt-2">
-          {customs.map((r) => (
+          {customs.map((r) => {
+            const die = resolveResourceDie(r, settings?.library);
+            const dieText = die && /\d*d\d/.test(die.text) ? ` · ${die.text}` : "";
+            return (
             <div key={r.name} className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1">
               <span style={{ color: r.color !== "#ffffff" ? r.color : undefined }} className="text-xs font-medium">
                 {r.name}
               </span>
               <span className="font-mono text-xs">
                 {r.value}
+                {dieText}
                 {r.grant
                   ? ` → ${r.grant.pool === "heritage" ? "Heritage" : "Talent"}${
                       r.grant.variant === "specific" ? ` (${r.grant.name})` : ""
@@ -224,7 +248,8 @@ export function DerivedResourcesSection() {
                 {r.recovery === "short" && !r.recoveryAmount ? ` · short rest (full)` : ""}
               </span>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {customs.length === 0 && (

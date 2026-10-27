@@ -437,8 +437,12 @@ export function SideTreePanel({ slot, floating = false }) {
       const cost = Math.max(0, Number(n.cost ?? 1) || 0);
       if (isSub) {
         if (cost > 0) {
+          // Free auto-grants (the tree's first node) never cost subtree points.
           const spent = nodes.reduce(
-            (a, m) => a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0),
+            (a, m) =>
+              m.__autoGranted
+                ? a
+                : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0),
             0
           );
           const grant = Number(st.grantedPoints) || 0;
@@ -471,6 +475,12 @@ export function SideTreePanel({ slot, floating = false }) {
         setSubtreePickNode(n);
         return;
       }
+      return;
+    }
+    // The tree's first node is granted by the talent itself — it isn't paid
+    // for, so it can't be refunded for points.
+    if (n.__autoGranted) {
+      toast.error(`“${n.name || "This node"}” is granted by the talent and can't be refunded.`);
       return;
     }
     if ((n.options || []).length) {
@@ -612,7 +622,10 @@ export function SideTreePanel({ slot, floating = false }) {
             <span className="text-amber-600">{st.poolName || "Subtree"}</span>{" "}
             <span className="font-mono">
               {nodes.reduce(
-                (a, m) => a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0),
+                (a, m) =>
+                  m.__autoGranted
+                    ? a
+                    : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0),
                 0
               )}
               /{Number(st.grantedPoints) || 0}
@@ -717,6 +730,7 @@ export function SideTreePanel({ slot, floating = false }) {
             <span className="truncate font-semibold">{selected.name}</span>
             <span className="shrink-0 text-[10px] text-muted-foreground">
               {selected.currentPoints || 0}/{selected.maxPoints}
+              {selected.__autoGranted ? " · granted free" : ""}
             </span>
           </div>
           {(selected.talentType || Number(selected.levelReq) > 0) && (
@@ -756,9 +770,19 @@ export function SideTreePanel({ slot, floating = false }) {
   );
 }
 
-// Saved character bundles whose trees can be loaded into a side panel.
+// Saved character bundles whose trees can be loaded into a side panel. Save
+// slots are stored in IndexedDB, so they arrive asynchronously.
 function SaveItems({ onPick }) {
-  const saves = listCharacterSaves();
+  const [saves, setSaves] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    listCharacterSaves()
+      .then((rows) => alive && setSaves(rows))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   if (!saves.length) return null;
   return (
     <>

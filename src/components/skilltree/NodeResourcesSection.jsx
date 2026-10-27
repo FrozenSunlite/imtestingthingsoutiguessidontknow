@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InfoTip } from "@/components/skilltree/InfoTip";
+import { resolveResourceDie } from "@/lib/dieScaling";
 import { Plus, X } from "lucide-react";
 
 // Node resource editor. Each resource picks a target with a search bar — an
@@ -21,7 +22,7 @@ import { Plus, X } from "lucide-react";
 // another resource or your level, or a free formula.
 export function NodeResourcesSection({ node, set }) {
   const { tree, character, settings } = useTree();
-  const catalog = resourceCatalog(tree, character?.manualResources);
+  const catalog = resourceCatalog(tree, character?.manualResources, settings?.library);
 
   const addResource = () =>
     set({
@@ -311,6 +312,49 @@ export function NodeResourcesSection({ node, set }) {
                     onChange={(e) => setRes({ scaling: { ...(res.scaling || {}), talentTag: e.target.value } })}
                   />
                 )}
+              </div>
+            )}
+            {!isGrant && known && (
+              <div className="space-y-0.5 border-t pt-1.5">
+                <Label className="text-[10px] text-muted-foreground">Die scaling</Label>
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={String(res.dieAdjust ?? 0)}
+                    onValueChange={(v) => setRes({ dieAdjust: Number(v) || 0 })}
+                  >
+                    <SelectTrigger className="h-8 w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">No change</SelectItem>
+                      {[-4, -3, -2, -1, 1, 2, 3, 4].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n > 0 ? `+${n}` : n} step{n === 1 || n === -1 ? "" : "s"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="h-8 min-w-0 flex-1"
+                    placeholder="Override die (e.g. 2d8)"
+                    value={res.dieOverride || ""}
+                    onChange={(e) => setRes({ dieOverride: e.target.value })}
+                  />
+                </div>
+                {(() => {
+                  const die = resolveResourceDie({ ...res, name }, settings?.library);
+                  if (!die) return null;
+                  return (
+                    <p className="text-[10px] text-muted-foreground">
+                      Rolls <span className="font-mono text-foreground">{die.text}</span>
+                      {die.override
+                        ? " (overridden)"
+                        : die.adjust
+                        ? ` (${die.adjust > 0 ? "+" : ""}${die.adjust} step${Math.abs(die.adjust) === 1 ? "" : "s"})`
+                        : ""}
+                    </p>
+                  );
+                })()}
               </div>
             )}
           </div>

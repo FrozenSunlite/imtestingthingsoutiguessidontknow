@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useEffect } from "react";
 import { ErrorComponent, HeadContent, Link, Outlet, Scripts, createFileRoute, createRootRoute, createRouter, lazyRouteComponent, rootRouteId, useMatch, useRouter } from "@tanstack/react-router";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { Slot } from "@radix-ui/react-slot";
@@ -142,7 +141,7 @@ var Toaster$1 = ({ ...props }) => {
 };
 //#endregion
 //#region src/index.css?url
-var src_default = "/assets/index-DVG_nQzy.css";
+var src_default = "/assets/index-DEBg1A8J.css";
 //#endregion
 //#region src/routes/__root.jsx
 var Route$1 = createRootRoute({
@@ -170,15 +169,6 @@ var Route$1 = createRootRoute({
 	component: RootComponent
 });
 function RootComponent() {
-	useEffect(() => {
-		const handler = (e) => {
-			e.preventDefault();
-			e.returnValue = "";
-			return "";
-		};
-		window.addEventListener("beforeunload", handler);
-		return () => window.removeEventListener("beforeunload", handler);
-	}, []);
 	return /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Outlet, {}), /* @__PURE__ */ jsx(Toaster$1, {})] });
 }
 function RootDocument({ children }) {
@@ -192,7 +182,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-B0Bqn2Jx.js");
+var $$splitComponentImporter = () => import("./routes-BCvgO2WP.js");
 //#endregion
 //#region src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({

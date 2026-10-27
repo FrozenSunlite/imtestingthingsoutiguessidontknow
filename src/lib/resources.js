@@ -133,8 +133,9 @@ export const ACTION_CATEGORIES = [
 export const sanitizeKey = (name) => String(name || "").replace(/[^A-Za-z0-9]/g, "");
 
 // Full picker catalog: built-ins first, then every resource name defined on
-// any node of the tree, plus the sheet's manual resources.
-export function resourceCatalog(tree, manualResources = []) {
+// any node of the tree, then the sheet's manual resources and the Reference
+// Library's own resource list.
+export function resourceCatalog(tree, manualResources = [], lib = null) {
   const custom = new Map();
   (tree?.nodes || []).forEach((n) =>
     (n.resources || []).forEach((r) => {
@@ -142,6 +143,10 @@ export function resourceCatalog(tree, manualResources = []) {
       if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), { name, builtin: false });
     })
   );
+  (lib?.resources || []).forEach((r) => {
+    const name = String(r?.name || "").trim();
+    if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), { name, builtin: false });
+  });
   (manualResources || []).forEach((r) => {
     const name = String(r?.name || "").trim();
     if (name && !BUILTIN_KEYS.has(name)) custom.set(name.toLowerCase(), { name, builtin: false });
@@ -412,14 +417,14 @@ export function derivedSheet(
   // saved value) and sense ranges. Nodes add to or replace each by name.
   out["Horizontal Jump"] = val("Horizontal Jump", Number(character.jumpH ?? 2) || 0);
   out["Vertical Jump"] = val("Vertical Jump", Number(character.jumpV ?? 1) || 0);
-  speedTypeList(character).forEach((t) => {
+  speedTypeList(character, lib).forEach((t) => {
     if (t === "Standard") return;
     out[`${t} Speed`] = val(`${t} Speed`, Number(character.speeds?.[t] ?? 0) || 0);
   });
   (aggregated || []).forEach((e) => {
     if (/ Speed$/.test(e.name) && !out[e.name]) out[e.name] = val(e.name, 0);
   });
-  senseList(character).forEach((s) => {
+  senseList(character, lib).forEach((s) => {
     out[s] = val(s, Number(character.senses?.[s] ?? 0) || 0);
   });
   out["Proficiency Bonus"] = val("Proficiency Bonus", profBonus);

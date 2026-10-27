@@ -22,7 +22,7 @@ import { Plus, X } from "lucide-react";
 // pool (blank amount).
 export function NodeActionsSection({ node, set }) {
   const { tree, character, settings, setSettings } = useTree();
-  const catalog = resourceCatalog(tree, character?.manualResources);
+  const catalog = resourceCatalog(tree, character?.manualResources, settings?.library);
   const actions = node.actions || [];
   const libActions = [
     ...(settings?.library?.actions || []),

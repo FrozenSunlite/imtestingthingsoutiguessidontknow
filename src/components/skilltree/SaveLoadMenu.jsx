@@ -25,25 +25,50 @@ import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 // reference library, so uploaded images — stored as permanent URLs or file
 // references — travel with the saved data.
 export function SaveLoadMenu({ open, onClose }) {
-  const { tree, character, pools, settings, applyLoadedSave } = useTree();
+  const { tree, character, pools, settings, applyLoadedSave, clearDirty } = useTree();
   const [saves, setSaves] = useState([]);
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
 
+  // Save slots live in IndexedDB, so listing them is asynchronous.
   useEffect(() => {
-    if (open) {
-      setSaves(listCharacterSaves());
-      setName(character?.name || "");
-    }
+    if (!open) return undefined;
+    let alive = true;
+    listCharacterSaves()
+      .then((rows) => alive && setSaves(rows))
+      .catch(() => alive && setSaves([]));
+    setName(character?.name || "");
+    return () => {
+      alive = false;
+    };
   }, [open, character?.name]);
 
-  const doSave = () => {
+  const refresh = async () => {
     try {
-      writeCharacterSave(name, { tree, character, pools, library: settings?.library, plots: loadPlots() });
-      setSaves(listCharacterSaves());
+      setSaves(await listCharacterSaves());
+    } catch {
+      setSaves([]);
+    }
+  };
+
+  const doSave = async () => {
+    setBusy(true);
+    try {
+      await writeCharacterSave(name, {
+        tree,
+        character,
+        pools,
+        library: settings?.library,
+        plots: loadPlots(),
+      });
+      await refresh();
+      clearDirty?.();
       toast.success(`Saved "${name || "Untitled character"}".`);
     } catch (e) {
       toast.error(e?.message || "Could not save.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -52,9 +77,9 @@ export function SaveLoadMenu({ open, onClose }) {
     onClose();
   };
 
-  const doDelete = (id) => {
-    deleteCharacterSave(id);
-    setSaves(listCharacterSaves());
+  const doDelete = async (id) => {
+    await deleteCharacterSave(id);
+    await refresh();
   };
 
   const download = async (entry) => {
@@ -143,7 +168,7 @@ export function SaveLoadMenu({ open, onClose }) {
               placeholder="Project name"
             />
           </div>
-          <Button onClick={doSave} disabled={!tree}>
+          <Button onClick={doSave} disabled={!tree || busy}>
             <Save className="mr-1 h-4 w-4" /> Save
           </Button>
         </div>
