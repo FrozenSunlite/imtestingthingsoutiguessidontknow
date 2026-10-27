@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-C1Y85svl.js";
+import { i as cn, n as base44, r as Button } from "./router-BGuWpaQ9.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -14360,11 +14360,11 @@ function SaveLoadMenu({ open, onClose }) {
 						className: "flex-1 space-y-1",
 						children: [/* @__PURE__ */ jsx(Label, {
 							className: "text-xs",
-							children: "Save current character as"
+							children: "Save project as"
 						}), /* @__PURE__ */ jsx(Input, {
 							value: name,
 							onChange: (e) => setName(e.target.value),
-							placeholder: "Character name"
+							placeholder: "Project name"
 						})]
 					}), /* @__PURE__ */ jsxs(Button, {
 						onClick: doSave,

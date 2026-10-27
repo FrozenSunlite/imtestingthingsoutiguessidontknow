@@ -3,17 +3,17 @@ var tsrStartManifest = () => ({ routes: {
 	__root__: {
 		filePath: "C:/Users/------/Downloads/Talent Tree/Standalone/src/routes/__root.jsx",
 		children: ["/", "/api/time"],
-		preloads: ["/assets/index-DYNIg-6z.js"],
+		preloads: ["/assets/index-ocj6tuUY.js"],
 		scripts: [{ attrs: {
 			type: "module",
 			async: !0,
-			src: "/assets/index-DYNIg-6z.js"
+			src: "/assets/index-ocj6tuUY.js"
 		} }]
 	},
 	"/": {
 		filePath: "C:/Users/------/Downloads/Talent Tree/Standalone/src/routes/index.jsx",
 		children: void 0,
-		preloads: ["/assets/routes-7gN9SHu4.js"]
+		preloads: ["/assets/routes-CzvTqe5M.js"]
 	}
 } });
 //#endregion

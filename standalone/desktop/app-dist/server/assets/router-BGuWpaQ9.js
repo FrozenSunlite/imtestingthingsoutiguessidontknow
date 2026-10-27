@@ -359,7 +359,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-C0C5uBiD.js");
+var $$splitComponentImporter = () => import("./routes-BTGz-HZJ.js");
 var Route$1 = createFileRoute("/")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter, "component"),

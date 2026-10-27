@@ -131,11 +131,11 @@ export function SaveLoadMenu({ open, onClose }) {
 
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1">
-            <Label className="text-xs">Save current character as</Label>
+            <Label className="text-xs">Save project as</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Character name"
+              placeholder="Project name"
             />
           </div>
           <Button onClick={doSave} disabled={!tree}>
@@ -184,6 +184,7 @@ export function SaveLoadMenu({ open, onClose }) {
     </Dialog>
   );
 }
+
 
 
 

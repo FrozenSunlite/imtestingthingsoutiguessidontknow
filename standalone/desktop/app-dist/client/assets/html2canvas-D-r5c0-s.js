@@ -1,0 +1,1 @@
+import{n as e}from"./routes-CzvTqe5M.js";export default e();
