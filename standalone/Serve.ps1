@@ -13,10 +13,8 @@ $mimes = @{
 }
 $url = "http://localhost:$port"
 $launched = $false
-foreach ($exe in @("msedge","chrome")) {
-  $c = (Get-Command $exe -ErrorAction SilentlyContinue)
-  if ($c) { try { Start-Process $exe -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true; break } catch {} }
-}
+$edge = (Get-Command "msedge" -ErrorAction SilentlyContinue)
+if ($edge) { try { Start-Process "msedge" -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true } catch {} }
 if (-not $launched) { try { Start-Process $url } catch {} }
 while ($listener.IsListening) {
   $ctx = $listener.GetContext()
