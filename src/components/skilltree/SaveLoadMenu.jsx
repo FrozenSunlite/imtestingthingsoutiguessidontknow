@@ -123,7 +123,7 @@ export function SaveLoadMenu({ open, onClose }) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Save / Load Character</DialogTitle>
+          <DialogTitle>Save / Load Project</DialogTitle>
           <DialogDescription>
             A save bundles the skill tree, character, pools, library and Homebuilder properties — images included.
           </DialogDescription>
@@ -184,5 +184,6 @@ export function SaveLoadMenu({ open, onClose }) {
     </Dialog>
   );
 }
+
 
 

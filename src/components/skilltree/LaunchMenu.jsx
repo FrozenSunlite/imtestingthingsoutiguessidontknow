@@ -24,8 +24,8 @@ import {
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
 export function LaunchMenu({ onHomebuilder, onDmScreen }) {
-  const { enterApp, startNewTree } = useTree();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { enterApp, startNewTree, tree, character } = useTree();
+  const [settingsOpen, setSettingsOpen] = useState(false);\n  const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -115,7 +115,19 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
         </div>
       </div>
       <SaveLoadMenu open={saveOpen} onClose={() => setSaveOpen(false)} />
-      <Dialog open={rulebookOpen} onOpenChange={setRulebookOpen}>
+'      <Dialog open={showNewConfirm} onOpenChange={setShowNewConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Start new project?</DialogTitle>
+            <DialogDescription>Starting a new project will erase current work. Proceed?</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowNewConfirm(false)}>Cancel</Button>
+            <Button onClick={() => { setShowNewConfirm(false); startNewTree(); }}>Continue</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={rulebookOpen} onOpenChange={setRulebookOpen}>'
         <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Rulebook</DialogTitle>
@@ -129,6 +141,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
+
 
 
 
