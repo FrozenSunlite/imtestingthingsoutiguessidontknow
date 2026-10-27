@@ -209,10 +209,11 @@ export function ActionsSection() {
     if (part.type === "save") return `DC ${saveDC(part)} ${part.ability || "DEX"} save`;
     if (part.type === "damage") {
       const bonus = damageBonus(part);
+      if (!part.dice && !bonus) return "";
       return `${part.dice || "—"}${bonus ? ` ${bonus >= 0 ? "+" : ""}${bonus}` : ""}${part.damageType ? ` ${part.damageType}` : ""}`;
     }
-    if (part.type === "heal") return `Heal ${part.dice || "—"}`;
-    if (part.type === "temp") return `Temp HP ${part.dice || "—"}`;
+    if (part.type === "heal") return part.dice ? `Heal ${part.dice}` : "";
+    if (part.type === "temp") return part.dice ? `Temp HP ${part.dice}` : "";
     if (part.type === "effect") {
       return [part.status, part.duration].filter(Boolean).join(" · ");
     }
@@ -422,6 +423,7 @@ export function ActionsSection() {
                         size="sm"
                         variant="outline"
                         className="h-6 px-1.5 text-[10px]"
+                        disabled={part.type !== "attack" && !part.dice}
                         onClick={() => rollPart(a, part)}
                       >
                         Roll {part.type === "attack" ? part.label || "attack" : part.type === "temp" ? "temp HP" : part.type}

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-By6FuenJ.js";
+import { n as Button, r as cn } from "./router-CWdjQTJ5.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -31451,10 +31451,11 @@ function ActionsSection() {
 		if (part.type === "save") return `DC ${saveDC(part)} ${part.ability || "DEX"} save`;
 		if (part.type === "damage") {
 			const bonus = damageBonus(part);
+			if (!part.dice && !bonus) return "";
 			return `${part.dice || "—"}${bonus ? ` ${bonus >= 0 ? "+" : ""}${bonus}` : ""}${part.damageType ? ` ${part.damageType}` : ""}`;
 		}
-		if (part.type === "heal") return `Heal ${part.dice || "—"}`;
-		if (part.type === "temp") return `Temp HP ${part.dice || "—"}`;
+		if (part.type === "heal") return part.dice ? `Heal ${part.dice}` : "";
+		if (part.type === "temp") return part.dice ? `Temp HP ${part.dice}` : "";
 		if (part.type === "effect") return [part.status, part.duration].filter(Boolean).join(" · ");
 		return "";
 	};
@@ -31646,6 +31647,7 @@ function ActionsSection() {
 									size: "sm",
 									variant: "outline",
 									className: "h-6 px-1.5 text-[10px]",
+									disabled: part.type !== "attack" && !part.dice,
 									onClick: () => rollPart(a, part),
 									children: ["Roll ", part.type === "attack" ? part.label || "attack" : part.type === "temp" ? "temp HP" : part.type]
 								}, `roll-${j}`) : part.type === "effect" && part.status ? /* @__PURE__ */ jsxs(Button, {

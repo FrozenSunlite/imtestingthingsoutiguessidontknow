@@ -1,0 +1,1 @@
+import{n as e}from"./routes-Bmbim-8w.js";export default e();
