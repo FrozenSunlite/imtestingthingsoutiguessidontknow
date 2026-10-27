@@ -1,0 +1,246 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --font-heading: ui-sans-serif, system-ui, sans-serif;
+    --font-body: ui-sans-serif, system-ui, sans-serif;
+    --font-display: ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222 6% 14%;
+    --foreground: 0 0% 96%;
+    --card: 222 6% 17%;
+    --card-foreground: 0 0% 96%;
+    --popover: 222 6% 17%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 0 0% 96%;
+    --primary-foreground: 222 6% 10%;
+    --secondary: 222 5% 21%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 222 5% 21%;
+    --muted-foreground: 0 0% 68%;
+    --accent: 222 5% 24%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 5% 27%;
+    --input: 222 5% 27%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  /* Cyberpunk theme — dark neon: near-black indigo surfaces, glowing cyan
+     primary and deep magenta accents. */
+  .dark.cyberpunk {
+    --background: 245 20% 6%;
+    --foreground: 185 40% 92%;
+    --card: 245 18% 9%;
+    --card-foreground: 185 40% 92%;
+    --popover: 245 20% 10%;
+    --popover-foreground: 185 40% 92%;
+    --primary: 187 95% 52%;
+    --primary-foreground: 220 60% 6%;
+    --secondary: 250 20% 15%;
+    --secondary-foreground: 185 40% 90%;
+    --muted: 245 16% 12%;
+    --muted-foreground: 190 25% 60%;
+    --accent: 310 60% 24%;
+    --accent-foreground: 320 100% 88%;
+    --destructive: 350 85% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 255 25% 18%;
+    --input: 255 25% 18%;
+    --ring: 187 95% 52%;
+    --chart-1: 187 95% 52%;
+    --chart-2: 315 95% 62%;
+    --chart-3: 258 85% 65%;
+    --chart-4: 174 90% 45%;
+    --chart-5: 200 95% 60%;
+    --sidebar-background: 250 20% 8%;
+    --sidebar-foreground: 190 25% 75%;
+    --sidebar-primary: 187 95% 52%;
+    --sidebar-primary-foreground: 220 60% 6%;
+    --sidebar-accent: 310 60% 24%;
+    --sidebar-accent-foreground: 320 100% 88%;
+    --sidebar-border: 255 25% 18%;
+    --sidebar-ring: 187 95% 52%;
+  }
+
+  /* Cyberpunk theme — light: the same neon accents inverted onto an icy,
+     near-white surface. */
+  .cyberpunk {
+    --background: 195 60% 96%;
+    --foreground: 250 45% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 250 45% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 250 45% 12%;
+    --primary: 192 95% 32%;
+    --primary-foreground: 190 60% 97%;
+    --secondary: 195 40% 90%;
+    --secondary-foreground: 250 45% 14%;
+    --muted: 200 35% 92%;
+    --muted-foreground: 250 20% 38%;
+    --accent: 315 80% 93%;
+    --accent-foreground: 315 70% 25%;
+    --destructive: 340 80% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 200 35% 80%;
+    --input: 200 35% 80%;
+    --ring: 192 95% 38%;
+    --chart-1: 192 95% 35%;
+    --chart-2: 315 85% 50%;
+    --chart-3: 258 80% 55%;
+    --chart-4: 174 85% 35%;
+    --chart-5: 200 90% 45%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 250 30% 25%;
+    --sidebar-primary: 192 95% 32%;
+    --sidebar-primary-foreground: 190 60% 97%;
+    --sidebar-accent: 315 80% 93%;
+    --sidebar-accent-foreground: 315 70% 25%;
+    --sidebar-border: 200 35% 80%;
+    --sidebar-ring: 192 95% 38%;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+}
+
+/* Node pop in/out during a blind run: newly revealed talents scale up,
+   newly hidden ones shrink away. */
+@keyframes node-pop-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes node-pop-out {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* Cyberpunk ambience: soft cyan/magenta glow bleeding in from the screen
+   corners (dark mode only). */
+.dark.cyberpunk body {
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, rgb(0 229 255 / 0.07), transparent 60%),
+    radial-gradient(60rem 40rem at 90% 115%, rgb(255 0 200 / 0.08), transparent 60%);
+}
+
+/* Blue fire ambience for the launch screen: two blurred flame-glow layers
+   anchored to the bottom of the viewport, flickering and swaying against
+   each other so the fire never looks static. */
+@keyframes blue-fire-flicker {
+  0%, 100% { opacity: 0.5; transform: scaleY(1) translateY(0); }
+  22% { opacity: 0.85; transform: scaleY(1.06) translateY(-8px); }
+  48% { opacity: 0.4; transform: scaleY(0.94) translateY(3px); }
+  74% { opacity: 0.7; transform: scaleY(1.03) translateY(-4px); }
+}
+@keyframes blue-fire-sway {
+  0%, 100% { transform: translateX(-3.5%) skewX(-2deg); }
+  50% { transform: translateX(3.5%) skewX(2deg); }
+}
+.blue-fire::before {
+  content: "";
+  position: fixed;
+  left: -12%; right: -12%; bottom: -38%;
+  height: 72%;
+  background:
+    radial-gradient(42% 58% at 18% 100%, rgb(0 149 255 / 0.30), transparent 72%),
+    radial-gradient(52% 62% at 55% 100%, rgb(0 229 255 / 0.32), transparent 72%),
+    radial-gradient(40% 52% at 86% 100%, rgb(99 102 241 / 0.26), transparent 72%);
+  pointer-events: none;
+  filter: blur(26px);
+  transform-origin: bottom center;
+  animation:
+    blue-fire-flicker 3.4s ease-in-out infinite,
+    blue-fire-sway 8s ease-in-out infinite;
+}
+.blue-fire::after {
+  content: "";
+  position: fixed;
+  left: -6%; right: -6%; bottom: -24%;
+  height: 48%;
+  background:
+    radial-gradient(40% 55% at 34% 100%, rgb(0 229 255 / 0.38), transparent 70%),
+    radial-gradient(46% 60% at 70% 100%, rgb(56 189 248 / 0.32), transparent 70%);
+  pointer-events: none;
+  filter: blur(14px);
+  transform-origin: bottom center;
+  animation:
+    blue-fire-flicker 2.2s ease-in-out infinite reverse,
+    blue-fire-sway 5.5s ease-in-out infinite;
+}
