@@ -21,9 +21,13 @@ export function DungeonMap({
   onMoveRoom,
   onResizeRoom,
   onContextMenu,
+  highlightIds = [],
+  highlightConnectionIds = [],
 }) {
   const rooms = dungeon?.rooms || [];
   const connections = dungeon?.connections || [];
+  const routeRooms = new Set(highlightIds);
+  const routeConnections = new Set(highlightConnectionIds);
   const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
   const [zoom, setZoom] = useState(1);
   const [drag, setDrag] = useState(null);
@@ -239,10 +243,29 @@ export function DungeonMap({
             const y1 = toY(from.y + from.h / 2);
             const x2 = toX(to.x + to.w / 2);
             const y2 = toY(to.y + to.h / 2);
+            const onRoute = routeConnections.has(c.id);
+            const stroke = onRoute ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))";
+            const mx = x1 + (x2 - x1) * 0.62;
+            const my = y1 + (y2 - y1) * 0.62;
+            const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
             return (
               <g key={c.id}>
-                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="hsl(var(--muted-foreground))" strokeOpacity="0.55" strokeWidth="1.5" />
-                <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 3} textAnchor="middle" fontSize="7" fill="hsl(var(--muted-foreground))" fillOpacity="0.8">
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={stroke}
+                  strokeOpacity={onRoute ? 0.9 : 0.5}
+                  strokeWidth={onRoute ? 2.6 : 1.5}
+                />
+                <polygon
+                  points="-4,-3 5,0 -4,3"
+                  transform={`translate(${mx} ${my}) rotate(${angle})`}
+                  fill={stroke}
+                  fillOpacity={onRoute ? 1 : 0.65}
+                />
+                <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 4} textAnchor="middle" fontSize="7" fill={stroke} fillOpacity="0.85">
                   {c.type}
                 </text>
               </g>
@@ -255,6 +278,7 @@ export function DungeonMap({
             const w = preview.w * px;
             const h = preview.h * px;
             const selected = selectedId === room.id;
+            const onRoute = routeRooms.has(room.id);
             const color = categoryColor(room.category);
             const cells = roomShapeCells(preview);
             const fillPath = cellsFillPath(cells, px, x, y);
@@ -288,12 +312,16 @@ export function DungeonMap({
                 <title>
                   {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
                 </title>
-                <path d={fillPath} fill={color} fillOpacity={selected ? 0.35 : 0.16} />
+                <path
+                  d={fillPath}
+                  fill={color}
+                  fillOpacity={selected ? 0.38 : onRoute ? 0.28 : 0.14}
+                />
                 <path
                   d={outlinePath}
                   fill="none"
-                  stroke={selected ? "hsl(var(--primary))" : color}
-                  strokeWidth={selected ? 2.5 : 1.3}
+                  stroke={selected || onRoute ? "hsl(var(--primary))" : color}
+                  strokeWidth={selected ? 2.5 : onRoute ? 1.9 : 1.2}
                   strokeLinecap="square"
                 />
                 <text x={x + 4} y={y + 12} fontSize="9" fontWeight="600" fill="hsl(var(--foreground))">

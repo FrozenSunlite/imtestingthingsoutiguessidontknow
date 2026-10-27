@@ -2,17 +2,25 @@
 // for a single dungeon or a branching "spire" run.
 
 export const DUNGEON_RANKS = {
-  E: { label: "E", nickname: "Expie", rooms: 3, downtime: "2 weeks", level: "0–2", prof: 0, color: "#94a3b8" },
-  D: { label: "D", nickname: "Newk", rooms: 6, downtime: "3 weeks", level: "3–5", prof: 1, color: "#86efac" },
-  C: { label: "C", nickname: "Rookie", rooms: 9, downtime: "4 weeks", level: "6–8", prof: 2, color: "#5eead4" },
-  B: { label: "B", nickname: "Reg", rooms: 12, downtime: "5 weeks", level: "9–11", prof: 3, color: "#60a5fa" },
-  A: { label: "A", nickname: "Prestige", rooms: 15, downtime: "6 weeks", level: "12–14", prof: 4, color: "#a78bfa" },
-  S: { label: "S", nickname: "Cavalry", rooms: 18, downtime: "7 weeks", level: "15–17", prof: 5, color: "#f472b6" },
-  SS: { label: "SS", nickname: "Hero", rooms: 21, downtime: "8 weeks", level: "18–20", prof: 6, color: "#fb923c" },
-  SSS: { label: "SSS", nickname: "Mythos", rooms: 24, downtime: "9 weeks", level: "21+", prof: 7, color: "#ef4444" },
+  E: { label: "E", nickname: "Expie", rooms: 3, downtime: "2 weeks", level: "0–2", prof: 0, cr: 1, color: "#94a3b8" },
+  D: { label: "D", nickname: "Newk", rooms: 6, downtime: "3 weeks", level: "3–5", prof: 1, cr: 3, color: "#86efac" },
+  C: { label: "C", nickname: "Rookie", rooms: 9, downtime: "4 weeks", level: "6–8", prof: 2, cr: 6, color: "#5eead4" },
+  B: { label: "B", nickname: "Reg", rooms: 12, downtime: "5 weeks", level: "9–11", prof: 3, cr: 9, color: "#60a5fa" },
+  A: { label: "A", nickname: "Prestige", rooms: 15, downtime: "6 weeks", level: "12–14", prof: 4, cr: 12, color: "#a78bfa" },
+  S: { label: "S", nickname: "Cavalry", rooms: 18, downtime: "7 weeks", level: "15–17", prof: 5, cr: 15, color: "#f472b6" },
+  SS: { label: "SS", nickname: "Hero", rooms: 21, downtime: "8 weeks", level: "18–20", prof: 6, cr: 18, color: "#fb923c" },
+  SSS: { label: "SSS", nickname: "Mythos", rooms: 24, downtime: "9 weeks", level: "21+", prof: 7, cr: 21, color: "#ef4444" },
 };
 
+// A rank's challenge band. Generated monsters must sit in [rank CR − 1, rank CR].
+export function rankChallenge(rank) {
+  const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+  const rankCR = Number(info.cr) || 1;
+  return { rankCR, minCR: Math.max(0, rankCR - 1), maxCR: rankCR };
+}
+
 export const DUNGEON_CATEGORIES = [
+  ["Start", "#22c55e"],
   ["Entrance", "#64748b"],
   ["Chamber", "#38bdf8"],
   ["Corridor", "#94a3b8"],
@@ -32,6 +40,15 @@ export const DUNGEON_ENVIRONMENTS = [
 
 // Encounters that earn a bonfire rest stop after every second one.
 const ENCOUNTER_CATEGORIES = new Set(["Chamber", "Trap", "Puzzle", "Elite", "Boss"]);
+const BOSS_THEMES = [
+  "Ashen Throne", "Drowned Choir", "Iron Colossus", "Frostbound Crown",
+  "Obsidian Gate", "Sunken Idol", "Crimson Reliquary",
+];
+
+const themedBoss = (room, index) =>
+  index === 0
+    ? room
+    : { ...room, name: `${room.name} — ${BOSS_THEMES[(index - 1) % BOSS_THEMES.length]}` };
 
 const TRAP_POOL = [
   "Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
@@ -360,6 +377,35 @@ const link = (from, to, type = "Doorway") => ({
   type,
 });
 
+function makeMissionStart() {
+  const w = 4;
+  const h = 4;
+  const cells = rectCells(w, h);
+  return {
+    id: uid("room"),
+    templateId: "room-mission-start",
+    name: "Mission Start",
+    category: "Start",
+    x: 0,
+    y: 0,
+    w,
+    h,
+    shape: "Rectangle",
+    cells,
+    ingressPoints: [{ x: 0, y: 1, label: "Player ingress" }],
+    spawnPoints: [],
+    environment: "Staging point",
+    elevation: "Flat",
+    cover: "Open",
+    connector: "Trail",
+    traps: [],
+    spawns: [],
+    loot: [],
+    notes:
+      "The party begins here. Choose a route from this staging point; arrows mark the way deeper into the run.",
+  };
+}
+
 function makeBonfire(rng) {
   const w = rng?.int(4, 5) || 4;
   const h = rng?.int(4, 5) || 4;
@@ -421,6 +467,49 @@ function positionSingle(rooms, rng) {
   });
 }
 
+function buildRoutes(rooms, connections) {
+  const start = rooms.find((r) => r.category === "Start") || rooms[0];
+  const bosses = rooms.filter((r) => r.category === "Boss");
+  if (!start || !bosses.length) return [];
+  const outgoing = new Map();
+  (connections || []).forEach((c) => {
+    if (!outgoing.has(c.from)) outgoing.set(c.from, []);
+    outgoing.get(c.from).push(c);
+  });
+  const routes = [];
+  bosses.forEach((boss, index) => {
+    const queue = [start.id];
+    const prev = new Map([[start.id, null]]);
+    while (queue.length) {
+      const id = queue.shift();
+      if (id === boss.id) break;
+      (outgoing.get(id) || []).forEach((c) => {
+        if (prev.has(c.to)) return;
+        prev.set(c.to, { from: id, connection: c.id });
+        queue.push(c.to);
+      });
+    }
+    if (!prev.has(boss.id)) return;
+    const roomIds = [];
+    const connectionIds = [];
+    let cur = boss.id;
+    while (cur != null) {
+      roomIds.unshift(cur);
+      const step = prev.get(cur);
+      if (step?.connection) connectionIds.unshift(step.connection);
+      cur = step?.from ?? null;
+    }
+    routes.push({
+      id: `route-${index}`,
+      name: boss.name || `Boss route ${index + 1}`,
+      bossId: boss.id,
+      roomIds,
+      connectionIds,
+    });
+  });
+  return routes;
+}
+
 export function generateDungeon({
   mode = "single",
   rank = "E",
@@ -432,6 +521,7 @@ export function generateDungeon({
 } = {}) {
   const rng = makeRng(`${mode}:${rank}:${seed}`);
   const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+  const rankIndex = Math.max(0, Object.keys(DUNGEON_RANKS).indexOf(rank));
   const source = (templates || []).length ? templates : DEFAULT_DUNGEON_ROOMS;
   const rooms = [];
   const connections = [];
@@ -441,15 +531,21 @@ export function generateDungeon({
 
   if (mode === "spire") {
     const floors = 15;
+    const start = makeMissionStart();
+    start.x = -22;
+    start.y = 0;
+    rooms.push(start);
     let entrance = instantiate(templateFor("Entrance", source, rng), "Entrance", rng, rank, opts);
     entrance.x = 0;
     entrance.y = 0;
     rooms.push(entrance);
+    connections.push(link(start.id, entrance.id, "Trail"));
     let previous = [entrance];
     let encounterFloors = 0;
     for (let f = 1; f < floors; f++) {
       const last = f === floors - 1;
-      const count = last ? 1 : rng.int(1, 3);
+      const bossCount = rankIndex >= 4 ? 3 : rankIndex >= 2 ? 2 : 1;
+      const count = last ? bossCount : rng.int(1, 3);
       const current = [];
       for (let lane = 0; lane < count; lane++) {
         let category = "Chamber";
@@ -458,7 +554,8 @@ export function generateDungeon({
         else if (f === 5 || f === 10) category = "Rest";
         else if (f === 3 || f === 8) category = "Shop";
         else if (rng.chance(0.16)) category = rng.pick(["Trap", "Puzzle", "Loot"]);
-        const room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
+        let room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
+        if (last) room = themedBoss(room, lane);
         room.x = f * 22;
         room.y = (lane - (count - 1) / 2) * 14 + (last ? 0 : rng.int(-2, 2));
         current.push(room);
@@ -501,7 +598,7 @@ export function generateDungeon({
   } else {
     const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
     const spineCount = Math.max(2, total - branchCount);
-    const categories = ["Entrance"];
+    const categories = ["Start", "Entrance"];
     for (let i = 0; i < spineCount - 2; i++) {
       let cat = "Chamber";
       if (i === 0 && spineCount >= 6) cat = "Elite";
@@ -514,7 +611,10 @@ export function generateDungeon({
     }
     categories.push("Boss");
     const spine = categories.map((cat) => {
-      const room = instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
+      const room =
+        cat === "Start"
+          ? makeMissionStart()
+          : instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
       room.branch = false;
       rooms.push(room);
       return room;
@@ -551,10 +651,26 @@ export function generateDungeon({
       rooms.length = 0;
       rooms.push(...expandedSpine, ...branchRooms);
     }
+    // Higher ranks expose alternate final bosses as route choices.
+    const altCount = rankIndex >= 4 ? 2 : rankIndex >= 2 ? 1 : 0;
+    const bossParent = expandedSpine[expandedSpine.length - 2];
+    if (altCount && bossParent) {
+      for (let i = 0; i < altCount; i += 1) {
+        const alt = themedBoss(
+          instantiate(templateFor("Boss", source, rng), "Boss", rng, rank, opts),
+          i + 1
+        );
+        alt.branch = true;
+        alt.parentId = bossParent.id;
+        rooms.push(alt);
+        connections.push(link(bossParent.id, alt.id, bossParent.connector));
+      }
+    }
     positionSingle(rooms, rng);
     title = name || `${rank} Dungeon`;
   }
 
+  const routes = buildRoutes(rooms, connections);
   return {
     id: uid("dungeon"),
     name: title,
@@ -563,6 +679,8 @@ export function generateDungeon({
     seed,
     rooms,
     connections,
+    routes,
+    chosenRouteId: routes[0]?.id || "",
     notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
     createdAt: new Date().toISOString(),
   };
@@ -835,43 +953,63 @@ export function crTargets(level) {
 // Pick monsters for every room using the party size and level. Two monsters per
 // player is the baseline; the target CR is two steps below the party level, and
 // never above it. CR0-only rooms (animal dens) draw from CR 0 creatures.
-export function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [] } = {}) {
+export function scaleEncounters(
+  dungeon,
+  { players = 4, partyLevel = 1, monsters = [], rank = dungeon?.rank } = {}
+) {
   const party = Math.max(1, Math.round(Number(players) || 1));
   const level = Math.max(1, Math.round(Number(partyLevel) || 1));
-  const { targetIdx, maxIdx, maxCR, targetCR } = crTargets(level);
+  const band = rankChallenge(rank);
   const pool = (monsters || []).filter((m) => m?.name);
   return {
     ...dungeon,
     rooms: (dungeon.rooms || []).map((room) => {
-      if (!pool.length) return room;
-      const cr0 = !!room.cr0Only;
-      let candidates = pool.filter((m) => {
+      if (room.bonfire || ["Rest", "Shop", "Entrance", "Start"].includes(room.category)) {
+        return room;
+      }
+      if (!pool.length) {
+        return {
+          ...room,
+          spawns: [
+            `${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`,
+          ],
+        };
+      }
+      // Animal dens may use CR 0 only when the rank band actually includes 0.
+      const cr0 = !!room.cr0Only && band.minCR === 0;
+      const candidates = pool.filter((m) => {
         const v = crValue(m.cr);
-        return cr0 ? v === 0 : v >= 0.125 && v <= maxCR;
+        return cr0 ? v === 0 : v >= band.minCR && v <= band.maxCR;
       });
-      if (!candidates.length)
-        candidates = pool.filter((m) => {
-          const v = crValue(m.cr);
-          return cr0 ? v === 0 : v <= maxCR;
-        });
-      if (!candidates.length) return room;
-      const near = candidates.filter((m) => {
-        const v = crValue(m.cr);
-        const targetNum = crValue(targetCR);
-        return Math.abs(v - (cr0 ? 0 : targetNum)) <= Math.max(0.5, targetNum * 0.5);
-      });
-      const chosenPool = near.length ? near : candidates;
-      const groups = room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, chosenPool.length);
-      const total = room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
+      if (!candidates.length) {
+        return {
+          ...room,
+          spawns: [
+            `${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`,
+          ],
+        };
+      }
+      const groups =
+        room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, candidates.length);
+      const total =
+        room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
       const picked = [];
       for (let i = 0; i < groups; i++) {
-        const m = chosenPool[Math.floor(Math.random() * chosenPool.length)];
+        const m = candidates[Math.floor(Math.random() * candidates.length)];
         const count = Math.max(1, Math.round(total / groups));
         picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
       }
       return { ...room, spawns: picked };
     }),
-    encounterScale: { players: party, partyLevel: level, targetCR: CR_STEPS[targetIdx], maxCR: CR_STEPS[maxIdx] },
+    encounterScale: {
+      players: party,
+      partyLevel: level,
+      rank,
+      rankCR: band.rankCR,
+      minCR: band.minCR,
+      maxCR: band.maxCR,
+      targetCR: band.maxCR,
+    },
   };
 }
 

@@ -1,0 +1,1 @@
+import{n as e}from"./routes-BI9aMn5s.js";export default e();

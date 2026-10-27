@@ -9,7 +9,8 @@ import {
   randomSeed,
   roomFromTemplate,
   scaleEncounters,
-  crTargets,
+  crValue,
+  rankChallenge,
 } from "@/lib/dungeonGen";
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
 import { RoomBattleMap } from "@/components/skilltree/dungeon/RoomBattleMap";
@@ -87,8 +88,12 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const ctxRoom = ctxMenu?.roomId
     ? dungeon?.rooms?.find((r) => r.id === ctxMenu.roomId) || null
     : null;
+  const routes = dungeon?.routes || [];
+  const chosenRoute =
+    routes.find((r) => r.id === dungeon?.chosenRouteId) || routes[0] || null;
+  const chosenBoss = dungeon?.rooms?.find((r) => r.id === chosenRoute?.bossId) || null;
   const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
-  const targets = crTargets(partyLevel);
+  const rankBand = rankChallenge(rank);
   const filteredTemplates = roomTemplates.filter((r) => {
     const q = roomQuery.trim().toLowerCase();
     return !q || `${r.name} ${r.category}`.toLowerCase().includes(q);
@@ -306,15 +311,25 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   };
 
   const generate = () => {
+    const band = rankChallenge(rank);
+    const rankMonsters = monsters.filter((m) => {
+      const cr = crValue(m.cr);
+      return cr >= band.minCR && cr <= band.maxCR;
+    });
     const d = generateDungeon({
       mode,
       rank,
       seed: seed.trim() || randomSeed(),
       templates: roomTemplates,
-      monsters,
+      monsters: rankMonsters,
       lootPools,
     });
-    const scaled = scaleEncounters(d, { players, partyLevel, monsters });
+    const scaled = scaleEncounters(d, {
+      players,
+      partyLevel,
+      monsters: rankMonsters,
+      rank,
+    });
     const rooms = (scaled.rooms || []).map((r) => ({
       ...r,
       traps: includeTraps ? r.traps : [],
@@ -390,6 +405,11 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       ...dungeon,
       rooms: dungeon.rooms.map((r) => (r.id === selected.id ? { ...r, ...patch } : r)),
     });
+  };
+
+  const setRoute = (routeId) => {
+    if (!dungeon) return;
+    commit({ ...dungeon, chosenRouteId: routeId });
   };
 
   const removeSelected = () => {
@@ -616,10 +636,31 @@ export function DungeonGenerator({ onExit, embedded = false }) {
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              ~{players * 2} monsters total per combat room · target CR{" "}
-              {dungeon?.encounterScale?.targetCR ?? targets.targetCR} · max CR{" "}
-              {dungeon?.encounterScale?.maxCR ?? targets.maxCR}
+              ~{players * 2} monsters total per combat room · rank {rank} CR band{" "}
+              {dungeon?.encounterScale?.minCR ?? rankBand.minCR}–
+              {dungeon?.encounterScale?.maxCR ?? rankBand.maxCR}
             </p>
+            {routes.length > 1 && (
+              <div className="space-y-1 rounded border p-1.5">
+                <Label className="text-[10px]">Follow route</Label>
+                <Select
+                  value={chosenRoute?.id || routes[0].id}
+                  onValueChange={setRoute}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {routes.map((route, i) => (
+                      <SelectItem key={route.id} value={route.id}>
+                        {i + 1}. {route.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Boss: {chosenBoss?.name || chosenRoute?.name || "—"} · {chosenRoute?.roomIds?.length || 0} rooms
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5 border-t pt-2">
@@ -704,6 +745,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 <span>· {stats.spawns} with spawns</span>
                 <span>· {stats.loot} with loot</span>
                 <span>· {stats.bonfires} bonfire rest stops</span>
+                {chosenBoss && <span>· following: {chosenBoss.name}</span>}
               </div>
               <div className="min-h-0 flex-1">
                 <DungeonMap
@@ -713,6 +755,8 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                   onMoveRoom={moveRoom}
                   onResizeRoom={resizeRoom}
                   onContextMenu={setCtxMenu}
+                  highlightIds={chosenRoute?.roomIds || []}
+                  highlightConnectionIds={chosenRoute?.connectionIds || []}
                 />
               </div>
               <div className="flex flex-wrap gap-1.5">

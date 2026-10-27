@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CH8axoVB.js";
+import { n as Button, r as cn } from "./router-C4ocBMNa.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3014,6 +3014,7 @@ var DUNGEON_RANKS = {
 		downtime: "2 weeks",
 		level: "0–2",
 		prof: 0,
+		cr: 1,
 		color: "#94a3b8"
 	},
 	D: {
@@ -3023,6 +3024,7 @@ var DUNGEON_RANKS = {
 		downtime: "3 weeks",
 		level: "3–5",
 		prof: 1,
+		cr: 3,
 		color: "#86efac"
 	},
 	C: {
@@ -3032,6 +3034,7 @@ var DUNGEON_RANKS = {
 		downtime: "4 weeks",
 		level: "6–8",
 		prof: 2,
+		cr: 6,
 		color: "#5eead4"
 	},
 	B: {
@@ -3041,6 +3044,7 @@ var DUNGEON_RANKS = {
 		downtime: "5 weeks",
 		level: "9–11",
 		prof: 3,
+		cr: 9,
 		color: "#60a5fa"
 	},
 	A: {
@@ -3050,6 +3054,7 @@ var DUNGEON_RANKS = {
 		downtime: "6 weeks",
 		level: "12–14",
 		prof: 4,
+		cr: 12,
 		color: "#a78bfa"
 	},
 	S: {
@@ -3059,6 +3064,7 @@ var DUNGEON_RANKS = {
 		downtime: "7 weeks",
 		level: "15–17",
 		prof: 5,
+		cr: 15,
 		color: "#f472b6"
 	},
 	SS: {
@@ -3068,6 +3074,7 @@ var DUNGEON_RANKS = {
 		downtime: "8 weeks",
 		level: "18–20",
 		prof: 6,
+		cr: 18,
 		color: "#fb923c"
 	},
 	SSS: {
@@ -3077,10 +3084,21 @@ var DUNGEON_RANKS = {
 		downtime: "9 weeks",
 		level: "21+",
 		prof: 7,
+		cr: 21,
 		color: "#ef4444"
 	}
 };
+function rankChallenge(rank) {
+	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const rankCR = Number(info.cr) || 1;
+	return {
+		rankCR,
+		minCR: Math.max(0, rankCR - 1),
+		maxCR: rankCR
+	};
+}
 var DUNGEON_CATEGORIES = [
+	["Start", "#22c55e"],
 	["Entrance", "#64748b"],
 	["Chamber", "#38bdf8"],
 	["Corridor", "#94a3b8"],
@@ -3111,6 +3129,19 @@ var ENCOUNTER_CATEGORIES = /* @__PURE__ */ new Set([
 	"Elite",
 	"Boss"
 ]);
+var BOSS_THEMES = [
+	"Ashen Throne",
+	"Drowned Choir",
+	"Iron Colossus",
+	"Frostbound Crown",
+	"Obsidian Gate",
+	"Sunken Idol",
+	"Crimson Reliquary"
+];
+var themedBoss = (room, index) => index === 0 ? room : {
+	...room,
+	name: `${room.name} — ${BOSS_THEMES[(index - 1) % BOSS_THEMES.length]}`
+};
 var TRAP_POOL = [
 	"Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
 	"Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
@@ -3590,6 +3621,37 @@ var link = (from, to, type = "Doorway") => ({
 	to,
 	type
 });
+function makeMissionStart() {
+	const w = 4;
+	const h = 4;
+	const cells = rectCells(w, h);
+	return {
+		id: uid("room"),
+		templateId: "room-mission-start",
+		name: "Mission Start",
+		category: "Start",
+		x: 0,
+		y: 0,
+		w,
+		h,
+		shape: "Rectangle",
+		cells,
+		ingressPoints: [{
+			x: 0,
+			y: 1,
+			label: "Player ingress"
+		}],
+		spawnPoints: [],
+		environment: "Staging point",
+		elevation: "Flat",
+		cover: "Open",
+		connector: "Trail",
+		traps: [],
+		spawns: [],
+		loot: [],
+		notes: "The party begins here. Choose a route from this staging point; arrows mark the way deeper into the run."
+	};
+}
 function makeBonfire(rng) {
 	const w = rng?.int(4, 5) || 4;
 	const h = rng?.int(4, 5) || 4;
@@ -3645,9 +3707,55 @@ function positionSingle(rooms, rng) {
 		room.y = (parent?.y || 0) + 20;
 	});
 }
+function buildRoutes(rooms, connections) {
+	const start = rooms.find((r) => r.category === "Start") || rooms[0];
+	const bosses = rooms.filter((r) => r.category === "Boss");
+	if (!start || !bosses.length) return [];
+	const outgoing = /* @__PURE__ */ new Map();
+	(connections || []).forEach((c) => {
+		if (!outgoing.has(c.from)) outgoing.set(c.from, []);
+		outgoing.get(c.from).push(c);
+	});
+	const routes = [];
+	bosses.forEach((boss, index) => {
+		const queue = [start.id];
+		const prev = /* @__PURE__ */ new Map([[start.id, null]]);
+		while (queue.length) {
+			const id = queue.shift();
+			if (id === boss.id) break;
+			(outgoing.get(id) || []).forEach((c) => {
+				if (prev.has(c.to)) return;
+				prev.set(c.to, {
+					from: id,
+					connection: c.id
+				});
+				queue.push(c.to);
+			});
+		}
+		if (!prev.has(boss.id)) return;
+		const roomIds = [];
+		const connectionIds = [];
+		let cur = boss.id;
+		while (cur != null) {
+			roomIds.unshift(cur);
+			const step = prev.get(cur);
+			if (step?.connection) connectionIds.unshift(step.connection);
+			cur = step?.from ?? null;
+		}
+		routes.push({
+			id: `route-${index}`,
+			name: boss.name || `Boss route ${index + 1}`,
+			bossId: boss.id,
+			roomIds,
+			connectionIds
+		});
+	});
+	return routes;
+}
 function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), templates = DEFAULT_DUNGEON_ROOMS, monsters = [], lootPools = [], name = "" } = {}) {
 	const rng = makeRng(`${mode}:${rank}:${seed}`);
 	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const rankIndex = Math.max(0, Object.keys(DUNGEON_RANKS).indexOf(rank));
 	const source = (templates || []).length ? templates : DEFAULT_DUNGEON_ROOMS;
 	const rooms = [];
 	const connections = [];
@@ -3659,15 +3767,20 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 	let title = name || `${rank} ${mode === "spire" ? "Spire" : "Dungeon"}`;
 	if (mode === "spire") {
 		const floors = 15;
+		const start = makeMissionStart();
+		start.x = -22;
+		start.y = 0;
+		rooms.push(start);
 		let entrance = instantiate(templateFor("Entrance", source, rng), "Entrance", rng, rank, opts);
 		entrance.x = 0;
 		entrance.y = 0;
 		rooms.push(entrance);
+		connections.push(link(start.id, entrance.id, "Trail"));
 		let previous = [entrance];
 		let encounterFloors = 0;
 		for (let f = 1; f < floors; f++) {
 			const last = f === 14;
-			const count = last ? 1 : rng.int(1, 3);
+			const count = last ? rankIndex >= 4 ? 3 : rankIndex >= 2 ? 2 : 1 : rng.int(1, 3);
 			const current = [];
 			for (let lane = 0; lane < count; lane++) {
 				let category = "Chamber";
@@ -3680,7 +3793,8 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 					"Puzzle",
 					"Loot"
 				]);
-				const room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
+				let room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
+				if (last) room = themedBoss(room, lane);
 				room.x = f * 22;
 				room.y = (lane - (count - 1) / 2) * 14 + (last ? 0 : rng.int(-2, 2));
 				current.push(room);
@@ -3713,7 +3827,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 	} else {
 		const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
 		const spineCount = Math.max(2, total - branchCount);
-		const categories = ["Entrance"];
+		const categories = ["Start", "Entrance"];
 		for (let i = 0; i < spineCount - 2; i++) {
 			let cat = "Chamber";
 			if (i === 0 && spineCount >= 6) cat = "Elite";
@@ -3726,7 +3840,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		}
 		categories.push("Boss");
 		const spine = categories.map((cat) => {
-			const room = instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
+			const room = cat === "Start" ? makeMissionStart() : instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
 			room.branch = false;
 			rooms.push(room);
 			return room;
@@ -3757,9 +3871,19 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			rooms.length = 0;
 			rooms.push(...expandedSpine, ...branchRooms);
 		}
+		const altCount = rankIndex >= 4 ? 2 : rankIndex >= 2 ? 1 : 0;
+		const bossParent = expandedSpine[expandedSpine.length - 2];
+		if (altCount && bossParent) for (let i = 0; i < altCount; i += 1) {
+			const alt = themedBoss(instantiate(templateFor("Boss", source, rng), "Boss", rng, rank, opts), i + 1);
+			alt.branch = true;
+			alt.parentId = bossParent.id;
+			rooms.push(alt);
+			connections.push(link(bossParent.id, alt.id, bossParent.connector));
+		}
 		positionSingle(rooms, rng);
 		title = name || `${rank} Dungeon`;
 	}
+	const routes = buildRoutes(rooms, connections);
 	return {
 		id: uid("dungeon"),
 		name: title,
@@ -3768,6 +3892,8 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		seed,
 		rooms,
 		connections,
+		routes,
+		chosenRouteId: routes[0]?.id || "",
 		notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
@@ -3988,42 +4114,6 @@ function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 		bonfire: !!t.bonfire
 	};
 }
-var CR_STEPS = [
-	"0",
-	"1/8",
-	"1/4",
-	"1/2",
-	"1",
-	"2",
-	"3",
-	"4",
-	"5",
-	"6",
-	"7",
-	"8",
-	"9",
-	"10",
-	"11",
-	"12",
-	"13",
-	"14",
-	"15",
-	"16",
-	"17",
-	"18",
-	"19",
-	"20",
-	"21",
-	"22",
-	"23",
-	"24",
-	"25",
-	"26",
-	"27",
-	"28",
-	"29",
-	"30"
-];
 function crValue(cr) {
 	const s = String(cr ?? "").trim();
 	if (s === "1/8") return .125;
@@ -4032,49 +4122,38 @@ function crValue(cr) {
 	const n = Number(s);
 	return Number.isFinite(n) ? n : 0;
 }
-function crTargets(level) {
-	const lv = Math.max(1, Math.round(Number(level) || 1));
-	let maxIdx = CR_STEPS.findIndex((s) => crValue(s) >= lv);
-	if (maxIdx < 0) maxIdx = CR_STEPS.length - 1;
-	maxIdx = Math.max(1, maxIdx);
-	const targetIdx = Math.max(1, maxIdx - 2);
-	return {
-		maxIdx,
-		targetIdx,
-		maxCR: CR_STEPS[maxIdx],
-		targetCR: CR_STEPS[targetIdx]
-	};
-}
-function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [] } = {}) {
+function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [], rank = dungeon?.rank } = {}) {
 	const party = Math.max(1, Math.round(Number(players) || 1));
 	const level = Math.max(1, Math.round(Number(partyLevel) || 1));
-	const { targetIdx, maxIdx, maxCR, targetCR } = crTargets(level);
+	const band = rankChallenge(rank);
 	const pool = (monsters || []).filter((m) => m?.name);
 	return {
 		...dungeon,
 		rooms: (dungeon.rooms || []).map((room) => {
-			if (!pool.length) return room;
-			const cr0 = !!room.cr0Only;
-			let candidates = pool.filter((m) => {
+			if (room.bonfire || [
+				"Rest",
+				"Shop",
+				"Entrance",
+				"Start"
+			].includes(room.category)) return room;
+			if (!pool.length) return {
+				...room,
+				spawns: [`${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`]
+			};
+			const cr0 = !!room.cr0Only && band.minCR === 0;
+			const candidates = pool.filter((m) => {
 				const v = crValue(m.cr);
-				return cr0 ? v === 0 : v >= .125 && v <= maxCR;
+				return cr0 ? v === 0 : v >= band.minCR && v <= band.maxCR;
 			});
-			if (!candidates.length) candidates = pool.filter((m) => {
-				const v = crValue(m.cr);
-				return cr0 ? v === 0 : v <= maxCR;
-			});
-			if (!candidates.length) return room;
-			const near = candidates.filter((m) => {
-				const v = crValue(m.cr);
-				const targetNum = crValue(targetCR);
-				return Math.abs(v - (cr0 ? 0 : targetNum)) <= Math.max(.5, targetNum * .5);
-			});
-			const chosenPool = near.length ? near : candidates;
-			const groups = room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, chosenPool.length);
+			if (!candidates.length) return {
+				...room,
+				spawns: [`${Math.max(1, party * 2)}× rank ${rank} threat (CR ${band.minCR}–${band.maxCR})`]
+			};
+			const groups = room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, candidates.length);
 			const total = room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
 			const picked = [];
 			for (let i = 0; i < groups; i++) {
-				const m = chosenPool[Math.floor(Math.random() * chosenPool.length)];
+				const m = candidates[Math.floor(Math.random() * candidates.length)];
 				const count = Math.max(1, Math.round(total / groups));
 				picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
 			}
@@ -4086,8 +4165,11 @@ function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [] }
 		encounterScale: {
 			players: party,
 			partyLevel: level,
-			targetCR: CR_STEPS[targetIdx],
-			maxCR: CR_STEPS[maxIdx]
+			rank,
+			rankCR: band.rankCR,
+			minCR: band.minCR,
+			maxCR: band.maxCR,
+			targetCR: band.maxCR
 		}
 	};
 }
@@ -36558,9 +36640,11 @@ function DmDiceRoller() {
 //#region src/components/skilltree/dungeon/DungeonMap.jsx
 var PX = 7;
 var PAD = 7;
-function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, onContextMenu }) {
+function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, onContextMenu, highlightIds = [], highlightConnectionIds = [] }) {
 	const rooms = dungeon?.rooms || [];
 	const connections = dungeon?.connections || [];
+	const routeRooms = new Set(highlightIds);
+	const routeConnections = new Set(highlightConnectionIds);
 	const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
 	const [zoom, setZoom] = useState(1);
 	const [drag, setDrag] = useState(null);
@@ -36813,23 +36897,37 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 							const y1 = toY(from.y + from.h / 2);
 							const x2 = toX(to.x + to.w / 2);
 							const y2 = toY(to.y + to.h / 2);
-							return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("line", {
-								x1,
-								y1,
-								x2,
-								y2,
-								stroke: "hsl(var(--muted-foreground))",
-								strokeOpacity: "0.55",
-								strokeWidth: "1.5"
-							}), /* @__PURE__ */ jsx("text", {
-								x: (x1 + x2) / 2,
-								y: (y1 + y2) / 2 - 3,
-								textAnchor: "middle",
-								fontSize: "7",
-								fill: "hsl(var(--muted-foreground))",
-								fillOpacity: "0.8",
-								children: c.type
-							})] }, c.id);
+							const onRoute = routeConnections.has(c.id);
+							const stroke = onRoute ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))";
+							const mx = x1 + (x2 - x1) * .62;
+							const my = y1 + (y2 - y1) * .62;
+							const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+							return /* @__PURE__ */ jsxs("g", { children: [
+								/* @__PURE__ */ jsx("line", {
+									x1,
+									y1,
+									x2,
+									y2,
+									stroke,
+									strokeOpacity: onRoute ? .9 : .5,
+									strokeWidth: onRoute ? 2.6 : 1.5
+								}),
+								/* @__PURE__ */ jsx("polygon", {
+									points: "-4,-3 5,0 -4,3",
+									transform: `translate(${mx} ${my}) rotate(${angle})`,
+									fill: stroke,
+									fillOpacity: onRoute ? 1 : .65
+								}),
+								/* @__PURE__ */ jsx("text", {
+									x: (x1 + x2) / 2,
+									y: (y1 + y2) / 2 - 4,
+									textAnchor: "middle",
+									fontSize: "7",
+									fill: stroke,
+									fillOpacity: "0.85",
+									children: c.type
+								})
+							] }, c.id);
 						}),
 						rooms.map((room) => {
 							const preview = drag?.id === room.id ? {
@@ -36841,6 +36939,7 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 							const w = preview.w * px;
 							const h = preview.h * px;
 							const selected = selectedId === room.id;
+							const onRoute = routeRooms.has(room.id);
 							const color = categoryColor(room.category);
 							const cells = roomShapeCells(preview);
 							const fillPath = cellsFillPath(cells, px, x, y);
@@ -36873,13 +36972,13 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 									/* @__PURE__ */ jsx("path", {
 										d: fillPath,
 										fill: color,
-										fillOpacity: selected ? .35 : .16
+										fillOpacity: selected ? .38 : onRoute ? .28 : .14
 									}),
 									/* @__PURE__ */ jsx("path", {
 										d: outlinePath,
 										fill: "none",
-										stroke: selected ? "hsl(var(--primary))" : color,
-										strokeWidth: selected ? 2.5 : 1.3,
+										stroke: selected || onRoute ? "hsl(var(--primary))" : color,
+										strokeWidth: selected ? 2.5 : onRoute ? 1.9 : 1.2,
 										strokeLinecap: "square"
 									}),
 									/* @__PURE__ */ jsx("text", {
@@ -37447,8 +37546,11 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const clipRef = useRef(null);
 	const selected = dungeon?.rooms?.find((r) => r.id === selectedId) || null;
 	const ctxRoom = ctxMenu?.roomId ? dungeon?.rooms?.find((r) => r.id === ctxMenu.roomId) || null : null;
+	const routes = dungeon?.routes || [];
+	const chosenRoute = routes.find((r) => r.id === dungeon?.chosenRouteId) || routes[0] || null;
+	const chosenBoss = dungeon?.rooms?.find((r) => r.id === chosenRoute?.bossId) || null;
 	const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
-	const targets = crTargets(partyLevel);
+	const rankBand = rankChallenge(rank);
 	const filteredTemplates = roomTemplates.filter((r) => {
 		const q = roomQuery.trim().toLowerCase();
 		return !q || `${r.name} ${r.category}`.toLowerCase().includes(q);
@@ -37667,18 +37769,24 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		setCtxMenu(null);
 	};
 	const generate = () => {
+		const band = rankChallenge(rank);
+		const rankMonsters = monsters.filter((m) => {
+			const cr = crValue(m.cr);
+			return cr >= band.minCR && cr <= band.maxCR;
+		});
 		const d = generateDungeon({
 			mode,
 			rank,
 			seed: seed.trim() || randomSeed(),
 			templates: roomTemplates,
-			monsters,
+			monsters: rankMonsters,
 			lootPools
 		});
 		const scaled = scaleEncounters(d, {
 			players,
 			partyLevel,
-			monsters
+			monsters: rankMonsters,
+			rank
 		});
 		const rooms = (scaled.rooms || []).map((r) => ({
 			...r,
@@ -37757,6 +37865,13 @@ function DungeonGenerator({ onExit, embedded = false }) {
 				...r,
 				...patch
 			} : r)
+		});
+	};
+	const setRoute = (routeId) => {
+		if (!dungeon) return;
+		commit({
+			...dungeon,
+			chosenRouteId: routeId
 		});
 	};
 	const removeSelected = () => {
@@ -38035,12 +38150,47 @@ function DungeonGenerator({ onExit, embedded = false }) {
 										children: [
 											"~",
 											players * 2,
-											" monsters total per combat room · target CR",
+											" monsters total per combat room · rank ",
+											rank,
+											" CR band",
 											" ",
-											dungeon?.encounterScale?.targetCR ?? targets.targetCR,
-											" · max CR",
-											" ",
-											dungeon?.encounterScale?.maxCR ?? targets.maxCR
+											dungeon?.encounterScale?.minCR ?? rankBand.minCR,
+											"–",
+											dungeon?.encounterScale?.maxCR ?? rankBand.maxCR
+										]
+									}),
+									routes.length > 1 && /* @__PURE__ */ jsxs("div", {
+										className: "space-y-1 rounded border p-1.5",
+										children: [
+											/* @__PURE__ */ jsx(Label, {
+												className: "text-[10px]",
+												children: "Follow route"
+											}),
+											/* @__PURE__ */ jsxs(Select, {
+												value: chosenRoute?.id || routes[0].id,
+												onValueChange: setRoute,
+												children: [/* @__PURE__ */ jsx(SelectTrigger, {
+													className: "h-8 text-xs",
+													children: /* @__PURE__ */ jsx(SelectValue, {})
+												}), /* @__PURE__ */ jsx(SelectContent, { children: routes.map((route, i) => /* @__PURE__ */ jsxs(SelectItem, {
+													value: route.id,
+													children: [
+														i + 1,
+														". ",
+														route.name
+													]
+												}, route.id)) })]
+											}),
+											/* @__PURE__ */ jsxs("p", {
+												className: "text-[10px] text-muted-foreground",
+												children: [
+													"Boss: ",
+													chosenBoss?.name || chosenRoute?.name || "—",
+													" · ",
+													chosenRoute?.roomIds?.length || 0,
+													" rooms"
+												]
+											})
 										]
 									})
 								]
@@ -38195,7 +38345,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 										"· ",
 										stats.bonfires,
 										" bonfire rest stops"
-									] })
+									] }),
+									chosenBoss && /* @__PURE__ */ jsxs("span", { children: ["· following: ", chosenBoss.name] })
 								]
 							}),
 							/* @__PURE__ */ jsx("div", {
@@ -38206,7 +38357,9 @@ function DungeonGenerator({ onExit, embedded = false }) {
 									onSelect: setSelectedId,
 									onMoveRoom: moveRoom,
 									onResizeRoom: resizeRoom,
-									onContextMenu: setCtxMenu
+									onContextMenu: setCtxMenu,
+									highlightIds: chosenRoute?.roomIds || [],
+									highlightConnectionIds: chosenRoute?.connectionIds || []
 								})
 							}),
 							/* @__PURE__ */ jsx("div", {
