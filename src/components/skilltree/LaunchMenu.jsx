@@ -81,22 +81,22 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
           </div>
 
           {menuBtn(
-            <Wand2 className="h-5 w-5" />,
+            <Wand2 className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />,
             "Character Creator",
             "Build a character in the working sheet",
-            () => enterApp("sheet", { sheetOnly: true })
+            () => { if (hasProject) enterApp("sheet", { sheetOnly: true }); }
           )}
           {menuBtn(
-            <Home className="h-5 w-5" />,
+            <Home className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />,
             "Architect",
             "Design a home, business or bastion plot",
-            () => onHomebuilder?.()
+            () => { if (hasProject) onHomebuilder?.(); }
           )}
           {menuBtn(
-            <Swords className="h-5 w-5" />,
+            <Swords className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />,
             "DM Screen",
             "Quick rules and a dice roller for running the game",
-            () => onDmScreen?.()
+            () => { if (hasProject) onDmScreen?.(); }
           )}
           {menuBtn(
             <BookOpen className="h-5 w-5" />,
