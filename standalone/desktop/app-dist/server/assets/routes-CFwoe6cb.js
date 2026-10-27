@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-BAd0eZ9w.js";
+import { i as cn, n as base44, r as Button } from "./router-CpVUL6g3.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -5934,12 +5934,12 @@ var DialogTitle = React.forwardRef(({ className, ...props }, ref) => /* @__PURE_
 	...props
 }));
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
-var DialogDescription$1 = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DialogPrimitive.Description, {
+var DialogDescription = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DialogPrimitive.Description, {
 	ref,
 	className: cn("text-sm text-muted-foreground", className),
 	...props
 }));
-DialogDescription$1.displayName = DialogPrimitive.Description.displayName;
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
 //#endregion
 //#region src/components/skilltree/LevelUpDialog.jsx
 function LevelUpDialog({ open, onClose }) {
@@ -5986,7 +5986,7 @@ function LevelUpDialog({ open, onClose }) {
 		onOpenChange: (v) => !v && onClose(),
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-sm",
-			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Level Up to ", nextLevel] }), /* @__PURE__ */ jsxs(DialogDescription$1, { children: [
+			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Level Up to ", nextLevel] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
 				"Choose how to gain hit points from your hit die (1",
 				dieSize,
 				conMod !== 0 ? ` ${conMod > 0 ? "+" : "−"} ${Math.abs(conMod)} CON` : "",
@@ -6508,7 +6508,7 @@ function SettingsMenu({ open, onClose }) {
 		onOpenChange: (v) => !v && onClose(),
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-2xl",
-			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Settings" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Configure hotkeys, connectors, default artwork and tab behavior." })] }), /* @__PURE__ */ jsxs(Tabs, {
+			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Settings" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Configure hotkeys, connectors, default artwork and tab behavior." })] }), /* @__PURE__ */ jsxs(Tabs, {
 				defaultValue: "hotkeys",
 				className: "flex max-h-[70vh] flex-col",
 				children: [/* @__PURE__ */ jsxs(TabsList, {
@@ -8264,7 +8264,7 @@ function ShopImportDialog({ open, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-lg",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Import into shop" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Pull any item from the reference library into the shop's stock. The price comes from the item's listed cost (default 10 gold) and can be changed in the library's Shop tab." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Import into shop" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Pull any item from the reference library into the shop's stock. The price comes from the item's listed cost (default 10 gold) and can be changed in the library's Shop tab." })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "flex items-center gap-2",
 					children: [/* @__PURE__ */ jsxs(Select, {
@@ -13675,7 +13675,7 @@ function LibraryMenu({ open, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-3xl",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Weapons, armor, gear and lists used as suggestions when a node grants a proficiency." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Weapons, armor, gear and lists used as suggestions when a node grants a proficiency." })] }),
 				/* @__PURE__ */ jsx(InfoTip, {
 					label: "Search every tab; click a result to jump to it.",
 					children: /* @__PURE__ */ jsx(Input, {
@@ -14353,7 +14353,7 @@ function SaveLoadMenu({ open, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-md",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Save / Load Project" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "A save bundles the skill tree, character, pools, library and Homebuilder properties — images included." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Save / Load Project" }), /* @__PURE__ */ jsx(DialogDescription, { children: "A save bundles the skill tree, character, pools, library and Homebuilder properties — images included." })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "flex items-end gap-2",
 					children: [/* @__PURE__ */ jsxs("div", {
@@ -14466,7 +14466,7 @@ function MenuExitDialog({ open, onClose, onExit }) {
 			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, {
 				className: "font-display",
 				children: "Back to the main menu?"
-			}), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Anything you haven't saved will be lost when you leave the workspace." })] }), /* @__PURE__ */ jsxs("div", {
+			}), /* @__PURE__ */ jsx(DialogDescription, { children: "Anything you haven't saved will be lost when you leave the workspace." })] }), /* @__PURE__ */ jsxs("div", {
 				className: "grid gap-2",
 				children: [
 					/* @__PURE__ */ jsxs(Button, {
@@ -15490,7 +15490,7 @@ function Toolbar({ onAddPoolWindow }) {
 				onOpenChange: (v) => !v && setImportData(null),
 				children: /* @__PURE__ */ jsxs(DialogContent, {
 					className: "max-w-xs",
-					children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Import skill tree" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Where should the imported tree go?" })] }), /* @__PURE__ */ jsxs("div", {
+					children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Import skill tree" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Where should the imported tree go?" })] }), /* @__PURE__ */ jsxs("div", {
 						className: "grid gap-2",
 						children: [
 							/* @__PURE__ */ jsx(Button, {
@@ -16372,7 +16372,7 @@ function AbilityChoiceDialog({ node, nodesById, choices, perTake = 1, onPick, on
 					multi ? `Choose ${n} benefits` : "Choose a benefit",
 					" — ",
 					node.name
-				] }), /* @__PURE__ */ jsxs(DialogDescription$1, { children: [multi ? `Pick ${n} benefits for this take.` : "Pick one benefit for this take.", taken.length > 0 && ` Already taken: ${taken.join(", ")}.`] })] }),
+				] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [multi ? `Pick ${n} benefits for this take.` : "Pick one benefit for this take.", taken.length > 0 && ` Already taken: ${taken.join(", ")}.`] })] }),
 				!atRoot && /* @__PURE__ */ jsxs("div", {
 					className: "flex flex-wrap items-center gap-0.5 rounded-md border bg-muted/40 px-2 py-1 text-xs",
 					children: [/* @__PURE__ */ jsx("button", {
@@ -16494,7 +16494,7 @@ function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-md",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Choose a talent tree — ", node.name] }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "This talent opens its own skill trees. Pick one to open in a side panel and spend its granted points there. Greyed trees are already open." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Choose a talent tree — ", node.name] }), /* @__PURE__ */ jsx(DialogDescription, { children: "This talent opens its own skill trees. Pick one to open in a side panel and spend its granted points there. Greyed trees are already open." })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "max-h-[50vh] space-y-2 overflow-y-auto pr-1",
 					children: [subtrees.map((s, i) => {
@@ -20973,7 +20973,7 @@ function SendToSubtreeDialog({ open, rows, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-md",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Send to a parent's subtree" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Each node moves into the chosen subtree, keeps its distance from the parent, and connects to the subtree's starter node." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Send to a parent's subtree" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Each node moves into the chosen subtree, keeps its distance from the parent, and connects to the subtree's starter node." })] }),
 				/* @__PURE__ */ jsx("div", {
 					className: "max-h-[50vh] space-y-3 overflow-y-auto",
 					children: rows.map((r) => /* @__PURE__ */ jsxs("div", {
@@ -21225,7 +21225,7 @@ function RestDialog({ mode, onClose }) {
 						mode,
 						" rest"
 					]
-				}), /* @__PURE__ */ jsx(DialogDescription$1, { children: mode === "long" ? `Restores hit points (${currentHp} → ${maxHp}) and all hit dice, and recharges long- and short-rest uses.` : `Recharges short-rest uses. Hit points ${currentHp}/${maxHp} · ${hdLeft} hit die${tempHdTotal ? ` + ${tempHdTotal} temp` : ""} left.` })] }),
+				}), /* @__PURE__ */ jsx(DialogDescription, { children: mode === "long" ? `Restores hit points (${currentHp} → ${maxHp}) and all hit dice, and recharges long- and short-rest uses.` : `Recharges short-rest uses. Hit points ${currentHp}/${maxHp} · ${hdLeft} hit die${tempHdTotal ? ` + ${tempHdTotal} temp` : ""} left.` })] }),
 				mode === "short" && /* @__PURE__ */ jsxs("div", {
 					className: "flex items-center gap-2",
 					children: [
@@ -27061,7 +27061,7 @@ function ActionActivationDialog({ open, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-lg",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Activate an action" }), /* @__PURE__ */ jsxs(DialogDescription$1, { children: [
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Activate an action" }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
 					"Using an action spends its resource and records what ",
 					character.name || "the character",
 					" is doing."
@@ -27486,7 +27486,7 @@ function DiceRoller({ open, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-sm",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Dice Roller" }), /* @__PURE__ */ jsx(DialogDescription$1, { children: "Rolls go to the activity log on the View screen. Checks compare against a target AC or DC." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Dice Roller" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Rolls go to the activity log on the View screen. Checks compare against a target AC or DC." })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "flex items-end gap-2",
 					children: [
@@ -28512,7 +28512,7 @@ function StandaloneCopyDialog({ open, onClose }) {
 				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, {
 					className: "font-display",
 					children: "Get a personal copy"
-				}), /* @__PURE__ */ jsx(DialogDescription$1, { children: "A standalone copy runs entirely on your own machine — your trees and characters keep working even if this service goes away. Each copy keeps its own save space; use the Save menu's file export to move data between copies. For personal use." })] }),
+				}), /* @__PURE__ */ jsx(DialogDescription, { children: "A standalone copy runs entirely on your own machine — your trees and characters keep working even if this service goes away. Each copy keeps its own save space; use the Save menu's file export to move data between copies. For personal use." })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "flex items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4",
 					children: [/* @__PURE__ */ jsx("span", {

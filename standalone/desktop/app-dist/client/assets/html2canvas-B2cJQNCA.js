@@ -1,0 +1,1 @@
+import{n as e}from"./routes-B6Tizgo7.js";export default e();
