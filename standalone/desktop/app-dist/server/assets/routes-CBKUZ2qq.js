@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DMzAgT0Y.js";
+import { n as Button, r as cn } from "./router-BbdvWH_J.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5191,24 +5191,22 @@ function TreeProvider({ children }) {
 	const toggleDependency = useCallback((fromId, toId) => {
 		setTree((t) => {
 			if (!t) return t;
+			const target = t.nodes.find((n) => n.id === toId);
+			if (!target) return t;
+			const has = (target.dependencies || []).includes(fromId);
+			const deps = has ? (target.dependencies || []).filter((d) => d !== fromId) : [...target.dependencies || [], fromId];
+			const depSet = new Set(deps);
 			return {
 				...t,
-				nodes: t.nodes.map((n) => {
-					if (n.id !== toId) return n;
-					const has = n.dependencies.includes(fromId);
-					return {
-						...n,
-						dependencies: has ? n.dependencies.filter((d) => d !== fromId) : [...n.dependencies, fromId]
-					};
+				nodes: t.nodes.map((n) => n.id !== toId ? n : {
+					...n,
+					dependencies: deps
 				}),
-				connections: (() => {
-					if (t.connections.some((c) => c.from === fromId && c.to === toId)) return t.connections.filter((c) => !(c.from === fromId && c.to === toId));
-					return [...t.connections, {
-						id: `${fromId}->${toId}`,
-						from: fromId,
-						to: toId
-					}];
-				})()
+				connections: has ? t.connections.filter((c) => !(c.from === fromId && c.to === toId) && !(c.to === toId && !depSet.has(c.from))) : t.connections.some((c) => c.from === fromId && c.to === toId) ? t.connections : [...t.connections, {
+					id: `${fromId}->${toId}`,
+					from: fromId,
+					to: toId
+				}]
 			};
 		});
 	}, []);
@@ -5273,8 +5271,8 @@ function TreeProvider({ children }) {
 		const nodes = clip.nodes.map((n) => ({
 			...n,
 			id: idMap[n.id],
-			dependencies: (n.dependencies || []).filter((d) => idMap[d]),
-			exclusiveWith: (n.exclusiveWith || []).filter((d) => idMap[d]),
+			dependencies: (n.dependencies || []).filter((d) => idMap[d]).map((d) => idMap[d]),
+			exclusiveWith: (n.exclusiveWith || []).filter((d) => idMap[d]).map((d) => idMap[d]),
 			currentPoints: 0
 		}));
 		const connections = clip.connections.map((c) => ({
@@ -5301,8 +5299,8 @@ function TreeProvider({ children }) {
 		const movedNodes = nodes.map((n) => ({
 			...n,
 			id: idMap[n.id],
-			dependencies: (n.dependencies || []).filter((d) => idMap[d]),
-			exclusiveWith: (n.exclusiveWith || []).filter((d) => idMap[d])
+			dependencies: (n.dependencies || []).filter((d) => idMap[d]).map((d) => idMap[d]),
+			exclusiveWith: (n.exclusiveWith || []).filter((d) => idMap[d]).map((d) => idMap[d])
 		}));
 		const movedConns = t.connections.filter((c) => set.has(c.from) && set.has(c.to)).map((c) => ({
 			...c,
