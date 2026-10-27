@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-BPmzk7v9.js";
+import { i as cn, n as base44, r as Button } from "./router-2qOyXI5l.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28506,7 +28506,6 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 					className: "space-y-3",
 					children: [
 						menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", startNewTree),
-						"\\n          ",
 						menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit")),
 						menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Load", "Continue a saved character", () => setLoadOpen(true)),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true })),
