@@ -11,8 +11,13 @@ $mimes = @{
   ".jpg"="image/jpeg"; ".jpeg"="image/jpeg"; ".gif"="image/gif"; ".webp"="image/webp"; ".ico"="image/x-icon"
   ".woff"="font/woff"; ".woff2"="font/woff2"; ".ttf"="font/ttf"; ".map"="application/json"
 }
-$opener = { param($u) try { Start-Process $u } catch {} }
-& $opener "http://localhost:$port" | Out-Null
+$url = "http://localhost:$port"
+$launched = $false
+foreach ($exe in @("msedge","chrome")) {
+  $c = (Get-Command $exe -ErrorAction SilentlyContinue)
+  if ($c) { try { Start-Process $exe -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true; break } catch {} }
+}
+if (-not $launched) { try { Start-Process $url } catch {} }
 while ($listener.IsListening) {
   $ctx = $listener.GetContext()
   $path = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath.TrimStart('/'))
