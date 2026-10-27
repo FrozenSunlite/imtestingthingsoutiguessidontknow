@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { categoryColor, dungeonBounds } from "@/lib/dungeonGen";
+import {
+  categoryColor,
+  cellsFillPath,
+  cellsOutlinePath,
+  dungeonBounds,
+  roomShapeCells,
+} from "@/lib/dungeonGen";
 
 const PX = 7; // pixels per space at 100%
 const PAD = 7;
@@ -8,12 +14,20 @@ const PAD = 7;
 // between their centres. Rooms can be dragged to move and resized from the
 // selected room's bottom-right handle. The controls mirror the Architect's
 // select/move, resize, zoom and fit workflow.
-export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom }) {
+export function DungeonMap({
+  dungeon,
+  selectedId,
+  onSelect,
+  onMoveRoom,
+  onResizeRoom,
+  onContextMenu,
+}) {
   const rooms = dungeon?.rooms || [];
   const connections = dungeon?.connections || [];
   const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
   const [zoom, setZoom] = useState(1);
   const [drag, setDrag] = useState(null);
+  const [pan, setPan] = useState(null);
   const dragRef = useRef(null);
   useEffect(() => {
     dragRef.current = drag;
@@ -71,6 +85,38 @@ export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResize
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag?.id, drag?.kind, drag?.sx, drag?.sy, drag?.ox, drag?.oy, drag?.ow, drag?.oh]);
 
+  // Drag empty map space to pan; the scroll container keeps the map usable at
+  // any zoom level. Arrow keys also pan when the map has focus.
+  useEffect(() => {
+    if (!pan) return;
+    const move = (e) => {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      wrap.scrollLeft = pan.sl - (e.clientX - pan.sx);
+      wrap.scrollTop = pan.st - (e.clientY - pan.sy);
+      e.preventDefault();
+    };
+    const up = () => setPan(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, [pan]);
+
+  const startPan = (e) => {
+    if (e.button !== 0 && e.button !== 1) return;
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    setPan({
+      sx: e.clientX,
+      sy: e.clientY,
+      sl: wrap.scrollLeft,
+      st: wrap.scrollTop,
+    });
+  };
+
   const startMove = (e, room) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -114,6 +160,13 @@ export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResize
     const z = Math.min((cw - 20) / ((b.w + PAD * 2) * PX), (ch - 20) / ((b.h + PAD * 2) * PX), 1);
     setZoom(Math.max(0.25, Math.min(1.6, z)));
   };
+  const centerSelected = () => {
+    const room = rooms.find((r) => r.id === selectedId);
+    const wrap = wrapRef.current;
+    if (!room || !wrap) return;
+    wrap.scrollLeft = toX(room.x + room.w / 2) - wrap.clientWidth / 2;
+    wrap.scrollTop = toY(room.y + room.h / 2) - wrap.clientHeight / 2;
+  };
 
   if (!rooms.length) {
     return (
@@ -129,19 +182,44 @@ export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResize
         <button type="button" className="h-7 w-7 rounded border bg-background text-xs" title="Zoom out" onClick={() => setZoom((z) => Math.max(0.25, z / 1.2))}>−</button>
         <button type="button" className="h-7 w-7 rounded border bg-background text-xs" title="Zoom in" onClick={() => setZoom((z) => Math.min(1.8, z * 1.2))}>+</button>
         <button type="button" className="h-7 rounded border bg-background px-2 text-[10px]" title="Fit the dungeon in view" onClick={fit}>Fit</button>
+        <button type="button" className="h-7 rounded border bg-background px-2 text-[10px]" title="Center the selected room" onClick={centerSelected} disabled={!selectedId}>Center</button>
       </div>
-      <div ref={wrapRef} className="h-full overflow-auto">
+      <div
+        ref={wrapRef}
+        className="h-full overflow-auto outline-none"
+        tabIndex={0}
+        onPointerDown={startPan}
+        onWheel={(e) => {
+          e.preventDefault();
+          setZoom((z) => Math.max(0.25, Math.min(1.8, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
+        }}
+        onKeyDown={(e) => {
+          const wrap = wrapRef.current;
+          if (!wrap) return;
+          const step = 48;
+          if (e.key === "ArrowLeft") wrap.scrollLeft -= step;
+          else if (e.key === "ArrowRight") wrap.scrollLeft += step;
+          else if (e.key === "ArrowUp") wrap.scrollTop -= step;
+          else if (e.key === "ArrowDown") wrap.scrollTop += step;
+          else return;
+          e.preventDefault();
+        }}
+      >
         <svg
           ref={svgRef}
           width={Math.max(640, width)}
           height={Math.max(420, height)}
           viewBox={`0 0 ${Math.max(640, width)} ${Math.max(420, height)}`}
           className="block"
-          style={{ minWidth: "100%" }}
-          onWheel={(e) => {
-            if (!e.ctrlKey) return;
+          style={{ minWidth: "100%", cursor: pan ? "grabbing" : "grab" }}
+          onContextMenu={(e) => {
             e.preventDefault();
-            setZoom((z) => Math.max(0.25, Math.min(1.8, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
+            onContextMenu?.({
+              x: e.clientX,
+              y: e.clientY,
+              roomId: null,
+              world: pointToWorld(e),
+            });
           }}
         >
           <defs>
@@ -175,7 +253,11 @@ export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResize
             const h = preview.h * px;
             const selected = selectedId === room.id;
             const color = categoryColor(room.category);
+            const cells = roomShapeCells(preview);
+            const fillPath = cellsFillPath(cells, px, x, y);
+            const outlinePath = cellsOutlinePath(cells, px, x, y);
             const badges = [
+              room.bonfire ? "♨" : "",
               room.traps?.length ? "T" : "",
               room.spawns?.length ? "S" : "",
               room.loot?.length ? "L" : "",
@@ -183,26 +265,39 @@ export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResize
               room.cover && room.cover !== "Open" ? "C" : "",
             ].filter(Boolean);
             return (
-              <g key={room.id} onPointerDown={(e) => startMove(e, room)} style={{ cursor: "grab" }}>
+              <g
+                key={room.id}
+                onPointerDown={(e) => startMove(e, room)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect?.(room.id);
+                  onContextMenu?.({
+                    x: e.clientX,
+                    y: e.clientY,
+                    roomId: room.id,
+                    world: pointToWorld(e),
+                  });
+                }}
+                style={{ cursor: "grab" }}
+              >
                 <title>
-                  {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
+                  {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
                 </title>
-                <rect
-                  x={x}
-                  y={y}
-                  width={w}
-                  height={h}
-                  rx={3}
-                  fill={color}
-                  fillOpacity={selected ? 0.35 : 0.16}
+                <path d={fillPath} fill={color} fillOpacity={selected ? 0.35 : 0.16} />
+                <path
+                  d={outlinePath}
+                  fill="none"
                   stroke={selected ? "hsl(var(--primary))" : color}
                   strokeWidth={selected ? 2.5 : 1.3}
+                  strokeLinecap="square"
                 />
                 <text x={x + 4} y={y + 12} fontSize="9" fontWeight="600" fill="hsl(var(--foreground))">
                   {String(room.name || room.category).slice(0, 26)}
                 </text>
                 <text x={x + 4} y={y + 21} fontSize="7" fill="hsl(var(--muted-foreground))">
                   {room.category} · {preview.w}×{preview.h}
+                  {room.bonfire ? " · short rest" : ""}
                 </text>
                 {badges.length > 0 && (
                   <text x={x + 4} y={y + h - 5} fontSize="7" fontWeight="600" fill={color}>
@@ -226,6 +321,9 @@ export function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResize
             );
           })}
         </svg>
+      </div>
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5 text-[9px] text-muted-foreground">
+        Drag to pan · wheel to zoom · right-click a room to edit
       </div>
     </div>
   );

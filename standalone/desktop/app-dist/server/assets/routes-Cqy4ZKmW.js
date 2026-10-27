@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CRhnPFRV.js";
+import { n as Button, r as cn } from "./router-CNTDJHq9.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3104,6 +3104,13 @@ var DUNGEON_ENVIRONMENTS = [
 	"Mine shafts",
 	"Arcane laboratory"
 ];
+var ENCOUNTER_CATEGORIES = /* @__PURE__ */ new Set([
+	"Chamber",
+	"Trap",
+	"Puzzle",
+	"Elite",
+	"Boss"
+]);
 var TRAP_POOL = [
 	"Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
 	"Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
@@ -3466,6 +3473,24 @@ var DEFAULT_DUNGEON_ROOMS = [
 		spawns: [],
 		loot: ["Raw ore: 1 rank loot roll"],
 		notes: "Old supports and a vertical shortcut between levels."
+	},
+	{
+		id: "room-bonfire",
+		name: "Bonfire Camp",
+		category: "Rest",
+		minW: 4,
+		maxW: 5,
+		minH: 4,
+		maxH: 5,
+		environment: "Sheltered alcove",
+		elevation: "Flat",
+		cover: "Low wall (three-quarters)",
+		connector: "Doorway",
+		traps: [],
+		spawns: [],
+		loot: [],
+		bonfire: true,
+		notes: "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper."
 	}
 ];
 function hashSeed(seed) {
@@ -3548,7 +3573,8 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
 		spawns,
 		loot,
 		notes: template.notes || "",
-		cr0Only: !!template.cr0Only
+		cr0Only: !!template.cr0Only,
+		bonfire: !!template.bonfire
 	};
 }
 var link = (from, to, type = "Doorway") => ({
@@ -3557,6 +3583,41 @@ var link = (from, to, type = "Doorway") => ({
 	to,
 	type
 });
+function makeBonfire(rng) {
+	return {
+		id: uid("room"),
+		templateId: "room-bonfire",
+		name: "Bonfire Safe Zone",
+		category: "Rest",
+		x: 0,
+		y: 0,
+		w: rng?.int(4, 5) || 4,
+		h: rng?.int(4, 5) || 4,
+		environment: "Sheltered alcove",
+		elevation: "Flat",
+		cover: "Low wall (three-quarters)",
+		connector: "Doorway",
+		traps: [],
+		spawns: [],
+		loot: [],
+		bonfire: true,
+		notes: "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper."
+	};
+}
+function insertBonfires(spine, rng) {
+	const out = [];
+	let encounters = 0;
+	spine.forEach((room, i) => {
+		out.push(room);
+		if (ENCOUNTER_CATEGORIES.has(room.category)) encounters += 1;
+		const last = i === spine.length - 1;
+		if (encounters >= 2 && !last) {
+			out.push(makeBonfire(rng));
+			encounters = 0;
+		}
+	});
+	return out;
+}
 function positionSingle(rooms, rng) {
 	const spine = rooms.filter((r) => !r.branch);
 	spine.forEach((room, i) => {
@@ -3588,6 +3649,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		entrance.y = 0;
 		rooms.push(entrance);
 		let previous = [entrance];
+		let encounterFloors = 0;
 		for (let f = 1; f < floors; f++) {
 			const last = f === 14;
 			const count = last ? 1 : rng.int(1, 3);
@@ -3621,6 +3683,16 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 				}
 			});
 			previous = current;
+			if (!current.every((r) => ["Rest", "Shop"].includes(r.category)) && !last) encounterFloors += 1;
+			if (encounterFloors >= 2 && !last) {
+				const camp = makeBonfire(rng);
+				camp.x = f * 22 + 11;
+				camp.y = 0;
+				rooms.push(camp);
+				current.forEach((room) => connections.push(link(room.id, camp.id, room.connector)));
+				previous = [camp];
+				encounterFloors = 0;
+			}
 		}
 		title = name || `${rank} Spire`;
 	} else {
@@ -3659,6 +3731,15 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			rooms.push(room);
 			connections.push(link(parent.id, room.id, parent.connector));
 		}
+		const expandedSpine = insertBonfires(spine, rng);
+		if (expandedSpine.length > spine.length) {
+			const spineIds = new Set(spine.map((r) => r.id));
+			const branchLinks = connections.filter((c) => !(spineIds.has(c.from) && spineIds.has(c.to)));
+			connections.length = 0;
+			connections.push(...branchLinks);
+			for (let i = 0; i < expandedSpine.length - 1; i += 1) connections.push(link(expandedSpine[i].id, expandedSpine[i + 1].id, expandedSpine[i].connector));
+			rooms.push(...expandedSpine.filter((r) => !spine.includes(r)));
+		}
 		positionSingle(rooms, rng);
 		title = name || `${rank} Dungeon`;
 	}
@@ -3673,6 +3754,95 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
 		createdAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
+}
+function rectCells(w, h) {
+	const cells = [];
+	for (let y = 0; y < Math.max(1, h); y++) for (let x = 0; x < Math.max(1, w); x++) cells.push([x, y]);
+	return cells;
+}
+function roomShapeCells(room) {
+	const w = Math.max(1, Math.round(Number(room?.w) || 1));
+	const h = Math.max(1, Math.round(Number(room?.h) || 1));
+	if (!Array.isArray(room?.cells) || !room.cells.length) return rectCells(w, h);
+	const set = /* @__PURE__ */ new Set();
+	room.cells.forEach((cell) => {
+		const x = Number(cell?.[0] ?? cell?.x);
+		const y = Number(cell?.[1] ?? cell?.y);
+		if (Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x < w && y < h) set.add(`${x},${y}`);
+	});
+	return set.size ? [...set].map((key) => key.split(",").map(Number)) : rectCells(w, h);
+}
+function cellsConnected(cells) {
+	if (!cells?.length) return false;
+	const set = new Set(cells.map(([x, y]) => `${x},${y}`));
+	const seen = /* @__PURE__ */ new Set([`${cells[0][0]},${cells[0][1]}`]);
+	const queue = [[cells[0][0], cells[0][1]]];
+	while (queue.length) {
+		const [x, y] = queue.shift();
+		[
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		].forEach(([dx, dy]) => {
+			const key = `${x + dx},${y + dy}`;
+			if (set.has(key) && !seen.has(key)) {
+				seen.add(key);
+				queue.push([x + dx, y + dy]);
+			}
+		});
+	}
+	return seen.size === set.size;
+}
+function cellsOutlinePath(cells, cellSize, ox = 0, oy = 0) {
+	const set = new Set((cells || []).map(([x, y]) => `${x},${y}`));
+	const parts = [];
+	const at = (x, y) => set.has(`${x},${y}`);
+	(cells || []).forEach(([x, y]) => {
+		const x0 = ox + x * cellSize;
+		const y0 = oy + y * cellSize;
+		const x1 = x0 + cellSize;
+		const y1 = y0 + cellSize;
+		if (!at(x, y - 1)) parts.push(`M ${x0} ${y0} L ${x1} ${y0}`);
+		if (!at(x + 1, y)) parts.push(`M ${x1} ${y0} L ${x1} ${y1}`);
+		if (!at(x, y + 1)) parts.push(`M ${x1} ${y1} L ${x0} ${y1}`);
+		if (!at(x - 1, y)) parts.push(`M ${x0} ${y1} L ${x0} ${y0}`);
+	});
+	return parts.join(" ");
+}
+function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
+	return (cells || []).map(([x, y]) => {
+		return `M ${ox + x * cellSize} ${oy + y * cellSize} h ${cellSize} v ${cellSize} h ${-cellSize} Z`;
+	}).join(" ");
+}
+var ROOM_SHAPES = [
+	"Rectangle",
+	"L-Shape",
+	"T-Shape",
+	"U-Shape",
+	"Cross",
+	"Octagon"
+];
+function shapeCells(width, height, shape) {
+	const w = Math.max(2, Math.round(Number(width) || 2));
+	const h = Math.max(2, Math.round(Number(height) || 2));
+	const keep = (predicate) => {
+		const out = [];
+		for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (predicate(x, y)) out.push([x, y]);
+		return out;
+	};
+	switch (shape) {
+		case "L-Shape": return keep((x, y) => x < Math.ceil(w * .55) || y >= Math.floor(h * .55));
+		case "T-Shape": return keep((x, y) => y < Math.ceil(h * .4) || x >= Math.floor(w * .3) && x < Math.ceil(w * .7));
+		case "U-Shape": return keep((x, y) => x < Math.ceil(w * .28) || x >= Math.floor(w * .72) || y >= Math.floor(h * .55));
+		case "Cross": return keep((x, y) => x >= Math.floor(w * .3) && x < Math.ceil(w * .7) || y >= Math.floor(h * .3) && y < Math.ceil(h * .7));
+		case "Octagon": return keep((x, y) => {
+			const cutX = Math.floor(w * .25);
+			const cutY = Math.floor(h * .25);
+			return !(x < cutX && y < cutY || x >= w - cutX && y < cutY || x < cutX && y >= h - cutY || x >= w - cutX && y >= h - cutY);
+		});
+		default: return rectCells(w, h);
+	}
 }
 function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 	const t = template || DEFAULT_DUNGEON_ROOMS[0];
@@ -3691,11 +3861,13 @@ function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 		elevation: t.elevation || "Flat",
 		cover: t.cover || "Open",
 		connector: t.connector || "Doorway",
+		cells: Array.isArray(t.cells) && t.cells.length ? t.cells.map(([cx, cy]) => [cx, cy]) : void 0,
 		traps: [...t.traps || []],
 		spawns: [...t.spawns || []],
 		loot: [...t.loot || []],
 		notes: t.notes || "",
-		cr0Only: !!t.cr0Only
+		cr0Only: !!t.cr0Only,
+		bonfire: !!t.bonfire
 	};
 }
 var CR_STEPS = [
@@ -12040,14 +12212,38 @@ function rollLootPool(poolName, pools, depth = 0, path = []) {
 		error: null
 	};
 }
+var CR_NUM = (cr) => {
+	const s = String(cr ?? "").trim();
+	if (s === "1/8") return .125;
+	if (s === "1/4") return .25;
+	if (s === "1/2") return .5;
+	const n = Number(s);
+	return Number.isFinite(n) ? n : 0;
+};
+var weightedRow = (rows) => {
+	const list = (rows || []).filter((r) => r && (r.monster || r.tag));
+	if (!list.length) return null;
+	const total = list.reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+	let roll = Math.random() * total;
+	for (const row of list) {
+		roll -= Math.max(1, Number(row.weight) || 1);
+		if (roll < 0) return row;
+	}
+	return list[list.length - 1];
+};
 function rollEncounter(table, monsters = []) {
-	return (table.rows || []).map((r) => {
+	const minCR = table?.crMin != null && table.crMin !== "" ? CR_NUM(table.crMin) : null;
+	const maxCR = table?.crMax != null && table.crMax !== "" ? CR_NUM(table.crMax) : null;
+	return (table?.mode === "weighted" ? [weightedRow(table.rows)].filter(Boolean) : table?.rows || []).map((r) => {
 		if (!r) return null;
 		let name = r.monster || r.tag || "";
 		if (!name) return null;
 		if (r.kind === "tag" || r.tag) {
 			const tag = String(r.tag || r.monster || "").toLowerCase();
 			const pool = (monsters || []).filter((m) => {
+				const value = CR_NUM(m?.cr);
+				if (minCR != null && value < minCR) return false;
+				if (maxCR != null && value > maxCR) return false;
 				return [
 					m?.type,
 					m?.category,
@@ -12395,7 +12591,11 @@ function EncounterTablesTab() {
 			/* @__PURE__ */ jsx(ListHeader, {
 				onAdd: () => t.add({
 					name: "",
-					rows: []
+					mode: "all",
+					rows: [],
+					crMin: "",
+					crMax: "",
+					notes: ""
 				}),
 				addLabel: "Add encounter table",
 				query: t.query,
@@ -12428,7 +12628,14 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 		m.category,
 		...m.tags || []
 	]).filter(Boolean))];
+	const weightTotal = rows.reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+	const ranges = rows.map((row) => {
+		const weight = Math.max(1, Number(row.weight) || 1);
+		const before = rows.slice(0, rows.indexOf(row)).reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+		return `${before + 1}–${before + weight}`;
+	});
 	const doRoll = () => setResult(rollEncounter(table, monsters));
+	const weighted = table.mode === "weighted";
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
 		children: [
@@ -12477,6 +12684,63 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 				className: "mt-2 space-y-2 border-t pt-2",
 				children: [
 					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-[1fr_auto_auto] items-end gap-1.5",
+						children: [
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
+								className: "mb-0.5 text-[10px] text-muted-foreground",
+								children: "Roll style"
+							}), /* @__PURE__ */ jsxs(Select, {
+								value: table.mode || "all",
+								onValueChange: (v) => onChange({
+									...table,
+									mode: v
+								}),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-8 text-xs",
+									children: /* @__PURE__ */ jsx(SelectValue, {})
+								}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+									value: "all",
+									children: "Roll every row"
+								}), /* @__PURE__ */ jsx(SelectItem, {
+									value: "weighted",
+									children: "Weighted (roll one row)"
+								})] })]
+							})] }),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
+								className: "mb-0.5 text-[10px] text-muted-foreground",
+								children: "Min CR"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8 w-16 text-xs",
+								placeholder: "0",
+								value: table.crMin ?? "",
+								onChange: (e) => onChange({
+									...table,
+									crMin: e.target.value
+								})
+							})] }),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
+								className: "mb-0.5 text-[10px] text-muted-foreground",
+								children: "Max CR"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8 w-16 text-xs",
+								placeholder: "30",
+								value: table.crMax ?? "",
+								onChange: (e) => onChange({
+									...table,
+									crMax: e.target.value
+								})
+							})] })
+						]
+					}),
+					weighted && /* @__PURE__ */ jsxs("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: [
+							"Weighted table · total weight ",
+							weightTotal,
+							". Rolling picks one row, then rolls its count."
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", {
 						className: "flex items-center justify-between",
 						children: [/* @__PURE__ */ jsxs("p", {
 							className: "text-xs font-medium",
@@ -12495,7 +12759,8 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 									rows: [...rows, {
 										kind: "monster",
 										monster: "",
-										count: "1"
+										count: "1",
+										weight: 1
 									}]
 								}),
 								children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Monster"]
@@ -12507,7 +12772,8 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 									rows: [...rows, {
 										kind: "tag",
 										tag: "",
-										count: "1"
+										count: "1",
+										weight: 1
 									}]
 								}),
 								children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Tag"]
@@ -12571,11 +12837,24 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 								/* @__PURE__ */ jsx(InfoTip, {
 									label: "How many appear — a number or dice like 1d6.",
 									children: /* @__PURE__ */ jsx(Input, {
-										className: "h-7 w-16 text-center",
+										className: "h-7 w-14 text-center",
 										value: row.count ?? "1",
 										onChange: (e) => updateRow({ count: e.target.value })
 									})
 								}),
+								weighted && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(InfoTip, {
+									label: "Weight for weighted tables. Larger numbers are more likely; the range shows the resulting roll window.",
+									children: /* @__PURE__ */ jsx(Input, {
+										className: "h-7 w-12 text-center",
+										type: "number",
+										min: 1,
+										value: row.weight ?? 1,
+										onChange: (e) => updateRow({ weight: Math.max(1, Number(e.target.value) || 1) })
+									})
+								}), /* @__PURE__ */ jsx("span", {
+									className: "w-14 shrink-0 text-center font-mono text-[9px] text-muted-foreground",
+									children: ranges[i]
+								})] }),
 								/* @__PURE__ */ jsx(Button, {
 									size: "sm",
 									variant: "ghost",
@@ -12592,9 +12871,18 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 						id: "encounter-tags",
 						children: tagOptions.map((t) => /* @__PURE__ */ jsx("option", { value: t }, t))
 					}),
+					/* @__PURE__ */ jsx(Input, {
+						className: "h-8 text-xs",
+						placeholder: "Table notes / trigger (e.g. forest road at night)",
+						value: table.notes || "",
+						onChange: (e) => onChange({
+							...table,
+							notes: e.target.value
+						})
+					}),
 					rows.length === 0 && /* @__PURE__ */ jsx("p", {
 						className: "text-xs text-muted-foreground",
-						children: "Add rows of monsters to fill the table."
+						children: "Add rows of monsters or tags to fill the table."
 					})
 				]
 			})
@@ -36152,12 +36440,13 @@ function DmDiceRoller() {
 //#region src/components/skilltree/dungeon/DungeonMap.jsx
 var PX = 7;
 var PAD = 7;
-function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom }) {
+function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, onContextMenu }) {
 	const rooms = dungeon?.rooms || [];
 	const connections = dungeon?.connections || [];
 	const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
 	const [zoom, setZoom] = useState(1);
 	const [drag, setDrag] = useState(null);
+	const [pan, setPan] = useState(null);
 	const dragRef = useRef(null);
 	useEffect(() => {
 		dragRef.current = drag;
@@ -36220,6 +36509,34 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom })
 		drag?.ow,
 		drag?.oh
 	]);
+	useEffect(() => {
+		if (!pan) return;
+		const move = (e) => {
+			const wrap = wrapRef.current;
+			if (!wrap) return;
+			wrap.scrollLeft = pan.sl - (e.clientX - pan.sx);
+			wrap.scrollTop = pan.st - (e.clientY - pan.sy);
+			e.preventDefault();
+		};
+		const up = () => setPan(null);
+		window.addEventListener("pointermove", move);
+		window.addEventListener("pointerup", up);
+		return () => {
+			window.removeEventListener("pointermove", move);
+			window.removeEventListener("pointerup", up);
+		};
+	}, [pan]);
+	const startPan = (e) => {
+		if (e.button !== 0 && e.button !== 1) return;
+		const wrap = wrapRef.current;
+		if (!wrap) return;
+		setPan({
+			sx: e.clientX,
+			sy: e.clientY,
+			sl: wrap.scrollLeft,
+			st: wrap.scrollTop
+		});
+	};
 	const startMove = (e, room) => {
 		if (e.button !== 0) return;
 		e.stopPropagation();
@@ -36263,216 +36580,293 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom })
 		const z = Math.min((cw - 20) / ((b.w + 14) * PX), (ch - 20) / ((b.h + 14) * PX), 1);
 		setZoom(Math.max(.25, Math.min(1.6, z)));
 	};
+	const centerSelected = () => {
+		const room = rooms.find((r) => r.id === selectedId);
+		const wrap = wrapRef.current;
+		if (!room || !wrap) return;
+		wrap.scrollLeft = toX(room.x + room.w / 2) - wrap.clientWidth / 2;
+		wrap.scrollTop = toY(room.y + room.h / 2) - wrap.clientHeight / 2;
+	};
 	if (!rooms.length) return /* @__PURE__ */ jsx("div", {
 		className: "flex h-full min-h-[16rem] items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground",
 		children: "Generate a dungeon to see its map."
 	});
 	return /* @__PURE__ */ jsxs("div", {
 		className: "relative h-full min-h-[300px] overflow-hidden rounded-md border bg-background",
-		children: [/* @__PURE__ */ jsxs("div", {
-			className: "absolute right-2 top-2 z-10 flex gap-1",
-			children: [
-				/* @__PURE__ */ jsx("button", {
-					type: "button",
-					className: "h-7 w-7 rounded border bg-background text-xs",
-					title: "Zoom out",
-					onClick: () => setZoom((z) => Math.max(.25, z / 1.2)),
-					children: "−"
-				}),
-				/* @__PURE__ */ jsx("button", {
-					type: "button",
-					className: "h-7 w-7 rounded border bg-background text-xs",
-					title: "Zoom in",
-					onClick: () => setZoom((z) => Math.min(1.8, z * 1.2)),
-					children: "+"
-				}),
-				/* @__PURE__ */ jsx("button", {
-					type: "button",
-					className: "h-7 rounded border bg-background px-2 text-[10px]",
-					title: "Fit the dungeon in view",
-					onClick: fit,
-					children: "Fit"
-				})
-			]
-		}), /* @__PURE__ */ jsx("div", {
-			ref: wrapRef,
-			className: "h-full overflow-auto",
-			children: /* @__PURE__ */ jsxs("svg", {
-				ref: svgRef,
-				width: Math.max(640, width),
-				height: Math.max(420, height),
-				viewBox: `0 0 ${Math.max(640, width)} ${Math.max(420, height)}`,
-				className: "block",
-				style: { minWidth: "100%" },
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "absolute right-2 top-2 z-10 flex gap-1",
+				children: [
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						className: "h-7 w-7 rounded border bg-background text-xs",
+						title: "Zoom out",
+						onClick: () => setZoom((z) => Math.max(.25, z / 1.2)),
+						children: "−"
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						className: "h-7 w-7 rounded border bg-background text-xs",
+						title: "Zoom in",
+						onClick: () => setZoom((z) => Math.min(1.8, z * 1.2)),
+						children: "+"
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						className: "h-7 rounded border bg-background px-2 text-[10px]",
+						title: "Fit the dungeon in view",
+						onClick: fit,
+						children: "Fit"
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						className: "h-7 rounded border bg-background px-2 text-[10px]",
+						title: "Center the selected room",
+						onClick: centerSelected,
+						disabled: !selectedId,
+						children: "Center"
+					})
+				]
+			}),
+			/* @__PURE__ */ jsx("div", {
+				ref: wrapRef,
+				className: "h-full overflow-auto outline-none",
+				tabIndex: 0,
+				onPointerDown: startPan,
 				onWheel: (e) => {
-					if (!e.ctrlKey) return;
 					e.preventDefault();
 					setZoom((z) => Math.max(.25, Math.min(1.8, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
 				},
-				children: [
-					/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
-						id: "dungeon-grid",
-						width: px * 2,
-						height: px * 2,
-						patternUnits: "userSpaceOnUse",
-						children: /* @__PURE__ */ jsx("path", {
-							d: `M ${px * 2} 0 L 0 0 0 ${px * 2}`,
-							fill: "none",
-							stroke: "currentColor",
-							strokeOpacity: "0.06",
-							strokeWidth: "1"
+				onKeyDown: (e) => {
+					const wrap = wrapRef.current;
+					if (!wrap) return;
+					const step = 48;
+					if (e.key === "ArrowLeft") wrap.scrollLeft -= step;
+					else if (e.key === "ArrowRight") wrap.scrollLeft += step;
+					else if (e.key === "ArrowUp") wrap.scrollTop -= step;
+					else if (e.key === "ArrowDown") wrap.scrollTop += step;
+					else return;
+					e.preventDefault();
+				},
+				children: /* @__PURE__ */ jsxs("svg", {
+					ref: svgRef,
+					width: Math.max(640, width),
+					height: Math.max(420, height),
+					viewBox: `0 0 ${Math.max(640, width)} ${Math.max(420, height)}`,
+					className: "block",
+					style: {
+						minWidth: "100%",
+						cursor: pan ? "grabbing" : "grab"
+					},
+					onContextMenu: (e) => {
+						e.preventDefault();
+						onContextMenu?.({
+							x: e.clientX,
+							y: e.clientY,
+							roomId: null,
+							world: pointToWorld(e)
+						});
+					},
+					children: [
+						/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
+							id: "dungeon-grid",
+							width: px * 2,
+							height: px * 2,
+							patternUnits: "userSpaceOnUse",
+							children: /* @__PURE__ */ jsx("path", {
+								d: `M ${px * 2} 0 L 0 0 0 ${px * 2}`,
+								fill: "none",
+								stroke: "currentColor",
+								strokeOpacity: "0.06",
+								strokeWidth: "1"
+							})
+						}) }),
+						/* @__PURE__ */ jsx("rect", {
+							width: "100%",
+							height: "100%",
+							fill: "url(#dungeon-grid)"
+						}),
+						connections.map((c) => {
+							const from = rooms.find((r) => r.id === c.from);
+							const to = rooms.find((r) => r.id === c.to);
+							if (!from || !to) return null;
+							const x1 = toX(from.x + from.w / 2);
+							const y1 = toY(from.y + from.h / 2);
+							const x2 = toX(to.x + to.w / 2);
+							const y2 = toY(to.y + to.h / 2);
+							return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("line", {
+								x1,
+								y1,
+								x2,
+								y2,
+								stroke: "hsl(var(--muted-foreground))",
+								strokeOpacity: "0.55",
+								strokeWidth: "1.5"
+							}), /* @__PURE__ */ jsx("text", {
+								x: (x1 + x2) / 2,
+								y: (y1 + y2) / 2 - 3,
+								textAnchor: "middle",
+								fontSize: "7",
+								fill: "hsl(var(--muted-foreground))",
+								fillOpacity: "0.8",
+								children: c.type
+							})] }, c.id);
+						}),
+						rooms.map((room) => {
+							const preview = drag?.id === room.id ? {
+								...room,
+								...drag
+							} : room;
+							const x = toX(preview.x);
+							const y = toY(preview.y);
+							const w = preview.w * px;
+							const h = preview.h * px;
+							const selected = selectedId === room.id;
+							const color = categoryColor(room.category);
+							const cells = roomShapeCells(preview);
+							const fillPath = cellsFillPath(cells, px, x, y);
+							const outlinePath = cellsOutlinePath(cells, px, x, y);
+							const badges = [
+								room.bonfire ? "♨" : "",
+								room.traps?.length ? "T" : "",
+								room.spawns?.length ? "S" : "",
+								room.loot?.length ? "L" : "",
+								room.elevation && room.elevation !== "Flat" ? "E" : "",
+								room.cover && room.cover !== "Open" ? "C" : ""
+							].filter(Boolean);
+							return /* @__PURE__ */ jsxs("g", {
+								onPointerDown: (e) => startMove(e, room),
+								onContextMenu: (e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									onSelect?.(room.id);
+									onContextMenu?.({
+										x: e.clientX,
+										y: e.clientY,
+										roomId: room.id,
+										world: pointToWorld(e)
+									});
+								},
+								style: { cursor: "grab" },
+								children: [
+									/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
+									/* @__PURE__ */ jsx("path", {
+										d: fillPath,
+										fill: color,
+										fillOpacity: selected ? .35 : .16
+									}),
+									/* @__PURE__ */ jsx("path", {
+										d: outlinePath,
+										fill: "none",
+										stroke: selected ? "hsl(var(--primary))" : color,
+										strokeWidth: selected ? 2.5 : 1.3,
+										strokeLinecap: "square"
+									}),
+									/* @__PURE__ */ jsx("text", {
+										x: x + 4,
+										y: y + 12,
+										fontSize: "9",
+										fontWeight: "600",
+										fill: "hsl(var(--foreground))",
+										children: String(room.name || room.category).slice(0, 26)
+									}),
+									/* @__PURE__ */ jsxs("text", {
+										x: x + 4,
+										y: y + 21,
+										fontSize: "7",
+										fill: "hsl(var(--muted-foreground))",
+										children: [
+											room.category,
+											" · ",
+											preview.w,
+											"×",
+											preview.h,
+											room.bonfire ? " · short rest" : ""
+										]
+									}),
+									badges.length > 0 && /* @__PURE__ */ jsx("text", {
+										x: x + 4,
+										y: y + h - 5,
+										fontSize: "7",
+										fontWeight: "600",
+										fill: color,
+										children: badges.join(" ")
+									}),
+									selected && /* @__PURE__ */ jsx("rect", {
+										x: x + w - 6,
+										y: y + h - 6,
+										width: 10,
+										height: 10,
+										fill: "hsl(var(--primary))",
+										stroke: "hsl(var(--background))",
+										strokeWidth: "1",
+										style: { cursor: "nwse-resize" },
+										onPointerDown: (e) => startResize(e, room)
+									})
+								]
+							}, room.id);
 						})
-					}) }),
-					/* @__PURE__ */ jsx("rect", {
-						width: "100%",
-						height: "100%",
-						fill: "url(#dungeon-grid)"
-					}),
-					connections.map((c) => {
-						const from = rooms.find((r) => r.id === c.from);
-						const to = rooms.find((r) => r.id === c.to);
-						if (!from || !to) return null;
-						const x1 = toX(from.x + from.w / 2);
-						const y1 = toY(from.y + from.h / 2);
-						const x2 = toX(to.x + to.w / 2);
-						const y2 = toY(to.y + to.h / 2);
-						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("line", {
-							x1,
-							y1,
-							x2,
-							y2,
-							stroke: "hsl(var(--muted-foreground))",
-							strokeOpacity: "0.55",
-							strokeWidth: "1.5"
-						}), /* @__PURE__ */ jsx("text", {
-							x: (x1 + x2) / 2,
-							y: (y1 + y2) / 2 - 3,
-							textAnchor: "middle",
-							fontSize: "7",
-							fill: "hsl(var(--muted-foreground))",
-							fillOpacity: "0.8",
-							children: c.type
-						})] }, c.id);
-					}),
-					rooms.map((room) => {
-						const preview = drag?.id === room.id ? {
-							...room,
-							...drag
-						} : room;
-						const x = toX(preview.x);
-						const y = toY(preview.y);
-						const w = preview.w * px;
-						const h = preview.h * px;
-						const selected = selectedId === room.id;
-						const color = categoryColor(room.category);
-						const badges = [
-							room.traps?.length ? "T" : "",
-							room.spawns?.length ? "S" : "",
-							room.loot?.length ? "L" : "",
-							room.elevation && room.elevation !== "Flat" ? "E" : "",
-							room.cover && room.cover !== "Open" ? "C" : ""
-						].filter(Boolean);
-						return /* @__PURE__ */ jsxs("g", {
-							onPointerDown: (e) => startMove(e, room),
-							style: { cursor: "grab" },
-							children: [
-								/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
-								/* @__PURE__ */ jsx("rect", {
-									x,
-									y,
-									width: w,
-									height: h,
-									rx: 3,
-									fill: color,
-									fillOpacity: selected ? .35 : .16,
-									stroke: selected ? "hsl(var(--primary))" : color,
-									strokeWidth: selected ? 2.5 : 1.3
-								}),
-								/* @__PURE__ */ jsx("text", {
-									x: x + 4,
-									y: y + 12,
-									fontSize: "9",
-									fontWeight: "600",
-									fill: "hsl(var(--foreground))",
-									children: String(room.name || room.category).slice(0, 26)
-								}),
-								/* @__PURE__ */ jsxs("text", {
-									x: x + 4,
-									y: y + 21,
-									fontSize: "7",
-									fill: "hsl(var(--muted-foreground))",
-									children: [
-										room.category,
-										" · ",
-										preview.w,
-										"×",
-										preview.h
-									]
-								}),
-								badges.length > 0 && /* @__PURE__ */ jsx("text", {
-									x: x + 4,
-									y: y + h - 5,
-									fontSize: "7",
-									fontWeight: "600",
-									fill: color,
-									children: badges.join(" ")
-								}),
-								selected && /* @__PURE__ */ jsx("rect", {
-									x: x + w - 6,
-									y: y + h - 6,
-									width: 10,
-									height: 10,
-									fill: "hsl(var(--primary))",
-									stroke: "hsl(var(--background))",
-									strokeWidth: "1",
-									style: { cursor: "nwse-resize" },
-									onPointerDown: (e) => startResize(e, room)
-								})
-							]
-						}, room.id);
-					})
-				]
+					]
+				})
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "pointer-events-none absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5 text-[9px] text-muted-foreground",
+				children: "Drag to pan · wheel to zoom · right-click a room to edit"
 			})
-		})]
+		]
 	});
 }
 //#endregion
 //#region src/components/skilltree/dungeon/RoomBattleMap.jsx
 function RoomBattleMap({ room }) {
 	if (!room) return null;
-	const SIZE = 20;
-	const w = Math.max(10, Math.min(16, Number(room.w) || 10));
-	const h = Math.max(10, Math.min(16, Number(room.h) || 10));
-	const x0 = (SIZE - w) / 2;
-	const y0 = (SIZE - h) / 2;
-	const cell = 10;
-	const px = 200;
-	const label = (x, y, text, fill = "hsl(var(--muted-foreground))") => /* @__PURE__ */ jsx("text", {
-		x,
-		y,
-		fontSize: "6",
+	const local = roomShapeCells(room);
+	const w = Math.max(1, Number(room.w) || 1);
+	const h = Math.max(1, Number(room.h) || 1);
+	const cols = Math.max(10, w + 2);
+	const rows = Math.max(10, h + 2);
+	const ox = Math.floor((cols - w) / 2);
+	const oy = Math.floor((rows - h) / 2);
+	const cells = local.map(([x, y]) => [x + ox, y + oy]);
+	const cell = 18;
+	const px = cols * cell;
+	const py = rows * cell;
+	const fillPath = cellsFillPath(cells, cell);
+	const outlinePath = cellsOutlinePath(cells, cell);
+	const center = cells[Math.floor(cells.length / 2)] || [cols / 2, rows / 2];
+	const traps = room.traps || [];
+	const spawns = room.spawns || [];
+	const loot = room.loot || [];
+	const at = (i) => cells[(i % cells.length + cells.length) % cells.length] || center;
+	const label = (cx, cy, text, fill = "hsl(var(--muted-foreground))", size = 6) => /* @__PURE__ */ jsx("text", {
+		x: cx,
+		y: cy,
+		fontSize: size,
 		fill,
 		textAnchor: "middle",
 		children: text
 	});
-	const traps = room.traps || [];
-	const spawns = room.spawns || [];
-	const loot = room.loot || [];
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-1",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
-				className: "flex items-center justify-between",
-				children: [/* @__PURE__ */ jsx("p", {
+				className: "flex items-center justify-between gap-2",
+				children: [/* @__PURE__ */ jsxs("p", {
 					className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-					children: "Battle map · 20 × 20 spaces"
-				}), /* @__PURE__ */ jsx("span", {
-					className: "text-[9px] text-muted-foreground",
-					children: room.environment || "—"
+					children: [
+						"Battle map · ",
+						w,
+						" × ",
+						h,
+						" footprint"
+					]
+				}), /* @__PURE__ */ jsxs("span", {
+					className: "truncate text-[9px] text-muted-foreground",
+					children: [room.environment || "—", room.bonfire ? " · bonfire" : ""]
 				})]
 			}),
 			/* @__PURE__ */ jsxs("svg", {
-				viewBox: `0 0 ${px} ${px}`,
+				viewBox: `0 0 ${px} ${py}`,
 				className: "w-full rounded-md border bg-background",
 				children: [
 					/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
@@ -36490,24 +36884,25 @@ function RoomBattleMap({ room }) {
 					}) }),
 					/* @__PURE__ */ jsx("rect", {
 						width: px,
-						height: px,
+						height: py,
 						fill: "url(#battle-grid)"
 					}),
-					/* @__PURE__ */ jsx("rect", {
-						x: x0 * cell,
-						y: y0 * cell,
-						width: w * cell,
-						height: h * cell,
+					/* @__PURE__ */ jsx("path", {
+						d: fillPath,
 						fill: "hsl(var(--muted))",
-						fillOpacity: "0.25",
+						fillOpacity: "0.28"
+					}),
+					/* @__PURE__ */ jsx("path", {
+						d: outlinePath,
+						fill: "none",
 						stroke: "hsl(var(--foreground))",
 						strokeWidth: "1.4"
 					}),
 					room.elevation && room.elevation !== "Flat" && /* @__PURE__ */ jsx("rect", {
-						x: (x0 + w * .28) * cell,
-						y: (y0 + h * .28) * cell,
-						width: w * .44 * cell,
-						height: h * .44 * cell,
+						x: (center[0] - 1.2) * cell,
+						y: (center[1] - 1.2) * cell,
+						width: cell * 2.4,
+						height: cell * 2.4,
 						rx: 3,
 						fill: "hsl(var(--primary))",
 						fillOpacity: "0.12",
@@ -36515,39 +36910,62 @@ function RoomBattleMap({ room }) {
 						strokeDasharray: "2 2"
 					}),
 					room.cover && room.cover !== "Open" && [
-						[x0 + 1, y0 + 1],
-						[x0 + w - 2, y0 + 1],
-						[x0 + 1, y0 + h - 2],
-						[x0 + w - 2, y0 + h - 2]
-					].map(([cx, cy], i) => /* @__PURE__ */ jsx("rect", {
-						x: cx * cell,
-						y: cy * cell,
-						width: cell * .9,
-						height: cell * .9,
-						fill: "hsl(var(--muted-foreground))",
-						fillOpacity: "0.5"
-					}, `c${i}`)),
-					traps.map((t, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("polygon", {
-						points: `${(x0 + w * .25 + i * .7) * cell},${(y0 + h * .7) * cell} ${(x0 + w * .25 + i * .7 + .35) * cell},${(y0 + h * .7 + .7) * cell} ${(x0 + w * .25 + i * .7 - .35) * cell},${(y0 + h * .7 + .7) * cell}`,
-						fill: "hsl(var(--destructive))",
-						fillOpacity: "0.75"
-					}), label((x0 + w * .25 + i * .7) * cell, (y0 + h * .7 - .2) * cell, "T", "hsl(var(--destructive))")] }, `t${i}`)),
-					spawns.map((s, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
-						cx: (x0 + w * .25 + i * .7) * cell,
-						cy: (y0 + h * .32) * cell,
-						r: cell * .32,
-						fill: "hsl(var(--primary))",
-						fillOpacity: "0.7"
-					}), label((x0 + w * .25 + i * .7) * cell, (y0 + h * .32 - .45) * cell, String(i + 1), "hsl(var(--foreground))")] }, `s${i}`)),
+						0,
+						Math.floor(cells.length / 3),
+						Math.floor(cells.length * 2 / 3),
+						cells.length - 1
+					].map((i, j) => {
+						const [cx, cy] = at(i);
+						return /* @__PURE__ */ jsx("rect", {
+							x: cx * cell + 2,
+							y: cy * cell + 2,
+							width: cell * .55,
+							height: cell * .55,
+							fill: "hsl(var(--muted-foreground))",
+							fillOpacity: "0.5"
+						}, `c${j}`);
+					}),
+					room.bonfire && /* @__PURE__ */ jsxs("g", { children: [
+						/* @__PURE__ */ jsx("circle", {
+							cx: (center[0] + .5) * cell,
+							cy: (center[1] + .5) * cell,
+							r: cell * .7,
+							fill: "hsl(24 95% 55%)",
+							fillOpacity: "0.2",
+							stroke: "hsl(24 95% 55%)"
+						}),
+						label((center[0] + .5) * cell, (center[1] + .7) * cell, "♨", "hsl(24 95% 45%)", 11),
+						label((center[0] + .5) * cell, (center[1] - .8) * cell, "SAFE", "hsl(var(--foreground))", 5)
+					] }),
+					traps.map((t, i) => {
+						const [cx, cy] = at(1 + i * 5);
+						const centerX = (cx + .5) * cell;
+						const centerY = (cy + .5) * cell;
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("polygon", {
+							points: `${centerX},${centerY - 5} ${centerX + 5},${centerY + 4} ${centerX - 5},${centerY + 4}`,
+							fill: "hsl(var(--destructive))",
+							fillOpacity: "0.8"
+						}), label(centerX, centerY + 2, "T", "hsl(var(--background))", 5)] }, `t${i}`);
+					}),
+					spawns.map((s, i) => {
+						const [cx, cy] = at(3 + i * 7);
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
+							cx: (cx + .5) * cell,
+							cy: (cy + .5) * cell,
+							r: cell * .3,
+							fill: "hsl(var(--primary))",
+							fillOpacity: "0.75"
+						}), label((cx + .5) * cell, (cy + .5) * cell + 2, String(i + 1), "hsl(var(--primary-foreground))", 5)] }, `s${i}`);
+					}),
 					loot.length > 0 && /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
-						x: (x0 + w / 2 - .4) * cell,
-						y: (y0 + h / 2 - .4) * cell,
-						width: cell * .8,
-						height: cell * .8,
-						transform: `rotate(45 ${(x0 + w / 2) * cell} ${(y0 + h / 2) * cell})`,
+						x: (center[0] + .15) * cell,
+						y: (center[1] + .15) * cell,
+						width: cell * .7,
+						height: cell * .7,
+						transform: `rotate(45 ${(center[0] + .5) * cell} ${(center[1] + .5) * cell})`,
 						fill: "hsl(45 95% 55%)",
-						fillOpacity: "0.8"
-					}), label((x0 + w / 2) * cell, (y0 + h / 2 - .8) * cell, "L", "hsl(var(--foreground))")] })
+						fillOpacity: "0.85"
+					}), label((center[0] + .5) * cell, (center[1] + .7) * cell, "L", "hsl(var(--foreground))", 5)] })
 				]
 			}),
 			/* @__PURE__ */ jsxs("div", {
@@ -36557,10 +36975,151 @@ function RoomBattleMap({ room }) {
 					/* @__PURE__ */ jsx("span", { children: "● spawn" }),
 					/* @__PURE__ */ jsx("span", { children: "◆ loot" }),
 					/* @__PURE__ */ jsx("span", { children: "▭ cover" }),
-					/* @__PURE__ */ jsx("span", { children: "◌ elevation" })
+					/* @__PURE__ */ jsx("span", { children: "◌ elevation" }),
+					room.bonfire && /* @__PURE__ */ jsx("span", { children: "♨ bonfire / short rest" })
 				]
 			})
 		]
+	});
+}
+//#endregion
+//#region src/components/skilltree/dungeon/RoomShapeBuilder.jsx
+function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
+	const w = Math.max(2, Math.min(20, Math.round(Number(room?.w) || 2)));
+	const h = Math.max(2, Math.min(20, Math.round(Number(room?.h) || 2)));
+	const [preset, setPreset] = useState("Rectangle");
+	const [cells, setCells] = useState(() => /* @__PURE__ */ new Set());
+	useEffect(() => {
+		if (!open || !room) return;
+		const initial = roomShapeCells({
+			...room,
+			w,
+			h
+		});
+		setCells(new Set(initial.map(([x, y]) => `${x},${y}`)));
+		setPreset("Custom");
+	}, [
+		open,
+		room,
+		w,
+		h
+	]);
+	const list = useMemo(() => [...cells].map((key) => key.split(",").map(Number)), [cells]);
+	const connected = list.length > 0 && cellsConnected(list);
+	const toggle = (x, y) => {
+		setCells((prev) => {
+			const next = new Set(prev);
+			const key = `${x},${y}`;
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			setPreset("Custom");
+			return next;
+		});
+	};
+	const applyPreset = (name) => {
+		setPreset(name);
+		setCells(new Set(shapeCells(w, h, name).map(([x, y]) => `${x},${y}`)));
+	};
+	const save = () => {
+		if (!connected) return;
+		onSave?.(list);
+		onOpenChange?.(false);
+	};
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange,
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-w-xl",
+			children: [
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Room builder — ", room?.name || "Room"] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
+					"Paint the floor cells for this battlemap. The shape must stay connected. The room's width and height define the grid (currently ",
+					w,
+					" × ",
+					h,
+					")."
+				] })] }),
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex flex-wrap items-center gap-2",
+					children: [
+						/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: "Preset"
+						}),
+						/* @__PURE__ */ jsxs(Select, {
+							value: preset,
+							onValueChange: applyPreset,
+							children: [/* @__PURE__ */ jsx(SelectTrigger, {
+								className: "h-8 w-36",
+								children: /* @__PURE__ */ jsx(SelectValue, {})
+							}), /* @__PURE__ */ jsx(SelectContent, { children: [...ROOM_SHAPES, "Custom"].map((shape) => /* @__PURE__ */ jsx(SelectItem, {
+								value: shape,
+								disabled: shape === "Custom",
+								children: shape
+							}, shape)) })]
+						}),
+						/* @__PURE__ */ jsxs("span", {
+							className: "text-[10px] text-muted-foreground",
+							children: [
+								list.length,
+								" cells · ",
+								connected ? "connected" : "disconnected"
+							]
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "ml-auto flex gap-1",
+							children: [/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								onClick: () => applyPreset("Rectangle"),
+								children: "Fill"
+							}), /* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								onClick: () => setCells(/* @__PURE__ */ new Set()),
+								children: "Clear"
+							})]
+						})
+					]
+				}),
+				/* @__PURE__ */ jsx("div", {
+					className: "overflow-auto rounded-md border p-2",
+					children: /* @__PURE__ */ jsx("div", {
+						className: "mx-auto grid w-max gap-0.5",
+						style: { gridTemplateColumns: `repeat(${w}, 2rem)` },
+						children: Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
+							const active = cells.has(`${x},${y}`);
+							return /* @__PURE__ */ jsx("button", {
+								type: "button",
+								title: `${x}, ${y}`,
+								onClick: () => toggle(x, y),
+								className: `h-8 w-8 rounded-sm border text-[9px] transition-colors ${active ? "border-primary bg-primary/35 text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"}`,
+								children: active ? "·" : ""
+							}, `${x},${y}`);
+						}))
+					})
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center justify-between gap-2",
+					children: [/* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: "Tip: L/T/U/cross shapes create natural choke points, cover lanes and flanking routes."
+					}), /* @__PURE__ */ jsxs("div", {
+						className: "flex shrink-0 gap-1",
+						children: [/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: () => onOpenChange?.(false),
+							children: "Cancel"
+						}), /* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							onClick: save,
+							disabled: !connected,
+							children: "Save shape"
+						})]
+					})]
+				})
+			]
+		})
 	});
 }
 //#endregion
@@ -36578,11 +37137,24 @@ var CONNECTORS = [
 	"Rubble passage",
 	"Rune-sealed door"
 ];
+var BLANK_ROOM = {
+	name: "New Room",
+	category: "Chamber",
+	minW: 6,
+	maxW: 12,
+	minH: 6,
+	maxH: 12,
+	environment: "",
+	elevation: "Flat",
+	cover: "Open",
+	connector: "Doorway"
+};
 function DungeonGenerator({ onExit, embedded = false }) {
 	const { settings, setSettings } = useTree();
 	const roomTemplates = settings?.library?.dungeonRooms?.length ? settings.library.dungeonRooms : DEFAULT_DUNGEON_ROOMS;
 	const monsters = settings?.library?.monsters || [];
 	const lootPools = settings?.library?.lootPools || [];
+	const encounterTables = settings?.library?.encounterTables || [];
 	const saved = settings?.library?.dungeons || [];
 	const [mode, setMode] = useState("single");
 	const [rank, setRank] = useState("E");
@@ -36596,10 +37168,13 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const [includeLoot, setIncludeLoot] = useState(true);
 	const [savedId, setSavedId] = useState("");
 	const [roomQuery, setRoomQuery] = useState("");
+	const [shapeOpen, setShapeOpen] = useState(false);
+	const [ctxMenu, setCtxMenu] = useState(null);
 	const pastRef = useRef([]);
 	const futureRef = useRef([]);
 	const clipRef = useRef(null);
 	const selected = dungeon?.rooms?.find((r) => r.id === selectedId) || null;
+	const ctxRoom = ctxMenu?.roomId ? dungeon?.rooms?.find((r) => r.id === ctxMenu.roomId) || null : null;
 	const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
 	const targets = crTargets(partyLevel);
 	const filteredTemplates = roomTemplates.filter((r) => {
@@ -36613,6 +37188,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			traps: rooms.filter((r) => (r.traps || []).length).length,
 			spawns: rooms.filter((r) => (r.spawns || []).length).length,
 			loot: rooms.filter((r) => (r.loot || []).length).length,
+			bonfires: rooms.filter((r) => r.bonfire).length,
 			connections: dungeon?.connections?.length || 0
 		};
 	}, [dungeon]);
@@ -36639,16 +37215,18 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		setDungeon(next);
 		setSelectedId(null);
 	};
-	const copyRoom = () => {
-		if (selected) {
-			clipRef.current = selected;
+	const copyRoom = (id = selectedId) => {
+		const room = dungeon?.rooms?.find((r) => r.id === id) || selected;
+		if (room) {
+			clipRef.current = room;
 			toast("Room copied.");
 		}
 	};
-	const cutRoom = () => {
-		if (!selected) return;
-		clipRef.current = selected;
-		removeRoom(selected.id);
+	const cutRoom = (id = selectedId) => {
+		const room = dungeon?.rooms?.find((r) => r.id === id) || selected;
+		if (!room) return;
+		clipRef.current = room;
+		removeRoom(room.id);
 		toast("Room cut.");
 	};
 	const pasteRoom = () => {
@@ -36676,15 +37254,21 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		});
 		if (selectedId === id) setSelectedId(null);
 	};
-	const rotateRoom = () => {
-		if (!selected || !dungeon) return;
+	const rotateRoom = (id = selectedId) => {
+		const room = dungeon?.rooms?.find((r) => r.id === id) || selected;
+		if (!room || !dungeon) return;
 		commit({
 			...dungeon,
-			rooms: dungeon.rooms.map((r) => r.id === selected.id ? {
-				...r,
-				w: r.h,
-				h: r.w
-			} : r)
+			rooms: dungeon.rooms.map((r) => {
+				if (r.id !== room.id) return r;
+				const cells = Array.isArray(r.cells) ? r.cells.map(([x, y]) => [r.h - 1 - y, x]) : void 0;
+				return {
+					...r,
+					w: r.h,
+					h: r.w,
+					cells
+				};
+			})
 		});
 	};
 	const addTemplate = (template) => {
@@ -36707,18 +37291,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			toast("Generate or load a dungeon first.");
 			return;
 		}
-		const room = roomFromTemplate({
-			name: "New Room",
-			category: "Chamber",
-			minW: 12,
-			maxW: 20,
-			minH: 12,
-			maxH: 20,
-			environment: "",
-			elevation: "Flat",
-			cover: "Open",
-			connector: "Doorway"
-		}, {
+		const room = roomFromTemplate(BLANK_ROOM, {
 			x: Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w)) + 4,
 			y: 0
 		});
@@ -36727,6 +37300,94 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			rooms: [...dungeon.rooms, room]
 		});
 		setSelectedId(room.id);
+	};
+	const duplicateRoom = (id = selectedId) => {
+		if (!dungeon) return;
+		const src = dungeon.rooms.find((r) => r.id === id);
+		if (!src) return;
+		const room = {
+			...src,
+			id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+			x: src.x + 3,
+			y: src.y + 3,
+			cells: Array.isArray(src.cells) ? src.cells.map(([x, y]) => [x, y]) : void 0,
+			traps: [...src.traps || []],
+			spawns: [...src.spawns || []],
+			loot: [...src.loot || []]
+		};
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room]
+		});
+		setSelectedId(room.id);
+		setCtxMenu(null);
+		toast("Room duplicated.");
+	};
+	const addConnectedRoom = (parentId = selectedId) => {
+		if (!dungeon) return;
+		const parent = dungeon.rooms.find((r) => r.id === parentId);
+		if (!parent) return;
+		const room = roomFromTemplate(BLANK_ROOM, {
+			x: parent.x + parent.w + 4,
+			y: parent.y
+		});
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room],
+			connections: [...dungeon.connections, {
+				id: `${parent.id}->${room.id}`,
+				from: parent.id,
+				to: room.id,
+				type: parent.connector || "Doorway"
+			}]
+		});
+		setSelectedId(room.id);
+		setCtxMenu(null);
+	};
+	const addRoomAt = (world) => {
+		if (!dungeon || !world) return;
+		const room = roomFromTemplate(BLANK_ROOM, {
+			x: Math.max(0, Math.round(world.x)),
+			y: Math.max(0, Math.round(world.y))
+		});
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room]
+		});
+		setSelectedId(room.id);
+		setCtxMenu(null);
+		toast("Room added. Use Edit shape to carve its footprint.");
+	};
+	const connectNearest = (id = selectedId) => {
+		if (!dungeon) return;
+		const src = dungeon.rooms.find((r) => r.id === id);
+		if (!src) return;
+		const nearest = dungeon.rooms.filter((r) => r.id !== id).sort((a, b) => {
+			return (a.x + a.w / 2 - (src.x + src.w / 2)) ** 2 + (a.y + a.h / 2 - (src.y + src.h / 2)) ** 2 - ((b.x + b.w / 2 - (src.x + src.w / 2)) ** 2 + (b.y + b.h / 2 - (src.y + src.h / 2)) ** 2);
+		})[0];
+		if (!nearest) return;
+		if (dungeon.connections.some((c) => c.from === src.id && c.to === nearest.id || c.from === nearest.id && c.to === src.id)) {
+			toast("These rooms are already connected.");
+			setCtxMenu(null);
+			return;
+		}
+		commit({
+			...dungeon,
+			connections: [...dungeon.connections, {
+				id: `${src.id}->${nearest.id}`,
+				from: src.id,
+				to: nearest.id,
+				type: src.connector || "Doorway"
+			}]
+		});
+		setCtxMenu(null);
+		toast(`Connected to ${nearest.name}.`);
+	};
+	const openShape = (id = selectedId) => {
+		if (!id) return;
+		setSelectedId(id);
+		setShapeOpen(true);
+		setCtxMenu(null);
 	};
 	const generate = () => {
 		const d = generateDungeon({
@@ -36825,6 +37486,16 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		if (!selected) return;
 		removeRoom(selected.id);
 	};
+	const rollRoomEncounter = (tableId) => {
+		const table = encounterTables.find((t) => t.id === tableId || t.name === tableId);
+		if (!table || !selected) return;
+		const result = rollEncounter(table, monsters);
+		patchSelected({
+			spawns: result.map((r) => `${r.count}× ${r.monster}`),
+			encounterTable: table.name || ""
+		});
+		toast(result.length ? `Rolled ${table.name}: ${result.map((r) => `${r.count}× ${r.monster}`).join(", ")}` : `${table.name} produced no monsters.`);
+	};
 	const saveSelectedAsTemplate = () => {
 		if (!selected) return;
 		const template = {
@@ -36843,7 +37514,9 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			spawns: [...selected.spawns || []],
 			loot: [...selected.loot || []],
 			notes: selected.notes,
-			cr0Only: !!selected.cr0Only
+			cr0Only: !!selected.cr0Only,
+			bonfire: !!selected.bonfire,
+			cells: Array.isArray(selected.cells) ? selected.cells.map(([x, y]) => [x, y]) : void 0
 		};
 		setSettings((s) => ({
 			...s,
@@ -36920,528 +37593,682 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	});
 	return /* @__PURE__ */ jsxs("div", {
 		className: `flex flex-col bg-background text-foreground ${embedded ? "h-[74vh] min-h-[560px]" : "h-screen"}`,
-		children: [/* @__PURE__ */ jsxs("header", {
-			className: "flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2",
-			children: [
-				!embedded && /* @__PURE__ */ jsx(Button, {
-					size: "icon",
-					variant: "outline",
-					className: "h-8 w-8",
-					title: "Back to menu",
-					onClick: onExit,
-					children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
-				}),
-				/* @__PURE__ */ jsxs("div", {
-					className: "min-w-0",
-					children: [/* @__PURE__ */ jsx("h1", {
-						className: "font-display text-base font-semibold leading-tight",
-						children: dungeon?.name || "Dungeon Generator"
-					}), /* @__PURE__ */ jsx("p", {
-						className: "text-[10px] text-muted-foreground",
-						children: dungeon ? `${rankInfo.nickname} · ${rankInfo.downtime} downtime · ${dungeon.mode === "spire" ? "Spire run" : "Single dungeon"}` : "Generate a single dungeon or a branching spire run"
-					})]
-				}),
-				/* @__PURE__ */ jsxs("div", {
-					className: "ml-auto flex flex-wrap items-center gap-1.5",
-					children: [
-						/* @__PURE__ */ jsxs(Button, {
-							size: "sm",
-							variant: "outline",
-							onClick: generate,
-							children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate"]
-						}),
-						/* @__PURE__ */ jsxs(Button, {
-							size: "sm",
-							variant: "outline",
-							disabled: !dungeon,
-							onClick: save,
-							children: [/* @__PURE__ */ jsx(Save, { className: "mr-1 h-4 w-4" }), " Save"]
-						}),
-						/* @__PURE__ */ jsxs(Button, {
-							size: "sm",
-							variant: "outline",
-							disabled: !dungeon,
-							onClick: download,
-							children: [/* @__PURE__ */ jsx(Download, { className: "mr-1 h-4 w-4" }), " Export"]
-						})
-					]
-				})
-			]
-		}), /* @__PURE__ */ jsxs("div", {
-			className: "flex min-h-0 flex-1",
-			children: [
-				/* @__PURE__ */ jsxs("aside", {
-					className: "w-64 shrink-0 space-y-3 overflow-y-auto border-r p-3",
-					children: [
-						/* @__PURE__ */ jsxs("div", {
-							className: "space-y-1.5",
-							children: [
-								/* @__PURE__ */ jsx("p", {
-									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-									children: "Dungeon"
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "grid grid-cols-2 gap-1.5",
-									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Mode"
-									}), /* @__PURE__ */ jsxs(Select, {
-										value: mode,
-										onValueChange: setMode,
-										children: [/* @__PURE__ */ jsx(SelectTrigger, {
-											className: "h-8",
-											children: /* @__PURE__ */ jsx(SelectValue, {})
-										}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-											value: "single",
-											children: "Single dungeon"
-										}), /* @__PURE__ */ jsx(SelectItem, {
-											value: "spire",
-											children: "Spire run"
+		children: [
+			/* @__PURE__ */ jsxs("header", {
+				className: "flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2",
+				children: [
+					!embedded && /* @__PURE__ */ jsx(Button, {
+						size: "icon",
+						variant: "outline",
+						className: "h-8 w-8",
+						title: "Back to menu",
+						onClick: onExit,
+						children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "min-w-0",
+						children: [/* @__PURE__ */ jsx("h1", {
+							className: "font-display text-base font-semibold leading-tight",
+							children: dungeon?.name || "Dungeon Generator"
+						}), /* @__PURE__ */ jsx("p", {
+							className: "text-[10px] text-muted-foreground",
+							children: dungeon ? `${rankInfo.nickname} · ${rankInfo.downtime} downtime · ${dungeon.mode === "spire" ? "Spire run" : "Single dungeon"}` : "Generate a single dungeon or a branching spire run"
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "ml-auto flex flex-wrap items-center gap-1.5",
+						children: [
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								onClick: generate,
+								children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate"]
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								disabled: !dungeon,
+								onClick: save,
+								children: [/* @__PURE__ */ jsx(Save, { className: "mr-1 h-4 w-4" }), " Save"]
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								disabled: !dungeon,
+								onClick: download,
+								children: [/* @__PURE__ */ jsx(Download, { className: "mr-1 h-4 w-4" }), " Export"]
+							})
+						]
+					})
+				]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex min-h-0 flex-1",
+				children: [
+					/* @__PURE__ */ jsxs("aside", {
+						className: "w-64 shrink-0 space-y-3 overflow-y-auto border-r p-3",
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "space-y-1.5",
+								children: [
+									/* @__PURE__ */ jsx("p", {
+										className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+										children: "Dungeon"
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "grid grid-cols-2 gap-1.5",
+										children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Mode"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: mode,
+											onValueChange: setMode,
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+												value: "single",
+												children: "Single dungeon"
+											}), /* @__PURE__ */ jsx(SelectItem, {
+												value: "spire",
+												children: "Spire run"
+											})] })]
+										})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Rank"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: rank,
+											onValueChange: (v) => {
+												setRank(v);
+												const first = Number(String(DUNGEON_RANKS[v]?.level || "1").match(/\d+/)?.[0] || 1);
+												setPartyLevel(Math.max(1, first));
+											},
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: Object.values(DUNGEON_RANKS).map((r) => /* @__PURE__ */ jsxs(SelectItem, {
+												value: r.label,
+												children: [
+													r.label,
+													" — ",
+													r.nickname
+												]
+											}, r.label)) })]
 										})] })]
-									})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+									}),
+									/* @__PURE__ */ jsx(Label, {
 										className: "text-[10px]",
-										children: "Rank"
-									}), /* @__PURE__ */ jsxs(Select, {
-										value: rank,
-										onValueChange: (v) => {
-											setRank(v);
-											const first = Number(String(DUNGEON_RANKS[v]?.level || "1").match(/\d+/)?.[0] || 1);
-											setPartyLevel(Math.max(1, first));
-										},
+										children: "Seed"
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "flex gap-1",
+										children: [/* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											value: seed,
+											onChange: (e) => setSeed(e.target.value),
+											placeholder: "Seed"
+										}), /* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-8 shrink-0",
+											onClick: () => setSeed(randomSeed()),
+											title: "New seed",
+											children: /* @__PURE__ */ jsx(Dices, { className: "h-4 w-4" })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("p", {
+										className: "text-[10px] text-muted-foreground",
+										children: [
+											rankInfo.rooms,
+											" encounters · levels ",
+											rankInfo.level,
+											" · prof +",
+											rankInfo.prof
+										]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "grid grid-cols-2 gap-1.5",
+										children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Players"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											type: "number",
+											min: 1,
+											max: 12,
+											value: players,
+											onChange: (e) => setPlayers(Math.max(1, Math.min(12, Number(e.target.value) || 1)))
+										})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Party level"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											type: "number",
+											min: 0,
+											max: 30,
+											value: partyLevel,
+											onChange: (e) => setPartyLevel(Math.max(0, Math.min(30, Number(e.target.value) || 0)))
+										})] })]
+									}),
+									/* @__PURE__ */ jsxs("p", {
+										className: "text-[10px] text-muted-foreground",
+										children: [
+											"~",
+											players * 2,
+											" monsters total per combat room · target CR",
+											" ",
+											dungeon?.encounterScale?.targetCR ?? targets.targetCR,
+											" · max CR",
+											" ",
+											dungeon?.encounterScale?.maxCR ?? targets.maxCR
+										]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "space-y-1.5 border-t pt-2",
+								children: [
+									/* @__PURE__ */ jsx("p", {
+										className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+										children: "Include"
+									}),
+									/* @__PURE__ */ jsxs("label", {
+										className: "flex items-center justify-between text-xs",
+										children: ["Traps ", /* @__PURE__ */ jsx(Switch, {
+											checked: includeTraps,
+											onCheckedChange: setIncludeTraps
+										})]
+									}),
+									/* @__PURE__ */ jsxs("label", {
+										className: "flex items-center justify-between text-xs",
+										children: ["Spawns ", /* @__PURE__ */ jsx(Switch, {
+											checked: includeSpawns,
+											onCheckedChange: setIncludeSpawns
+										})]
+									}),
+									/* @__PURE__ */ jsxs("label", {
+										className: "flex items-center justify-between text-xs",
+										children: ["Loot ", /* @__PURE__ */ jsx(Switch, {
+											checked: includeLoot,
+											onCheckedChange: setIncludeLoot
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "space-y-1.5 border-t pt-2",
+								children: [/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+									children: "Saved dungeons"
+								}), saved.length === 0 ? /* @__PURE__ */ jsx("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: "None saved yet."
+								}) : /* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsxs(Select, {
+										value: savedId,
+										onValueChange: load,
 										children: [/* @__PURE__ */ jsx(SelectTrigger, {
 											className: "h-8",
-											children: /* @__PURE__ */ jsx(SelectValue, {})
-										}), /* @__PURE__ */ jsx(SelectContent, { children: Object.values(DUNGEON_RANKS).map((r) => /* @__PURE__ */ jsxs(SelectItem, {
-											value: r.label,
-											children: [
-												r.label,
-												" — ",
-												r.nickname
-											]
-										}, r.label)) })]
-									})] })]
-								}),
-								/* @__PURE__ */ jsx(Label, {
-									className: "text-[10px]",
-									children: "Seed"
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "flex gap-1",
-									children: [/* @__PURE__ */ jsx(Input, {
-										className: "h-8",
-										value: seed,
-										onChange: (e) => setSeed(e.target.value),
-										placeholder: "Seed"
-									}), /* @__PURE__ */ jsx(Button, {
+											children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Load a dungeon…" })
+										}), /* @__PURE__ */ jsx(SelectContent, { children: saved.map((d) => /* @__PURE__ */ jsx(SelectItem, {
+											value: d.id,
+											children: d.name || "Dungeon"
+										}, d.id)) })]
+									}), savedId && /* @__PURE__ */ jsxs(Button, {
+										size: "sm",
+										variant: "ghost",
+										className: "h-7 text-xs text-destructive",
+										onClick: () => removeSaved(savedId),
+										children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Delete saved"]
+									})]
+								})]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "space-y-1.5 border-t pt-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "flex items-center justify-between",
+										children: [/* @__PURE__ */ jsx("p", {
+											className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+											children: "Room library"
+										}), /* @__PURE__ */ jsx("span", {
+											className: "text-[10px] text-muted-foreground",
+											children: roomTemplates.length
+										})]
+									}),
+									/* @__PURE__ */ jsx(Input, {
+										className: "h-7 text-xs",
+										placeholder: "Search rooms…",
+										value: roomQuery,
+										onChange: (e) => setRoomQuery(e.target.value)
+									}),
+									/* @__PURE__ */ jsxs(Button, {
 										size: "sm",
 										variant: "outline",
-										className: "h-8 shrink-0",
-										onClick: () => setSeed(randomSeed()),
-										title: "New seed",
-										children: /* @__PURE__ */ jsx(Dices, { className: "h-4 w-4" })
-									})]
-								}),
-								/* @__PURE__ */ jsxs("p", {
-									className: "text-[10px] text-muted-foreground",
-									children: [
-										rankInfo.rooms,
-										" encounters · levels ",
-										rankInfo.level,
-										" · prof +",
-										rankInfo.prof
-									]
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "grid grid-cols-2 gap-1.5",
-									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Players"
-									}), /* @__PURE__ */ jsx(Input, {
-										className: "h-8",
-										type: "number",
-										min: 1,
-										max: 12,
-										value: players,
-										onChange: (e) => setPlayers(Math.max(1, Math.min(12, Number(e.target.value) || 1)))
-									})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Party level"
-									}), /* @__PURE__ */ jsx(Input, {
-										className: "h-8",
-										type: "number",
-										min: 0,
-										max: 30,
-										value: partyLevel,
-										onChange: (e) => setPartyLevel(Math.max(0, Math.min(30, Number(e.target.value) || 0)))
-									})] })]
-								}),
-								/* @__PURE__ */ jsxs("p", {
-									className: "text-[10px] text-muted-foreground",
-									children: [
-										"~",
-										players * 2,
-										" monsters total per combat room · target CR",
-										" ",
-										dungeon?.encounterScale?.targetCR ?? targets.targetCR,
-										" · max CR",
-										" ",
-										dungeon?.encounterScale?.maxCR ?? targets.maxCR
-									]
+										className: "h-7 w-full text-xs",
+										onClick: addBlankRoom,
+										children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Add blank room"]
+									}),
+									/* @__PURE__ */ jsx("div", {
+										className: "max-h-52 space-y-1 overflow-y-auto pr-1",
+										children: filteredTemplates.map((r) => /* @__PURE__ */ jsxs("button", {
+											type: "button",
+											onClick: () => addTemplate(r),
+											className: "w-full rounded border px-1.5 py-1 text-left text-[10px] hover:bg-accent",
+											title: "Add this room to the dungeon",
+											children: [/* @__PURE__ */ jsx("div", {
+												className: "truncate font-medium",
+												children: r.name
+											}), /* @__PURE__ */ jsxs("div", {
+												className: "truncate text-muted-foreground",
+												children: [
+													r.category,
+													" · ",
+													r.minW,
+													"–",
+													r.maxW,
+													"×",
+													r.minH,
+													"–",
+													r.maxH
+												]
+											})]
+										}, r.id))
+									}),
+									/* @__PURE__ */ jsx("p", {
+										className: "text-[10px] text-muted-foreground",
+										children: "Edit room templates in Reference Library → Dungeon Rooms."
+									})
+								]
+							})
+						]
+					}),
+					/* @__PURE__ */ jsx("main", {
+						className: "flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto p-3",
+						children: dungeon ? /* @__PURE__ */ jsxs(Fragment, { children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
+								children: [
+									/* @__PURE__ */ jsxs("span", { children: [stats.rooms, " rooms"] }),
+									/* @__PURE__ */ jsxs("span", { children: [
+										"· ",
+										stats.connections,
+										" links"
+									] }),
+									/* @__PURE__ */ jsxs("span", { children: [
+										"· ",
+										stats.traps,
+										" trapped"
+									] }),
+									/* @__PURE__ */ jsxs("span", { children: [
+										"· ",
+										stats.spawns,
+										" with spawns"
+									] }),
+									/* @__PURE__ */ jsxs("span", { children: [
+										"· ",
+										stats.loot,
+										" with loot"
+									] }),
+									/* @__PURE__ */ jsxs("span", { children: [
+										"· ",
+										stats.bonfires,
+										" bonfire rest stops"
+									] })
+								]
+							}),
+							/* @__PURE__ */ jsx("div", {
+								className: "min-h-0 flex-1",
+								children: /* @__PURE__ */ jsx(DungeonMap, {
+									dungeon,
+									selectedId,
+									onSelect: setSelectedId,
+									onMoveRoom: moveRoom,
+									onResizeRoom: resizeRoom,
+									onContextMenu: setCtxMenu
 								})
-							]
-						}),
-						/* @__PURE__ */ jsxs("div", {
-							className: "space-y-1.5 border-t pt-2",
+							}),
+							/* @__PURE__ */ jsx("div", {
+								className: "flex flex-wrap gap-1.5",
+								children: DUNGEON_CATEGORIES.map(([cat, color]) => /* @__PURE__ */ jsxs("span", {
+									className: "inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[9px]",
+									children: [/* @__PURE__ */ jsx("span", {
+										className: "h-2 w-2 rounded-full",
+										style: { background: color }
+									}), cat]
+								}, cat))
+							})
+						] }) : /* @__PURE__ */ jsxs("div", {
+							className: "flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed p-8 text-center",
 							children: [
 								/* @__PURE__ */ jsx("p", {
-									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-									children: "Include"
+									className: "text-sm font-medium",
+									children: "No dungeon generated"
 								}),
-								/* @__PURE__ */ jsxs("label", {
-									className: "flex items-center justify-between text-xs",
-									children: ["Traps ", /* @__PURE__ */ jsx(Switch, {
-										checked: includeTraps,
-										onCheckedChange: setIncludeTraps
-									})]
+								/* @__PURE__ */ jsx("p", {
+									className: "max-w-sm text-xs text-muted-foreground",
+									children: "Pick a mode and rank, then Generate. A single dungeon gives a connected sequence with branches; a spire run gives a branching Slay-the-Spire-style map."
 								}),
-								/* @__PURE__ */ jsxs("label", {
-									className: "flex items-center justify-between text-xs",
-									children: ["Spawns ", /* @__PURE__ */ jsx(Switch, {
-										checked: includeSpawns,
-										onCheckedChange: setIncludeSpawns
-									})]
-								}),
-								/* @__PURE__ */ jsxs("label", {
-									className: "flex items-center justify-between text-xs",
-									children: ["Loot ", /* @__PURE__ */ jsx(Switch, {
-										checked: includeLoot,
-										onCheckedChange: setIncludeLoot
-									})]
+								/* @__PURE__ */ jsxs(Button, {
+									onClick: generate,
+									children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate dungeon"]
 								})
 							]
-						}),
-						/* @__PURE__ */ jsxs("div", {
-							className: "space-y-1.5 border-t pt-2",
-							children: [/* @__PURE__ */ jsx("p", {
-								className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-								children: "Saved dungeons"
-							}), saved.length === 0 ? /* @__PURE__ */ jsx("p", {
-								className: "text-[10px] text-muted-foreground",
-								children: "None saved yet."
-							}) : /* @__PURE__ */ jsxs("div", {
-								className: "space-y-1",
-								children: [/* @__PURE__ */ jsxs(Select, {
-									value: savedId,
-									onValueChange: load,
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-8",
-										children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Load a dungeon…" })
-									}), /* @__PURE__ */ jsx(SelectContent, { children: saved.map((d) => /* @__PURE__ */ jsx(SelectItem, {
-										value: d.id,
-										children: d.name || "Dungeon"
-									}, d.id)) })]
-								}), savedId && /* @__PURE__ */ jsxs(Button, {
-									size: "sm",
-									variant: "ghost",
-									className: "h-7 text-xs text-destructive",
-									onClick: () => removeSaved(savedId),
-									children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Delete saved"]
-								})]
-							})]
-						}),
-						/* @__PURE__ */ jsxs("div", {
-							className: "space-y-1.5 border-t pt-2",
+						})
+					}),
+					/* @__PURE__ */ jsx("aside", {
+						className: "w-80 shrink-0 overflow-y-auto border-l p-3",
+						children: selected ? /* @__PURE__ */ jsxs("div", {
+							className: "space-y-2",
 							children: [
 								/* @__PURE__ */ jsxs("div", {
 									className: "flex items-center justify-between",
 									children: [/* @__PURE__ */ jsx("p", {
 										className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-										children: "Room library"
+										children: "Room"
 									}), /* @__PURE__ */ jsx("span", {
-										className: "text-[10px] text-muted-foreground",
-										children: roomTemplates.length
+										className: "text-[10px]",
+										style: { color: categoryColor(selected.category) },
+										children: selected.category
 									})]
 								}),
 								/* @__PURE__ */ jsx(Input, {
-									className: "h-7 text-xs",
-									placeholder: "Search rooms…",
-									value: roomQuery,
-									onChange: (e) => setRoomQuery(e.target.value)
+									className: "h-8",
+									value: selected.name,
+									onChange: (e) => patchSelected({ name: e.target.value })
 								}),
-								/* @__PURE__ */ jsxs(Button, {
-									size: "sm",
-									variant: "outline",
-									className: "h-7 w-full text-xs",
-									onClick: addBlankRoom,
-									children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Add blank room"]
+								/* @__PURE__ */ jsxs("div", {
+									className: "grid grid-cols-2 gap-1.5",
+									children: [
+										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Category"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: selected.category,
+											onValueChange: (v) => patchSelected({ category: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: DUNGEON_CATEGORIES.map(([cat]) => /* @__PURE__ */ jsx(SelectItem, {
+												value: cat,
+												children: cat
+											}, cat)) })]
+										})] }),
+										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Connector"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: selected.connector || "Doorway",
+											onValueChange: (v) => patchSelected({ connector: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: CONNECTORS.map((c) => /* @__PURE__ */ jsx(SelectItem, {
+												value: c,
+												children: c
+											}, c)) })]
+										})] }),
+										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Width (spaces)"
+										}), /* @__PURE__ */ jsx(Input, {
+											type: "number",
+											min: 2,
+											max: 20,
+											className: "h-8",
+											value: selected.w,
+											onChange: (e) => patchSelected({ w: Math.max(2, Math.min(20, Number(e.target.value) || 2)) })
+										})] }),
+										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Height (spaces)"
+										}), /* @__PURE__ */ jsx(Input, {
+											type: "number",
+											min: 2,
+											max: 20,
+											className: "h-8",
+											value: selected.h,
+											onChange: (e) => patchSelected({ h: Math.max(2, Math.min(20, Number(e.target.value) || 2)) })
+										})] })
+									]
 								}),
-								/* @__PURE__ */ jsx("div", {
-									className: "max-h-52 space-y-1 overflow-y-auto pr-1",
-									children: filteredTemplates.map((r) => /* @__PURE__ */ jsxs("button", {
-										type: "button",
-										onClick: () => addTemplate(r),
-										className: "w-full rounded border px-1.5 py-1 text-left text-[10px] hover:bg-accent",
-										title: "Add this room to the dungeon",
-										children: [/* @__PURE__ */ jsx("div", {
-											className: "truncate font-medium",
-											children: r.name
-										}), /* @__PURE__ */ jsxs("div", {
-											className: "truncate text-muted-foreground",
-											children: [
-												r.category,
-												" · ",
-												r.minW,
-												"–",
-												r.maxW,
-												"×",
-												r.minH,
-												"–",
-												r.maxH
-											]
-										})]
-									}, r.id))
+								/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Environment"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									value: selected.environment || "",
+									onChange: (e) => patchSelected({ environment: e.target.value })
+								})] }),
+								/* @__PURE__ */ jsxs("div", {
+									className: "grid grid-cols-2 gap-1.5",
+									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Elevation"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: selected.elevation || "",
+										onChange: (e) => patchSelected({ elevation: e.target.value })
+									})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Cover"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: selected.cover || "",
+										onChange: (e) => patchSelected({ cover: e.target.value })
+									})] })]
 								}),
-								/* @__PURE__ */ jsx("p", {
-									className: "text-[10px] text-muted-foreground",
-									children: "Edit room templates in Reference Library → Dungeon Rooms."
+								encounterTables.length > 0 && /* @__PURE__ */ jsxs("div", { children: [
+									/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Roll encounter table into spawns"
+									}),
+									/* @__PURE__ */ jsxs(Select, {
+										value: "",
+										onValueChange: rollRoomEncounter,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a table…" })
+										}), /* @__PURE__ */ jsx(SelectContent, { children: encounterTables.map((t, i) => /* @__PURE__ */ jsx(SelectItem, {
+											value: t.id || t.name,
+											children: t.name || "Encounter table"
+										}, t.id || `${t.name}-${i}`)) })]
+									}),
+									selected.encounterTable && /* @__PURE__ */ jsxs("p", {
+										className: "mt-0.5 text-[9px] text-muted-foreground",
+										children: ["Last rolled: ", selected.encounterTable]
+									})
+								] }),
+								[
+									["traps", "Traps (one per line)"],
+									["spawns", "Enemy spawns / placement"],
+									["loot", "Loot (not on a creature)"]
+								].map(([key, label]) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: label
+								}), /* @__PURE__ */ jsx(Textarea, {
+									className: "min-h-14 text-xs",
+									rows: 2,
+									value: lines(selected[key]),
+									onChange: (e) => patchSelected({ [key]: split(e.target.value) })
+								})] }, key)),
+								/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Notes"
+								}), /* @__PURE__ */ jsx(Textarea, {
+									className: "min-h-14 text-xs",
+									rows: 2,
+									value: selected.notes || "",
+									onChange: (e) => patchSelected({ notes: e.target.value })
+								})] }),
+								/* @__PURE__ */ jsxs("label", {
+									className: "flex items-center justify-between rounded border px-2 py-1 text-[10px]",
+									children: ["CR 0 creatures only (animal den)", /* @__PURE__ */ jsx(Switch, {
+										checked: !!selected.cr0Only,
+										onCheckedChange: (v) => patchSelected({ cr0Only: v })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "flex items-center justify-between gap-2 rounded border px-2 py-1 text-[10px]",
+									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("p", {
+										className: "font-medium",
+										children: ["Footprint", Array.isArray(selected.cells) ? ` · ${selected.cells.length} cells` : " · rectangle"]
+									}), /* @__PURE__ */ jsx("p", {
+										className: "text-muted-foreground",
+										children: selected.bonfire ? "Bonfire safe zone · short rest" : "Carve L/T/U/cross or painted shapes."
+									})] }), /* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 shrink-0 text-xs",
+										onClick: () => openShape(selected.id),
+										children: "Edit shape"
+									})]
+								}),
+								/* @__PURE__ */ jsx(RoomBattleMap, { room: selected }),
+								/* @__PURE__ */ jsxs("div", {
+									className: "flex flex-wrap gap-1.5 border-t pt-2",
+									children: [
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-7 text-xs",
+											onClick: saveSelectedAsTemplate,
+											children: "Save as room template"
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-7 text-xs",
+											onClick: rotateRoom,
+											children: "Rotate 90°"
+										}),
+										/* @__PURE__ */ jsxs(Button, {
+											size: "sm",
+											variant: "ghost",
+											className: "h-7 text-xs text-destructive",
+											onClick: removeSelected,
+											children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Remove room"]
+										})
+									]
 								})
 							]
+						}) : /* @__PURE__ */ jsx("p", {
+							className: "text-xs text-muted-foreground",
+							children: "Select a room on the map to edit its size, environment, elevation, cover, traps, spawns and loot."
 						})
-					]
-				}),
-				/* @__PURE__ */ jsx("main", {
-					className: "flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto p-3",
-					children: dungeon ? /* @__PURE__ */ jsxs(Fragment, { children: [
-						/* @__PURE__ */ jsxs("div", {
-							className: "flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
-							children: [
-								/* @__PURE__ */ jsxs("span", { children: [stats.rooms, " rooms"] }),
-								/* @__PURE__ */ jsxs("span", { children: [
-									"· ",
-									stats.connections,
-									" links"
-								] }),
-								/* @__PURE__ */ jsxs("span", { children: [
-									"· ",
-									stats.traps,
-									" trapped"
-								] }),
-								/* @__PURE__ */ jsxs("span", { children: [
-									"· ",
-									stats.spawns,
-									" with spawns"
-								] }),
-								/* @__PURE__ */ jsxs("span", { children: [
-									"· ",
-									stats.loot,
-									" with loot"
-								] })
-							]
-						}),
-						/* @__PURE__ */ jsx("div", {
-							className: "min-h-0 flex-1",
-							children: /* @__PURE__ */ jsx(DungeonMap, {
-								dungeon,
-								selectedId,
-								onSelect: setSelectedId,
-								onMoveRoom: moveRoom,
-								onResizeRoom: resizeRoom
-							})
-						}),
-						/* @__PURE__ */ jsx("div", {
-							className: "flex flex-wrap gap-1.5",
-							children: DUNGEON_CATEGORIES.map(([cat, color]) => /* @__PURE__ */ jsxs("span", {
-								className: "inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[9px]",
-								children: [/* @__PURE__ */ jsx("span", {
-									className: "h-2 w-2 rounded-full",
-									style: { background: color }
-								}), cat]
-							}, cat))
-						})
-					] }) : /* @__PURE__ */ jsxs("div", {
-						className: "flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed p-8 text-center",
-						children: [
-							/* @__PURE__ */ jsx("p", {
-								className: "text-sm font-medium",
-								children: "No dungeon generated"
-							}),
-							/* @__PURE__ */ jsx("p", {
-								className: "max-w-sm text-xs text-muted-foreground",
-								children: "Pick a mode and rank, then Generate. A single dungeon gives a connected sequence with branches; a spire run gives a branching Slay-the-Spire-style map."
-							}),
-							/* @__PURE__ */ jsxs(Button, {
-								onClick: generate,
-								children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate dungeon"]
-							})
-						]
 					})
-				}),
-				/* @__PURE__ */ jsx("aside", {
-					className: "w-80 shrink-0 overflow-y-auto border-l p-3",
-					children: selected ? /* @__PURE__ */ jsxs("div", {
-						className: "space-y-2",
-						children: [
-							/* @__PURE__ */ jsxs("div", {
-								className: "flex items-center justify-between",
-								children: [/* @__PURE__ */ jsx("p", {
-									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-									children: "Room"
-								}), /* @__PURE__ */ jsx("span", {
-									className: "text-[10px]",
-									style: { color: categoryColor(selected.category) },
-									children: selected.category
-								})]
-							}),
-							/* @__PURE__ */ jsx(Input, {
-								className: "h-8",
-								value: selected.name,
-								onChange: (e) => patchSelected({ name: e.target.value })
-							}),
-							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-2 gap-1.5",
-								children: [
-									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Category"
-									}), /* @__PURE__ */ jsxs(Select, {
-										value: selected.category,
-										onValueChange: (v) => patchSelected({ category: v }),
-										children: [/* @__PURE__ */ jsx(SelectTrigger, {
-											className: "h-8",
-											children: /* @__PURE__ */ jsx(SelectValue, {})
-										}), /* @__PURE__ */ jsx(SelectContent, { children: DUNGEON_CATEGORIES.map(([cat]) => /* @__PURE__ */ jsx(SelectItem, {
-											value: cat,
-											children: cat
-										}, cat)) })]
-									})] }),
-									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Connector"
-									}), /* @__PURE__ */ jsxs(Select, {
-										value: selected.connector || "Doorway",
-										onValueChange: (v) => patchSelected({ connector: v }),
-										children: [/* @__PURE__ */ jsx(SelectTrigger, {
-											className: "h-8",
-											children: /* @__PURE__ */ jsx(SelectValue, {})
-										}), /* @__PURE__ */ jsx(SelectContent, { children: CONNECTORS.map((c) => /* @__PURE__ */ jsx(SelectItem, {
-											value: c,
-											children: c
-										}, c)) })]
-									})] }),
-									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Width (spaces)"
-									}), /* @__PURE__ */ jsx(Input, {
-										type: "number",
-										min: 2,
-										max: 20,
-										className: "h-8",
-										value: selected.w,
-										onChange: (e) => patchSelected({ w: Math.max(2, Math.min(20, Number(e.target.value) || 2)) })
-									})] }),
-									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Height (spaces)"
-									}), /* @__PURE__ */ jsx(Input, {
-										type: "number",
-										min: 2,
-										max: 20,
-										className: "h-8",
-										value: selected.h,
-										onChange: (e) => patchSelected({ h: Math.max(2, Math.min(20, Number(e.target.value) || 2)) })
-									})] })
-								]
-							}),
-							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-								className: "text-[10px]",
-								children: "Environment"
-							}), /* @__PURE__ */ jsx(Input, {
-								className: "h-8",
-								value: selected.environment || "",
-								onChange: (e) => patchSelected({ environment: e.target.value })
-							})] }),
-							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-2 gap-1.5",
-								children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-									className: "text-[10px]",
-									children: "Elevation"
-								}), /* @__PURE__ */ jsx(Input, {
-									className: "h-8",
-									value: selected.elevation || "",
-									onChange: (e) => patchSelected({ elevation: e.target.value })
-								})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-									className: "text-[10px]",
-									children: "Cover"
-								}), /* @__PURE__ */ jsx(Input, {
-									className: "h-8",
-									value: selected.cover || "",
-									onChange: (e) => patchSelected({ cover: e.target.value })
-								})] })]
-							}),
-							[
-								["traps", "Traps (one per line)"],
-								["spawns", "Enemy spawns / placement"],
-								["loot", "Loot (not on a creature)"]
-							].map(([key, label]) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-								className: "text-[10px]",
-								children: label
-							}), /* @__PURE__ */ jsx(Textarea, {
-								className: "min-h-14 text-xs",
-								rows: 2,
-								value: lines(selected[key]),
-								onChange: (e) => patchSelected({ [key]: split(e.target.value) })
-							})] }, key)),
-							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-								className: "text-[10px]",
-								children: "Notes"
-							}), /* @__PURE__ */ jsx(Textarea, {
-								className: "min-h-14 text-xs",
-								rows: 2,
-								value: selected.notes || "",
-								onChange: (e) => patchSelected({ notes: e.target.value })
-							})] }),
-							/* @__PURE__ */ jsxs("label", {
-								className: "flex items-center justify-between rounded border px-2 py-1 text-[10px]",
-								children: ["CR 0 creatures only (animal den)", /* @__PURE__ */ jsx(Switch, {
-									checked: !!selected.cr0Only,
-									onCheckedChange: (v) => patchSelected({ cr0Only: v })
-								})]
-							}),
-							/* @__PURE__ */ jsx(RoomBattleMap, { room: selected }),
-							/* @__PURE__ */ jsxs("div", {
-								className: "flex flex-wrap gap-1.5 border-t pt-2",
-								children: [
-									/* @__PURE__ */ jsx(Button, {
-										size: "sm",
-										variant: "outline",
-										className: "h-7 text-xs",
-										onClick: saveSelectedAsTemplate,
-										children: "Save as room template"
-									}),
-									/* @__PURE__ */ jsx(Button, {
-										size: "sm",
-										variant: "outline",
-										className: "h-7 text-xs",
-										onClick: rotateRoom,
-										children: "Rotate 90°"
-									}),
-									/* @__PURE__ */ jsxs(Button, {
-										size: "sm",
-										variant: "ghost",
-										className: "h-7 text-xs text-destructive",
-										onClick: removeSelected,
-										children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Remove room"]
-									})
-								]
-							})
-						]
-					}) : /* @__PURE__ */ jsx("p", {
-						className: "text-xs text-muted-foreground",
-						children: "Select a room on the map to edit its size, environment, elevation, cover, traps, spawns and loot."
+				]
+			}),
+			/* @__PURE__ */ jsx(RoomShapeBuilder, {
+				open: shapeOpen,
+				onOpenChange: setShapeOpen,
+				room: selected,
+				onSave: (cells) => {
+					if (selected) patchSelected({ cells });
+					toast.success("Room footprint updated.");
+				}
+			}),
+			ctxMenu && /* @__PURE__ */ jsx("div", {
+				className: "fixed inset-0 z-50",
+				onPointerDown: () => setCtxMenu(null),
+				onContextMenu: (e) => {
+					e.preventDefault();
+					setCtxMenu(null);
+				},
+				children: /* @__PURE__ */ jsx("div", {
+					className: "fixed z-50 w-52 rounded-md border bg-popover p-1 text-xs shadow-lg",
+					style: {
+						left: Math.min(ctxMenu.x, window.innerWidth - 220),
+						top: Math.min(ctxMenu.y, window.innerHeight - 300)
+					},
+					onPointerDown: (e) => e.stopPropagation(),
+					children: ctxRoom ? /* @__PURE__ */ jsxs(Fragment, { children: [
+						/* @__PURE__ */ jsx("div", {
+							className: "truncate px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+							children: ctxRoom.name
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => {
+								setSelectedId(ctxRoom.id);
+								setCtxMenu(null);
+							},
+							children: "Edit room"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => openShape(ctxRoom.id),
+							children: "Edit footprint shape…"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => duplicateRoom(ctxRoom.id),
+							children: "Duplicate room"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => {
+								setSelectedId(ctxRoom.id);
+								copyRoom(ctxRoom.id);
+								setCtxMenu(null);
+							},
+							children: "Copy room"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => {
+								setSelectedId(ctxRoom.id);
+								cutRoom(ctxRoom.id);
+								setCtxMenu(null);
+							},
+							children: "Cut room"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => {
+								setSelectedId(ctxRoom.id);
+								rotateRoom(ctxRoom.id);
+								setCtxMenu(null);
+							},
+							children: "Rotate 90°"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => addConnectedRoom(ctxRoom.id),
+							children: "Add connected room"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+							onClick: () => connectNearest(ctxRoom.id),
+							children: "Connect to nearest room"
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							className: "w-full rounded px-2 py-1 text-left text-destructive hover:bg-accent",
+							onClick: () => {
+								removeRoom(ctxRoom.id);
+								setCtxMenu(null);
+							},
+							children: "Delete room"
+						})
+					] }) : /* @__PURE__ */ jsx("button", {
+						type: "button",
+						className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
+						onClick: () => addRoomAt(ctxMenu.world),
+						children: "Add room here"
 					})
 				})
-			]
-		})]
+			})
+		]
 	});
 }
 //#endregion

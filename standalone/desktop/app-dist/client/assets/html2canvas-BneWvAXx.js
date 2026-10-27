@@ -1,0 +1,1 @@
+import{n as e}from"./routes-CMseJbl2.js";export default e();

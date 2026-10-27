@@ -30,6 +30,9 @@ export const DUNGEON_ENVIRONMENTS = [
   "Frozen halls", "Shadowed crypt", "Overgrown temple", "Mine shafts", "Arcane laboratory",
 ];
 
+// Encounters that earn a bonfire rest stop after every second one.
+const ENCOUNTER_CATEGORIES = new Set(["Chamber", "Trap", "Puzzle", "Elite", "Boss"]);
+
 const TRAP_POOL = [
   "Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
   "Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
@@ -235,6 +238,17 @@ export const DEFAULT_DUNGEON_ROOMS = [
     spawns: [], loot: ["Raw ore: 1 rank loot roll"],
     notes: "Old supports and a vertical shortcut between levels.",
   },
+  {
+    id: "room-bonfire",
+    name: "Bonfire Camp",
+    category: "Rest",
+    minW: 4, maxW: 5, minH: 4, maxH: 5,
+    environment: "Sheltered alcove", elevation: "Flat", cover: "Low wall (three-quarters)",
+    connector: "Doorway", traps: [], spawns: [], loot: [],
+    bonfire: true,
+    notes:
+      "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper.",
+  },
 ];
 
 function hashSeed(seed) {
@@ -320,6 +334,7 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
     loot,
     notes: template.notes || "",
     cr0Only: !!template.cr0Only,
+    bonfire: !!template.bonfire,
   };
 }
 
@@ -329,6 +344,44 @@ const link = (from, to, type = "Doorway") => ({
   to,
   type,
 });
+
+function makeBonfire(rng) {
+  return {
+    id: uid("room"),
+    templateId: "room-bonfire",
+    name: "Bonfire Safe Zone",
+    category: "Rest",
+    x: 0,
+    y: 0,
+    w: rng?.int(4, 5) || 4,
+    h: rng?.int(4, 5) || 4,
+    environment: "Sheltered alcove",
+    elevation: "Flat",
+    cover: "Low wall (three-quarters)",
+    connector: "Doorway",
+    traps: [],
+    spawns: [],
+    loot: [],
+    bonfire: true,
+    notes:
+      "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper.",
+  };
+}
+
+function insertBonfires(spine, rng) {
+  const out = [];
+  let encounters = 0;
+  spine.forEach((room, i) => {
+    out.push(room);
+    if (ENCOUNTER_CATEGORIES.has(room.category)) encounters += 1;
+    const last = i === spine.length - 1;
+    if (encounters >= 2 && !last) {
+      out.push(makeBonfire(rng));
+      encounters = 0;
+    }
+  });
+  return out;
+}
 
 function positionSingle(rooms, rng) {
   const spine = rooms.filter((r) => !r.branch);
@@ -368,6 +421,7 @@ export function generateDungeon({
     entrance.y = 0;
     rooms.push(entrance);
     let previous = [entrance];
+    let encounterFloors = 0;
     for (let f = 1; f < floors; f++) {
       const last = f === floors - 1;
       const count = last ? 1 : rng.int(1, 3);
@@ -404,6 +458,19 @@ export function generateDungeon({
         }
       });
       previous = current;
+      const restFloor = current.every((r) => ["Rest", "Shop"].includes(r.category));
+      if (!restFloor && !last) encounterFloors += 1;
+      // A bonfire landing after every two encounter floors. All paths from the
+      // previous floor converge here, then descend to the next floor.
+      if (encounterFloors >= 2 && !last) {
+        const camp = makeBonfire(rng);
+        camp.x = f * 22 + 11;
+        camp.y = 0;
+        rooms.push(camp);
+        current.forEach((room) => connections.push(link(room.id, camp.id, room.connector)));
+        previous = [camp];
+        encounterFloors = 0;
+      }
     }
     title = name || `${rank} Spire`;
   } else {
@@ -438,6 +505,23 @@ export function generateDungeon({
       rooms.push(room);
       connections.push(link(parent.id, room.id, parent.connector));
     }
+    // Insert a bonfire safe zone after every two encounters along the main
+    // spine. Branch connections stay attached to their original parent.
+    const expandedSpine = insertBonfires(spine, rng);
+    if (expandedSpine.length > spine.length) {
+      const spineIds = new Set(spine.map((r) => r.id));
+      const branchLinks = connections.filter(
+        (c) => !(spineIds.has(c.from) && spineIds.has(c.to))
+      );
+      connections.length = 0;
+      connections.push(...branchLinks);
+      for (let i = 0; i < expandedSpine.length - 1; i += 1) {
+        connections.push(
+          link(expandedSpine[i].id, expandedSpine[i + 1].id, expandedSpine[i].connector)
+        );
+      }
+      rooms.push(...expandedSpine.filter((r) => !spine.includes(r)));
+    }
     positionSingle(rooms, rng);
     title = name || `${rank} Dungeon`;
   }
@@ -453,6 +537,115 @@ export function generateDungeon({
     notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
     createdAt: new Date().toISOString(),
   };
+}
+
+// Room footprints are stored as local grid cells [x, y] (0-based). A room
+// without cells is a plain rectangle; complex rooms can be L/T/U/cross shapes
+// or any connected set of cells painted in the room builder.
+export function rectCells(w, h) {
+  const cells = [];
+  for (let y = 0; y < Math.max(1, h); y++) {
+    for (let x = 0; x < Math.max(1, w); x++) cells.push([x, y]);
+  }
+  return cells;
+}
+
+export function roomShapeCells(room) {
+  const w = Math.max(1, Math.round(Number(room?.w) || 1));
+  const h = Math.max(1, Math.round(Number(room?.h) || 1));
+  if (!Array.isArray(room?.cells) || !room.cells.length) return rectCells(w, h);
+  const set = new Set();
+  room.cells.forEach((cell) => {
+    const x = Number(cell?.[0] ?? cell?.x);
+    const y = Number(cell?.[1] ?? cell?.y);
+    if (Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x < w && y < h) {
+      set.add(`${x},${y}`);
+    }
+  });
+  return set.size ? [...set].map((key) => key.split(",").map(Number)) : rectCells(w, h);
+}
+
+export function cellsConnected(cells) {
+  if (!cells?.length) return false;
+  const set = new Set(cells.map(([x, y]) => `${x},${y}`));
+  const seen = new Set([`${cells[0][0]},${cells[0][1]}`]);
+  const queue = [[cells[0][0], cells[0][1]]];
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+      const key = `${x + dx},${y + dy}`;
+      if (set.has(key) && !seen.has(key)) {
+        seen.add(key);
+        queue.push([x + dx, y + dy]);
+      }
+    });
+  }
+  return seen.size === set.size;
+}
+
+// Boundary path for a set of grid cells; used for the dungeon schematic and
+// the battle map so irregular rooms read as one continuous floor.
+export function cellsOutlinePath(cells, cellSize, ox = 0, oy = 0) {
+  const set = new Set((cells || []).map(([x, y]) => `${x},${y}`));
+  const parts = [];
+  const at = (x, y) => set.has(`${x},${y}`);
+  (cells || []).forEach(([x, y]) => {
+    const x0 = ox + x * cellSize;
+    const y0 = oy + y * cellSize;
+    const x1 = x0 + cellSize;
+    const y1 = y0 + cellSize;
+    if (!at(x, y - 1)) parts.push(`M ${x0} ${y0} L ${x1} ${y0}`);
+    if (!at(x + 1, y)) parts.push(`M ${x1} ${y0} L ${x1} ${y1}`);
+    if (!at(x, y + 1)) parts.push(`M ${x1} ${y1} L ${x0} ${y1}`);
+    if (!at(x - 1, y)) parts.push(`M ${x0} ${y1} L ${x0} ${y0}`);
+  });
+  return parts.join(" ");
+}
+
+export function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
+  return (cells || [])
+    .map(([x, y]) => {
+      const x0 = ox + x * cellSize;
+      const y0 = oy + y * cellSize;
+      return `M ${x0} ${y0} h ${cellSize} v ${cellSize} h ${-cellSize} Z`;
+    })
+    .join(" ");
+}
+
+export const ROOM_SHAPES = ["Rectangle", "L-Shape", "T-Shape", "U-Shape", "Cross", "Octagon"];
+
+export function shapeCells(width, height, shape) {
+  const w = Math.max(2, Math.round(Number(width) || 2));
+  const h = Math.max(2, Math.round(Number(height) || 2));
+  const keep = (predicate) => {
+    const out = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) if (predicate(x, y)) out.push([x, y]);
+    }
+    return out;
+  };
+  switch (shape) {
+    case "L-Shape":
+      return keep((x, y) => x < Math.ceil(w * 0.55) || y >= Math.floor(h * 0.55));
+    case "T-Shape":
+      return keep((x, y) => y < Math.ceil(h * 0.4) || (x >= Math.floor(w * 0.3) && x < Math.ceil(w * 0.7)));
+    case "U-Shape":
+      return keep((x, y) => x < Math.ceil(w * 0.28) || x >= Math.floor(w * 0.72) || y >= Math.floor(h * 0.55));
+    case "Cross":
+      return keep(
+        (x, y) =>
+          (x >= Math.floor(w * 0.3) && x < Math.ceil(w * 0.7)) ||
+          (y >= Math.floor(h * 0.3) && y < Math.ceil(h * 0.7))
+      );
+    case "Octagon":
+      return keep((x, y) => {
+        const cutX = Math.floor(w * 0.25);
+        const cutY = Math.floor(h * 0.25);
+        return !((x < cutX && y < cutY) || (x >= w - cutX && y < cutY) || (x < cutX && y >= h - cutY) || (x >= w - cutX && y >= h - cutY));
+      });
+    default:
+      return rectCells(w, h);
+  }
 }
 
 export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
@@ -472,11 +665,13 @@ export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
     elevation: t.elevation || "Flat",
     cover: t.cover || "Open",
     connector: t.connector || "Doorway",
+    cells: Array.isArray(t.cells) && t.cells.length ? t.cells.map(([cx, cy]) => [cx, cy]) : undefined,
     traps: [...(t.traps || [])],
     spawns: [...(t.spawns || [])],
     loot: [...(t.loot || [])],
     notes: t.notes || "",
     cr0Only: !!t.cr0Only,
+    bonfire: !!t.bonfire,
   };
 }
 

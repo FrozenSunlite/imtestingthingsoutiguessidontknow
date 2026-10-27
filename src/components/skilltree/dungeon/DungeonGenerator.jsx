@@ -13,6 +13,8 @@ import {
 } from "@/lib/dungeonGen";
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
 import { RoomBattleMap } from "@/components/skilltree/dungeon/RoomBattleMap";
+import { RoomShapeBuilder } from "@/components/skilltree/dungeon/RoomShapeBuilder";
+import { rollEncounter } from "@/lib/dmLoot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +39,19 @@ const split = (text) =>
 
 const CONNECTORS = ["Doorway", "Double Door", "Gate", "Archway", "Corridor", "Bridge", "Stairs", "Rubble passage", "Rune-sealed door"];
 
+const BLANK_ROOM = {
+  name: "New Room",
+  category: "Chamber",
+  minW: 6,
+  maxW: 12,
+  minH: 6,
+  maxH: 12,
+  environment: "",
+  elevation: "Flat",
+  cover: "Open",
+  connector: "Doorway",
+};
+
 // Full dungeon workbench: generate a single dungeon or a branching spire run,
 // edit the generated rooms, and save the result with the project. Room
 // templates live in the Reference Library's new Dungeon Rooms tab.
@@ -47,6 +62,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     : DEFAULT_DUNGEON_ROOMS;
   const monsters = settings?.library?.monsters || [];
   const lootPools = settings?.library?.lootPools || [];
+  const encounterTables = settings?.library?.encounterTables || [];
   const saved = settings?.library?.dungeons || [];
 
   const [mode, setMode] = useState("single");
@@ -61,11 +77,16 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const [includeLoot, setIncludeLoot] = useState(true);
   const [savedId, setSavedId] = useState("");
   const [roomQuery, setRoomQuery] = useState("");
+  const [shapeOpen, setShapeOpen] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState(null);
   const pastRef = useRef([]);
   const futureRef = useRef([]);
   const clipRef = useRef(null);
 
   const selected = dungeon?.rooms?.find((r) => r.id === selectedId) || null;
+  const ctxRoom = ctxMenu?.roomId
+    ? dungeon?.rooms?.find((r) => r.id === ctxMenu.roomId) || null
+    : null;
   const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
   const targets = crTargets(partyLevel);
   const filteredTemplates = roomTemplates.filter((r) => {
@@ -79,6 +100,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       traps: rooms.filter((r) => (r.traps || []).length).length,
       spawns: rooms.filter((r) => (r.spawns || []).length).length,
       loot: rooms.filter((r) => (r.loot || []).length).length,
+      bonfires: rooms.filter((r) => r.bonfire).length,
       connections: dungeon?.connections?.length || 0,
     };
   }, [dungeon]);
@@ -106,16 +128,18 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     setDungeon(next);
     setSelectedId(null);
   };
-  const copyRoom = () => {
-    if (selected) {
-      clipRef.current = selected;
+  const copyRoom = (id = selectedId) => {
+    const room = dungeon?.rooms?.find((r) => r.id === id) || selected;
+    if (room) {
+      clipRef.current = room;
       toast("Room copied.");
     }
   };
-  const cutRoom = () => {
-    if (!selected) return;
-    clipRef.current = selected;
-    removeRoom(selected.id);
+  const cutRoom = (id = selectedId) => {
+    const room = dungeon?.rooms?.find((r) => r.id === id) || selected;
+    if (!room) return;
+    clipRef.current = room;
+    removeRoom(room.id);
     toast("Room cut.");
   };
   const pasteRoom = () => {
@@ -140,13 +164,18 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     });
     if (selectedId === id) setSelectedId(null);
   };
-  const rotateRoom = () => {
-    if (!selected || !dungeon) return;
+  const rotateRoom = (id = selectedId) => {
+    const room = dungeon?.rooms?.find((r) => r.id === id) || selected;
+    if (!room || !dungeon) return;
     commit({
       ...dungeon,
-      rooms: dungeon.rooms.map((r) =>
-        r.id === selected.id ? { ...r, w: r.h, h: r.w } : r
-      ),
+      rooms: dungeon.rooms.map((r) => {
+        if (r.id !== room.id) return r;
+        const cells = Array.isArray(r.cells)
+          ? r.cells.map(([x, y]) => [r.h - 1 - y, x])
+          : undefined;
+        return { ...r, w: r.h, h: r.w, cells };
+      }),
     });
   };
   const addTemplate = (template) => {
@@ -165,23 +194,110 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       return;
     }
     const maxX = Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w));
-    const room = roomFromTemplate(
-      {
-        name: "New Room",
-        category: "Chamber",
-        minW: 12,
-        maxW: 20,
-        minH: 12,
-        maxH: 20,
-        environment: "",
-        elevation: "Flat",
-        cover: "Open",
-        connector: "Doorway",
-      },
-      { x: maxX + 4, y: 0 }
-    );
+    const room = roomFromTemplate(BLANK_ROOM, { x: maxX + 4, y: 0 });
     commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
     setSelectedId(room.id);
+  };
+
+  const duplicateRoom = (id = selectedId) => {
+    if (!dungeon) return;
+    const src = dungeon.rooms.find((r) => r.id === id);
+    if (!src) return;
+    const room = {
+      ...src,
+      id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+      x: src.x + 3,
+      y: src.y + 3,
+      cells: Array.isArray(src.cells) ? src.cells.map(([x, y]) => [x, y]) : undefined,
+      traps: [...(src.traps || [])],
+      spawns: [...(src.spawns || [])],
+      loot: [...(src.loot || [])],
+    };
+    commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
+    setSelectedId(room.id);
+    setCtxMenu(null);
+    toast("Room duplicated.");
+  };
+
+  const addConnectedRoom = (parentId = selectedId) => {
+    if (!dungeon) return;
+    const parent = dungeon.rooms.find((r) => r.id === parentId);
+    if (!parent) return;
+    const room = roomFromTemplate(BLANK_ROOM, {
+      x: parent.x + parent.w + 4,
+      y: parent.y,
+    });
+    commit({
+      ...dungeon,
+      rooms: [...dungeon.rooms, room],
+      connections: [
+        ...dungeon.connections,
+        {
+          id: `${parent.id}->${room.id}`,
+          from: parent.id,
+          to: room.id,
+          type: parent.connector || "Doorway",
+        },
+      ],
+    });
+    setSelectedId(room.id);
+    setCtxMenu(null);
+  };
+
+  const addRoomAt = (world) => {
+    if (!dungeon || !world) return;
+    const room = roomFromTemplate(BLANK_ROOM, {
+      x: Math.max(0, Math.round(world.x)),
+      y: Math.max(0, Math.round(world.y)),
+    });
+    commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
+    setSelectedId(room.id);
+    setCtxMenu(null);
+    toast("Room added. Use Edit shape to carve its footprint.");
+  };
+
+  const connectNearest = (id = selectedId) => {
+    if (!dungeon) return;
+    const src = dungeon.rooms.find((r) => r.id === id);
+    if (!src) return;
+    const nearest = dungeon.rooms
+      .filter((r) => r.id !== id)
+      .sort((a, b) => {
+        const da = (a.x + a.w / 2 - (src.x + src.w / 2)) ** 2 + (a.y + a.h / 2 - (src.y + src.h / 2)) ** 2;
+        const db = (b.x + b.w / 2 - (src.x + src.w / 2)) ** 2 + (b.y + b.h / 2 - (src.y + src.h / 2)) ** 2;
+        return da - db;
+      })[0];
+    if (!nearest) return;
+    if (
+      dungeon.connections.some(
+        (c) => (c.from === src.id && c.to === nearest.id) || (c.from === nearest.id && c.to === src.id)
+      )
+    ) {
+      toast("These rooms are already connected.");
+      setCtxMenu(null);
+      return;
+    }
+    commit({
+      ...dungeon,
+      connections: [
+        ...dungeon.connections,
+        {
+          id: `${src.id}->${nearest.id}`,
+          from: src.id,
+          to: nearest.id,
+          type: src.connector || "Doorway",
+        },
+      ],
+    });
+    setCtxMenu(null);
+    toast(`Connected to ${nearest.name}.`);
+  };
+
+  const openShape = (id = selectedId) => {
+    if (!id) return;
+    setSelectedId(id);
+    setShapeOpen(true);
+    setCtxMenu(null);
   };
 
   const generate = () => {
@@ -276,6 +392,21 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     removeRoom(selected.id);
   };
 
+  const rollRoomEncounter = (tableId) => {
+    const table = encounterTables.find((t) => t.id === tableId || t.name === tableId);
+    if (!table || !selected) return;
+    const result = rollEncounter(table, monsters);
+    patchSelected({
+      spawns: result.map((r) => `${r.count}× ${r.monster}`),
+      encounterTable: table.name || "",
+    });
+    toast(
+      result.length
+        ? `Rolled ${table.name}: ${result.map((r) => `${r.count}× ${r.monster}`).join(", ")}`
+        : `${table.name} produced no monsters.`
+    );
+  };
+
   const saveSelectedAsTemplate = () => {
     if (!selected) return;
     const template = {
@@ -295,6 +426,10 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       loot: [...(selected.loot || [])],
       notes: selected.notes,
       cr0Only: !!selected.cr0Only,
+      bonfire: !!selected.bonfire,
+      cells: Array.isArray(selected.cells)
+        ? selected.cells.map(([x, y]) => [x, y])
+        : undefined,
     };
     setSettings((s) => ({
       ...s,
@@ -560,6 +695,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 <span>· {stats.traps} trapped</span>
                 <span>· {stats.spawns} with spawns</span>
                 <span>· {stats.loot} with loot</span>
+                <span>· {stats.bonfires} bonfire rest stops</span>
               </div>
               <div className="min-h-0 flex-1">
                 <DungeonMap
@@ -568,6 +704,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                   onSelect={setSelectedId}
                   onMoveRoom={moveRoom}
                   onResizeRoom={resizeRoom}
+                  onContextMenu={setCtxMenu}
                 />
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -645,6 +782,28 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                   <Input className="h-8" value={selected.cover || ""} onChange={(e) => patchSelected({ cover: e.target.value })} />
                 </div>
               </div>
+              {encounterTables.length > 0 && (
+                <div>
+                  <Label className="text-[10px]">Roll encounter table into spawns</Label>
+                  <Select value="" onValueChange={rollRoomEncounter}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Choose a table…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {encounterTables.map((t, i) => (
+                        <SelectItem key={t.id || `${t.name}-${i}`} value={t.id || t.name}>
+                          {t.name || "Encounter table"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selected.encounterTable && (
+                    <p className="mt-0.5 text-[9px] text-muted-foreground">
+                      Last rolled: {selected.encounterTable}
+                    </p>
+                  )}
+                </div>
+              )}
               {[
                 ["traps", "Traps (one per line)"],
                 ["spawns", "Enemy spawns / placement"],
@@ -676,6 +835,19 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                   onCheckedChange={(v) => patchSelected({ cr0Only: v })}
                 />
               </label>
+              <div className="flex items-center justify-between gap-2 rounded border px-2 py-1 text-[10px]">
+                <div>
+                  <p className="font-medium">
+                    Footprint{Array.isArray(selected.cells) ? ` · ${selected.cells.length} cells` : " · rectangle"}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {selected.bonfire ? "Bonfire safe zone · short rest" : "Carve L/T/U/cross or painted shapes."}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="h-7 shrink-0 text-xs" onClick={() => openShape(selected.id)}>
+                  Edit shape
+                </Button>
+              </div>
               <RoomBattleMap room={selected} />
               <div className="flex flex-wrap gap-1.5 border-t pt-2">
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={saveSelectedAsTemplate}>
@@ -696,6 +868,133 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           )}
         </aside>
       </div>
+
+      <RoomShapeBuilder
+        open={shapeOpen}
+        onOpenChange={setShapeOpen}
+        room={selected}
+        onSave={(cells) => {
+          if (selected) patchSelected({ cells });
+          toast.success("Room footprint updated.");
+        }}
+      />
+
+      {ctxMenu && (
+        <div
+          className="fixed inset-0 z-50"
+          onPointerDown={() => setCtxMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setCtxMenu(null);
+          }}
+        >
+          <div
+            className="fixed z-50 w-52 rounded-md border bg-popover p-1 text-xs shadow-lg"
+            style={{
+              left: Math.min(ctxMenu.x, window.innerWidth - 220),
+              top: Math.min(ctxMenu.y, window.innerHeight - 300),
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {ctxRoom ? (
+              <>
+                <div className="truncate px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {ctxRoom.name}
+                </div>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => {
+                    setSelectedId(ctxRoom.id);
+                    setCtxMenu(null);
+                  }}
+                >
+                  Edit room
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => openShape(ctxRoom.id)}
+                >
+                  Edit footprint shape…
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => duplicateRoom(ctxRoom.id)}
+                >
+                  Duplicate room
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => {
+                    setSelectedId(ctxRoom.id);
+                    copyRoom(ctxRoom.id);
+                    setCtxMenu(null);
+                  }}
+                >
+                  Copy room
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => {
+                    setSelectedId(ctxRoom.id);
+                    cutRoom(ctxRoom.id);
+                    setCtxMenu(null);
+                  }}
+                >
+                  Cut room
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => {
+                    setSelectedId(ctxRoom.id);
+                    rotateRoom(ctxRoom.id);
+                    setCtxMenu(null);
+                  }}
+                >
+                  Rotate 90°
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => addConnectedRoom(ctxRoom.id)}
+                >
+                  Add connected room
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                  onClick={() => connectNearest(ctxRoom.id)}
+                >
+                  Connect to nearest room
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1 text-left text-destructive hover:bg-accent"
+                  onClick={() => {
+                    removeRoom(ctxRoom.id);
+                    setCtxMenu(null);
+                  }}
+                >
+                  Delete room
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="w-full rounded px-2 py-1 text-left hover:bg-accent"
+                onClick={() => addRoomAt(ctxMenu.world)}
+              >
+                Add room here
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,1 +1,0 @@
-import{n as e}from"./routes-BT4dl-zc.js";export default e();

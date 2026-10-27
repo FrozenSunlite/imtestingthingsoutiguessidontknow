@@ -25,7 +25,9 @@ export function EncounterTablesTab() {
   return (
     <div className="space-y-2">
       <ListHeader
-        onAdd={() => t.add({ name: "", rows: [] })}
+        onAdd={() =>
+          t.add({ name: "", mode: "all", rows: [], crMin: "", crMax: "", notes: "" })
+        }
         addLabel="Add encounter table"
         query={t.query}
         setQuery={t.setQuery}
@@ -56,8 +58,17 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
   const tagOptions = [...new Set(
     monsters.flatMap((m) => [m.type, m.category, ...(m.tags || [])]).filter(Boolean)
   )];
+  const weightTotal = rows.reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+  const ranges = rows.map((row) => {
+    const weight = Math.max(1, Number(row.weight) || 1);
+    const before = rows
+      .slice(0, rows.indexOf(row))
+      .reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+    return `${before + 1}–${before + weight}`;
+  });
 
   const doRoll = () => setResult(rollEncounter(table, monsters));
+  const weighted = table.mode === "weighted";
 
   return (
     <div className="rounded-md border p-2">
@@ -95,6 +106,45 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 
       {open && (
         <div className="mt-2 space-y-2 border-t pt-2">
+          <div className="grid grid-cols-[1fr_auto_auto] items-end gap-1.5">
+            <div>
+              <p className="mb-0.5 text-[10px] text-muted-foreground">Roll style</p>
+              <Select
+                value={table.mode || "all"}
+                onValueChange={(v) => onChange({ ...table, mode: v })}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Roll every row</SelectItem>
+                  <SelectItem value="weighted">Weighted (roll one row)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <p className="mb-0.5 text-[10px] text-muted-foreground">Min CR</p>
+              <Input
+                className="h-8 w-16 text-xs"
+                placeholder="0"
+                value={table.crMin ?? ""}
+                onChange={(e) => onChange({ ...table, crMin: e.target.value })}
+              />
+            </div>
+            <div>
+              <p className="mb-0.5 text-[10px] text-muted-foreground">Max CR</p>
+              <Input
+                className="h-8 w-16 text-xs"
+                placeholder="30"
+                value={table.crMax ?? ""}
+                onChange={(e) => onChange({ ...table, crMax: e.target.value })}
+              />
+            </div>
+          </div>
+          {weighted && (
+            <p className="text-[10px] text-muted-foreground">
+              Weighted table · total weight {weightTotal}. Rolling picks one row, then rolls its
+              count.
+            </p>
+          )}
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium">Rows ({rows.length})</p>
             <div className="flex items-center gap-1">
@@ -104,7 +154,7 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
                 onClick={() =>
                   onChange({
                     ...table,
-                    rows: [...rows, { kind: "monster", monster: "", count: "1" }],
+                    rows: [...rows, { kind: "monster", monster: "", count: "1", weight: 1 }],
                   })
                 }
               >
@@ -116,7 +166,7 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
                 onClick={() =>
                   onChange({
                     ...table,
-                    rows: [...rows, { kind: "tag", tag: "", count: "1" }],
+                    rows: [...rows, { kind: "tag", tag: "", count: "1", weight: 1 }],
                   })
                 }
               >
@@ -178,11 +228,27 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
               )}
               <InfoTip label="How many appear — a number or dice like 1d6.">
                 <Input
-                  className="h-7 w-16 text-center"
+                  className="h-7 w-14 text-center"
                   value={row.count ?? "1"}
                   onChange={(e) => updateRow({ count: e.target.value })}
                 />
               </InfoTip>
+              {weighted && (
+                <>
+                  <InfoTip label="Weight for weighted tables. Larger numbers are more likely; the range shows the resulting roll window.">
+                    <Input
+                      className="h-7 w-12 text-center"
+                      type="number"
+                      min={1}
+                      value={row.weight ?? 1}
+                      onChange={(e) => updateRow({ weight: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </InfoTip>
+                  <span className="w-14 shrink-0 text-center font-mono text-[9px] text-muted-foreground">
+                    {ranges[i]}
+                  </span>
+                </>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -198,9 +264,15 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
               <option key={t} value={t} />
             ))}
           </datalist>
+          <Input
+            className="h-8 text-xs"
+            placeholder="Table notes / trigger (e.g. forest road at night)"
+            value={table.notes || ""}
+            onChange={(e) => onChange({ ...table, notes: e.target.value })}
+          />
           {rows.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              Add rows of monsters to fill the table.
+              Add rows of monsters or tags to fill the table.
             </p>
           )}
         </div>

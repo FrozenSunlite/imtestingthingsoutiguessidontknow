@@ -90,12 +90,38 @@ export function rollLootPool(poolName, pools, depth = 0, path = []) {
   return { lines, error: null };
 }
 
+const CR_NUM = (cr) => {
+  const s = String(cr ?? "").trim();
+  if (s === "1/8") return 0.125;
+  if (s === "1/4") return 0.25;
+  if (s === "1/2") return 0.5;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const weightedRow = (rows) => {
+  const list = (rows || []).filter((r) => r && (r.monster || r.tag));
+  if (!list.length) return null;
+  const total = list.reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+  let roll = Math.random() * total;
+  for (const row of list) {
+    roll -= Math.max(1, Number(row.weight) || 1);
+    if (roll < 0) return row;
+  }
+  return list[list.length - 1];
+};
+
 // Roll an encounter table: each row's count is rolled (dice allowed) and the
 // surviving monsters are returned as [{ monster, count }]. A row can name a
 // specific monster or a tag/category; tag rows resolve to a random monster
-// carrying that tag, type or category.
+// carrying that tag, type or category. Weighted tables choose one entry first,
+// like a classic d100 encounter table.
 export function rollEncounter(table, monsters = []) {
-  return (table.rows || [])
+  const minCR = table?.crMin != null && table.crMin !== "" ? CR_NUM(table.crMin) : null;
+  const maxCR = table?.crMax != null && table.crMax !== "" ? CR_NUM(table.crMax) : null;
+  const rows =
+    table?.mode === "weighted" ? [weightedRow(table.rows)].filter(Boolean) : table?.rows || [];
+  return rows
     .map((r) => {
       if (!r) return null;
       let name = r.monster || r.tag || "";
@@ -103,6 +129,9 @@ export function rollEncounter(table, monsters = []) {
       if (r.kind === "tag" || r.tag) {
         const tag = String(r.tag || r.monster || "").toLowerCase();
         const pool = (monsters || []).filter((m) => {
+          const value = CR_NUM(m?.cr);
+          if (minCR != null && value < minCR) return false;
+          if (maxCR != null && value > maxCR) return false;
           const hay = [
             m?.type,
             m?.category,

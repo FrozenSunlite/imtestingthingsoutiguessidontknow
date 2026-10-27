@@ -1,54 +1,72 @@
-// Schematic 20x20 battle map for a dungeon room. It turns the room's
-// environment, elevation, cover, traps, spawns and loot into a quick grid
-// reference the DM can draw from at the table.
+import {
+  cellsFillPath,
+  cellsOutlinePath,
+  roomShapeCells,
+} from "@/lib/dungeonGen";
+
+// Schematic battle map for a dungeon room. The room's grid cells can describe
+// rectangle, L/T/U/cross or painted cave-like footprints, so the DM sees the
+// actual fighting space rather than a generic square.
 export function RoomBattleMap({ room }) {
   if (!room) return null;
-  const SIZE = 20;
-  const pad = 2;
-  const w = Math.max(10, Math.min(SIZE - pad * 2, Number(room.w) || 10));
-  const h = Math.max(10, Math.min(SIZE - pad * 2, Number(room.h) || 10));
-  const x0 = (SIZE - w) / 2;
-  const y0 = (SIZE - h) / 2;
-  const cell = 10;
-  const px = SIZE * cell;
-  const label = (x, y, text, fill = "hsl(var(--muted-foreground))") => (
-    <text x={x} y={y} fontSize="6" fill={fill} textAnchor="middle">{text}</text>
-  );
+  const local = roomShapeCells(room);
+  const w = Math.max(1, Number(room.w) || 1);
+  const h = Math.max(1, Number(room.h) || 1);
+  const cols = Math.max(10, w + 2);
+  const rows = Math.max(10, h + 2);
+  const ox = Math.floor((cols - w) / 2);
+  const oy = Math.floor((rows - h) / 2);
+  const cells = local.map(([x, y]) => [x + ox, y + oy]);
+  const cell = 18;
+  const px = cols * cell;
+  const py = rows * cell;
+  const fillPath = cellsFillPath(cells, cell);
+  const outlinePath = cellsOutlinePath(cells, cell);
+  const center = cells[Math.floor(cells.length / 2)] || [cols / 2, rows / 2];
   const traps = room.traps || [];
   const spawns = room.spawns || [];
   const loot = room.loot || [];
+
+  const at = (i) => cells[((i % cells.length) + cells.length) % cells.length] || center;
+  const label = (cx, cy, text, fill = "hsl(var(--muted-foreground))", size = 6) => (
+    <text x={cx} y={cy} fontSize={size} fill={fill} textAnchor="middle">
+      {text}
+    </text>
+  );
+
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Battle map · 20 × 20 spaces
+          Battle map · {w} × {h} footprint
         </p>
-        <span className="text-[9px] text-muted-foreground">{room.environment || "—"}</span>
+        <span className="truncate text-[9px] text-muted-foreground">
+          {room.environment || "—"}{room.bonfire ? " · bonfire" : ""}
+        </span>
       </div>
-      <svg viewBox={`0 0 ${px} ${px}`} className="w-full rounded-md border bg-background">
+      <svg viewBox={`0 0 ${px} ${py}`} className="w-full rounded-md border bg-background">
         <defs>
           <pattern id="battle-grid" width={cell} height={cell} patternUnits="userSpaceOnUse">
-            <path d={`M ${cell} 0 L 0 0 0 ${cell}`} fill="none" stroke="currentColor" strokeOpacity="0.12" strokeWidth="0.6" />
+            <path
+              d={`M ${cell} 0 L 0 0 0 ${cell}`}
+              fill="none"
+              stroke="currentColor"
+              strokeOpacity="0.12"
+              strokeWidth="0.6"
+            />
           </pattern>
         </defs>
-        <rect width={px} height={px} fill="url(#battle-grid)" />
-        <rect
-          x={x0 * cell}
-          y={y0 * cell}
-          width={w * cell}
-          height={h * cell}
-          fill="hsl(var(--muted))"
-          fillOpacity="0.25"
-          stroke="hsl(var(--foreground))"
-          strokeWidth="1.4"
-        />
-        {/* Elevation dais */}
+        <rect width={px} height={py} fill="url(#battle-grid)" />
+        <path d={fillPath} fill="hsl(var(--muted))" fillOpacity="0.28" />
+        <path d={outlinePath} fill="none" stroke="hsl(var(--foreground))" strokeWidth="1.4" />
+
+        {/* Elevation dais in the middle of the usable area. */}
         {room.elevation && room.elevation !== "Flat" && (
           <rect
-            x={(x0 + w * 0.28) * cell}
-            y={(y0 + h * 0.28) * cell}
-            width={w * 0.44 * cell}
-            height={h * 0.44 * cell}
+            x={(center[0] - 1.2) * cell}
+            y={(center[1] - 1.2) * cell}
+            width={cell * 2.4}
+            height={cell * 2.4}
             rx={3}
             fill="hsl(var(--primary))"
             fillOpacity="0.12"
@@ -56,50 +74,85 @@ export function RoomBattleMap({ room }) {
             strokeDasharray="2 2"
           />
         )}
-        {/* Cover markers */}
+
+        {/* Cover markers on a few boundary cells. */}
         {room.cover && room.cover !== "Open" &&
-          [
-            [x0 + 1, y0 + 1],
-            [x0 + w - 2, y0 + 1],
-            [x0 + 1, y0 + h - 2],
-            [x0 + w - 2, y0 + h - 2],
-          ].map(([cx, cy], i) => (
-            <rect key={`c${i}`} x={cx * cell} y={cy * cell} width={cell * 0.9} height={cell * 0.9} fill="hsl(var(--muted-foreground))" fillOpacity="0.5" />
-          ))}
-        {traps.map((t, i) => (
-          <g key={`t${i}`}>
-            <polygon
-              points={`${(x0 + w * 0.25 + i * 0.7) * cell},${(y0 + h * 0.7) * cell} ${(x0 + w * 0.25 + i * 0.7 + 0.35) * cell},${(y0 + h * 0.7 + 0.7) * cell} ${(x0 + w * 0.25 + i * 0.7 - 0.35) * cell},${(y0 + h * 0.7 + 0.7) * cell}`}
-              fill="hsl(var(--destructive))"
-              fillOpacity="0.75"
-            />
-            {label((x0 + w * 0.25 + i * 0.7) * cell, (y0 + h * 0.7 - 0.2) * cell, "T", "hsl(var(--destructive))")}
-          </g>
-        ))}
-        {spawns.map((s, i) => (
-          <g key={`s${i}`}>
+          [0, Math.floor(cells.length / 3), Math.floor((cells.length * 2) / 3), cells.length - 1].map(
+            (i, j) => {
+              const [cx, cy] = at(i);
+              return (
+                <rect
+                  key={`c${j}`}
+                  x={cx * cell + 2}
+                  y={cy * cell + 2}
+                  width={cell * 0.55}
+                  height={cell * 0.55}
+                  fill="hsl(var(--muted-foreground))"
+                  fillOpacity="0.5"
+                />
+              );
+            }
+          )}
+
+        {room.bonfire && (
+          <g>
             <circle
-              cx={(x0 + w * 0.25 + i * 0.7) * cell}
-              cy={(y0 + h * 0.32) * cell}
-              r={cell * 0.32}
-              fill="hsl(var(--primary))"
-              fillOpacity="0.7"
+              cx={(center[0] + 0.5) * cell}
+              cy={(center[1] + 0.5) * cell}
+              r={cell * 0.7}
+              fill="hsl(24 95% 55%)"
+              fillOpacity="0.2"
+              stroke="hsl(24 95% 55%)"
             />
-            {label((x0 + w * 0.25 + i * 0.7) * cell, (y0 + h * 0.32 - 0.45) * cell, String(i + 1), "hsl(var(--foreground))")}
+            {label((center[0] + 0.5) * cell, (center[1] + 0.7) * cell, "♨", "hsl(24 95% 45%)", 11)}
+            {label((center[0] + 0.5) * cell, (center[1] - 0.8) * cell, "SAFE", "hsl(var(--foreground))", 5)}
           </g>
-        ))}
+        )}
+
+        {traps.map((t, i) => {
+          const [cx, cy] = at(1 + i * 5);
+          const centerX = (cx + 0.5) * cell;
+          const centerY = (cy + 0.5) * cell;
+          return (
+            <g key={`t${i}`}>
+              <polygon
+                points={`${centerX},${centerY - 5} ${centerX + 5},${centerY + 4} ${centerX - 5},${centerY + 4}`}
+                fill="hsl(var(--destructive))"
+                fillOpacity="0.8"
+              />
+              {label(centerX, centerY + 2, "T", "hsl(var(--background))", 5)}
+            </g>
+          );
+        })}
+
+        {spawns.map((s, i) => {
+          const [cx, cy] = at(3 + i * 7);
+          return (
+            <g key={`s${i}`}>
+              <circle
+                cx={(cx + 0.5) * cell}
+                cy={(cy + 0.5) * cell}
+                r={cell * 0.3}
+                fill="hsl(var(--primary))"
+                fillOpacity="0.75"
+              />
+              {label((cx + 0.5) * cell, (cy + 0.5) * cell + 2, String(i + 1), "hsl(var(--primary-foreground))", 5)}
+            </g>
+          );
+        })}
+
         {loot.length > 0 && (
           <g>
             <rect
-              x={(x0 + w / 2 - 0.4) * cell}
-              y={(y0 + h / 2 - 0.4) * cell}
-              width={cell * 0.8}
-              height={cell * 0.8}
-              transform={`rotate(45 ${(x0 + w / 2) * cell} ${(y0 + h / 2) * cell})`}
+              x={(center[0] + 0.15) * cell}
+              y={(center[1] + 0.15) * cell}
+              width={cell * 0.7}
+              height={cell * 0.7}
+              transform={`rotate(45 ${(center[0] + 0.5) * cell} ${(center[1] + 0.5) * cell})`}
               fill="hsl(45 95% 55%)"
-              fillOpacity="0.8"
+              fillOpacity="0.85"
             />
-            {label((x0 + w / 2) * cell, (y0 + h / 2 - 0.8) * cell, "L", "hsl(var(--foreground))")}
+            {label((center[0] + 0.5) * cell, (center[1] + 0.7) * cell, "L", "hsl(var(--foreground))", 5)}
           </g>
         )}
       </svg>
@@ -109,6 +162,7 @@ export function RoomBattleMap({ room }) {
         <span>◆ loot</span>
         <span>▭ cover</span>
         <span>◌ elevation</span>
+        {room.bonfire && <span>♨ bonfire / short rest</span>}
       </div>
     </div>
   );
