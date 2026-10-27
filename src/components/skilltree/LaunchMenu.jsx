@@ -66,7 +66,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
           </p>
         </div>
         <div className="space-y-3">
-          {menuBtn(<Plus className="h-5 w-5" />, "New", "Start a fresh skill tree", startNewTree)}
+          {menuBtn(<Plus className="h-5 w-5" />, "New", "Start a fresh skill tree", () => { if (window.confirm("Starting a new project will erase any unsaved changes. Continue?")) startNewTree(); })}
           {menuBtn(<Play className="h-5 w-5" />, "Continue", "Resume current tree without clearing", () => enterApp("edit"))}
           {menuBtn(
             <FolderOpen className="h-5 w-5" />,
@@ -129,6 +129,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
 
 
 
