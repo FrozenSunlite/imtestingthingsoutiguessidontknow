@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { useTree, aggregateResources, statVars, profBonusFor } from "@/lib/treeStore";
+import {
+  useTree,
+  aggregateResources,
+  statVars,
+  profBonusFor,
+  pushActivityLog,
+} from "@/lib/treeStore";
 import {
   mergeLibraryActions,
   collectActions,
@@ -7,9 +13,11 @@ import {
   buildVars,
   numericResourceMap,
   sanitizeKey,
+  derivedSheet,
   ACTION_CATEGORIES,
   repeatsFor,
 } from "@/lib/resources";
+import { evalResource } from "@/lib/geometry";
 import {
   Select,
   SelectContent,
@@ -85,6 +93,132 @@ export function ActionsSection() {
   const profBonus = profBonusFor(character.level || 1, levels);
   const stats = statVars(character, tree);
   const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
+  const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
+  const spellAttack = Number(sheet["Spell Attacks"]?.final) || 0;
+  const spellDC = Number(sheet["Save DCs"]?.final) || 8;
+
+  const abilityMod = (stat) => {
+    const raw = Number(stats?.[stat]);
+    const base = Number.isFinite(raw) ? raw : 10;
+    return Math.floor((base - 10) / 2) + (Number(character.modifiers?.ability?.[stat]) || 0);
+  };
+  const evalNum = (formula) => {
+    const text = String(formula || "").trim();
+    if (!text) return 0;
+    const ev = evalResource(text, vars);
+    const n = parseFloat(ev);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const weaponAbility = (w) => {
+    const props = (w?.properties || []).map((p) => String(p).toLowerCase());
+    if (props.includes("finesse")) {
+      return abilityMod("DEX") > abilityMod("STR") ? "DEX" : "STR";
+    }
+    if (props.includes("ammunition") || props.includes("range") || /ranged/i.test(w?.category || "")) {
+      return "DEX";
+    }
+    return "STR";
+  };
+  const chosenWeaponFor = (action) => {
+    if (!action || action.resolve !== "weapon") return null;
+    const pick = choices[action.id];
+    const name = Array.isArray(pick) ? pick[0] : pick;
+    if (!name) return null;
+    return (
+      (settings?.library?.weapons || []).find((w) => w.name === name) ||
+      (character.inventory || []).find((it) => it.name === name && it.type === "Weapon") ||
+      null
+    );
+  };
+  const attackBonus = (part, action) => {
+    if (part.kind === "spell") return spellAttack + evalNum(part.bonus);
+    if (part.kind === "other") {
+      return abilityMod(part.ability || "STR") + profBonus + evalNum(part.bonus);
+    }
+    const weapon = chosenWeaponFor(action);
+    const ability = part.ability || weaponAbility(weapon);
+    return (
+      abilityMod(ability) +
+      profBonus +
+      (Number(character.modifiers?.weaponAttack) || 0) +
+      evalNum(part.bonus)
+    );
+  };
+  const saveDC = (part) =>
+    part.dcMode === "fixed" ? Number(part.dc) || 0 : spellDC;
+  const damageBonus = (part) =>
+    (part.ability ? abilityMod(part.ability) : 0) + evalNum(part.bonus);
+
+  const rollExpr = (expr, extra = 0) => {
+    let total = Number(extra) || 0;
+    const detail = [];
+    let rest = String(expr || "");
+    rest = rest.replace(/(\d*)d(\d+)/gi, (_, count, size) => {
+      const n = Math.max(1, Number(count) || 1);
+      const rolls = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * Number(size)));
+      const sum = rolls.reduce((a, b) => a + b, 0);
+      total += sum;
+      detail.push(`${n}d${size} [${rolls.join(", ")}]`);
+      return "0";
+    });
+    const leftover = rest.replace(/\s+/g, "").replace(/^\+/, "");
+    if (leftover && !/^0*$/.test(leftover)) total += evalNum(leftover);
+    return { total, detail: detail.join(" + ") };
+  };
+
+  const pushLog = (text) => setCharacter((c) => pushActivityLog(c, text));
+  const rollPart = (action, part) => {
+    if (part.type === "attack") {
+      const d20 = 1 + Math.floor(Math.random() * 20);
+      const bonus = attackBonus(part, action);
+      pushLog(
+        `${action.name} — ${part.label || "Attack"}: d20(${d20}) ${bonus >= 0 ? "+" : ""}${bonus} = ${d20 + bonus}`
+      );
+      return;
+    }
+    if (part.type === "damage") {
+      const bonus = damageBonus(part);
+      const { total, detail } = rollExpr(part.dice, bonus);
+      pushLog(
+        `${action.name} — Damage: ${detail || part.dice || "0"}${bonus ? ` ${bonus >= 0 ? "+" : ""}${bonus}` : ""} = ${total}${part.damageType ? ` ${part.damageType}` : ""}`
+      );
+      return;
+    }
+    if (part.type === "heal" || part.type === "temp") {
+      const bonus = damageBonus(part);
+      const { total, detail } = rollExpr(part.dice, bonus);
+      pushLog(
+        `${action.name} — ${part.type === "heal" ? "Healing" : "Temporary HP"}: ${detail || part.dice || "0"}${bonus ? ` ${bonus >= 0 ? "+" : ""}${bonus}` : ""} = ${total}`
+      );
+    }
+  };
+  const applyPartStatus = (action, part) => {
+    if (!part.status) return;
+    setCharacter((c) => ({
+      ...c,
+      activeStatuses: [...new Set([...(c.activeStatuses || []), part.status])],
+    }));
+    pushLog(`${action.name} — applied ${part.status}${part.duration ? ` (${part.duration})` : ""}`);
+  };
+
+  const partSummary = (part, action) => {
+    if (part.type === "attack") {
+      const bonus = attackBonus(part, action);
+      return `${part.label || (part.kind === "spell" ? "Spell attack" : "Attack")} ${bonus >= 0 ? "+" : ""}${bonus}`;
+    }
+    if (part.type === "save") return `DC ${saveDC(part)} ${part.ability || "DEX"} save`;
+    if (part.type === "damage") {
+      const bonus = damageBonus(part);
+      return `${part.dice || "—"}${bonus ? ` ${bonus >= 0 ? "+" : ""}${bonus}` : ""}${part.damageType ? ` ${part.damageType}` : ""}`;
+    }
+    if (part.type === "heal") return `Heal ${part.dice || "—"}`;
+    if (part.type === "temp") return `Temp HP ${part.dice || "—"}`;
+    if (part.type === "effect") {
+      return [part.status, part.duration].filter(Boolean).join(" · ");
+    }
+    return "";
+  };
+
   // Library defaults first, node-granted actions after; a node action with the
   // same name and category replaces its default.
   const actions = mergeLibraryActions(
@@ -142,12 +276,17 @@ export function ActionsSection() {
     (character.activeStatuses || []).includes(action.requiresStatus);
   const setSpent = (k, v, action) => {
     const patch = { actionUses: { ...spent, [k]: Math.max(0, Number(v) || 0) } };
-    // Using an action can grant a status effect (e.g. Raging).
-    if (action?.grantsStatus && v > (Number(spent[k]) || 0)) {
+    // Using an action can grant status effects (e.g. Raging), either through
+    // the legacy single grant or through structured effect parts.
+    const gained = [
+      action?.grantsStatus,
+      ...(action?.parts || [])
+        .filter((p) => p?.type === "effect" && p.status)
+        .map((p) => p.status),
+    ].filter(Boolean);
+    if (gained.length && v > (Number(spent[k]) || 0)) {
       const active = character.activeStatuses || [];
-      if (!active.includes(action.grantsStatus)) {
-        patch.activeStatuses = [...active, action.grantsStatus];
-      }
+      patch.activeStatuses = [...new Set([...active, ...gained])];
     }
     // Casting consumes the chosen spell's material items and gold cost.
     const spell = action ? chosenSpellFor(action) : null;
@@ -253,6 +392,55 @@ export function ActionsSection() {
                 </span>
               )}
             </div>
+            {(a.parts || []).length > 0 && (
+              <div className="mb-1 space-y-1">
+                <div className="flex flex-wrap gap-1">
+                  {(a.parts || [])
+                    .map((part, j) => [part, partSummary(part, a), j])
+                    .filter(([, text]) => text)
+                    .map(([part, text, j]) => (
+                      <span
+                        key={j}
+                        className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium"
+                      >
+                        {text}
+                      </span>
+                    ))}
+                </div>
+                {(a.target || a.range || a.duration || a.concentration) && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {[a.target, a.range, a.duration, a.concentration ? "concentration" : ""]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {(a.parts || []).map((part, j) =>
+                    ["attack", "damage", "heal", "temp"].includes(part.type) ? (
+                      <Button
+                        key={`roll-${j}`}
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-1.5 text-[10px]"
+                        onClick={() => rollPart(a, part)}
+                      >
+                        Roll {part.type === "attack" ? part.label || "attack" : part.type === "temp" ? "temp HP" : part.type}
+                      </Button>
+                    ) : part.type === "effect" && part.status ? (
+                      <Button
+                        key={`effect-${j}`}
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-1.5 text-[10px]"
+                        onClick={() => applyPartStatus(a, part)}
+                      >
+                        Apply {part.status}
+                      </Button>
+                    ) : null
+                  )}
+                </div>
+              </div>
+            )}
             <p className="text-[10px] leading-snug text-muted-foreground">{a.description || "No description."}</p>
             <ResolvePicker
               action={a}

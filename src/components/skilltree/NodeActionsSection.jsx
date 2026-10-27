@@ -14,6 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InfoTip } from "@/components/skilltree/InfoTip";
+import {
+  ActionPartsEditor,
+  ActionTargetingFields,
+} from "@/components/skilltree/ActionPartsEditor";
 import { Plus, X } from "lucide-react";
 
 // Node action editor. Actions can be at-will, have their own use count, or
@@ -52,6 +56,11 @@ export function NodeActionsSection({ node, set }) {
           trigger: src?.trigger || "",
           requiresStatus: src?.requiresStatus || "",
           grantsStatus: src?.grantsStatus || "",
+          parts: (src?.parts || []).map((p) => ({ ...p })),
+          target: src?.target || "",
+          range: src?.range || "",
+          duration: src?.duration || "",
+          concentration: !!src?.concentration,
         },
       ],
     });
@@ -90,6 +99,11 @@ export function NodeActionsSection({ node, set }) {
             trigger: act.trigger || "",
             requiresStatus: act.requiresStatus || "",
             grantsStatus: act.grantsStatus || "",
+            parts: (act.parts || []).map((p) => ({ ...p })),
+            target: act.target || "",
+            range: act.range || "",
+            duration: act.duration || "",
+            concentration: !!act.concentration,
           };
       if (idx >= 0) list[idx] = { ...list[idx], ...entry };
       else list.push(entry);
@@ -116,6 +130,11 @@ export function NodeActionsSection({ node, set }) {
           sharedResource: "",
           recovery: "none",
           recoveryAmount: "",
+          parts: [],
+          target: "",
+          range: "",
+          duration: "",
+          concentration: false,
         },
       ],
     });
@@ -163,6 +182,21 @@ export function NodeActionsSection({ node, set }) {
               value={act.description || ""}
               onChange={(e) => setAct(i, { description: e.target.value })}
             />
+            <details className="rounded border px-1.5 py-1">
+              <summary className="cursor-pointer text-[10px] font-medium text-muted-foreground">
+                Combat details — target, attack, save, damage
+                {(act.parts || []).length ? ` (${(act.parts || []).length} part${(act.parts || []).length === 1 ? "" : "s"})` : ""}
+              </summary>
+              <div className="mt-1.5 space-y-1.5">
+                <ActionTargetingFields action={act} onChange={(p) => setAct(i, p)} />
+                <ActionPartsEditor
+                  parts={act.parts || []}
+                  onChange={(parts) => setAct(i, { parts })}
+                  statuses={statuses}
+                  damageTypes={settings?.library?.damageTypes || []}
+                />
+              </div>
+            </details>
             {(act.category || "action") === "downtime" && (
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="space-y-0.5">

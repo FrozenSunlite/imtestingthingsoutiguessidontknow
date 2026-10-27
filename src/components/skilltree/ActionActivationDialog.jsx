@@ -7,8 +7,10 @@ import {
   numericResourceMap,
   sanitizeKey,
   ACTION_CATEGORIES,
+  derivedSheet,
   repeatsFor,
 } from "@/lib/resources";
+import { evalResource } from "@/lib/geometry";
 import { consumeMaterials } from "@/lib/spells";
 import {
   Dialog,
@@ -43,6 +45,75 @@ export function ActionActivationDialog({ open, onClose }) {
   const profBonus = profBonusFor(character.level || 1, levels);
   const stats = statVars(character, tree);
   const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
+  const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
+  const abilityMod = (stat) => {
+    const raw = Number(stats?.[stat]);
+    return Math.floor(((Number.isFinite(raw) ? raw : 10) - 10) / 2) +
+      (Number(character.modifiers?.ability?.[stat]) || 0);
+  };
+  const evalNum = (formula) => {
+    const text = String(formula || "").trim();
+    if (!text) return 0;
+    const n = parseFloat(evalResource(text, vars));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const rollDice = (expr, extra = 0) => {
+    let total = Number(extra) || 0;
+    const detail = [];
+    let rest = String(expr || "");
+    rest = rest.replace(/(\d*)d(\d+)/gi, (_, count, size) => {
+      const n = Math.max(1, Number(count) || 1);
+      const rolls = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * Number(size)));
+      total += rolls.reduce((a, b) => a + b, 0);
+      detail.push(`${n}d${size} [${rolls.join(", ")}]`);
+      return "0";
+    });
+    const leftover = rest.replace(/\s+/g, "").replace(/^\+/, "");
+    if (leftover && !/^0*$/.test(leftover)) total += evalNum(leftover);
+    return { total, detail: detail.join(" + ") };
+  };
+  const partLines = (action) => {
+    const lines = [];
+    (action.parts || []).forEach((part) => {
+      if (part.type === "attack") {
+        const d20 = 1 + Math.floor(Math.random() * 20);
+        const bonus =
+          part.kind === "spell"
+            ? Number(sheet["Spell Attacks"]?.final || 0) + evalNum(part.bonus)
+            : profBonus +
+              (part.ability ? abilityMod(part.ability) : Math.max(abilityMod("STR"), abilityMod("DEX"))) +
+              (Number(character.modifiers?.weaponAttack) || 0) +
+              evalNum(part.bonus);
+        const ac = Number(targetAC) || 0;
+        lines.push(
+          `${part.label || "Attack"}: d20(${d20}) ${fmt(bonus)} = ${d20 + bonus}${
+            ac ? ` vs AC ${ac} → ${d20 + bonus >= ac ? "Hit!" : "Miss"}` : ""
+          }`
+        );
+      } else if (part.type === "damage") {
+        const bonus = (part.ability ? abilityMod(part.ability) : 0) + evalNum(part.bonus);
+        const { total, detail } = rollDice(part.dice, bonus);
+        if (detail || part.dice || bonus) {
+          lines.push(
+            `Damage: ${detail || part.dice || "0"}${bonus ? ` ${fmt(bonus)}` : ""} = ${total}${
+              part.damageType ? ` ${part.damageType}` : ""
+            }`
+          );
+        }
+      } else if (part.type === "heal") {
+        const bonus = (part.ability ? abilityMod(part.ability) : 0) + evalNum(part.bonus);
+        const { total, detail } = rollDice(part.dice, bonus);
+        if (detail || part.dice) lines.push(`Healing: ${detail || part.dice} = ${total}`);
+      } else if (part.type === "temp") {
+        const { total, detail } = rollDice(part.dice, evalNum(part.bonus));
+        if (detail || part.dice) lines.push(`Temporary HP: ${detail || part.dice} = ${total}`);
+      } else if (part.type === "save") {
+        const dc = part.dcMode === "fixed" ? Number(part.dc) || 0 : Number(sheet["Save DCs"]?.final || 0);
+        lines.push(`DC ${dc} ${part.ability || "DEX"} save`);
+      }
+    });
+    return lines;
+  };
   const actions = mergeLibraryActions(
     settings?.library?.actions || [],
     collectActions(tree, vars),
@@ -129,9 +200,14 @@ export function ActionActivationDialog({ open, onClose }) {
     if (max != null && cur >= max) return;
     const patch = { actionUses: { ...spent } };
     if (max != null) patch.actionUses[key] = cur + 1;
-    const active = character.activeStatuses || [];
-    if (a.grantsStatus && !active.includes(a.grantsStatus)) {
-      patch.activeStatuses = [...active, a.grantsStatus];
+    const gained = [
+      a.grantsStatus,
+      ...(a.parts || [])
+        .filter((p) => p?.type === "effect" && p.status)
+        .map((p) => p.status),
+    ].filter(Boolean);
+    if (gained.length) {
+      patch.activeStatuses = [...new Set([...(character.activeStatuses || []), ...gained])];
     }
     const spell = a.resolve === "spell" ? spellByName[pickOf(a)] : null;
     if (spell && !character.devMode) {
@@ -143,7 +219,14 @@ export function ActionActivationDialog({ open, onClose }) {
     }
     setCharacter({ ...character, ...patch });
     const line = sentenceFor(a);
-    pushLog(a.resolve === "weapon" && pickOf(a) ? `${line} — ${attackLine(pickOf(a))}` : line);
+    const parts = partLines(a);
+    pushLog(
+      parts.length
+        ? `${line} — ${parts.join("; ")}`
+        : a.resolve === "weapon" && pickOf(a)
+          ? `${line} — ${attackLine(pickOf(a))}`
+          : line
+    );
   };
 
   const undo = (a) => {

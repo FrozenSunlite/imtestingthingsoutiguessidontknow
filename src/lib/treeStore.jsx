@@ -23,7 +23,9 @@ import {
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
 import { DEFAULT_DUNGEON_ROOMS } from "@/lib/dungeonGen";
-import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";import { optionAtPath } from "@/lib/optionTree";
+import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";
+import { featureMechanics } from "@/lib/fiveETools";
+import { optionAtPath } from "@/lib/optionTree";
 import {
   DEFAULT_SUBTREE,
   flattenSubtreeForPlay,
@@ -2040,37 +2042,88 @@ export function TreeProvider({ children }) {
     if (!list.length) return null;
     const id = `tab-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
     const stamp = Date.now();
-    const nodes = list.map((f, i) => {
-      const nodeId = `n${stamp}i${i}`;
-      return {
-        id: nodeId,
-        name: String(f.name || `Feature ${i + 1}`),
-        description: String(f.text || ""),
-        flavor: "",
-        x: i * 190,
-        y: (i % 2) * 130,
-        maxPoints: 1,
-        currentPoints: 0,
-        cost: 0,
-        nodeType: "informative",
-        pointType: "talent",
-        talentType: meta.category || "5eTools",
-        size: 100,
-        rotation: 0,
-        flipped: false,
-        flipV: false,
-        image: "",
-        frameImage: "",
-        resources: [],
-        dependencies: i ? [`n${stamp}i${i - 1}`] : [],
-        exclusiveWith: [],
-      };
+    const classLayout = meta.layout === "class" || list.some((f) => f.group && f.group !== "Feature");
+    const groups = classLayout
+      ? [...new Set(list.map((f) => f.group || "Class"))].sort((a, b) =>
+          a === "Class" ? -1 : b === "Class" ? 1 : a.localeCompare(b)
+        )
+      : ["Feature"];
+    const nodesByGroup = {};
+    let n = 0;
+
+    groups.forEach((group, gi) => {
+      const groupFeatures = list
+        .filter((f) => (classLayout ? (f.group || "Class") === group : true))
+        .sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
+      const groupNodes = [];
+      const levelCounts = {};
+      groupFeatures.forEach((f, i) => {
+        const nodeId = `n${stamp}i${n++}`;
+        const mech = classLayout ? featureMechanics(f) : { actions: [], resources: [] };
+        const level = Number(f.level) || 0;
+        const withinLevel = levelCounts[level] || 0;
+        levelCounts[level] = withinLevel + 1;
+        groupNodes.push({
+          id: nodeId,
+          name: String(f.name || `Feature ${i + 1}`),
+          description: String(f.text || ""),
+          flavor: "",
+          x: classLayout && level ? (Math.min(20, level) - 1) * 230 : i * 190,
+          y: classLayout ? gi * 180 + withinLevel * 140 : (i % 2) * 130,
+          maxPoints: 1,
+          currentPoints: 0,
+          cost: 0,
+          nodeType: classLayout ? "skill" : "informative",
+          pointType: "talent",
+          talentType: meta.category || "5eTools",
+          size: 100,
+          rotation: 0,
+          flipped: false,
+          flipV: false,
+          image: "",
+          frameImage: "",
+          resources: mech.resources,
+          actions: mech.actions,
+          levelReq: classLayout ? Number(f.level) || 0 : 0,
+          dependencies: i ? [groupNodes[i - 1].id] : [],
+          exclusiveWith: [],
+        });
+      });
+      nodesByGroup[group] = groupNodes;
     });
-    const connections = nodes.slice(1).map((n, i) => ({
-      id: `${nodes[i].id}->${n.id}`,
-      from: nodes[i].id,
-      to: n.id,
-    }));
+
+    const nodes = groups.flatMap((g) => nodesByGroup[g]);
+    const connections = [];
+    groups.forEach((group) => {
+      const groupNodes = nodesByGroup[group] || [];
+      groupNodes.slice(1).forEach((node, i) => {
+        connections.push({
+          id: `${groupNodes[i].id}->${node.id}`,
+          from: groupNodes[i].id,
+          to: node.id,
+        });
+      });
+    });
+    // Branch each subclass from the class feature at the level where the
+    // subclass is gained (or the closest earlier base feature).
+    const base = nodesByGroup.Class || [];
+    groups
+      .filter((g) => g !== "Class")
+      .forEach((group) => {
+        const first = (nodesByGroup[group] || [])[0];
+        if (!first) return;
+        const level = Number(first.levelReq) || 0;
+        const anchor =
+          [...base].reverse().find((b) => (Number(b.levelReq) || 0) <= level) || base[0];
+        if (anchor) {
+          connections.push({
+            id: `${anchor.id}->${first.id}`,
+            from: anchor.id,
+            to: first.id,
+          });
+          first.dependencies = [anchor.id];
+        }
+      });
     const tab = {
       id,
       name: String(name || "Imported Features"),

@@ -342,11 +342,17 @@ export function mergeLibraryActions(libActions, nodeActions, vars = {}) {
       trigger: a.trigger || "",
       requiresStatus: a.requiresStatus || "",
       grantsStatus: a.grantsStatus || "",
+      parts: Array.isArray(a.parts) ? a.parts : [],
+      target: a.target || "",
+      range: a.range || "",
+      duration: a.duration || "",
+      concentration: !!a.concentration,
     }));
   const granted = (nodeActions || []).map((a) => ({
     ...a,
     resolve: a.resolve || "none",
     repeats: a.repeats ?? "",
+    parts: Array.isArray(a.parts) ? a.parts : [],
   }));
   const taken = new Set(granted.map((a) => `${a.category || "action"}:${a.name}`));
   return [...base.filter((b) => !taken.has(`${b.category}:${b.name}`)), ...granted];
@@ -381,6 +387,11 @@ export function collectActions(tree, vars = {}) {
         trigger: a.trigger || "",
         requiresStatus: a.requiresStatus || "",
         grantsStatus: a.grantsStatus || "",
+        parts: Array.isArray(a.parts) ? a.parts : [],
+        target: a.target || "",
+        range: a.range || "",
+        duration: a.duration || "",
+        concentration: !!a.concentration,
       });
     });
   });

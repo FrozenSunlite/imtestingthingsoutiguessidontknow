@@ -77,16 +77,132 @@ while ($listener.IsListening) {
     }
 
     # --- 5eTools Reference Index -------------------------------------------
-    # Read the local 5eTools folders (partnered data, homebrew and prerelease)
-    # so the Reference Index can browse files and import selected entries. Raw
-    # files stay on disk and are only read on demand.
-    $fiveBase = "E:\5etools"
+    # Read 5eTools folders (partnered data, homebrew and prerelease) so the
+    # Reference Index can browse files and import selected entries. The app
+    # prefers its own downloaded release copy (userdata\5etools); an existing
+    # E:\5etools install is used as a fallback. Raw files stay on disk and are
+    # only read on demand.
+    $fiveManaged = Join-Path $PSScriptRoot "desktop\userdata\5etools"
+    $fiveLegacy = "E:\5etools"
     $fiveRoots = @("data", "homebrew", "prerelease")
+    $fiveBase = $fiveLegacy
+    if (Test-Path (Join-Path $fiveManaged "data") -PathType Container) { $fiveBase = $fiveManaged }
+    $fiveVersion = ""
+    $fiveVersionFile = Join-Path $fiveManaged "VERSION"
+    if (Test-Path $fiveVersionFile -PathType Leaf) {
+      $fiveVersion = (Get-Content $fiveVersionFile -Raw -ErrorAction SilentlyContinue).Trim()
+    }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/status") {
       $roots = @{}
       foreach ($r in $fiveRoots) { $roots[$r] = Test-Path (Join-Path $fiveBase $r) -PathType Container }
-      $body = [Text.Encoding]::UTF8.GetBytes((@{ available = (@($roots.Values) -contains $true); base = $fiveBase; roots = $roots } | ConvertTo-Json -Compress -Depth 4))
+      $body = [Text.Encoding]::UTF8.GetBytes((@{
+        available = (@($roots.Values) -contains $true)
+        base = $fiveBase
+        roots = $roots
+        managed = ($fiveBase -eq $fiveManaged)
+        version = $fiveVersion
+      } | ConvertTo-Json -Compress -Depth 4))
       $res.ContentType = "application/json"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/latest") {
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+      $headers = @{ "User-Agent" = "TerrificTalentTree" }
+      $release = Invoke-RestMethod -Uri "https://api.github.com/repos/5etools-mirror-3/5etools-src/releases/latest" -Headers $headers
+      $asset = @($release.assets | Where-Object { $_.name -like "5etools-*.zip" }) | Select-Object -First 1
+      if (-not $asset) { throw "No release asset found" }
+      $body = [Text.Encoding]::UTF8.GetBytes((@{
+        tag = [string]$release.tag_name
+        name = [string]$asset.name
+        size = [long]$asset.size
+        published = [string]$release.published_at
+        url = [string]$asset.browser_download_url
+      } | ConvertTo-Json -Compress))
+      $res.ContentType = "application/json"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "POST" -and $path -eq "api/5etools/update") {
+      # Download the latest 5etools-src release and replace data, images,
+      # homebrew and prerelease with the release contents. The update is
+      # staged first so a failed download never breaks the current copy, and
+      # user-added homebrew/prerelease files are carried over.
+      $updateError = ""
+      $tag = ""
+      try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $headers = @{ "User-Agent" = "TerrificTalentTree" }
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/5etools-mirror-3/5etools-src/releases/latest" -Headers $headers
+        $asset = @($release.assets | Where-Object { $_.name -like "5etools-*.zip" }) | Select-Object -First 1
+        if (-not $asset) { throw "No release asset found" }
+        $tag = [string]$release.tag_name
+        New-Item -ItemType Directory -Force -Path $fiveManaged | Out-Null
+        $download = Join-Path $fiveManaged "download.zip"
+        $stage = Join-Path $fiveManaged "staging"
+        if (Test-Path $stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+        New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+        # Keep the user's own homebrew and prerelease records.
+        foreach ($r in @("homebrew", "prerelease")) {
+          $src = Join-Path $fiveManaged $r
+          if (Test-Path $src -PathType Container) {
+            Copy-Item $src (Join-Path $stage $r) -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item (Join-Path $stage "$r\index.json") -Force -ErrorAction SilentlyContinue
+          }
+        }
+
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $download -UseBasicParsing
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [IO.Compression.ZipFile]::OpenRead($download)
+        try {
+          foreach ($e in $zip.Entries) {
+            $name = $e.FullName.Replace('\','/')
+            if ($name -notmatch '^(data|homebrew|prerelease|img)/') { continue }
+            $dest = Join-Path $stage $name.Replace('/','\')
+            if ($name.EndsWith('/')) {
+              New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            } else {
+              New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
+              [IO.Compression.ZipFileExtensions]::ExtractToFile($e, $dest, $true)
+            }
+          }
+        } finally {
+          $zip.Dispose()
+        }
+
+        foreach ($r in @("data", "img", "homebrew", "prerelease")) {
+          $srcdir = Join-Path $stage $r
+          if (Test-Path $srcdir -PathType Container) {
+            $destdir = Join-Path $fiveManaged $r
+            if (Test-Path $destdir) { Remove-Item $destdir -Recurse -Force -ErrorAction SilentlyContinue }
+            Move-Item $srcdir $destdir
+          }
+        }
+        Set-Content -Path (Join-Path $fiveManaged "VERSION") -Value $tag -Encoding UTF8
+        Remove-Item $download -Force -ErrorAction SilentlyContinue
+        Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+        $fiveBase = $fiveManaged
+        $fiveVersion = $tag
+      } catch {
+        $updateError = $_.Exception.Message
+        Remove-Item (Join-Path $fiveManaged "download.zip") -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $fiveManaged "staging") -Recurse -Force -ErrorAction SilentlyContinue
+      }
+      $roots = @{}
+      foreach ($r in $fiveRoots) { $roots[$r] = Test-Path (Join-Path $fiveBase $r) -PathType Container }
+      $body = [Text.Encoding]::UTF8.GetBytes((@{
+        ok = (-not $updateError)
+        error = $updateError
+        version = $fiveVersion
+        base = $fiveBase
+        managed = ($fiveBase -eq $fiveManaged)
+        roots = $roots
+      } | ConvertTo-Json -Compress -Depth 4))
+      $res.ContentType = "application/json"
+      if ($updateError) { $res.StatusCode = 500 }
       $res.OutputStream.Write($body,0,$body.Length)
       $res.Close()
       continue
@@ -130,9 +246,19 @@ while ($listener.IsListening) {
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/image") {
       $rel = [string]$req.QueryString["path"]
       if (-not $rel) { throw "missing path" }
-      $full = [IO.Path]::GetFullPath((Join-Path $fiveBase $rel))
-      $rootFull = [IO.Path]::GetFullPath($fiveBase)
-      if (-not $full.StartsWith($rootFull) -or -not (Test-Path $full -PathType Leaf)) { throw "bad path" }
+      # Prefer the active data folder (which may be a downloaded release with
+      # no image pack), then fall back to the local 5etools install's images.
+      $full = $null
+      foreach ($baseDir in @($fiveBase, $fiveLegacy)) {
+        if (-not $baseDir) { continue }
+        $candidate = [IO.Path]::GetFullPath((Join-Path $baseDir $rel))
+        $baseFull = [IO.Path]::GetFullPath($baseDir)
+        if ($candidate.StartsWith($baseFull) -and (Test-Path $candidate -PathType Leaf)) {
+          $full = $candidate
+          break
+        }
+      }
+      if (-not $full) { throw "bad path" }
       $ext = [IO.Path]::GetExtension($full).ToLower()
       $ct = if ($mimes[$ext]) { $mimes[$ext] } else { "application/octet-stream" }
       $bytes = [IO.File]::ReadAllBytes($full)

@@ -52,6 +52,7 @@ import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
 import { ResourcesTab } from "./library/ResourcesTab";
 import { DieScalingTab } from "./library/DieScalingTab";
 import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
+import { FiveEToolsImportsTab } from "./library/FiveEToolsImportsTab";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
 import { SpellSchoolsTab } from "./library/SpellSchoolsTab";
@@ -89,6 +90,7 @@ const TAB_GROUPS = [
     ["lootPools", "Loot Pools"], ["encounterTables", "Encounter Tables"],
   ]],
   ["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
+  ["Imported", [["fiveETools", "5eTools Imports"]]],
 ];
 
 // Every searchable library list, as [category label, tab value, entries].
@@ -271,6 +273,9 @@ export function LibraryMenu({ open, onClose }) {
             </TabsContent>
             <TabsContent value="dungeonRooms" className="mt-0">
               <DungeonRoomsTab />
+            </TabsContent>
+            <TabsContent value="fiveETools" className="mt-0">
+              <FiveEToolsImportsTab />
             </TabsContent>
             <TabsContent value="downtime" className="mt-0">
               <DowntimeTab />

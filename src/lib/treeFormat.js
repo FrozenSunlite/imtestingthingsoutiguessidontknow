@@ -42,6 +42,11 @@ export function normalizeTree(data) {
         sharedResource: a.sharedResource || "",
         recovery: a.recovery || "none",
         recoveryAmount: a.recoveryAmount || "",
+        parts: Array.isArray(a.parts) ? a.parts : [],
+        target: a.target || "",
+        range: a.range || "",
+        duration: a.duration || "",
+        concentration: !!a.concentration,
       })),
       resources: (s["Skill Resources"] || []).map((r) => ({
         name: r.name || "",
@@ -269,6 +274,11 @@ export function denormalizeTree(tree) {
       sharedResource: a.sharedResource || "",
       recovery: a.recovery || "none",
       recoveryAmount: a.recoveryAmount || "",
+      parts: Array.isArray(a.parts) ? a.parts : [],
+      target: a.target || "",
+      range: a.range || "",
+      duration: a.duration || "",
+      concentration: !!a.concentration,
     })),
     "Skill Resources": n.resources.map((r) => ({
       name: r.name,

@@ -6,12 +6,23 @@ import {
   entryMeta,
   entryName,
   entryPreview,
-  entrySource,
-  entryText,
+  actionToLibrary,
+  conditionToStatus,
+  featuresForClassBundle,
   featuresForEntry,
   filesForCategory,
+  isSourceFile,
+  itemToLibrary,
+  languageToLibrary,
+  senseToLibrary,
+  skillToLibrary,
   spellToLibrary,
+  tableToRollTable,
+  vehicleToLibrary,
 } from "@/lib/fiveETools";
+import { entryDetails } from "@/lib/fiveEToolsView";
+import { loadSpellLookup } from "@/lib/fiveEToolsLookup";
+import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
 import { cacheFiveEToolsSource } from "@/lib/fiveEToolsCache";
 import { importImageFromUrl } from "@/lib/imageStore";
@@ -34,6 +45,8 @@ const ROOTS = [
   ["prerelease", "Prerelease"],
 ];
 
+const isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
+
 const sourceOf = (entry) =>
   String(
     entry?.source ||
@@ -45,7 +58,7 @@ const sourceOf = (entry) =>
   );
 
 const imageFor = (entry, root, filePath) => {
-  const raw = entry?.img || entry?.image || entry?.portrait;
+  const raw = entry?.img || entry?.image || entry?.portrait || entry?.cover;
   if (!raw || typeof raw !== "string") return "";
   if (/^(https?:|data:|\/images\/)/i.test(raw)) return raw;
   const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
@@ -76,10 +89,12 @@ export function ReferenceIndexTab() {
   const [delay, setDelay] = useState(120);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(0);
+  const [updating, setUpdating] = useState(false);
+  const [spellLookup, setSpellLookup] = useState(null);
 
   const category = FIVE_CATEGORIES.find((c) => c.id === categoryId) || FIVE_CATEGORIES[0];
   const files = useMemo(() => {
-    const list = root === "data" ? filesForCategory(category, index) : index.filter((f) => f.path !== "index.json");
+    const list = root === "data" ? filesForCategory(category, index) : index.filter((f) => isSourceFile(f.path));
     return list.sort((a, b) => a.path.localeCompare(b.path));
   }, [category, index, root]);
   const sourceOptions = useMemo(
@@ -93,6 +108,10 @@ export function ReferenceIndexTab() {
     return true;
   });
   const imported = settings?.library?.fiveETools || {};
+  const previewDetails = useMemo(
+    () => (preview ? entryDetails(category.id, preview, raw, { spellLookup }) : null),
+    [preview, category.id, raw, spellLookup]
+  );
 
   const refresh = async () => {
     try {
@@ -105,6 +124,28 @@ export function ReferenceIndexTab() {
       setIndex([]);
     }
   };
+
+  const updateData = async () => {
+    if (updating) return;
+    setUpdating(true);
+    toast("Downloading the latest 5eTools release from GitHub…");
+    try {
+      const r = await fetch("/api/5etools/update", { method: "POST" });
+      const data = await r.json().catch(() => null);
+      if (!r.ok || !data?.ok) throw new Error(data?.error || "Update failed");
+      toast.success(`5eTools ${data.version || "data"} downloaded.`);
+      setRoot("data");
+      await refresh();
+    } catch (err) {
+      toast.error(`Could not update 5eTools data: ${err.message || err}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSpellLookup().then(setSpellLookup);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -186,6 +227,56 @@ export function ReferenceIndexTab() {
     return true;
   };
 
+  const mergeNamed = (key, value) => {
+    if (!value?.name && typeof value !== "string") return false;
+    setSettings((s) => {
+      const list = Array.isArray(s.library[key]) ? [...s.library[key]] : [];
+      const name = String(typeof value === "string" ? value : value.name || "").toLowerCase();
+      const i = list.findIndex(
+        (x) => String(typeof x === "string" ? x : x?.name || "").toLowerCase() === name
+      );
+      if (typeof value === "string") {
+        if (i < 0) list.push(value);
+      } else if (i >= 0) {
+        list[i] = { ...list[i], ...value };
+      } else {
+        list.push(value);
+      }
+      return { ...s, library: { ...s.library, [key]: list } };
+    });
+    return true;
+  };
+
+  const mergeNamedList = (listKey, value) => {
+    if (!value?.name) return false;
+    setSettings((s) => {
+      const lists = { ...(s.library.lists || {}) };
+      const list = Array.isArray(lists[listKey]) ? [...lists[listKey]] : [];
+      const i = list.findIndex(
+        (x) => String(typeof x === "string" ? x : x?.name || "").toLowerCase() === value.name.toLowerCase()
+      );
+      if (i >= 0) list[i] = { ...(typeof list[i] === "object" ? list[i] : { name: list[i] }), ...value };
+      else list.push(value);
+      lists[listKey] = list;
+      return { ...s, library: { ...s.library, lists } };
+    });
+    return true;
+  };
+
+  const addLanguage = (name) => {
+    if (!name) return false;
+    setSettings((s) => {
+      const lists = { ...(s.library.lists || {}) };
+      const list = Array.isArray(lists.languages) ? [...lists.languages] : [];
+      if (!list.some((x) => String(typeof x === "string" ? x : x?.name || "").toLowerCase() === name.toLowerCase())) {
+        list.push(name);
+      }
+      lists.languages = list;
+      return { ...s, library: { ...s.library, lists } };
+    });
+    return true;
+  };
+
   const storeRaw = (catId, entry) => {
     setSettings((s) => {
       const map = { ...(s.library.fiveETools || {}) };
@@ -200,6 +291,35 @@ export function ReferenceIndexTab() {
   };
 
   const importEntry = async (cat, entry) => {
+    if (cat.kind === "items") {
+      const mapped = itemToLibrary(entry);
+      return mapped ? mergeNamed(mapped.key, mapped.value) : false;
+    }
+    if (cat.kind === "conditions") {
+      const status = conditionToStatus(entry);
+      return status ? mergeNamed("statusEffects", status) : false;
+    }
+    if (cat.kind === "actions") {
+      const action = actionToLibrary(entry);
+      return action ? mergeNamed("actions", action) : false;
+    }
+    if (cat.kind === "languages") return addLanguage(languageToLibrary(entry));
+    if (cat.kind === "skills") {
+      const skill = skillToLibrary(entry);
+      return skill ? mergeNamedList("skills", skill) : false;
+    }
+    if (cat.kind === "senses") {
+      const sense = senseToLibrary(entry);
+      return sense ? mergeNamed("senses", sense) : false;
+    }
+    if (cat.kind === "tables") {
+      const table = tableToRollTable(entry);
+      return table ? mergeNamed("rollTables", table) : false;
+    }
+    if (cat.kind === "vehicles") {
+      const vehicle = vehicleToLibrary(entry);
+      return vehicle ? mergeNamed("vehicles", vehicle) : false;
+    }
     if (cat.kind === "monsters") {
       let value = entry;
       const image = imageFor(entry, root, filePath);
@@ -213,7 +333,24 @@ export function ReferenceIndexTab() {
       return mergeMonster(value);
     }
     if (cat.kind === "spells") return mergeSpell(entry);
-    if (cat.kind === "classes" || cat.kind === "feats" || cat.kind === "options") {
+    if (cat.kind === "classes") {
+      storeRaw(cat.id, entry);
+      const features = featuresForEntry(cat.id, entry, raw);
+      if (features.length) {
+        const subclass = !!entry.shortName || !!entry.subclassShortName;
+        addImportedTab(
+          `${subclass ? "Subclass" : "Class"}: ${entryName(entry)}`,
+          features,
+          {
+            category: cat.label,
+            layout: "class",
+            className: subclass ? entry.className : entry.name,
+          }
+        );
+      }
+      return true;
+    }
+    if (cat.kind === "feats" || cat.kind === "options") {
       storeRaw(cat.id, entry);
       const features = featuresForEntry(cat.id, entry, raw);
       if (features.length) {
@@ -237,15 +374,66 @@ export function ReferenceIndexTab() {
     }
     setImporting(picked.length);
     let done = 0;
-    for (const entry of picked) {
-      await importEntry(category, entry);
-      done += 1;
-      setImporting(picked.length - done);
-      await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
+
+    // A class and the subclasses selected with it become one level-aligned
+    // tab: base features in the main ladder, each subclass branching from the
+    // level where it is gained.
+    if (category.kind === "classes") {
+      const bases = picked.filter((e) => !isSubclassEntry(e));
+      const subs = picked.filter(isSubclassEntry);
+      const bundles = bases.map((base) => ({ base, subs: [] }));
+      subs.forEach((s) => {
+        const bundle =
+          bundles.find(
+            (b) =>
+              b.base.name === s.className &&
+              (!s.classSource || !b.base.source || b.base.source === s.classSource)
+          ) || bundles.find((b) => b.base.name === s.className);
+        if (bundle) bundle.subs.push(s);
+        else {
+          storeRaw(category.id, s);
+          const features = featuresForEntry(category.id, s, raw);
+          if (features.length) {
+            addImportedTab(`Subclass: ${entryName(s)}`, features, {
+              category: category.label,
+              layout: "class",
+              className: s.className,
+            });
+            done += 1;
+          }
+        }
+      });
+      for (const { base, subs: selectedSubs } of bundles) {
+        storeRaw(category.id, base);
+        selectedSubs.forEach((s) => storeRaw(category.id, s));
+        const features = featuresForClassBundle(base, selectedSubs, raw);
+        if (features.length) {
+          addImportedTab(`Class: ${entryName(base)}`, features, {
+            category: category.label,
+            layout: "class",
+            className: base.name,
+          });
+          done += 1;
+        }
+        setImporting(Math.max(0, picked.length - done));
+        await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
+      }
+    } else {
+      for (const entry of picked) {
+        await importEntry(category, entry);
+        done += 1;
+        setImporting(picked.length - done);
+        await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
+      }
     }
+
     setImporting(0);
     setSelected(new Set());
-    toast.success(`Imported ${done} ${category.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`);
+    toast.success(
+      category.kind === "classes"
+        ? `Imported ${done} class tab${done === 1 ? "" : "s"}.`
+        : `Imported ${done} ${category.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`
+    );
   };
 
   const importPreview = async () => {
@@ -259,10 +447,15 @@ export function ReferenceIndexTab() {
       <div className="space-y-2 rounded-md border border-dashed p-4 text-xs">
         <p className="font-medium">5eTools data not found.</p>
         <p className="text-muted-foreground">
-          Expected the local 5eTools folder at <code>E:\5etools</code>. If your copy lives
-          elsewhere, update the fiveBase path in <code>Serve.ps1</code>.
+          Download the latest 5eTools release, or place a 5eTools folder at{" "}
+          <code>E:\5etools</code>. Downloaded data stays in the app's own user data folder.
         </p>
-        <Button size="sm" variant="outline" onClick={refresh}>Retry</Button>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={updateData} disabled={updating}>
+            {updating ? "Downloading…" : "Download 5eTools"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={refresh}>Retry</Button>
+        </div>
       </div>
     );
   }
@@ -286,12 +479,26 @@ export function ReferenceIndexTab() {
             </SelectContent>
           </Select>
         </div>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="min-w-0 text-[10px] text-muted-foreground">
           {status?.base ? `${status.base}\\${root}` : "Reading local 5eTools data…"}
+          {status?.version ? ` · ${status.version}` : ""}
+          {status?.managed ? " · downloaded" : status?.base ? " · local folder" : ""}
         </span>
-        <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={refresh}>
-          Refresh index
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={updateData}
+            disabled={updating}
+            title="Download the newest 5eTools release from GitHub into this app's data folder"
+          >
+            {updating ? "Downloading…" : "Update from GitHub"}
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={refresh}>
+            Refresh index
+          </Button>
+        </div>
       </div>
 
       <div className="grid h-[64vh] min-h-[430px] grid-cols-[150px_200px_minmax(0,1fr)_minmax(260px,1.1fr)] gap-2">
@@ -404,11 +611,22 @@ export function ReferenceIndexTab() {
           </div>
           {category.kind && (
             <p className="border-t px-2 py-1 text-[10px] text-muted-foreground">
-              {category.kind === "monsters"
-                ? "Bestiary entries import into the normal Monsters tab."
-                : category.kind === "spells"
-                ? "Spells import into the normal Spells tab."
-                : "Features import into a new tab in the Tree system; the raw entry is kept in the 5eTools library."}
+              {{
+                monsters: "Bestiary entries import into the normal Monsters tab.",
+                spells: "Spells import into the normal Spells tab.",
+                classes:
+                  "Class features import into a level-aligned tab. Select a class and its subclasses together to branch them into one tab.",
+                feats: "Feats import as an informative feature tab in the Tree system.",
+                options: "Features import as an informative tab in the Tree system.",
+                items: "Items are sorted into Weapons, Armor, Wondrous Items, gear, poisons, explosives and vehicles.",
+                conditions: "Conditions, diseases and statuses import into Status Effects.",
+                actions: "Actions import into the Actions tab with their action/bonus/reaction timing.",
+                languages: "Languages import into the Languages list.",
+                skills: "Skills import with their governing ability.",
+                senses: "Senses import into the Senses library.",
+                tables: "Tables import into Roll Tables.",
+                vehicles: "Vehicles import into the Vehicles library.",
+              }[category.kind] || "Imported entries are kept in the 5eTools library."}
             </p>
           )}
         </section>
@@ -418,33 +636,12 @@ export function ReferenceIndexTab() {
             Preview
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2 text-xs">
-            {preview ? (
-              <div className="space-y-2">
-                <div>
-                  <p className="font-semibold">{String(entryName(preview))}</p>
-                  <p className="text-[10px] text-muted-foreground">{String(entryMeta(preview))}</p>
-                  {entrySource(preview) && (
-                    <p className="text-[10px] text-muted-foreground">Source: {String(entrySource(preview))}</p>
-                  )}
-                </div>
-                {previewImage && (
-                  <img
-                    src={previewImage}
-                    alt=""
-                    className="max-h-64 w-full rounded border object-contain"
-                    style={{ imageRendering: "pixelated" }}
-                  />
-                )}
-                <p className="whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
-                  {String(entryText(preview) || "No description in this entry.")}
-                </p>
-                <Button size="sm" variant="outline" onClick={importPreview}>
-                  Import this entry
-                </Button>
-              </div>
-            ) : (
-              <p className="text-muted-foreground">Select an entry to preview its source material.</p>
-            )}
+            <ReferenceEntryPreview
+              details={previewDetails}
+              imageSrc={previewImage}
+              onImport={preview ? importPreview : undefined}
+              importingLabel={importing > 0 ? "Importing…" : ""}
+            />
           </div>
         </aside>
       </div>

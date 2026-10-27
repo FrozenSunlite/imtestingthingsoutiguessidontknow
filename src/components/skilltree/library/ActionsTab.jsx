@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/select";
 import { X } from "lucide-react";
 import { InfoTip } from "@/components/skilltree/InfoTip";
+import {
+  ActionPartsEditor,
+  ActionTargetingFields,
+} from "@/components/skilltree/ActionPartsEditor";
 
 // Reference Library tab: the default combat actions (Attack, Dash, Dodge…)
 // that node actions can be created from. Entries are fully modifiable and may
@@ -93,6 +97,21 @@ export function ActionsTab() {
                   onChange={(e) => patch(i, { description: e.target.value })}
                 />
               </InfoTip>
+              <details className="rounded border px-1.5 py-1">
+                <summary className="cursor-pointer text-[10px] font-medium text-muted-foreground">
+                  Combat details — target, attack, save, damage
+                  {(a.parts || []).length ? ` (${(a.parts || []).length} part${(a.parts || []).length === 1 ? "" : "s"})` : ""}
+                </summary>
+                <div className="mt-1.5 space-y-1.5">
+                  <ActionTargetingFields action={a} onChange={(p) => patch(i, p)} />
+                  <ActionPartsEditor
+                    parts={a.parts || []}
+                    onChange={(parts) => patch(i, { parts })}
+                    statuses={statuses}
+                    damageTypes={settings?.library?.damageTypes || []}
+                  />
+                </div>
+              </details>
               {/* Optional quantity: at-will, its own use count, or a shared pool. */}
               <div className="grid grid-cols-3 gap-1.5">
                 <Select value={um} onValueChange={(v) => patch(i, { usesMode: v })}>
