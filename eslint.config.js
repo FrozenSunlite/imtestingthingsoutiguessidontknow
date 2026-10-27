@@ -4,7 +4,15 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["node_modules", "dist", ".wrangler", ".tanstack", "src/routeTree.gen.ts", "src/components/ui/**"],
+    ignores: [
+      "node_modules",
+      "dist",
+      ".tanstack",
+      "standalone/desktop/app-dist",
+      "standalone/desktop/userdata",
+      "src/routeTree.gen.ts",
+      "src/components/ui/**",
+    ],
   },
   pluginJs.configs.recommended,
   {

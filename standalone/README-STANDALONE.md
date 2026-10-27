@@ -1,50 +1,56 @@
 # Terrific Talent Tree — Standalone Personal Copy
 
-This is a personal, offline copy of Terrific Talent Tree (a D&D 5e homebrew skill-tree
-editor). Once installed it runs entirely on your own machine — no account, no
-hosting service. Trees and characters are saved in local storage on the machine
-running the copy.
+This is a personal, offline copy of Terrific Talent Tree (a D&D 5e homebrew
+talent-tree editor). It runs entirely on your own machine — no account, no
+hosting service, no network access. Trees, characters and rulebooks are saved in
+the browser's local storage on the machine running the copy.
 
 ## Requirements
 
-- Node.js 18 or newer: https://nodejs.org (any current LTS works) — needed once,
-  only to run or build the desktop launcher.
+- **Windows:** none. The launcher runs a hidden PowerShell server that is part
+  of Windows.
+- **macOS / Linux:** Node.js 18 or newer (<https://nodejs.org>) only for the
+  optional `serve.js` launcher. `Serve.ps1` can also be used where PowerShell 7
+  is available.
 
-## Setup — Desktop package (opens in your browser)
+## Starting it
 
-The editor ships fully pre-built in `desktop/app-dist/` — no Electron, no npm install,
-nothing to download. A tiny local server (`serve.js`) runs it using only
-Node.js, and it opens in your browser automatically.
+The editor ships fully pre-built in `desktop/app-dist/` — no Electron, no npm
+install, nothing to download.
 
-**Easiest: double-click the launcher for your operating system**
+- Windows: `Start Terrific Talent Tree.bat` (or the desktop shortcut). It starts
+  `Serve.ps1` on <http://localhost:4173> and opens Edge in fullscreen app mode.
+- macOS: `Start Terrific Talent Tree.command` (if macOS blocks it once,
+  right-click → Open).
+- Linux: `start.sh`.
 
-- Windows: `Start Terrific Talent Tree.bat`
-- macOS: `Start Terrific Talent Tree.command` (if macOS blocks it once, right-click → Open)
-- Linux: `start.sh`
+Only one copy of the local server runs at a time; starting the launcher stops
+the previous instance first. Closing the launcher window (Windows) or stopping
+the process shuts the editor down.
 
-The launcher checks for Node.js, starts the local server, and opens the editor
-in your browser. Keep the launcher window open while you play; closing it stops
-the editor. There is no install step at all — the double-click is all it takes.
+Imported artwork is written to `desktop/userdata/images/` so it survives
+rebuilds of the app. Everything in `userdata/` is per-user data and is not part
+of the source repository.
 
-**Terminal alternative**: in the `desktop` folder run `node serve.js`.
+## Running from source
 
-## Setup — Source archive (runs in your browser)
-
-1. Open a terminal in the unzipped folder and run `npm install`.
-2. Run `npm run dev`, then open http://localhost:5173 in your browser.
+1. In the repository root run `npm install`.
+2. `npm run dev`, then open <http://localhost:5173>.
+3. `npm run build:standalone` rebuilds `desktop/app-dist/` for the launcher.
 
 ## Keeping your data safe
 
-- Each copy keeps data in its own browser/computer profile: the hosted app and a
-  standalone copy have **separate** save spaces, and two standalone copies do too.
+- Each browser profile has its own save space. Two copies — or the same copy in
+  two browsers — do not share saves.
 - To move trees or characters between copies, use the in-app Save menu: export a
-  tree or character as a JSON file, then import it in the other copy.
+  project as JSON (or a `.gz` bundle), then import it in the other copy.
+  Exports embed imported images, and importing re-creates them locally.
 - Back up regularly — the JSON export is the durable, future-proof format.
 
 ## Works fully offline
 
-- Building and playing trees, characters, point pools, rests, inventory, dice,
-  saves and all local export formats.
+Building and playing trees, characters, point pools, rests, inventory, dice,
+saves, the rulebook, DM screens and all local export formats.
 
 This copy is for personal use.
 

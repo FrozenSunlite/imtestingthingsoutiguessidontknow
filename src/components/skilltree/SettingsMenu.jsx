@@ -25,6 +25,7 @@ import { HotkeyRow } from "@/components/skilltree/HotkeyRow";
 import { HelpContent } from "@/components/skilltree/HelpContent";
 import { useTheme } from "@/lib/useTheme";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 // Editable hotkeys (rebindable).
 const HOTKEY_LABELS = [

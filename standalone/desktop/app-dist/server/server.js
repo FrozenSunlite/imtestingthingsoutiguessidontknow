@@ -1,9 +1,10 @@
-import { i as requestHandler, r as getResponse, t as createMiddleware } from "./assets/createMiddleware-DWjFg8tL.js";
+import { t as createMiddleware } from "./assets/createMiddleware-B_4t7rW1.js";
 import "react";
 import { RouterProvider } from "@tanstack/react-router";
 import { jsx } from "react/jsx-runtime";
 import { defineHandlerCallback, renderRouterToStream } from "@tanstack/react-router/ssr/server";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { H3Event, toResponse } from "h3-v2";
 import { _getRenderedMatches, createSerializationAdapter, executeRewriteInput, getScriptPreloadAttrs, getStylesheetHref, invariant, isDangerousProtocol, isNotFound, isPromise, isRedirect, resolveManifestAssetLink, resolveManifestCssLink, rootRouteId as rootRouteId$1 } from "@tanstack/router-core";
 import { makeSerovalPlugin, mergeHeaders } from "@tanstack/router-core/ssr/client";
 import { fromJSON, toCrossJSONAsync, toCrossJSONStream } from "seroval";
@@ -22,6 +23,77 @@ var defaultStreamHandler = defineHandlerCallback(({ request, router, responseHea
 	children: /* @__PURE__ */ jsx(StartServer, { router })
 }));
 //#endregion
+//#region node_modules/@tanstack/start-server-core/dist/esm/request-response.js
+var GLOBAL_EVENT_STORAGE_KEY = Symbol.for("tanstack-start:event-storage");
+var globalObj$1 = globalThis;
+if (!globalObj$1[GLOBAL_EVENT_STORAGE_KEY]) globalObj$1[GLOBAL_EVENT_STORAGE_KEY] = new AsyncLocalStorage();
+var eventStorage = globalObj$1[GLOBAL_EVENT_STORAGE_KEY];
+function isPromiseLike(value) {
+	return (typeof value === "object" || typeof value === "function") && value !== null && typeof value.then === "function";
+}
+function getSetCookieValues(headers) {
+	const headersWithSetCookie = headers;
+	if (typeof headersWithSetCookie.getSetCookie === "function") return headersWithSetCookie.getSetCookie();
+	const value = headers.get("set-cookie");
+	return value ? [value] : [];
+}
+function mergeEventResponseHeaders(response, event) {
+	if (response.ok) return;
+	const eventSetCookies = getSetCookieValues(event.res.headers);
+	if (eventSetCookies.length === 0) return;
+	const responseSetCookies = getSetCookieValues(response.headers);
+	response.headers.delete("set-cookie");
+	for (const cookie of responseSetCookies) response.headers.append("set-cookie", cookie);
+	for (const cookie of eventSetCookies) response.headers.append("set-cookie", cookie);
+}
+function finalizeResponse(value, event) {
+	const response = ensureResponse(value);
+	mergeEventResponseHeaders(response, event);
+	return response;
+}
+function finalizeMaybeResponse(value, event) {
+	if (isPromiseLike(value)) return Promise.resolve(value).then((resolved) => finalizeResponse(resolved, event), (error) => finalizeResponse(handleResponseError(error), event));
+	return finalizeResponse(value, event);
+}
+function ensureResponse(value) {
+	if (value instanceof Response) return value;
+	return new Response("Internal Server Error", { status: 500 });
+}
+function handleResponseError(error) {
+	if (error instanceof Response) return error;
+	if (error instanceof Error) throw error;
+	return new Response("Internal Server Error", { status: 500 });
+}
+function requestHandler(handler) {
+	return (request, requestOpts) => {
+		let h3Event;
+		try {
+			h3Event = new H3Event(request);
+		} catch (error) {
+			if (error instanceof URIError) return new Response(null, {
+				status: 400,
+				statusText: "Bad Request"
+			});
+			throw error;
+		}
+		let response;
+		try {
+			response = eventStorage.run({ h3Event }, () => handler(request, requestOpts));
+		} catch (error) {
+			response = handleResponseError(error);
+		}
+		return toResponse(finalizeMaybeResponse(response, h3Event), h3Event);
+	};
+}
+function getH3Event() {
+	const event = eventStorage.getStore();
+	if (!event) throw new Error(`No StartEvent found in AsyncLocalStorage. Make sure you are using the function within the server runtime.`);
+	return event.h3Event;
+}
+function getResponse() {
+	return getH3Event().res;
+}
+//#endregion
 //#region node_modules/@tanstack/start-server-core/dist/esm/constants.js
 var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 //#endregion
@@ -36,7 +108,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-_RbCJD3H.js");
+	const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-CIBpboWz.js");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId$1];
@@ -1283,8 +1355,8 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./assets/router-CjGqqz7y.js").then((n) => n.t),
-		import("./assets/start-KrQfBcwX.js"),
+		import("./assets/router-8tQf9wPl.js").then((n) => n.t),
+		import("./assets/start-DWuGlR21.js"),
 		import("./assets/empty-plugin-adapters-D9UWiqvJ.js")
 	]);
 	return {

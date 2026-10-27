@@ -1,8 +1,5 @@
 import { createStart } from "@tanstack/react-start";
-import { authMiddleware, base44RequestMiddleware } from "@/lib/auth-middleware";
 
-// Every server function and server route gets `context.getBase44()`, acting as the visitor.
-export const startInstance = createStart(() => ({
-  requestMiddleware: [base44RequestMiddleware],
-  functionMiddleware: [authMiddleware],
-}));
+// Default TanStack Start instance: the app has no server-side auth or data
+// layer anymore — everything runs in the browser and in localStorage.
+export const startInstance = createStart(() => ({}));

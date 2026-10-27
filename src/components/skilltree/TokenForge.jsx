@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
-import { IS_STANDALONE } from "@/lib/env";
-import { base44 } from "@/api/base44Client";
+import { importImage } from "@/lib/imageStore";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -9,50 +8,11 @@ import { Download, X } from "lucide-react";
 
 const PREVIEW = 224;
 
-export async function signUri(uri, expiresIn = 3600) {
-  // Already a plain URL (or an offline data URL) — nothing to sign.
-  if (!uri || /^(https?:|data:)/.test(uri)) return uri || "";
-  try {
-    const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({
-      file_uri: uri,
-      expires_in: expiresIn,
-    });
-    return signed_url;
-  } catch {
-    return "";
-  }
-}
-
-// Read an image file into a data URL the character can carry. Downscaled to
-// keep saves and JSON exports light (longest side ≤ 1024px; PNGs keep their
-// transparency, everything else is saved as JPEG).
-function fileToDataUrl(file) {
-  const url = URL.createObjectURL(file);
-  const cleanup = () => URL.revokeObjectURL(url);
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const max = 1024;
-        const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.naturalWidth * s);
-        canvas.height = Math.round(img.naturalHeight * s);
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-        const type = file.type === "image/png" ? "image/png" : "image/jpeg";
-        resolve(canvas.toDataURL(type, 0.92));
-      } catch (e) {
-        reject(e);
-      } finally {
-        cleanup();
-      }
-    };
-    img.onerror = () => {
-      cleanup();
-      reject(new Error("Could not read image"));
-    };
-    img.src = url;
-  });
+// Images are project files or data URLs now, so there is nothing to sign.
+// Anything else (a stale cloud file URI) is dropped rather than rendered raw.
+export async function signUri(uri) {
+  if (!uri) return "";
+  return /^(https?:|data:|blob:|\/)/.test(uri) ? uri : "";
 }
 
 async function loadBitmap(url) {
@@ -119,12 +79,9 @@ export function TokenForge() {
     if (!file) return;
     setErr("");
     try {
-      // Offline desktop copy: there is no cloud to upload to, so the image is
-      // kept as a compact data URL on the character itself — it then rides
-      // along inside the character's saves, exports and imports.
-      const uri = IS_STANDALONE
-        ? await fileToDataUrl(file)
-        : (await base44.integrations.Core.UploadPrivateFile({ file })).file_uri;
+      // Imported into the project's image folder, like node artwork — the
+      // short reference then rides along inside saves, exports and imports.
+      const uri = await importImage(file, { maxEdge: 1024 });
       setCharacter({ ...character, [key]: uri });
       // Fresh portrait: clear any pan/zoom left over from the previous image.
       if (key === "portraitUri") {

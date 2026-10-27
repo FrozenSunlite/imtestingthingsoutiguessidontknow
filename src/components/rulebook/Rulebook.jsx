@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Homebrewery } from "@/components/rulebook/Homebrewery";
+import { importImage } from "@/lib/imageStore";
 import {
   loadRulebook,
   saveRulebook,
