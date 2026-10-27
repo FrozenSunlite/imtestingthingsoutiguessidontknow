@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-ChAtqjj2.js";
+import { i as cn, n as base44, r as Button } from "./router-BjgIqqki.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -16904,7 +16904,16 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	]);
 	const gridBounds = useMemo(() => {
 		const nodes = tree?.nodes || [];
-		if (!nodes.length) return null;
+		const s = grid?.snapSize || 120;
+		if (!nodes.length) {
+			const m = 20 * s;
+			return {
+				minX: -m,
+				maxX: m,
+				minY: -m,
+				maxY: m
+			};
+		}
 		let nMinX = Infinity, nMaxX = -Infinity, nMinY = Infinity, nMaxY = -Infinity;
 		for (const n of nodes) {
 			if (n.x < nMinX) nMinX = n.x;
@@ -16912,7 +16921,6 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			if (n.y < nMinY) nMinY = n.y;
 			if (n.y > nMaxY) nMaxY = n.y;
 		}
-		const s = grid?.snapSize || 120;
 		const m = 5 * s;
 		return {
 			minX: Math.floor((nMinX - m) / s) * s,
@@ -17793,26 +17801,28 @@ function PanelResizer({ width, onResize, edge = "left" }) {
 //#endregion
 //#region src/components/skilltree/FieldGroup.jsx
 var OPEN_STATE = /* @__PURE__ */ new Map();
-function FieldGroup({ label, children, className = "", collapsible = false, defaultOpen = false }) {
+function FieldGroup({ label, children, className = "", collapsible = false, defaultOpen = false, sub = false }) {
 	const [open, setOpenState] = useState(() => OPEN_STATE.has(label) ? OPEN_STATE.get(label) : defaultOpen);
 	const setOpen = (v) => setOpenState((prev) => {
 		const next = typeof v === "function" ? v(prev) : v;
 		OPEN_STATE.set(label, next);
 		return next;
 	});
+	const shell = sub ? "ml-1 border-l-2 border-border/70 pl-3" : "";
+	const head = sub ? "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80" : "text-[10px] font-bold uppercase tracking-wider text-muted-foreground";
 	if (!collapsible) return /* @__PURE__ */ jsxs("section", {
-		className: `space-y-2 ${className}`,
+		className: `space-y-2 ${shell} ${className}`,
 		children: [/* @__PURE__ */ jsx("h4", {
-			className: "border-b pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground",
+			className: `border-b pb-1 ${head}`,
 			children: label
 		}), children]
 	});
 	return /* @__PURE__ */ jsxs("section", {
-		className,
+		className: `${shell} ${className}`,
 		children: [/* @__PURE__ */ jsxs("button", {
 			type: "button",
 			onClick: () => setOpen((o) => !o),
-			className: "flex w-full items-center gap-1 border-b pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground",
+			className: `flex w-full items-center gap-1 border-b pb-1 ${head} transition-colors hover:text-foreground`,
 			children: [open ? /* @__PURE__ */ jsx(ChevronDown, { className: "h-3.5 w-3.5 shrink-0" }) : /* @__PURE__ */ jsx(ChevronRight, { className: "h-3.5 w-3.5 shrink-0" }), label]
 		}), open && /* @__PURE__ */ jsx("div", {
 			className: "mt-2 space-y-2",
@@ -20199,13 +20209,142 @@ function NodeEditorPanel() {
 							})
 						]
 					}),
-					/* @__PURE__ */ jsx(FieldGroup, {
-						label: "Benefits — Proficiencies",
+					/* @__PURE__ */ jsxs(FieldGroup, {
+						label: "Benefits",
 						collapsible: true,
-						children: /* @__PURE__ */ jsx(ProficienciesEditor, {
-							node,
-							set
-						})
+						children: [
+							/* @__PURE__ */ jsx(FieldGroup, {
+								label: "Proficiencies",
+								sub: true,
+								collapsible: true,
+								children: /* @__PURE__ */ jsx(ProficienciesEditor, {
+									node,
+									set
+								})
+							}),
+							/* @__PURE__ */ jsx(FieldGroup, {
+								label: "Actions",
+								sub: true,
+								collapsible: true,
+								children: /* @__PURE__ */ jsx(NodeActionsSection, {
+									node,
+									set
+								})
+							}),
+							/* @__PURE__ */ jsx(FieldGroup, {
+								label: "Resources",
+								sub: true,
+								collapsible: true,
+								children: /* @__PURE__ */ jsx(NodeResourcesSection, {
+									node,
+									set
+								})
+							}),
+							/* @__PURE__ */ jsxs(FieldGroup, {
+								label: "Auto Grants",
+								sub: true,
+								collapsible: true,
+								children: [
+									/* @__PURE__ */ jsx(InfoTip, {
+										label: "Granted automatically when the node is taken, regardless of which benefit is chosen — e.g. a detriment that comes with the deal. Refunding the node removes them.",
+										children: /* @__PURE__ */ jsx(Label, { children: "Auto Grants (granted on take)" })
+									}),
+									(node.grants || []).map((g, i) => {
+										const setGrant = (patch) => {
+											const arr = [...node.grants];
+											arr[i] = {
+												...node.grants[i],
+												...patch
+											};
+											set({ grants: arr });
+										};
+										const gOpts = (nodesById[g.nodeId]?.options || []).map((o, j) => ({
+											value: o.name || `Benefit ${j + 1}`,
+											j
+										}));
+										return /* @__PURE__ */ jsxs("div", {
+											className: "space-y-1 rounded-md border p-2",
+											children: [
+												/* @__PURE__ */ jsxs("div", {
+													className: "flex items-center gap-1",
+													children: [/* @__PURE__ */ jsx(Input, {
+														className: "h-8 flex-1",
+														placeholder: "Granted ability name (e.g. Sunlight Sensitivity)",
+														value: g.name || "",
+														onChange: (e) => setGrant({ name: e.target.value })
+													}), /* @__PURE__ */ jsx(Button, {
+														size: "sm",
+														variant: "ghost",
+														onClick: () => set({ grants: node.grants.filter((_, j) => j !== i) }),
+														children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+													})]
+												}),
+												/* @__PURE__ */ jsxs("div", {
+													className: "flex items-center gap-1",
+													children: [/* @__PURE__ */ jsx(NodePicker, {
+														className: "min-w-0 flex-1",
+														nodes: tree.nodes,
+														value: g.nodeId || "",
+														placeholder: "Granted node (optional)…",
+														onChange: (id) => {
+															const opt = (nodesById[id]?.options || [])[0];
+															setGrant({
+																nodeId: id,
+																optionName: opt ? opt.name || `Benefit 1` : "",
+																name: opt ? opt.name || `Benefit 1` : g.name,
+																description: opt ? opt.description || "" : g.description
+															});
+														}
+													}), gOpts.length > 0 && /* @__PURE__ */ jsxs(Select, {
+														value: g.optionName || "",
+														onValueChange: (v) => {
+															const opt = nodesById[g.nodeId].options[gOpts.find((o) => o.value === v).j];
+															setGrant({
+																optionName: v,
+																name: opt.name || v,
+																description: opt.description || ""
+															});
+														},
+														children: [/* @__PURE__ */ jsx(SelectTrigger, {
+															className: "h-8 w-32 shrink-0",
+															children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Option" })
+														}), /* @__PURE__ */ jsx(SelectContent, { children: gOpts.map((o) => /* @__PURE__ */ jsx(SelectItem, {
+															value: o.value,
+															children: o.value
+														}, o.j)) })]
+													})]
+												}),
+												/* @__PURE__ */ jsx(Textarea, {
+													rows: 2,
+													placeholder: "Description",
+													value: g.description || "",
+													onChange: (e) => setGrant({ description: e.target.value })
+												})
+											]
+										}, i);
+									}),
+									/* @__PURE__ */ jsxs(Button, {
+										size: "sm",
+										variant: "outline",
+										onClick: () => set({ grants: [...node.grants || [], {
+											name: "",
+											description: ""
+										}] }),
+										children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add auto grant"]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsx(FieldGroup, {
+								label: "Bonus Dice",
+								sub: true,
+								collapsible: true,
+								children: /* @__PURE__ */ jsx(BonusDiceEditor, {
+									node,
+									set,
+									settings
+								})
+							})
+						]
 					}),
 					/* @__PURE__ */ jsxs(FieldGroup, {
 						label: "Descriptions",
@@ -20246,129 +20385,11 @@ function NodeEditorPanel() {
 						})]
 					}),
 					/* @__PURE__ */ jsx(FieldGroup, {
-						label: "Benefits — Actions",
-						collapsible: true,
-						children: /* @__PURE__ */ jsx(NodeActionsSection, {
-							node,
-							set
-						})
-					}),
-					/* @__PURE__ */ jsx(FieldGroup, {
-						label: "Benefits — Resources",
-						collapsible: true,
-						children: /* @__PURE__ */ jsx(NodeResourcesSection, {
-							node,
-							set
-						})
-					}),
-					/* @__PURE__ */ jsxs(FieldGroup, {
-						label: "Benefits — Auto Grants",
-						collapsible: true,
-						children: [
-							/* @__PURE__ */ jsx(InfoTip, {
-								label: "Granted automatically when the node is taken, regardless of which benefit is chosen — e.g. a detriment that comes with the deal. Refunding the node removes them.",
-								children: /* @__PURE__ */ jsx(Label, { children: "Auto Grants (granted on take)" })
-							}),
-							(node.grants || []).map((g, i) => {
-								const setGrant = (patch) => {
-									const arr = [...node.grants];
-									arr[i] = {
-										...node.grants[i],
-										...patch
-									};
-									set({ grants: arr });
-								};
-								const gOpts = (nodesById[g.nodeId]?.options || []).map((o, j) => ({
-									value: o.name || `Benefit ${j + 1}`,
-									j
-								}));
-								return /* @__PURE__ */ jsxs("div", {
-									className: "space-y-1 rounded-md border p-2",
-									children: [
-										/* @__PURE__ */ jsxs("div", {
-											className: "flex items-center gap-1",
-											children: [/* @__PURE__ */ jsx(Input, {
-												className: "h-8 flex-1",
-												placeholder: "Granted ability name (e.g. Sunlight Sensitivity)",
-												value: g.name || "",
-												onChange: (e) => setGrant({ name: e.target.value })
-											}), /* @__PURE__ */ jsx(Button, {
-												size: "sm",
-												variant: "ghost",
-												onClick: () => set({ grants: node.grants.filter((_, j) => j !== i) }),
-												children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
-											})]
-										}),
-										/* @__PURE__ */ jsxs("div", {
-											className: "flex items-center gap-1",
-											children: [/* @__PURE__ */ jsx(NodePicker, {
-												className: "min-w-0 flex-1",
-												nodes: tree.nodes,
-												value: g.nodeId || "",
-												placeholder: "Granted node (optional)…",
-												onChange: (id) => {
-													const opt = (nodesById[id]?.options || [])[0];
-													setGrant({
-														nodeId: id,
-														optionName: opt ? opt.name || `Benefit 1` : "",
-														name: opt ? opt.name || `Benefit 1` : g.name,
-														description: opt ? opt.description || "" : g.description
-													});
-												}
-											}), gOpts.length > 0 && /* @__PURE__ */ jsxs(Select, {
-												value: g.optionName || "",
-												onValueChange: (v) => {
-													const opt = nodesById[g.nodeId].options[gOpts.find((o) => o.value === v).j];
-													setGrant({
-														optionName: v,
-														name: opt.name || v,
-														description: opt.description || ""
-													});
-												},
-												children: [/* @__PURE__ */ jsx(SelectTrigger, {
-													className: "h-8 w-32 shrink-0",
-													children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Option" })
-												}), /* @__PURE__ */ jsx(SelectContent, { children: gOpts.map((o) => /* @__PURE__ */ jsx(SelectItem, {
-													value: o.value,
-													children: o.value
-												}, o.j)) })]
-											})]
-										}),
-										/* @__PURE__ */ jsx(Textarea, {
-											rows: 2,
-											placeholder: "Description",
-											value: g.description || "",
-											onChange: (e) => setGrant({ description: e.target.value })
-										})
-									]
-								}, i);
-							}),
-							/* @__PURE__ */ jsxs(Button, {
-								size: "sm",
-								variant: "outline",
-								onClick: () => set({ grants: [...node.grants || [], {
-									name: "",
-									description: ""
-								}] }),
-								children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add auto grant"]
-							})
-						]
-					}),
-					/* @__PURE__ */ jsx(FieldGroup, {
 						label: "Subtrees",
 						collapsible: true,
 						children: /* @__PURE__ */ jsx(SubtreesSection, {
 							node,
 							set
-						})
-					}),
-					/* @__PURE__ */ jsx(FieldGroup, {
-						label: "Benefits — Bonus Dice",
-						collapsible: true,
-						children: /* @__PURE__ */ jsx(BonusDiceEditor, {
-							node,
-							set,
-							settings
 						})
 					}),
 					/* @__PURE__ */ jsxs(FieldGroup, {

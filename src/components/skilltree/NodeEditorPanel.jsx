@@ -517,9 +517,120 @@ export function NodeEditorPanel() {
           </div>
         </FieldGroup>
 
-        {/* ── Benefits ─────────────────────────────────────────────── */}
-        <FieldGroup label="Benefits — Proficiencies" collapsible>
-          <ProficienciesEditor node={node} set={set} />
+        {/* ── Benefits ───────────────────────────────────────────────── */}
+        <FieldGroup label="Benefits" collapsible>
+          {/* ── Proficiencies ────────────────────────────────────────── */}
+          <FieldGroup label="Proficiencies" sub collapsible>
+            <ProficienciesEditor node={node} set={set} />
+          </FieldGroup>
+
+          {/* ── Actions ──────────────────────────────────────────────── */}
+          <FieldGroup label="Actions" sub collapsible>
+            <NodeActionsSection node={node} set={set} />
+          </FieldGroup>
+
+          {/* ── Resources ────────────────────────────────────────────── */}
+          <FieldGroup label="Resources" sub collapsible>
+            <NodeResourcesSection node={node} set={set} />
+          </FieldGroup>
+
+          {/* ── Auto Grants ──────────────────────────────────────────── */}
+          <FieldGroup label="Auto Grants" sub collapsible>
+            <InfoTip label="Granted automatically when the node is taken, regardless of which benefit is chosen — e.g. a detriment that comes with the deal. Refunding the node removes them.">
+              <Label>Auto Grants (granted on take)</Label>
+            </InfoTip>
+            {(node.grants || []).map((g, i) => {
+              const setGrant = (patch) => {
+                const arr = [...node.grants];
+                arr[i] = { ...node.grants[i], ...patch };
+                set({ grants: arr });
+              };
+              const gOpts = (nodesById[g.nodeId]?.options || []).map((o, j) => ({
+                value: o.name || `Benefit ${j + 1}`,
+                j,
+              }));
+              return (
+                <div key={i} className="space-y-1 rounded-md border p-2">
+                  <div className="flex items-center gap-1">
+                    <Input
+                      className="h-8 flex-1"
+                      placeholder="Granted ability name (e.g. Sunlight Sensitivity)"
+                      value={g.name || ""}
+                      onChange={(e) => setGrant({ name: e.target.value })}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => set({ grants: node.grants.filter((_, j) => j !== i) })}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <NodePicker
+                      className="min-w-0 flex-1"
+                      nodes={tree.nodes}
+                      value={g.nodeId || ""}
+                      placeholder="Granted node (optional)…"
+                      onChange={(id) => {
+                        const opts = nodesById[id]?.options || [];
+                        const opt = opts[0];
+                        setGrant({
+                          nodeId: id,
+                          optionName: opt ? opt.name || `Benefit 1` : "",
+                          name: opt ? opt.name || `Benefit 1` : g.name,
+                          description: opt ? opt.description || "" : g.description,
+                        });
+                      }}
+                    />
+                    {gOpts.length > 0 && (
+                      <Select
+                        value={g.optionName || ""}
+                        onValueChange={(v) => {
+                          const opt = nodesById[g.nodeId].options[gOpts.find((o) => o.value === v).j];
+                          setGrant({
+                            optionName: v,
+                            name: opt.name || v,
+                            description: opt.description || "",
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-32 shrink-0">
+                          <SelectValue placeholder="Option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {gOpts.map((o) => (
+                            <SelectItem key={o.j} value={o.value}>
+                              {o.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <Textarea
+                    rows={2}
+                    placeholder="Description"
+                    value={g.description || ""}
+                    onChange={(e) => setGrant({ description: e.target.value })}
+                  />
+                </div>
+              );
+            })}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => set({ grants: [...(node.grants || []), { name: "", description: "" }] })}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add auto grant
+            </Button>
+          </FieldGroup>
+
+          {/* ── Bonus Dice ───────────────────────────────────────────── */}
+          <FieldGroup label="Bonus Dice" sub collapsible>
+            <BonusDiceEditor node={node} set={set} settings={settings} />
+          </FieldGroup>
+
         </FieldGroup>
 
         {/* ── Descriptions ─────────────────────────────────────────── */}
@@ -550,116 +661,9 @@ export function NodeEditorPanel() {
           </div>
         </FieldGroup>
 
-        {/* ── Actions ──────────────────────────────────────────────── */}
-        <FieldGroup label="Benefits — Actions" collapsible>
-          <NodeActionsSection node={node} set={set} />
-        </FieldGroup>
-
-        {/* ── Resources ────────────────────────────────────────────── */}
-        <FieldGroup label="Benefits — Resources" collapsible>
-          <NodeResourcesSection node={node} set={set} />
-        </FieldGroup>
-
-        {/* ── Auto Grants ──────────────────────────────────────────── */}
-        <FieldGroup label="Benefits — Auto Grants" collapsible>
-          <InfoTip label="Granted automatically when the node is taken, regardless of which benefit is chosen — e.g. a detriment that comes with the deal. Refunding the node removes them.">
-            <Label>Auto Grants (granted on take)</Label>
-          </InfoTip>
-          {(node.grants || []).map((g, i) => {
-            const setGrant = (patch) => {
-              const arr = [...node.grants];
-              arr[i] = { ...node.grants[i], ...patch };
-              set({ grants: arr });
-            };
-            const gOpts = (nodesById[g.nodeId]?.options || []).map((o, j) => ({
-              value: o.name || `Benefit ${j + 1}`,
-              j,
-            }));
-            return (
-              <div key={i} className="space-y-1 rounded-md border p-2">
-                <div className="flex items-center gap-1">
-                  <Input
-                    className="h-8 flex-1"
-                    placeholder="Granted ability name (e.g. Sunlight Sensitivity)"
-                    value={g.name || ""}
-                    onChange={(e) => setGrant({ name: e.target.value })}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => set({ grants: node.grants.filter((_, j) => j !== i) })}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-1">
-                  <NodePicker
-                    className="min-w-0 flex-1"
-                    nodes={tree.nodes}
-                    value={g.nodeId || ""}
-                    placeholder="Granted node (optional)…"
-                    onChange={(id) => {
-                      const opts = nodesById[id]?.options || [];
-                      const opt = opts[0];
-                      setGrant({
-                        nodeId: id,
-                        optionName: opt ? opt.name || `Benefit 1` : "",
-                        name: opt ? opt.name || `Benefit 1` : g.name,
-                        description: opt ? opt.description || "" : g.description,
-                      });
-                    }}
-                  />
-                  {gOpts.length > 0 && (
-                    <Select
-                      value={g.optionName || ""}
-                      onValueChange={(v) => {
-                        const opt = nodesById[g.nodeId].options[gOpts.find((o) => o.value === v).j];
-                        setGrant({
-                          optionName: v,
-                          name: opt.name || v,
-                          description: opt.description || "",
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="h-8 w-32 shrink-0">
-                        <SelectValue placeholder="Option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {gOpts.map((o) => (
-                          <SelectItem key={o.j} value={o.value}>
-                            {o.value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <Textarea
-                  rows={2}
-                  placeholder="Description"
-                  value={g.description || ""}
-                  onChange={(e) => setGrant({ description: e.target.value })}
-                />
-              </div>
-            );
-          })}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => set({ grants: [...(node.grants || []), { name: "", description: "" }] })}
-          >
-            <Plus className="mr-1 h-4 w-4" /> Add auto grant
-          </Button>
-        </FieldGroup>
-
         {/* ── Subtrees ─────────────────────────────────────────────── */}
         <FieldGroup label="Subtrees" collapsible>
           <SubtreesSection node={node} set={set} />
-        </FieldGroup>
-
-        {/* ── Bonus Dice ───────────────────────────────────────────── */}
-        <FieldGroup label="Benefits — Bonus Dice" collapsible>
-          <BonusDiceEditor node={node} set={set} settings={settings} />
         </FieldGroup>
 
         {/* ── Appearance ───────────────────────────────────────────── */}

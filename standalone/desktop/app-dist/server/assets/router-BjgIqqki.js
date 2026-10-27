@@ -305,7 +305,7 @@ function Base44Scripts() {
 }
 //#endregion
 //#region src/index.css?url
-var src_default = "/assets/index-BbGdFRXn.css";
+var src_default = "/assets/index-Dw0q6rZk.css";
 //#endregion
 //#region src/routes/__root.jsx
 var Route$2 = createRootRoute({
@@ -359,7 +359,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-4qRX57Qk.js");
+var $$splitComponentImporter = () => import("./routes-uZj5Z9IC.js");
 var Route$1 = createFileRoute("/")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter, "component"),

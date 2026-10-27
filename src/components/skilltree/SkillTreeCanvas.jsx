@@ -418,9 +418,15 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   // Grid covers the node extent plus 5 grid cells — nothing else. No viewport
   // term: panning and zooming never rebuild the grid (the zoom lag source);
   // the overflow-hidden viewport clips whatever falls outside the screen.
+  // An empty tab has no extent, so it falls back to a patch around the world
+  // origin (where its first node will anchor) — otherwise the grid vanished.
   const gridBounds = useMemo(() => {
     const nodes = tree?.nodes || [];
-    if (!nodes.length) return null;
+    const s = grid?.snapSize || 120;
+    if (!nodes.length) {
+      const m = 20 * s;
+      return { minX: -m, maxX: m, minY: -m, maxY: m };
+    }
     let nMinX = Infinity, nMaxX = -Infinity, nMinY = Infinity, nMaxY = -Infinity;
     for (const n of nodes) {
       if (n.x < nMinX) nMinX = n.x;
@@ -428,7 +434,6 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       if (n.y < nMinY) nMinY = n.y;
       if (n.y > nMaxY) nMaxY = n.y;
     }
-    const s = grid?.snapSize || 120;
     const m = 5 * s;
     return {
       minX: Math.floor((nMinX - m) / s) * s,
