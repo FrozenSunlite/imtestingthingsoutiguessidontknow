@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Download, FolderOpen, Save, Trash2, Upload } from "lucide-react";
+import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 
 // Save & load characters: named slots in the browser plus .json export/import.
 // A save bundles the skill tree, the character, the point pools and the
@@ -56,8 +57,12 @@ export function SaveLoadMenu({ open, onClose }) {
     setSaves(listCharacterSaves());
   };
 
-  const download = (entry) => {
-    const blob = new Blob([JSON.stringify(entry, null, 2)], { type: "application/json" });
+  const download = async (entry) => {
+    // Embed referenced artwork so the downloaded copy is self-contained.
+    const portable = await inlineImages(entry, {
+      includeRemote: !!settings?.cacheRemoteImages,
+    });
+    const blob = new Blob([JSON.stringify(portable, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -68,13 +73,16 @@ export function SaveLoadMenu({ open, onClose }) {
 
   const downloadBundle = async (entry) => {
     try {
-      const json = JSON.stringify(entry);
+      const portable = await inlineImages(entry, {
+        includeRemote: !!settings?.cacheRemoteImages,
+      });
+      const json = JSON.stringify(portable);
       const stream = new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"));
       const blob = await new Response(stream).blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = (entry.name || "character").replace(/\\s+/g, "-") + ".gz";
+      a.download = (entry.name || "character").replace(/\s+/g, "-") + ".gz";
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Bundle exported.");
@@ -94,7 +102,8 @@ export function SaveLoadMenu({ open, onClose }) {
         : await file.text();
       const data = JSON.parse(text);
       if (!data || (!data.tree && !data.character)) throw new Error("bad file");
-      applyLoadedSave(data, "sheet");
+      // Embedded images get uploaded into this machine's project folder again.
+      applyLoadedSave(await rehydrateImages(data), "sheet");
       onClose();
     } catch (e) {
       toast.error("Not a valid bundle: " + (e?.message || e));
@@ -104,19 +113,15 @@ export function SaveLoadMenu({ open, onClose }) {
   const doImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        if (!data || (!data.tree && !data.character)) throw new Error("bad file");
-        applyLoadedSave(data, "sheet");
-        onClose();
-      } catch {
-        toast.error("Not a valid character save file.");
-      }
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || (!data.tree && !data.character)) throw new Error("bad file");
+      applyLoadedSave(await rehydrateImages(data), "sheet");
+      onClose();
+    } catch {
+      toast.error("Not a valid character save file.");
+    }
   };
 
   return (

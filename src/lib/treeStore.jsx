@@ -1756,9 +1756,6 @@ export function TreeProvider({ children }) {
           nodes: t.nodes,
           connections: t.connections,
           cameraStartNode: "",
-  autoSave: true,
-  autoSaveInterval: 60,
-  cacheRemoteImages: false,
         };
         return {
           ...prev,

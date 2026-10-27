@@ -8,16 +8,21 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useTree, denormalizeTree } from "@/lib/treeStore";
+import { inlineImages } from "@/lib/imageStore";
 
 // Shown when leaving the workspace for the main menu: warns about unsaved
 // work and offers a .json download of the current skill tree on the way out.
 export function MenuExitDialog({ open, onClose, onExit }) {
   const { tree, settings } = useTree();
 
-  const downloadTree = () => {
-    // The Reference Library travels with the tree so an import restores it.
+  const downloadTree = async () => {
+    // The Reference Library travels with the tree so an import restores it,
+    // and artwork is embedded so the file is portable.
     const data = { ...denormalizeTree(tree), "Reference Library": settings?.library };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
+    const portable = await inlineImages(data, {
+      includeRemote: !!settings?.cacheRemoteImages,
+    });
+    const blob = new Blob([JSON.stringify(portable, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);

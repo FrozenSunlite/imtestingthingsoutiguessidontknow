@@ -350,7 +350,10 @@ export function SettingsMenu({ open, onClose }) {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <Label className="text-xs">Cache remote images locally</Label>
-                    <p className="text-[10px] text-muted-foreground">Downloads and caches URL images into the save bundle.</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Also embeds externally linked (http) images when exporting a project. Images
+                      imported into the project folder are always included.
+                    </p>
                   </div>
                   <Switch
                     checked={!!settings.cacheRemoteImages}

@@ -1,0 +1,1 @@
+import{n as e}from"./routes-AT6NG37i.js";export default e();

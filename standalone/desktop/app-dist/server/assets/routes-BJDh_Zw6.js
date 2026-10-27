@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-ue3tAdhR.js";
+import { i as cn, n as base44, r as Button } from "./router-CjGqqz7y.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -5210,10 +5210,7 @@ function TreeProvider({ children }) {
 					name: t.name || `Tree ${(prev.tabs?.length || 0) + 1}`,
 					nodes: t.nodes,
 					connections: t.connections,
-					cameraStartNode: "",
-					autoSave: true,
-					autoSaveInterval: 60,
-					cacheRemoteImages: false
+					cameraStartNode: ""
 				};
 				return {
 					...prev,
@@ -5878,6 +5875,129 @@ function poolUsage(tree) {
 	return usage;
 }
 //#endregion
+//#region src/lib/imageStore.js
+var UPLOAD_ENDPOINT = "/api/upload";
+var MAX_FALLBACK_EDGE = 512;
+var MAX_UPLOAD_BYTES = 26214400;
+var REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
+var MARKDOWN_IMAGE_RE = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
+var isDataUrl = (s) => typeof s === "string" && s.startsWith("data:image/");
+var isProjectImage = (s) => typeof s === "string" && s.startsWith("/images/");
+var isRemoteImage = (s) => typeof s === "string" && REMOTE_IMAGE_RE.test(s);
+function blobToDataUrl(blob) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = () => reject(reader.error || /* @__PURE__ */ new Error("could not read image"));
+		reader.readAsDataURL(blob);
+	});
+}
+async function toSharpDataUrl(file, maxEdge = MAX_FALLBACK_EDGE) {
+	const bitmap = await createImageBitmap(file);
+	let w = bitmap.width;
+	let h = bitmap.height;
+	const scale = Math.min(1, maxEdge / Math.max(w, h));
+	w = Math.max(1, Math.round(w * scale));
+	h = Math.max(1, Math.round(h * scale));
+	const canvas = document.createElement("canvas");
+	canvas.width = w;
+	canvas.height = h;
+	const ctx = canvas.getContext("2d");
+	ctx.imageSmoothingEnabled = false;
+	ctx.mozImageSmoothingEnabled = false;
+	ctx.webkitImageSmoothingEnabled = false;
+	ctx.msImageSmoothingEnabled = false;
+	ctx.drawImage(bitmap, 0, 0, w, h);
+	bitmap.close?.();
+	return canvas.toDataURL("image/png");
+}
+async function uploadBlob(blob, name) {
+	const res = await fetch(`${UPLOAD_ENDPOINT}?name=${encodeURIComponent(name || "image.png")}`, {
+		method: "POST",
+		headers: { "Content-Type": blob.type || "application/octet-stream" },
+		body: blob
+	});
+	if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+	const data = await res.json();
+	if (!data || typeof data.url !== "string" || !data.url) throw new Error("upload returned no url");
+	return data.url;
+}
+async function importImage$1(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
+	if (!file || !String(file.type || "").startsWith("image/")) throw new Error("Not an image file");
+	if (file.size > MAX_UPLOAD_BYTES) throw new Error("Image is too large (max 25 MB)");
+	try {
+		return await uploadBlob(file, file.name || "image.png");
+	} catch {
+		return toSharpDataUrl(file, maxEdge);
+	}
+}
+async function mapDeep(value, fn) {
+	if (typeof value === "string") return fn(value);
+	if (Array.isArray(value)) {
+		const out = [];
+		for (const item of value) out.push(await mapDeep(item, fn));
+		return out;
+	}
+	if (value && typeof value === "object") {
+		const out = {};
+		for (const [key, item] of Object.entries(value)) out[key] = await mapDeep(item, fn);
+		return out;
+	}
+	return value;
+}
+async function mapMarkdownImages(text, resolve) {
+	if (!text.includes("![")) return text;
+	let out = text;
+	for (const match of [...text.matchAll(MARKDOWN_IMAGE_RE)]) {
+		const url = match[2];
+		const next = await resolve(url);
+		if (next !== url) out = out.replace(match[0], match[1] + next + match[3]);
+	}
+	return out;
+}
+async function embedUrl(url) {
+	const res = await fetch(url, { cache: "no-cache" });
+	if (!res.ok) throw new Error(`could not fetch ${url}`);
+	const blob = await res.blob();
+	if (!String(blob.type || "").startsWith("image/")) throw new Error("not an image");
+	return blobToDataUrl(blob);
+}
+async function inlineImages(payload, { includeRemote = false } = {}) {
+	const cache = /* @__PURE__ */ new Map();
+	const resolve = async (url) => {
+		if (cache.has(url)) return cache.get(url);
+		let next = url;
+		try {
+			if (isProjectImage(url) || includeRemote && isRemoteImage(url)) next = await embedUrl(url);
+		} catch {}
+		cache.set(url, next);
+		return next;
+	};
+	return mapDeep(payload, async (text) => {
+		const whole = text.trim();
+		if (isProjectImage(whole) || includeRemote && isRemoteImage(whole)) return resolve(whole);
+		return mapMarkdownImages(text, resolve);
+	});
+}
+async function rehydrateImages(payload) {
+	const cache = /* @__PURE__ */ new Map();
+	const resolve = async (dataUrl) => {
+		if (!isDataUrl(dataUrl)) return dataUrl;
+		if (cache.has(dataUrl)) return cache.get(dataUrl);
+		let next = dataUrl;
+		try {
+			const blob = await (await fetch(dataUrl)).blob();
+			next = await uploadBlob(blob, `restored.${(blob.type.split("/")[1] || "png").replace("jpeg", "jpg")}`);
+		} catch {}
+		cache.set(dataUrl, next);
+		return next;
+	};
+	return mapDeep(payload, async (text) => {
+		if (isDataUrl(text.trim())) return resolve(text.trim());
+		return mapMarkdownImages(text, resolve);
+	});
+}
+//#endregion
 //#region src/components/ui/dialog.jsx
 var Dialog = DialogPrimitive.Root;
 var DialogPortal = DialogPrimitive.Portal;
@@ -6077,47 +6197,6 @@ var Input = React.forwardRef(({ className, type, ...props }, ref) => {
 	});
 });
 Input.displayName = "Input";
-//#endregion
-//#region src/lib/imageStore.js
-var UPLOAD_ENDPOINT = "/api/upload";
-var MAX_FALLBACK_EDGE = 512;
-var MAX_UPLOAD_BYTES = 26214400;
-async function toSharpDataUrl(file, maxEdge = MAX_FALLBACK_EDGE) {
-	const bitmap = await createImageBitmap(file);
-	let w = bitmap.width;
-	let h = bitmap.height;
-	const scale = Math.min(1, maxEdge / Math.max(w, h));
-	w = Math.max(1, Math.round(w * scale));
-	h = Math.max(1, Math.round(h * scale));
-	const canvas = document.createElement("canvas");
-	canvas.width = w;
-	canvas.height = h;
-	const ctx = canvas.getContext("2d");
-	ctx.imageSmoothingEnabled = false;
-	ctx.mozImageSmoothingEnabled = false;
-	ctx.webkitImageSmoothingEnabled = false;
-	ctx.msImageSmoothingEnabled = false;
-	ctx.drawImage(bitmap, 0, 0, w, h);
-	bitmap.close?.();
-	return canvas.toDataURL("image/png");
-}
-async function importImage$1(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
-	if (!file || !String(file.type || "").startsWith("image/")) throw new Error("Not an image file");
-	if (file.size > MAX_UPLOAD_BYTES) throw new Error("Image is too large (max 25 MB)");
-	try {
-		const res = await fetch(`${UPLOAD_ENDPOINT}?name=${encodeURIComponent(file.name || "image.png")}`, {
-			method: "POST",
-			headers: { "Content-Type": file.type || "application/octet-stream" },
-			body: file
-		});
-		if (!res.ok) throw new Error(`upload failed: ${res.status}`);
-		const data = await res.json();
-		if (!data || typeof data.url !== "string" || !data.url) throw new Error("upload returned no url");
-		return data.url;
-	} catch {
-		return toSharpDataUrl(file, maxEdge);
-	}
-}
 //#endregion
 //#region src/components/ui/label.jsx
 var labelVariants = cva("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70");
@@ -6875,7 +6954,7 @@ function SettingsMenu({ open, onClose }) {
 												children: "Cache remote images locally"
 											}), /* @__PURE__ */ jsx("p", {
 												className: "text-[10px] text-muted-foreground",
-												children: "Downloads and caches URL images into the save bundle."
+												children: "Also embeds externally linked (http) images when exporting a project. Images imported into the project folder are always included."
 											})] }), /* @__PURE__ */ jsx(Switch, {
 												checked: !!settings.cacheRemoteImages,
 												onCheckedChange: (v) => setSettings((s) => ({
@@ -14347,8 +14426,9 @@ function SaveLoadMenu({ open, onClose }) {
 		deleteCharacterSave(id);
 		setSaves(listCharacterSaves());
 	};
-	const download = (entry) => {
-		const blob = new Blob([JSON.stringify(entry, null, 2)], { type: "application/json" });
+	const download = async (entry) => {
+		const portable = await inlineImages(entry, { includeRemote: !!settings?.cacheRemoteImages });
+		const blob = new Blob([JSON.stringify(portable, null, 2)], { type: "application/json" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
@@ -14359,19 +14439,15 @@ function SaveLoadMenu({ open, onClose }) {
 	const doImport = async (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
-		const reader = new FileReader();
-		reader.onload = () => {
-			try {
-				const data = JSON.parse(reader.result);
-				if (!data || !data.tree && !data.character) throw new Error("bad file");
-				applyLoadedSave(data, "sheet");
-				onClose();
-			} catch {
-				toast$1.error("Not a valid character save file.");
-			}
-		};
-		reader.readAsText(file);
 		e.target.value = "";
+		try {
+			const data = JSON.parse(await file.text());
+			if (!data || !data.tree && !data.character) throw new Error("bad file");
+			applyLoadedSave(await rehydrateImages(data), "sheet");
+			onClose();
+		} catch {
+			toast$1.error("Not a valid character save file.");
+		}
 	};
 	return /* @__PURE__ */ jsx(Dialog, {
 		open,
@@ -14470,12 +14546,12 @@ function SaveLoadMenu({ open, onClose }) {
 //#region src/components/skilltree/MenuExitDialog.jsx
 function MenuExitDialog({ open, onClose, onExit }) {
 	const { tree, settings } = useTree();
-	const downloadTree = () => {
-		const data = {
+	const downloadTree = async () => {
+		const portable = await inlineImages({
 			...denormalizeTree(tree),
 			"Reference Library": settings?.library
-		};
-		const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+		}, { includeRemote: !!settings?.cacheRemoteImages });
+		const blob = new Blob([JSON.stringify(portable, null, 2)], { type: "application/json" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
@@ -15031,9 +15107,10 @@ function Toolbar({ onAddPoolWindow }) {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		const reader = new FileReader();
-		reader.onload = () => {
+		reader.onload = async () => {
 			try {
-				setImportData(JSON.parse(reader.result));
+				const parsed = JSON.parse(reader.result);
+				setImportData(await rehydrateImages(parsed));
 			} catch {
 				alert("Invalid JSON file.");
 			}
@@ -15045,12 +15122,12 @@ function Toolbar({ onAddPoolWindow }) {
 		importTree(importData, mode);
 		setImportData(null);
 	};
-	const onExport = () => {
-		const data = {
+	const onExport = async () => {
+		const portable = await inlineImages({
 			...denormalizeTree(tree),
 			"Reference Library": settings?.library
-		};
-		const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+		}, { includeRemote: !!settings?.cacheRemoteImages });
+		const blob = new Blob([JSON.stringify(portable, null, 2)], { type: "application/json" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;

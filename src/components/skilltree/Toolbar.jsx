@@ -10,6 +10,7 @@ import {
   statVars,
 } from "@/lib/treeStore";
 import { statOr10 } from "@/lib/skills";
+import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 import {
   Dialog,
   DialogContent,
@@ -167,9 +168,12 @@ export function Toolbar({ onAddPoolWindow }) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
-        setImportData(JSON.parse(reader.result));
+        const parsed = JSON.parse(reader.result);
+        // Exports carry their artwork as embedded data URLs; move those back
+        // into the project's image folder so the live tree stays small.
+        setImportData(await rehydrateImages(parsed));
       } catch {
         alert("Invalid JSON file.");
       }
@@ -183,10 +187,14 @@ export function Toolbar({ onAddPoolWindow }) {
     setImportData(null);
   };
 
-  const onExport = () => {
+  const onExport = async () => {
     // The Reference Library travels with the tree so an import restores it.
     const data = { ...denormalizeTree(tree), "Reference Library": settings?.library };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
+    // Project images are files on disk; embed them so this export is portable.
+    const portable = await inlineImages(data, {
+      includeRemote: !!settings?.cacheRemoteImages,
+    });
+    const blob = new Blob([JSON.stringify(portable, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
