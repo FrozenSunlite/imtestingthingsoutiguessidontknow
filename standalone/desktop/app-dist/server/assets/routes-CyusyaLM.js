@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DewRqKVQ.js";
+import { n as Button, r as cn } from "./router-CH8axoVB.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3489,6 +3489,7 @@ var DEFAULT_DUNGEON_ROOMS = [
 		traps: [],
 		spawns: [],
 		loot: [],
+		shape: "Rectangle",
 		bonfire: true,
 		notes: "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper."
 	}
@@ -3556,6 +3557,8 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
 		const pools = (lootPools || []).map((p) => p.name).filter(Boolean);
 		loot.push(pools.length ? `${rng.pick(pools)} (1 roll)` : `1 rank ${rank} loot roll`);
 	}
+	const shape = template.cells?.length ? template.shape || "Custom" : template.shape || pickRoomShape(category, rng);
+	const cells = template.cells?.length ? template.cells.map(([cx, cy]) => [cx, cy]) : shapeCells(w, h, shape);
 	return {
 		id: uid("room"),
 		templateId: template.id,
@@ -3569,6 +3572,10 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
 		elevation: template.elevation || rng.pick(ELEVATIONS),
 		cover: template.cover || rng.pick(COVERS),
 		connector: template.connector || "Doorway",
+		shape,
+		cells,
+		ingressPoints: template.ingressPoints?.length ? template.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
+		spawnPoints: template.spawnPoints?.length ? template.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, spawns.length),
 		traps,
 		spawns,
 		loot,
@@ -3584,6 +3591,9 @@ var link = (from, to, type = "Doorway") => ({
 	type
 });
 function makeBonfire(rng) {
+	const w = rng?.int(4, 5) || 4;
+	const h = rng?.int(4, 5) || 4;
+	const cells = rectCells(w, h);
 	return {
 		id: uid("room"),
 		templateId: "room-bonfire",
@@ -3591,8 +3601,12 @@ function makeBonfire(rng) {
 		category: "Rest",
 		x: 0,
 		y: 0,
-		w: rng?.int(4, 5) || 4,
-		h: rng?.int(4, 5) || 4,
+		w,
+		h,
+		shape: "Rectangle",
+		cells,
+		ingressPoints: defaultIngress(cells),
+		spawnPoints: [],
 		environment: "Sheltered alcove",
 		elevation: "Flat",
 		cover: "Low wall (three-quarters)",
@@ -3820,12 +3834,45 @@ function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
 }
 var ROOM_SHAPES = [
 	"Rectangle",
+	"Diamond",
+	"Circle",
 	"L-Shape",
 	"T-Shape",
 	"U-Shape",
 	"Cross",
-	"Octagon"
+	"Octagon",
+	"Irregular"
 ];
+var irregularCells = (w, h) => {
+	let seed = w * 73856093 ^ h * 19349663 ^ 2654435769;
+	const rand = () => {
+		seed = seed * 1664525 + 1013904223 >>> 0;
+		return seed / 4294967296;
+	};
+	const start = [Math.floor(w / 2), Math.floor(h / 2)];
+	const cells = [start];
+	const set = /* @__PURE__ */ new Set([`${start[0]},${start[1]}`]);
+	const target = Math.max(4, Math.round(w * h * (.58 + rand() * .18)));
+	let guard = 0;
+	while (cells.length < target && guard < 5e3) {
+		guard += 1;
+		const [px, py] = cells[Math.floor(rand() * cells.length)];
+		const [dx, dy] = [
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		][Math.floor(rand() * 4)];
+		const x = px + dx;
+		const y = py + dy;
+		if (x < 0 || y < 0 || x >= w || y >= h) continue;
+		const key = `${x},${y}`;
+		if (set.has(key) || rand() < .22) continue;
+		set.add(key);
+		cells.push([x, y]);
+	}
+	return cells;
+};
 function shapeCells(width, height, shape) {
 	const w = Math.max(2, Math.round(Number(width) || 2));
 	const h = Math.max(2, Math.round(Number(height) || 2));
@@ -3834,7 +3881,19 @@ function shapeCells(width, height, shape) {
 		for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (predicate(x, y)) out.push([x, y]);
 		return out;
 	};
+	const cx = (w - 1) / 2;
+	const cy = (h - 1) / 2;
+	const rx = Math.max(1, (w - 1) / 2);
+	const ry = Math.max(1, (h - 1) / 2);
 	switch (shape) {
+		case "Diamond": {
+			const cells = keep((x, y) => Math.abs((x - cx) / rx) + Math.abs((y - cy) / ry) <= 1.06);
+			return cells.length ? cells : rectCells(w, h);
+		}
+		case "Circle": {
+			const cells = keep((x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.06);
+			return cells.length ? cells : rectCells(w, h);
+		}
 		case "L-Shape": return keep((x, y) => x < Math.ceil(w * .55) || y >= Math.floor(h * .55));
 		case "T-Shape": return keep((x, y) => y < Math.ceil(h * .4) || x >= Math.floor(w * .3) && x < Math.ceil(w * .7));
 		case "U-Shape": return keep((x, y) => x < Math.ceil(w * .28) || x >= Math.floor(w * .72) || y >= Math.floor(h * .55));
@@ -3844,13 +3903,66 @@ function shapeCells(width, height, shape) {
 			const cutY = Math.floor(h * .25);
 			return !(x < cutX && y < cutY || x >= w - cutX && y < cutY || x < cutX && y >= h - cutY || x >= w - cutX && y >= h - cutY);
 		});
+		case "Irregular": return irregularCells(w, h);
 		default: return rectCells(w, h);
 	}
+}
+function pickRoomShape(category, rng) {
+	if (category === "Entrance" || category === "Corridor") return rng.chance(.08) ? "L-Shape" : "Rectangle";
+	const roll = rng.rand();
+	if (roll < .04) return "Irregular";
+	if (roll < .07) return "Circle";
+	if (roll < .13) return "Diamond";
+	if (roll < .21) return "L-Shape";
+	if (roll < .28) return "T-Shape";
+	if (roll < .34) return "Cross";
+	if (roll < .39) return "Octagon";
+	if (roll < .45) return "U-Shape";
+	return "Rectangle";
+}
+function edgeCells(cells) {
+	const set = new Set(cells.map(([x, y]) => `${x},${y}`));
+	return cells.filter(([x, y]) => [
+		[1, 0],
+		[-1, 0],
+		[0, 1],
+		[0, -1]
+	].some(([dx, dy]) => !set.has(`${x + dx},${y + dy}`)));
+}
+function defaultIngress(cells) {
+	if (!cells.length) return [];
+	const edge = edgeCells(cells);
+	const left = edge.reduce((best, c) => c[0] < best[0] ? c : best, edge[0] || cells[0]);
+	return [{
+		x: left[0],
+		y: left[1],
+		label: "Ingress"
+	}];
+}
+function defaultSpawns(cells, count) {
+	if (!cells.length || !count) return [];
+	const edge = edgeCells(cells).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+	const picked = [];
+	const seen = /* @__PURE__ */ new Set();
+	edge.forEach((cell) => {
+		if (picked.length >= Math.min(6, count)) return;
+		const key = `${cell[0]},${cell[1]}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		picked.push({
+			x: cell[0],
+			y: cell[1],
+			label: `Spawn ${picked.length + 1}`
+		});
+	});
+	return picked;
 }
 function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 	const t = template || DEFAULT_DUNGEON_ROOMS[0];
 	const w = Math.max(t.minW || 4, Math.round(((t.minW || 4) + (t.maxW || t.minW || 6)) / 2));
 	const h = Math.max(t.minH || 4, Math.round(((t.minH || 4) + (t.maxH || t.minH || 6)) / 2));
+	const shape = t.cells?.length ? t.shape || "Custom" : t.shape || "Rectangle";
+	const cells = t.cells?.length ? t.cells.map(([cx, cy]) => [cx, cy]) : shapeCells(w, h, shape);
 	return {
 		id: uid("room"),
 		templateId: t.id,
@@ -3860,11 +3972,14 @@ function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 		y,
 		w,
 		h,
+		shape,
+		cells,
+		ingressPoints: t.ingressPoints?.length ? t.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
+		spawnPoints: t.spawnPoints?.length ? t.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, (t.spawns || []).length),
 		environment: t.environment || "",
 		elevation: t.elevation || "Flat",
 		cover: t.cover || "Open",
 		connector: t.connector || "Doorway",
-		cells: Array.isArray(t.cells) && t.cells.length ? t.cells.map(([cx, cy]) => [cx, cy]) : void 0,
 		traps: [...t.traps || []],
 		spawns: [...t.spawns || []],
 		loot: [...t.loot || []],
@@ -36637,6 +36752,7 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 				tabIndex: 0,
 				onPointerDown: startPan,
 				onWheel: (e) => {
+					if (!e.ctrlKey && !e.metaKey) return;
 					e.preventDefault();
 					setZoom((z) => Math.max(.25, Math.min(1.8, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
 				},
@@ -36732,7 +36848,8 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 							const badges = [
 								room.bonfire ? "♨" : "",
 								room.traps?.length ? "T" : "",
-								room.spawns?.length ? "S" : "",
+								room.spawns?.length || room.spawnPoints?.length ? "S" : "",
+								room.ingressPoints?.length ? "I" : "",
 								room.loot?.length ? "L" : "",
 								room.elevation && room.elevation !== "Flat" ? "E" : "",
 								room.cover && room.cover !== "Open" ? "C" : ""
@@ -36814,7 +36931,7 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 			}),
 			/* @__PURE__ */ jsx("div", {
 				className: "pointer-events-none absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5 text-[9px] text-muted-foreground",
-				children: "Drag to pan · wheel to zoom · right-click a room to edit"
+				children: "Drag to pan · Ctrl/⌘ + wheel to zoom · right-click a room to edit"
 			})
 		]
 	});
@@ -36840,6 +36957,8 @@ function RoomBattleMap({ room }) {
 	const traps = room.traps || [];
 	const spawns = room.spawns || [];
 	const loot = room.loot || [];
+	const spawnPoints = (room.spawnPoints || []).filter((p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)));
+	const ingressPoints = (room.ingressPoints || []).filter((p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)));
 	const at = (i) => cells[(i % cells.length + cells.length) % cells.length] || center;
 	const label = (cx, cy, text, fill = "hsl(var(--muted-foreground))", size = 6) => /* @__PURE__ */ jsx("text", {
 		x: cx,
@@ -36950,7 +37069,17 @@ function RoomBattleMap({ room }) {
 							fillOpacity: "0.8"
 						}), label(centerX, centerY + 2, "T", "hsl(var(--background))", 5)] }, `t${i}`);
 					}),
-					spawns.map((s, i) => {
+					spawnPoints.length ? spawnPoints.map((point, i) => {
+						const cx = point.x + ox;
+						const cy = point.y + oy;
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
+							cx: (cx + .5) * cell,
+							cy: (cy + .5) * cell,
+							r: cell * .32,
+							fill: "hsl(var(--destructive))",
+							fillOpacity: "0.8"
+						}), label((cx + .5) * cell, (cy + .5) * cell + 2, String(i + 1), "hsl(var(--background))", 5)] }, `sp${i}`);
+					}) : spawns.map((s, i) => {
 						const [cx, cy] = at(3 + i * 7);
 						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
 							cx: (cx + .5) * cell,
@@ -36959,6 +37088,19 @@ function RoomBattleMap({ room }) {
 							fill: "hsl(var(--primary))",
 							fillOpacity: "0.75"
 						}), label((cx + .5) * cell, (cy + .5) * cell + 2, String(i + 1), "hsl(var(--primary-foreground))", 5)] }, `s${i}`);
+					}),
+					ingressPoints.map((point, i) => {
+						const cx = point.x + ox;
+						const cy = point.y + oy;
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
+							cx: (cx + .5) * cell,
+							cy: (cy + .5) * cell,
+							r: cell * .34,
+							fill: "hsl(152 65% 42%)",
+							fillOpacity: "0.85",
+							stroke: "hsl(var(--background))",
+							strokeWidth: "0.8"
+						}), label((cx + .5) * cell, (cy + .5) * cell + 2, "IN", "hsl(var(--background))", 4)] }, `in${i}`);
 					}),
 					loot.length > 0 && /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
 						x: (center[0] + .15) * cell,
@@ -36975,7 +37117,8 @@ function RoomBattleMap({ room }) {
 				className: "flex flex-wrap gap-2 text-[9px] text-muted-foreground",
 				children: [
 					/* @__PURE__ */ jsx("span", { children: "▲ trap" }),
-					/* @__PURE__ */ jsx("span", { children: "● spawn" }),
+					/* @__PURE__ */ jsx("span", { children: "● monster spawn" }),
+					/* @__PURE__ */ jsx("span", { children: "● player ingress" }),
 					/* @__PURE__ */ jsx("span", { children: "◆ loot" }),
 					/* @__PURE__ */ jsx("span", { children: "▭ cover" }),
 					/* @__PURE__ */ jsx("span", { children: "◌ elevation" }),
@@ -36987,11 +37130,21 @@ function RoomBattleMap({ room }) {
 }
 //#endregion
 //#region src/components/skilltree/dungeon/RoomShapeBuilder.jsx
+var TOOLS = [
+	["floor", "Floor"],
+	["spawn", "Monster spawn"],
+	["ingress", "Player ingress"],
+	["erase", "Erase"]
+];
+var keyOf = (x, y) => `${x},${y}`;
 function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 	const w = Math.max(2, Math.min(20, Math.round(Number(room?.w) || 2)));
 	const h = Math.max(2, Math.min(20, Math.round(Number(room?.h) || 2)));
 	const [preset, setPreset] = useState("Rectangle");
+	const [tool, setTool] = useState("floor");
 	const [cells, setCells] = useState(() => /* @__PURE__ */ new Set());
+	const [spawns, setSpawns] = useState(() => /* @__PURE__ */ new Map());
+	const [ingress, setIngress] = useState(() => /* @__PURE__ */ new Map());
 	useEffect(() => {
 		if (!open || !room) return;
 		const initial = roomShapeCells({
@@ -36999,8 +37152,12 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 			w,
 			h
 		});
-		setCells(new Set(initial.map(([x, y]) => `${x},${y}`)));
-		setPreset("Custom");
+		const active = new Set(initial.map(([x, y]) => keyOf(x, y)));
+		setCells(active);
+		setSpawns(new Map((room.spawnPoints || []).map((p) => [keyOf(p.x, p.y), p.label || ""]).filter(([key]) => active.has(key))));
+		setIngress(new Map((room.ingressPoints || []).map((p) => [keyOf(p.x, p.y), p.label || ""]).filter(([key]) => active.has(key))));
+		setTool("floor");
+		setPreset(room.shape || "Custom");
 	}, [
 		open,
 		room,
@@ -37009,37 +37166,109 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 	]);
 	const list = useMemo(() => [...cells].map((key) => key.split(",").map(Number)), [cells]);
 	const connected = list.length > 0 && cellsConnected(list);
-	const toggle = (x, y) => {
-		setCells((prev) => {
-			const next = new Set(prev);
-			const key = `${x},${y}`;
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
+	const removeMarkers = (key, nextSpawns, nextIngress) => {
+		nextSpawns.delete(key);
+		nextIngress.delete(key);
+	};
+	const applyCellClick = (x, y) => {
+		const key = keyOf(x, y);
+		if (tool === "spawn") {
+			const nextCells = new Set(cells).add(key);
+			const nextSpawns = new Map(spawns);
+			const nextIngress = new Map(ingress);
+			nextIngress.delete(key);
+			if (nextSpawns.has(key)) nextSpawns.delete(key);
+			else nextSpawns.set(key, `Spawn ${nextSpawns.size + 1}`);
+			setCells(nextCells);
+			setSpawns(nextSpawns);
+			setIngress(nextIngress);
 			setPreset("Custom");
-			return next;
-		});
+			return;
+		}
+		if (tool === "ingress") {
+			const nextCells = new Set(cells).add(key);
+			const nextSpawns = new Map(spawns);
+			const nextIngress = new Map(ingress);
+			nextSpawns.delete(key);
+			if (nextIngress.has(key)) nextIngress.delete(key);
+			else nextIngress.set(key, "Ingress");
+			setCells(nextCells);
+			setSpawns(nextSpawns);
+			setIngress(nextIngress);
+			setPreset("Custom");
+			return;
+		}
+		if (tool === "erase") {
+			const nextSpawns = new Map(spawns);
+			const nextIngress = new Map(ingress);
+			if (nextSpawns.has(key) || nextIngress.has(key)) {
+				removeMarkers(key, nextSpawns, nextIngress);
+				setSpawns(nextSpawns);
+				setIngress(nextIngress);
+				return;
+			}
+			const next = new Set(cells);
+			next.delete(key);
+			setCells(next);
+			setPreset("Custom");
+			return;
+		}
+		const next = new Set(cells);
+		if (next.has(key)) {
+			next.delete(key);
+			const nextSpawns = new Map(spawns);
+			const nextIngress = new Map(ingress);
+			nextSpawns.delete(key);
+			nextIngress.delete(key);
+			setSpawns(nextSpawns);
+			setIngress(nextIngress);
+		} else next.add(key);
+		setCells(next);
+		setPreset("Custom");
 	};
 	const applyPreset = (name) => {
 		setPreset(name);
-		setCells(new Set(shapeCells(w, h, name).map(([x, y]) => `${x},${y}`)));
+		const next = new Set(shapeCells(w, h, name).map(([x, y]) => keyOf(x, y)));
+		setCells(next);
+		setSpawns((prev) => new Map([...prev].filter(([key]) => next.has(key))));
+		setIngress((prev) => new Map([...prev].filter(([key]) => next.has(key))));
 	};
 	const save = () => {
 		if (!connected) return;
-		onSave?.(list);
+		onSave?.({
+			cells: list,
+			shape: preset === "Custom" ? "Custom" : preset,
+			spawnPoints: [...spawns].map(([key, label]) => {
+				const [x, y] = key.split(",").map(Number);
+				return {
+					x,
+					y,
+					label
+				};
+			}),
+			ingressPoints: [...ingress].map(([key, label]) => {
+				const [x, y] = key.split(",").map(Number);
+				return {
+					x,
+					y,
+					label
+				};
+			})
+		});
 		onOpenChange?.(false);
 	};
 	return /* @__PURE__ */ jsx(Dialog, {
 		open,
 		onOpenChange,
 		children: /* @__PURE__ */ jsxs(DialogContent, {
-			className: "max-w-xl",
+			className: "max-w-2xl",
 			children: [
 				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Room builder — ", room?.name || "Room"] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
-					"Paint the floor cells for this battlemap. The shape must stay connected. The room's width and height define the grid (currently ",
+					"Paint the floor cells, then place monster spawn points and player ingress zones. The shape must stay connected. Grid: ",
 					w,
 					" × ",
 					h,
-					")."
+					"."
 				] })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "flex flex-wrap items-center gap-2",
@@ -37078,9 +37307,46 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 							}), /* @__PURE__ */ jsx(Button, {
 								size: "sm",
 								variant: "ghost",
-								onClick: () => setCells(/* @__PURE__ */ new Set()),
+								onClick: () => {
+									setCells(/* @__PURE__ */ new Set());
+									setSpawns(/* @__PURE__ */ new Map());
+									setIngress(/* @__PURE__ */ new Map());
+								},
 								children: "Clear"
 							})]
+						})
+					]
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex flex-wrap items-center gap-1",
+					children: [
+						TOOLS.map(([id, label]) => /* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: tool === id ? "default" : "outline",
+							className: "h-7 text-xs",
+							onClick: () => setTool(id),
+							children: label
+						}, id)),
+						/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "ghost",
+							className: "h-7 text-xs",
+							onClick: () => {
+								setSpawns(/* @__PURE__ */ new Map());
+								setIngress(/* @__PURE__ */ new Map());
+							},
+							children: "Clear markers"
+						}),
+						/* @__PURE__ */ jsxs("span", {
+							className: "ml-auto text-[10px] text-muted-foreground",
+							children: [
+								spawns.size,
+								" spawn",
+								spawns.size === 1 ? "" : "s",
+								" · ",
+								ingress.size,
+								" ingress"
+							]
 						})
 					]
 				}),
@@ -37090,22 +37356,25 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 						className: "mx-auto grid w-max gap-0.5",
 						style: { gridTemplateColumns: `repeat(${w}, 2rem)` },
 						children: Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
-							const active = cells.has(`${x},${y}`);
+							const key = keyOf(x, y);
+							const active = cells.has(key);
+							const isSpawn = spawns.has(key);
+							const isIngress = ingress.has(key);
 							return /* @__PURE__ */ jsx("button", {
 								type: "button",
-								title: `${x}, ${y}`,
-								onClick: () => toggle(x, y),
-								className: `h-8 w-8 rounded-sm border text-[9px] transition-colors ${active ? "border-primary bg-primary/35 text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"}`,
-								children: active ? "·" : ""
-							}, `${x},${y}`);
+								title: `${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}`,
+								onClick: () => applyCellClick(x, y),
+								className: `h-8 w-8 rounded-sm border text-[10px] font-semibold transition-colors ${isSpawn ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300" : isIngress ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300" : active ? "border-primary bg-primary/35 text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"}`,
+								children: isSpawn ? "S" : isIngress ? "IN" : active ? "·" : ""
+							}, key);
 						}))
 					})
 				}),
 				/* @__PURE__ */ jsxs("div", {
-					className: "flex items-center justify-between gap-2",
-					children: [/* @__PURE__ */ jsx("p", {
-						className: "text-[10px] text-muted-foreground",
-						children: "Tip: L/T/U/cross shapes create natural choke points, cover lanes and flanking routes."
+					className: "flex flex-wrap items-center justify-between gap-2",
+					children: [/* @__PURE__ */ jsxs("div", {
+						className: "flex flex-wrap gap-2 text-[10px] text-muted-foreground",
+						children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-red-500" }), " monster spawn"] }), /* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" }), " player ingress"] })]
 					}), /* @__PURE__ */ jsxs("div", {
 						className: "flex shrink-0 gap-1",
 						children: [/* @__PURE__ */ jsx(Button, {
@@ -37117,7 +37386,7 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 							size: "sm",
 							onClick: save,
 							disabled: !connected,
-							children: "Save shape"
+							children: "Save room"
 						})]
 					})]
 				})
@@ -37239,7 +37508,10 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			...src,
 			id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
 			x: src.x + 2,
-			y: src.y + 2
+			y: src.y + 2,
+			cells: Array.isArray(src.cells) ? src.cells.map(([x, y]) => [x, y]) : void 0,
+			spawnPoints: (src.spawnPoints || []).map((p) => ({ ...p })),
+			ingressPoints: (src.ingressPoints || []).map((p) => ({ ...p }))
 		};
 		commit({
 			...dungeon,
@@ -37314,6 +37586,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			x: src.x + 3,
 			y: src.y + 3,
 			cells: Array.isArray(src.cells) ? src.cells.map(([x, y]) => [x, y]) : void 0,
+			spawnPoints: (src.spawnPoints || []).map((p) => ({ ...p })),
+			ingressPoints: (src.ingressPoints || []).map((p) => ({ ...p })),
 			traps: [...src.traps || []],
 			spawns: [...src.spawns || []],
 			loot: [...src.loot || []]
@@ -37519,7 +37793,10 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			notes: selected.notes,
 			cr0Only: !!selected.cr0Only,
 			bonfire: !!selected.bonfire,
-			cells: Array.isArray(selected.cells) ? selected.cells.map(([x, y]) => [x, y]) : void 0
+			shape: selected.shape || "",
+			cells: Array.isArray(selected.cells) ? selected.cells.map(([x, y]) => [x, y]) : void 0,
+			spawnPoints: (selected.spawnPoints || []).map((p) => ({ ...p })),
+			ingressPoints: (selected.ingressPoints || []).map((p) => ({ ...p }))
 		};
 		setSettings((s) => ({
 			...s,
@@ -38116,16 +38393,21 @@ function DungeonGenerator({ onExit, embedded = false }) {
 									className: "flex items-center justify-between gap-2 rounded border px-2 py-1 text-[10px]",
 									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("p", {
 										className: "font-medium",
-										children: ["Footprint", Array.isArray(selected.cells) ? ` · ${selected.cells.length} cells` : " · rectangle"]
+										children: [
+											selected.shape && selected.shape !== "Custom" ? selected.shape : "Footprint",
+											Array.isArray(selected.cells) ? ` · ${selected.cells.length} cells` : " · rectangle",
+											selected.spawnPoints?.length ? ` · ${selected.spawnPoints.length} spawns` : "",
+											selected.ingressPoints?.length ? ` · ${selected.ingressPoints.length} ingress` : ""
+										]
 									}), /* @__PURE__ */ jsx("p", {
 										className: "text-muted-foreground",
-										children: selected.bonfire ? "Bonfire safe zone · short rest" : "Carve L/T/U/cross or painted shapes."
+										children: selected.bonfire ? "Bonfire safe zone · short rest" : "Carve diamond, circular, T-shaped, irregular or painted footprints."
 									})] }), /* @__PURE__ */ jsx(Button, {
 										size: "sm",
 										variant: "outline",
 										className: "h-7 shrink-0 text-xs",
 										onClick: () => openShape(selected.id),
-										children: "Edit shape"
+										children: "Room builder"
 									})]
 								}),
 								/* @__PURE__ */ jsx(RoomBattleMap, { room: selected }),
@@ -38167,9 +38449,9 @@ function DungeonGenerator({ onExit, embedded = false }) {
 				open: shapeOpen,
 				onOpenChange: setShapeOpen,
 				room: selected,
-				onSave: (cells) => {
-					if (selected) patchSelected({ cells });
-					toast.success("Room footprint updated.");
+				onSave: (footprint) => {
+					if (selected) patchSelected(footprint);
+					toast.success("Room footprint, spawns and ingress updated.");
 				}
 			}),
 			ctxMenu && /* @__PURE__ */ jsx("div", {
@@ -38204,7 +38486,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 							type: "button",
 							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
 							onClick: () => openShape(ctxRoom.id),
-							children: "Edit footprint shape…"
+							children: "Room builder — shape, spawns, ingress…"
 						}),
 						/* @__PURE__ */ jsx("button", {
 							type: "button",

@@ -26,6 +26,12 @@ export function RoomBattleMap({ room }) {
   const traps = room.traps || [];
   const spawns = room.spawns || [];
   const loot = room.loot || [];
+  const spawnPoints = (room.spawnPoints || []).filter(
+    (p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y))
+  );
+  const ingressPoints = (room.ingressPoints || []).filter(
+    (p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y))
+  );
 
   const at = (i) => cells[((i % cells.length) + cells.length) % cells.length] || center;
   const label = (cx, cy, text, fill = "hsl(var(--muted-foreground))", size = 6) => (
@@ -125,18 +131,66 @@ export function RoomBattleMap({ room }) {
           );
         })}
 
-        {spawns.map((s, i) => {
-          const [cx, cy] = at(3 + i * 7);
+        {spawnPoints.length
+          ? spawnPoints.map((point, i) => {
+              const cx = point.x + ox;
+              const cy = point.y + oy;
+              return (
+                <g key={`sp${i}`}>
+                  <circle
+                    cx={(cx + 0.5) * cell}
+                    cy={(cy + 0.5) * cell}
+                    r={cell * 0.32}
+                    fill="hsl(var(--destructive))"
+                    fillOpacity="0.8"
+                  />
+                  {label(
+                    (cx + 0.5) * cell,
+                    (cy + 0.5) * cell + 2,
+                    String(i + 1),
+                    "hsl(var(--background))",
+                    5
+                  )}
+                </g>
+              );
+            })
+          : spawns.map((s, i) => {
+              const [cx, cy] = at(3 + i * 7);
+              return (
+                <g key={`s${i}`}>
+                  <circle
+                    cx={(cx + 0.5) * cell}
+                    cy={(cy + 0.5) * cell}
+                    r={cell * 0.3}
+                    fill="hsl(var(--primary))"
+                    fillOpacity="0.75"
+                  />
+                  {label((cx + 0.5) * cell, (cy + 0.5) * cell + 2, String(i + 1), "hsl(var(--primary-foreground))", 5)}
+                </g>
+              );
+            })}
+
+        {ingressPoints.map((point, i) => {
+          const cx = point.x + ox;
+          const cy = point.y + oy;
           return (
-            <g key={`s${i}`}>
+            <g key={`in${i}`}>
               <circle
                 cx={(cx + 0.5) * cell}
                 cy={(cy + 0.5) * cell}
-                r={cell * 0.3}
-                fill="hsl(var(--primary))"
-                fillOpacity="0.75"
+                r={cell * 0.34}
+                fill="hsl(152 65% 42%)"
+                fillOpacity="0.85"
+                stroke="hsl(var(--background))"
+                strokeWidth="0.8"
               />
-              {label((cx + 0.5) * cell, (cy + 0.5) * cell + 2, String(i + 1), "hsl(var(--primary-foreground))", 5)}
+              {label(
+                (cx + 0.5) * cell,
+                (cy + 0.5) * cell + 2,
+                "IN",
+                "hsl(var(--background))",
+                4
+              )}
             </g>
           );
         })}
@@ -158,7 +212,8 @@ export function RoomBattleMap({ room }) {
       </svg>
       <div className="flex flex-wrap gap-2 text-[9px] text-muted-foreground">
         <span>▲ trap</span>
-        <span>● spawn</span>
+        <span>● monster spawn</span>
+        <span>● player ingress</span>
         <span>◆ loot</span>
         <span>▭ cover</span>
         <span>◌ elevation</span>

@@ -245,6 +245,7 @@ export const DEFAULT_DUNGEON_ROOMS = [
     minW: 4, maxW: 5, minH: 4, maxH: 5,
     environment: "Sheltered alcove", elevation: "Flat", cover: "Low wall (three-quarters)",
     connector: "Doorway", traps: [], spawns: [], loot: [],
+    shape: "Rectangle",
     bonfire: true,
     notes:
       "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper.",
@@ -316,6 +317,12 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
     const pools = (lootPools || []).map((p) => p.name).filter(Boolean);
     loot.push(pools.length ? `${rng.pick(pools)} (1 roll)` : `1 rank ${rank} loot roll`);
   }
+  const shape = template.cells?.length
+    ? template.shape || "Custom"
+    : template.shape || pickRoomShape(category, rng);
+  const cells = template.cells?.length
+    ? template.cells.map(([cx, cy]) => [cx, cy])
+    : shapeCells(w, h, shape);
   return {
     id: uid("room"),
     templateId: template.id,
@@ -329,6 +336,14 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
     elevation: template.elevation || rng.pick(ELEVATIONS),
     cover: template.cover || rng.pick(COVERS),
     connector: template.connector || "Doorway",
+    shape,
+    cells,
+    ingressPoints: template.ingressPoints?.length
+      ? template.ingressPoints.map((p) => ({ ...p }))
+      : defaultIngress(cells),
+    spawnPoints: template.spawnPoints?.length
+      ? template.spawnPoints.map((p) => ({ ...p }))
+      : defaultSpawns(cells, spawns.length),
     traps,
     spawns,
     loot,
@@ -346,6 +361,9 @@ const link = (from, to, type = "Doorway") => ({
 });
 
 function makeBonfire(rng) {
+  const w = rng?.int(4, 5) || 4;
+  const h = rng?.int(4, 5) || 4;
+  const cells = rectCells(w, h);
   return {
     id: uid("room"),
     templateId: "room-bonfire",
@@ -353,8 +371,12 @@ function makeBonfire(rng) {
     category: "Rest",
     x: 0,
     y: 0,
-    w: rng?.int(4, 5) || 4,
-    h: rng?.int(4, 5) || 4,
+    w,
+    h,
+    shape: "Rectangle",
+    cells,
+    ingressPoints: defaultIngress(cells),
+    spawnPoints: [],
     environment: "Sheltered alcove",
     elevation: "Flat",
     cover: "Low wall (three-quarters)",
@@ -619,7 +641,38 @@ export function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
     .join(" ");
 }
 
-export const ROOM_SHAPES = ["Rectangle", "L-Shape", "T-Shape", "U-Shape", "Cross", "Octagon"];
+export const ROOM_SHAPES = [
+  "Rectangle", "Diamond", "Circle", "L-Shape", "T-Shape", "U-Shape",
+  "Cross", "Octagon", "Irregular",
+];
+
+const irregularCells = (w, h) => {
+  // Deterministic "unlucky" cave footprint: grow a connected mass from the
+  // centre with occasional jogs and narrow necks.
+  let seed = (w * 73856093) ^ (h * 19349663) ^ 0x9e3779b9;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const start = [Math.floor(w / 2), Math.floor(h / 2)];
+  const cells = [start];
+  const set = new Set([`${start[0]},${start[1]}`]);
+  const target = Math.max(4, Math.round(w * h * (0.58 + rand() * 0.18)));
+  let guard = 0;
+  while (cells.length < target && guard < 5000) {
+    guard += 1;
+    const [px, py] = cells[Math.floor(rand() * cells.length)];
+    const [dx, dy] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(rand() * 4)];
+    const x = px + dx;
+    const y = py + dy;
+    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+    const key = `${x},${y}`;
+    if (set.has(key) || rand() < 0.22) continue;
+    set.add(key);
+    cells.push([x, y]);
+  }
+  return cells;
+};
 
 export function shapeCells(width, height, shape) {
   const w = Math.max(2, Math.round(Number(width) || 2));
@@ -631,7 +684,19 @@ export function shapeCells(width, height, shape) {
     }
     return out;
   };
+  const cx = (w - 1) / 2;
+  const cy = (h - 1) / 2;
+  const rx = Math.max(1, (w - 1) / 2);
+  const ry = Math.max(1, (h - 1) / 2);
   switch (shape) {
+    case "Diamond": {
+      const cells = keep((x, y) => Math.abs((x - cx) / rx) + Math.abs((y - cy) / ry) <= 1.06);
+      return cells.length ? cells : rectCells(w, h);
+    }
+    case "Circle": {
+      const cells = keep((x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.06);
+      return cells.length ? cells : rectCells(w, h);
+    }
     case "L-Shape":
       return keep((x, y) => x < Math.ceil(w * 0.55) || y >= Math.floor(h * 0.55));
     case "T-Shape":
@@ -650,15 +715,69 @@ export function shapeCells(width, height, shape) {
         const cutY = Math.floor(h * 0.25);
         return !((x < cutX && y < cutY) || (x >= w - cutX && y < cutY) || (x < cutX && y >= h - cutY) || (x >= w - cutX && y >= h - cutY));
       });
+    case "Irregular":
+      return irregularCells(w, h);
     default:
       return rectCells(w, h);
   }
+}
+
+// Varied, connected footprints. Most rooms are rectangular; curves, diagonals
+// and the occasional chaotic cave keep battlemaps from feeling like a grid of
+// boxes. "Irregular" is deliberately rare — the unlucky room.
+export function pickRoomShape(category, rng) {
+  if (category === "Entrance" || category === "Corridor") {
+    return rng.chance(0.08) ? "L-Shape" : "Rectangle";
+  }
+  const roll = rng.rand();
+  if (roll < 0.04) return "Irregular";
+  if (roll < 0.07) return "Circle";
+  if (roll < 0.13) return "Diamond";
+  if (roll < 0.21) return "L-Shape";
+  if (roll < 0.28) return "T-Shape";
+  if (roll < 0.34) return "Cross";
+  if (roll < 0.39) return "Octagon";
+  if (roll < 0.45) return "U-Shape";
+  return "Rectangle";
+}
+
+function edgeCells(cells) {
+  const set = new Set(cells.map(([x, y]) => `${x},${y}`));
+  return cells.filter(([x, y]) =>
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !set.has(`${x + dx},${y + dy}`))
+  );
+}
+
+function defaultIngress(cells) {
+  if (!cells.length) return [];
+  const edge = edgeCells(cells);
+  const left = edge.reduce((best, c) => (c[0] < best[0] ? c : best), edge[0] || cells[0]);
+  return [{ x: left[0], y: left[1], label: "Ingress" }];
+}
+
+function defaultSpawns(cells, count) {
+  if (!cells.length || !count) return [];
+  const edge = edgeCells(cells).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  const picked = [];
+  const seen = new Set();
+  edge.forEach((cell) => {
+    if (picked.length >= Math.min(6, count)) return;
+    const key = `${cell[0]},${cell[1]}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    picked.push({ x: cell[0], y: cell[1], label: `Spawn ${picked.length + 1}` });
+  });
+  return picked;
 }
 
 export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
   const t = template || DEFAULT_DUNGEON_ROOMS[0];
   const w = Math.max(t.minW || 4, Math.round(((t.minW || 4) + (t.maxW || t.minW || 6)) / 2));
   const h = Math.max(t.minH || 4, Math.round(((t.minH || 4) + (t.maxH || t.minH || 6)) / 2));
+  const shape = t.cells?.length ? t.shape || "Custom" : t.shape || "Rectangle";
+  const cells = t.cells?.length
+    ? t.cells.map(([cx, cy]) => [cx, cy])
+    : shapeCells(w, h, shape);
   return {
     id: uid("room"),
     templateId: t.id,
@@ -668,11 +787,18 @@ export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
     y,
     w,
     h,
+    shape,
+    cells,
+    ingressPoints: t.ingressPoints?.length
+      ? t.ingressPoints.map((p) => ({ ...p }))
+      : defaultIngress(cells),
+    spawnPoints: t.spawnPoints?.length
+      ? t.spawnPoints.map((p) => ({ ...p }))
+      : defaultSpawns(cells, (t.spawns || []).length),
     environment: t.environment || "",
     elevation: t.elevation || "Flat",
     cover: t.cover || "Open",
     connector: t.connector || "Doorway",
-    cells: Array.isArray(t.cells) && t.cells.length ? t.cells.map(([cx, cy]) => [cx, cy]) : undefined,
     traps: [...(t.traps || [])],
     spawns: [...(t.spawns || [])],
     loot: [...(t.loot || [])],

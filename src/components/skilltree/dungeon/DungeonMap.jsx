@@ -190,6 +190,9 @@ export function DungeonMap({
         tabIndex={0}
         onPointerDown={startPan}
         onWheel={(e) => {
+          // Leave a normal wheel alone so the map can scroll vertically down;
+          // Ctrl/⌘ + wheel is reserved for zooming.
+          if (!e.ctrlKey && !e.metaKey) return;
           e.preventDefault();
           setZoom((z) => Math.max(0.25, Math.min(1.8, z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
         }}
@@ -259,7 +262,8 @@ export function DungeonMap({
             const badges = [
               room.bonfire ? "♨" : "",
               room.traps?.length ? "T" : "",
-              room.spawns?.length ? "S" : "",
+              room.spawns?.length || room.spawnPoints?.length ? "S" : "",
+              room.ingressPoints?.length ? "I" : "",
               room.loot?.length ? "L" : "",
               room.elevation && room.elevation !== "Flat" ? "E" : "",
               room.cover && room.cover !== "Open" ? "C" : "",
@@ -323,7 +327,7 @@ export function DungeonMap({
         </svg>
       </div>
       <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5 text-[9px] text-muted-foreground">
-        Drag to pan · wheel to zoom · right-click a room to edit
+        Drag to pan · Ctrl/⌘ + wheel to zoom · right-click a room to edit
       </div>
     </div>
   );

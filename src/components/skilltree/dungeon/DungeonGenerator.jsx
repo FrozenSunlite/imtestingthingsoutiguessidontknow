@@ -150,6 +150,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
       x: src.x + 2,
       y: src.y + 2,
+      cells: Array.isArray(src.cells) ? src.cells.map(([x, y]) => [x, y]) : undefined,
+      spawnPoints: (src.spawnPoints || []).map((p) => ({ ...p })),
+      ingressPoints: (src.ingressPoints || []).map((p) => ({ ...p })),
     };
     commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
     setSelectedId(room.id);
@@ -209,6 +212,8 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       x: src.x + 3,
       y: src.y + 3,
       cells: Array.isArray(src.cells) ? src.cells.map(([x, y]) => [x, y]) : undefined,
+      spawnPoints: (src.spawnPoints || []).map((p) => ({ ...p })),
+      ingressPoints: (src.ingressPoints || []).map((p) => ({ ...p })),
       traps: [...(src.traps || [])],
       spawns: [...(src.spawns || [])],
       loot: [...(src.loot || [])],
@@ -427,9 +432,12 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       notes: selected.notes,
       cr0Only: !!selected.cr0Only,
       bonfire: !!selected.bonfire,
+      shape: selected.shape || "",
       cells: Array.isArray(selected.cells)
         ? selected.cells.map(([x, y]) => [x, y])
         : undefined,
+      spawnPoints: (selected.spawnPoints || []).map((p) => ({ ...p })),
+      ingressPoints: (selected.ingressPoints || []).map((p) => ({ ...p })),
     };
     setSettings((s) => ({
       ...s,
@@ -838,14 +846,19 @@ export function DungeonGenerator({ onExit, embedded = false }) {
               <div className="flex items-center justify-between gap-2 rounded border px-2 py-1 text-[10px]">
                 <div>
                   <p className="font-medium">
-                    Footprint{Array.isArray(selected.cells) ? ` · ${selected.cells.length} cells` : " · rectangle"}
+                    {selected.shape && selected.shape !== "Custom" ? selected.shape : "Footprint"}
+                    {Array.isArray(selected.cells) ? ` · ${selected.cells.length} cells` : " · rectangle"}
+                    {selected.spawnPoints?.length ? ` · ${selected.spawnPoints.length} spawns` : ""}
+                    {selected.ingressPoints?.length ? ` · ${selected.ingressPoints.length} ingress` : ""}
                   </p>
                   <p className="text-muted-foreground">
-                    {selected.bonfire ? "Bonfire safe zone · short rest" : "Carve L/T/U/cross or painted shapes."}
+                    {selected.bonfire
+                      ? "Bonfire safe zone · short rest"
+                      : "Carve diamond, circular, T-shaped, irregular or painted footprints."}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" className="h-7 shrink-0 text-xs" onClick={() => openShape(selected.id)}>
-                  Edit shape
+                  Room builder
                 </Button>
               </div>
               <RoomBattleMap room={selected} />
@@ -873,9 +886,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
         open={shapeOpen}
         onOpenChange={setShapeOpen}
         room={selected}
-        onSave={(cells) => {
-          if (selected) patchSelected({ cells });
-          toast.success("Room footprint updated.");
+        onSave={(footprint) => {
+          if (selected) patchSelected(footprint);
+          toast.success("Room footprint, spawns and ingress updated.");
         }}
       />
 
@@ -916,7 +929,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                   className="w-full rounded px-2 py-1 text-left hover:bg-accent"
                   onClick={() => openShape(ctxRoom.id)}
                 >
-                  Edit footprint shape…
+                  Room builder — shape, spawns, ingress…
                 </button>
                 <button
                   type="button"

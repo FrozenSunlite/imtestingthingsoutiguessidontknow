@@ -22,20 +22,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const TOOLS = [
+  ["floor", "Floor"],
+  ["spawn", "Monster spawn"],
+  ["ingress", "Player ingress"],
+  ["erase", "Erase"],
+];
+
+const keyOf = (x, y) => `${x},${y}`;
+
 // Grid-based room builder: paint the exact floor cells used by the dungeon map
-// and battle map. Presets cover common tactical footprints (L, T, U, cross,
-// octagon); any connected painted shape is allowed.
+// and battle map, then place monster spawn points and player ingress zones on
+// those cells. Presets cover common tactical footprints.
 export function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
   const w = Math.max(2, Math.min(20, Math.round(Number(room?.w) || 2)));
   const h = Math.max(2, Math.min(20, Math.round(Number(room?.h) || 2)));
   const [preset, setPreset] = useState("Rectangle");
+  const [tool, setTool] = useState("floor");
   const [cells, setCells] = useState(() => new Set());
+  const [spawns, setSpawns] = useState(() => new Map());
+  const [ingress, setIngress] = useState(() => new Map());
 
   useEffect(() => {
     if (!open || !room) return;
     const initial = roomShapeCells({ ...room, w, h });
-    setCells(new Set(initial.map(([x, y]) => `${x},${y}`)));
-    setPreset("Custom");
+    const active = new Set(initial.map(([x, y]) => keyOf(x, y)));
+    setCells(active);
+    setSpawns(
+      new Map(
+        (room.spawnPoints || [])
+          .map((p) => [keyOf(p.x, p.y), p.label || ""])
+          .filter(([key]) => active.has(key))
+      )
+    );
+    setIngress(
+      new Map(
+        (room.ingressPoints || [])
+          .map((p) => [keyOf(p.x, p.y), p.label || ""])
+          .filter(([key]) => active.has(key))
+      )
+    );
+    setTool("floor");
+    setPreset(room.shape || "Custom");
   }, [open, room, w, h]);
 
   const list = useMemo(
@@ -44,36 +72,103 @@ export function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
   );
   const connected = list.length > 0 && cellsConnected(list);
 
-  const toggle = (x, y) => {
-    setCells((prev) => {
-      const next = new Set(prev);
-      const key = `${x},${y}`;
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+  const removeMarkers = (key, nextSpawns, nextIngress) => {
+    nextSpawns.delete(key);
+    nextIngress.delete(key);
+  };
+
+  const applyCellClick = (x, y) => {
+    const key = keyOf(x, y);
+    if (tool === "spawn") {
+      const nextCells = new Set(cells).add(key);
+      const nextSpawns = new Map(spawns);
+      const nextIngress = new Map(ingress);
+      nextIngress.delete(key);
+      if (nextSpawns.has(key)) nextSpawns.delete(key);
+      else nextSpawns.set(key, `Spawn ${nextSpawns.size + 1}`);
+      setCells(nextCells);
+      setSpawns(nextSpawns);
+      setIngress(nextIngress);
       setPreset("Custom");
-      return next;
-    });
+      return;
+    }
+    if (tool === "ingress") {
+      const nextCells = new Set(cells).add(key);
+      const nextSpawns = new Map(spawns);
+      const nextIngress = new Map(ingress);
+      nextSpawns.delete(key);
+      if (nextIngress.has(key)) nextIngress.delete(key);
+      else nextIngress.set(key, "Ingress");
+      setCells(nextCells);
+      setSpawns(nextSpawns);
+      setIngress(nextIngress);
+      setPreset("Custom");
+      return;
+    }
+    if (tool === "erase") {
+      const nextSpawns = new Map(spawns);
+      const nextIngress = new Map(ingress);
+      if (nextSpawns.has(key) || nextIngress.has(key)) {
+        removeMarkers(key, nextSpawns, nextIngress);
+        setSpawns(nextSpawns);
+        setIngress(nextIngress);
+        return;
+      }
+      const next = new Set(cells);
+      next.delete(key);
+      setCells(next);
+      setPreset("Custom");
+      return;
+    }
+    const next = new Set(cells);
+    if (next.has(key)) {
+      next.delete(key);
+      const nextSpawns = new Map(spawns);
+      const nextIngress = new Map(ingress);
+      nextSpawns.delete(key);
+      nextIngress.delete(key);
+      setSpawns(nextSpawns);
+      setIngress(nextIngress);
+    } else {
+      next.add(key);
+    }
+    setCells(next);
+    setPreset("Custom");
   };
 
   const applyPreset = (name) => {
     setPreset(name);
-    setCells(new Set(shapeCells(w, h, name).map(([x, y]) => `${x},${y}`)));
+    const next = new Set(shapeCells(w, h, name).map(([x, y]) => keyOf(x, y)));
+    setCells(next);
+    setSpawns((prev) => new Map([...prev].filter(([key]) => next.has(key))));
+    setIngress((prev) => new Map([...prev].filter(([key]) => next.has(key))));
   };
 
   const save = () => {
     if (!connected) return;
-    onSave?.(list);
+    onSave?.({
+      cells: list,
+      shape: preset === "Custom" ? "Custom" : preset,
+      spawnPoints: [...spawns].map(([key, label]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, label };
+      }),
+      ingressPoints: [...ingress].map(([key, label]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, label };
+      }),
+    });
     onOpenChange?.(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Room builder — {room?.name || "Room"}</DialogTitle>
           <DialogDescription>
-            Paint the floor cells for this battlemap. The shape must stay connected. The room's
-            width and height define the grid (currently {w} × {h}).
+            Paint the floor cells, then place monster spawn points and player ingress zones. The
+            shape must stay connected. Grid: {w} × {h}.
           </DialogDescription>
         </DialogHeader>
 
@@ -98,10 +193,46 @@ export function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
             <Button size="sm" variant="ghost" onClick={() => applyPreset("Rectangle")}>
               Fill
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setCells(new Set())}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setCells(new Set());
+                setSpawns(new Map());
+                setIngress(new Map());
+              }}
+            >
               Clear
             </Button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1">
+          {TOOLS.map(([id, label]) => (
+            <Button
+              key={id}
+              size="sm"
+              variant={tool === id ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setTool(id)}
+            >
+              {label}
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => {
+              setSpawns(new Map());
+              setIngress(new Map());
+            }}
+          >
+            Clear markers
+          </Button>
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {spawns.size} spawn{spawns.size === 1 ? "" : "s"} · {ingress.size} ingress
+          </span>
         </div>
 
         <div className="overflow-auto rounded-md border p-2">
@@ -111,20 +242,27 @@ export function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
           >
             {Array.from({ length: h }, (_, y) =>
               Array.from({ length: w }, (_, x) => {
-                const active = cells.has(`${x},${y}`);
+                const key = keyOf(x, y);
+                const active = cells.has(key);
+                const isSpawn = spawns.has(key);
+                const isIngress = ingress.has(key);
                 return (
                   <button
-                    key={`${x},${y}`}
+                    key={key}
                     type="button"
-                    title={`${x}, ${y}`}
-                    onClick={() => toggle(x, y)}
-                    className={`h-8 w-8 rounded-sm border text-[9px] transition-colors ${
-                      active
-                        ? "border-primary bg-primary/35 text-foreground"
-                        : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"
+                    title={`${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}`}
+                    onClick={() => applyCellClick(x, y)}
+                    className={`h-8 w-8 rounded-sm border text-[10px] font-semibold transition-colors ${
+                      isSpawn
+                        ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300"
+                        : isIngress
+                          ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                          : active
+                            ? "border-primary bg-primary/35 text-foreground"
+                            : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"
                     }`}
                   >
-                    {active ? "·" : ""}
+                    {isSpawn ? "S" : isIngress ? "IN" : active ? "·" : ""}
                   </button>
                 );
               })
@@ -132,16 +270,17 @@ export function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] text-muted-foreground">
-            Tip: L/T/U/cross shapes create natural choke points, cover lanes and flanking routes.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+            <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" /> monster spawn</span>
+            <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" /> player ingress</span>
+          </div>
           <div className="flex shrink-0 gap-1">
             <Button size="sm" variant="outline" onClick={() => onOpenChange?.(false)}>
               Cancel
             </Button>
             <Button size="sm" onClick={save} disabled={!connected}>
-              Save shape
+              Save room
             </Button>
           </div>
         </div>
