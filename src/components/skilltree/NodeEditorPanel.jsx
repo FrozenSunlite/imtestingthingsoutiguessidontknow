@@ -28,6 +28,7 @@ import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "@/components/skilltree/PanelResizer";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { FieldGroup } from "@/components/skilltree/FieldGroup";
+import { importImage } from "@/lib/imageStore";
 import { NodePicker } from "@/components/skilltree/NodePicker";
 import { matchesQuery } from "@/lib/textSearch";
 import { checkOptions, STATS } from "@/lib/skills";
@@ -63,20 +64,14 @@ export function NodeEditorPanel() {
   const imageFileRef = useRef(null);
   const frameFileRef = useRef(null);
 
-  // Upload to permanent public storage and set the URL on the node.
+  // Import the file into the project's image folder and store only its short
+  // reference on the node (the project server writes it to disk).
   const uploadImage = async (file, field) => {
     if (!file || !node) return;
     setUploading(true);
     try {
-      const reader = new FileReader();
-      const dataUrl = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      console.log("saving image", field, String(dataUrl).slice(0, 30));
-      updateNode(node.id, { [field]: dataUrl });
-      alert("Image captured (" + String(dataUrl).length + " chars).");
+      const url = await importImage(file);
+      updateNode(node.id, { [field]: url });
     } catch (e) {
       /* upload errors are non-fatal; ignore silently */
     } finally {
@@ -687,10 +682,14 @@ export function NodeEditorPanel() {
           </div>
 
           <div className="space-y-1">
-            <InfoTip label="Artwork shown inside the node (blank = default icon). Upload button stores it permanently.">
+            <InfoTip label="Artwork shown inside the node (blank = default icon). The upload button copies the file into the project's image folder.">
               <Label>Image URL</Label>
             </InfoTip>
-            <div className="flex gap-1">
+            <div
+              className="flex gap-1"
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+              onDrop={(e) => { e.preventDefault(); uploadImage(e.dataTransfer.files?.[0], "image"); }}
+            >
               <Input value={node.image} onChange={(e) => set({ image: e.target.value })} placeholder="/icon.png" />
               <input
                 ref={imageFileRef}
@@ -715,7 +714,11 @@ export function NodeEditorPanel() {
             <InfoTip label="Decorative image overlaid on the node — its border defines the node's shape.">
               <Label>Frame Image URL (overlays the node)</Label>
             </InfoTip>
-            <div className="flex gap-1">
+            <div
+              className="flex gap-1"
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+              onDrop={(e) => { e.preventDefault(); uploadImage(e.dataTransfer.files?.[0], "frameImage"); }}
+            >
               <Input
                 value={node.frameImage || ""}
                 onChange={(e) => set({ frameImage: e.target.value })}

@@ -37,3 +37,7 @@ Saves/
 *.project.json
 *.bundle.json
 
+# Desktop launcher runtime files: imported artwork, per-user data, pid file
+standalone/desktop/userdata/
+standalone/server.pid
+

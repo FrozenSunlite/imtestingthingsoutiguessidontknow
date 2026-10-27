@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-BjgIqqki.js";
+import { i as cn, n as base44, r as Button } from "./router-ue3tAdhR.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -6078,6 +6078,47 @@ var Input = React.forwardRef(({ className, type, ...props }, ref) => {
 });
 Input.displayName = "Input";
 //#endregion
+//#region src/lib/imageStore.js
+var UPLOAD_ENDPOINT = "/api/upload";
+var MAX_FALLBACK_EDGE = 512;
+var MAX_UPLOAD_BYTES = 26214400;
+async function toSharpDataUrl(file, maxEdge = MAX_FALLBACK_EDGE) {
+	const bitmap = await createImageBitmap(file);
+	let w = bitmap.width;
+	let h = bitmap.height;
+	const scale = Math.min(1, maxEdge / Math.max(w, h));
+	w = Math.max(1, Math.round(w * scale));
+	h = Math.max(1, Math.round(h * scale));
+	const canvas = document.createElement("canvas");
+	canvas.width = w;
+	canvas.height = h;
+	const ctx = canvas.getContext("2d");
+	ctx.imageSmoothingEnabled = false;
+	ctx.mozImageSmoothingEnabled = false;
+	ctx.webkitImageSmoothingEnabled = false;
+	ctx.msImageSmoothingEnabled = false;
+	ctx.drawImage(bitmap, 0, 0, w, h);
+	bitmap.close?.();
+	return canvas.toDataURL("image/png");
+}
+async function importImage$1(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
+	if (!file || !String(file.type || "").startsWith("image/")) throw new Error("Not an image file");
+	if (file.size > MAX_UPLOAD_BYTES) throw new Error("Image is too large (max 25 MB)");
+	try {
+		const res = await fetch(`${UPLOAD_ENDPOINT}?name=${encodeURIComponent(file.name || "image.png")}`, {
+			method: "POST",
+			headers: { "Content-Type": file.type || "application/octet-stream" },
+			body: file
+		});
+		if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+		const data = await res.json();
+		if (!data || typeof data.url !== "string" || !data.url) throw new Error("upload returned no url");
+		return data.url;
+	} catch {
+		return toSharpDataUrl(file, maxEdge);
+	}
+}
+//#endregion
 //#region src/components/ui/label.jsx
 var labelVariants = cva("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70");
 var Label = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(LabelPrimitive.Root, {
@@ -6461,10 +6502,10 @@ function SettingsMenu({ open, onClose }) {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		try {
-			const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
+			const url = await importImage$1(file);
 			setSettings((s) => ({
 				...s,
-				placeholderImage: file_url
+				placeholderImage: url
 			}));
 		} catch {
 			alert("Upload failed — you can paste an image URL instead.");
@@ -6475,10 +6516,10 @@ function SettingsMenu({ open, onClose }) {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		try {
-			const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
+			const url = await importImage$1(file);
 			setSettings((s) => ({
 				...s,
-				placeholderFrame: file_url
+				placeholderFrame: url
 			}));
 		} catch {
 			alert("Upload failed — you can paste an image URL instead.");
@@ -15844,7 +15885,8 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 		className: `relative shrink-0 overflow-hidden rounded-full ${className}`,
 		style: {
 			width: iconBox,
-			height: iconBox
+			height: iconBox,
+			imageRendering: "pixelated"
 		},
 		children: /* @__PURE__ */ jsx("img", {
 			src,
@@ -15854,7 +15896,8 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 			style: {
 				width: size,
 				height: size,
-				objectFit: "cover"
+				objectFit: "cover",
+				imageRendering: "pixelated"
 			},
 			onError: (e) => {
 				if (fallbackSrc && e.currentTarget.dataset.fallback !== "1") {
@@ -15871,7 +15914,8 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 		className: `object-contain ${className}`,
 		style: {
 			width: iconBox,
-			height: iconBox
+			height: iconBox,
+			imageRendering: "pixelated"
 		},
 		onError: (e) => {
 			if (hideOnInvalid && fallbackSrc && e.currentTarget.dataset.fallback !== "1") {
@@ -19727,15 +19771,8 @@ function NodeEditorPanel() {
 		if (!file || !node) return;
 		setUploading(true);
 		try {
-			const reader = new FileReader();
-			const dataUrl = await new Promise((resolve, reject) => {
-				reader.onload = () => resolve(reader.result);
-				reader.onerror = reject;
-				reader.readAsDataURL(file);
-			});
-			console.log("saving image", field, String(dataUrl).slice(0, 30));
-			updateNode(node.id, { [field]: dataUrl });
-			alert("Image captured (" + String(dataUrl).length + " chars).");
+			const url = await importImage$1(file);
+			updateNode(node.id, { [field]: url });
 		} catch (e) {} finally {
 			setUploading(false);
 		}
@@ -20420,10 +20457,18 @@ function NodeEditorPanel() {
 							/* @__PURE__ */ jsxs("div", {
 								className: "space-y-1",
 								children: [/* @__PURE__ */ jsx(InfoTip, {
-									label: "Artwork shown inside the node (blank = default icon). Upload button stores it permanently.",
+									label: "Artwork shown inside the node (blank = default icon). The upload button copies the file into the project's image folder.",
 									children: /* @__PURE__ */ jsx(Label, { children: "Image URL" })
 								}), /* @__PURE__ */ jsxs("div", {
 									className: "flex gap-1",
+									onDragOver: (e) => {
+										e.preventDefault();
+										e.dataTransfer.dropEffect = "copy";
+									},
+									onDrop: (e) => {
+										e.preventDefault();
+										uploadImage(e.dataTransfer.files?.[0], "image");
+									},
 									children: [
 										/* @__PURE__ */ jsx(Input, {
 											value: node.image,
@@ -20455,6 +20500,14 @@ function NodeEditorPanel() {
 									children: /* @__PURE__ */ jsx(Label, { children: "Frame Image URL (overlays the node)" })
 								}), /* @__PURE__ */ jsxs("div", {
 									className: "flex gap-1",
+									onDragOver: (e) => {
+										e.preventDefault();
+										e.dataTransfer.dropEffect = "copy";
+									},
+									onDrop: (e) => {
+										e.preventDefault();
+										uploadImage(e.dataTransfer.files?.[0], "frameImage");
+									},
 									children: [
 										/* @__PURE__ */ jsx(Input, {
 											value: node.frameImage || "",
@@ -28093,25 +28146,27 @@ function Rulebook({ className = "" }) {
 		}));
 		setRenamingId(null);
 	};
-	const insertImage = (e) => {
+	const insertImage = async (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
-		const reader = new FileReader();
-		reader.onload = () => {
-			const markdown = `\n![${file.name.replace(/\.[^.]+$/, "")}](${reader.result})\n`;
-			const el = areaRef.current;
-			const start = el?.selectionStart ?? draft.length;
-			const end = el?.selectionEnd ?? draft.length;
-			setDraft((d) => d.slice(0, start) + markdown + d.slice(end));
-			requestAnimationFrame(() => {
-				if (!el) return;
-				const pos = start + markdown.length;
-				el.focus();
-				el.setSelectionRange(pos, pos);
-			});
-		};
-		reader.readAsDataURL(file);
 		e.target.value = "";
+		let src;
+		try {
+			src = await importImage(file, { maxEdge: 1024 });
+		} catch {
+			return;
+		}
+		const markdown = `\n![${file.name.replace(/\.[^.]+$/, "")}](${src})\n`;
+		const el = areaRef.current;
+		const start = el?.selectionStart ?? draft.length;
+		const end = el?.selectionEnd ?? draft.length;
+		setDraft((d) => d.slice(0, start) + markdown + d.slice(end));
+		requestAnimationFrame(() => {
+			if (!el) return;
+			const pos = start + markdown.length;
+			el.focus();
+			el.setSelectionRange(pos, pos);
+		});
 	};
 	if (!book) return /* @__PURE__ */ jsxs("div", {
 		className: `flex flex-col items-center justify-center gap-2 rounded-lg border bg-card p-6 text-sm text-muted-foreground ${className}`,

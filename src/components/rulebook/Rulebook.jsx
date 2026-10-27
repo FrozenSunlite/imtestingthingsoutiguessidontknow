@@ -148,25 +148,27 @@ export default function Rulebook({ className = "" }) {
 
   // Insert the picked image as markdown at the caret so it lands where the
   // author is writing rather than always at the end of the document.
-  const insertImage = (e) => {
+  const insertImage = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const markdown = `\n![${file.name.replace(/\.[^.]+$/, "")}](${reader.result})\n`;
-      const el = areaRef.current;
-      const start = el?.selectionStart ?? draft.length;
-      const end = el?.selectionEnd ?? draft.length;
-      setDraft((d) => d.slice(0, start) + markdown + d.slice(end));
-      requestAnimationFrame(() => {
-        if (!el) return;
-        const pos = start + markdown.length;
-        el.focus();
-        el.setSelectionRange(pos, pos);
-      });
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    let src;
+    try {
+      src = await importImage(file, { maxEdge: 1024 });
+    } catch {
+      return;
+    }
+    const markdown = `\n![${file.name.replace(/\.[^.]+$/, "")}](${src})\n`;
+    const el = areaRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    setDraft((d) => d.slice(0, start) + markdown + d.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const pos = start + markdown.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
   };
 
   if (!book) {

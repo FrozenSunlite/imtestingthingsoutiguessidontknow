@@ -13,14 +13,14 @@ export function IconArt({
     return (
       <div
         className={`relative shrink-0 overflow-hidden rounded-full ${className}`}
-        style={{ width: iconBox, height: iconBox }}
+        style={{ width: iconBox, height: iconBox, imageRendering: "pixelated" }}
       >
         <img
           src={src}
           alt=""
           draggable={false}
           className="absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2"
-          style={{ width: size, height: size, objectFit: "cover" }}
+          style={{ width: size, height: size, objectFit: "cover", imageRendering: "pixelated" }}
           onError={(e) => {
             if (fallbackSrc && e.currentTarget.dataset.fallback !== "1") {
               e.currentTarget.dataset.fallback = "1";
@@ -39,7 +39,7 @@ export function IconArt({
       alt=""
       draggable={false}
       className={`object-contain ${className}`}
-      style={{ width: iconBox, height: iconBox }}
+      style={{ width: iconBox, height: iconBox, imageRendering: "pixelated" }}
       onError={(e) => {
         if (hideOnInvalid && fallbackSrc && e.currentTarget.dataset.fallback !== "1") {
           e.currentTarget.dataset.fallback = "1";

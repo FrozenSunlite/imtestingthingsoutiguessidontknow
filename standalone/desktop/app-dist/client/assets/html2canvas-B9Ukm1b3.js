@@ -1,1 +1,0 @@
-import{n as e}from"./routes-DVOMVLV3.js";export default e();

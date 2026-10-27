@@ -1,5 +1,5 @@
-import { base44 } from "@/api/base44Client";
 import { useTree } from "@/lib/treeStore";
+import { importImage } from "@/lib/imageStore";
 import { Upload, RotateCcw } from "lucide-react";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import {
@@ -77,8 +77,8 @@ export function SettingsMenu({ open, onClose }) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
-      setSettings((s) => ({ ...s, placeholderImage: file_url }));
+      const url = await importImage(file);
+      setSettings((s) => ({ ...s, placeholderImage: url }));
     } catch {
       alert("Upload failed — you can paste an image URL instead.");
     }
@@ -90,8 +90,8 @@ export function SettingsMenu({ open, onClose }) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
-      setSettings((s) => ({ ...s, placeholderFrame: file_url }));
+      const url = await importImage(file);
+      setSettings((s) => ({ ...s, placeholderFrame: url }));
     } catch {
       alert("Upload failed — you can paste an image URL instead.");
     }
