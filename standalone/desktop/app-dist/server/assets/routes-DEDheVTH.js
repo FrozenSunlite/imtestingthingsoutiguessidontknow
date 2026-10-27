@@ -1,9 +1,9 @@
-import { i as cn, n as base44, r as Button } from "./router-CrHskCyo.js";
+import { i as cn, n as base44, r as Button } from "./router-B7n4amcj.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
-import { toast } from "sonner";
+import { toast as toast$1 } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, Link2, ListTree, Loader2, Lock, Maximize, Minus, MonitorCheck, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
@@ -4332,7 +4332,7 @@ function TreeProvider({ children }) {
 		endCarry();
 		if (!c) return;
 		if (c.nodes.some((n) => subtreeChainHasNode(n, hostId))) {
-			toast.error("A node can't be dropped into its own subtree.");
+			toast$1.error("A node can't be dropped into its own subtree.");
 			return;
 		}
 		setTreeRaw((prev) => {
@@ -4459,7 +4459,7 @@ function TreeProvider({ children }) {
 				const host = byId.get(hostId);
 				if (!n || !host || sent.has(id)) return;
 				if (id === hostId || subtreeChainHasNode(n, hostId)) {
-					toast.error(`“${n.name || "node"}” can't be sent into its own subtree.`);
+					toast$1.error(`“${n.name || "node"}” can't be sent into its own subtree.`);
 					return;
 				}
 				const key = `${hostId}:${subIndex ?? 0}`;
@@ -5979,7 +5979,7 @@ function LevelUpDialog({ open, onClose }) {
 		const r = 1 + Math.floor(Math.random() * sides);
 		const gain = Math.max(1, r + conMod);
 		confirm(gain);
-		toast.success(`Rolled ${r} on 1${dieSize} → +${gain} HP`);
+		toast$1.success(`Rolled ${r} on 1${dieSize} → +${gain} HP`);
 	};
 	return /* @__PURE__ */ jsx(Dialog, {
 		open,
@@ -6892,9 +6892,9 @@ function SettingsMenu({ open, onClose }) {
 										})
 									]
 								}),
-								/* @__PURE__ */ jsx("div", {
+								/* @__PURE__ */ jsxs("div", {
 									className: "mt-4 border-t pt-3",
-									children: /* @__PURE__ */ jsxs("div", {
+									children: [/* @__PURE__ */ jsxs("div", {
 										className: "flex items-center justify-between gap-2",
 										children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 											className: "text-xs",
@@ -6909,7 +6909,39 @@ function SettingsMenu({ open, onClose }) {
 												devMode: v
 											})
 										})]
-									})
+									}), character?.devMode && /* @__PURE__ */ jsx("div", {
+										className: "mt-2 flex gap-2",
+										children: /* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											onClick: async () => {
+												try {
+													const logs = [
+														"Crash/Diagnostic log",
+														(/* @__PURE__ */ new Date()).toISOString(),
+														"User agent: " + navigator.userAgent
+													];
+													const blob = new Blob([logs.join("\n")], { type: "text/plain" });
+													if (window.showSaveFilePicker) {
+														const writable = await (await window.showSaveFilePicker({ suggestedName: "crash-log.txt" })).createWritable();
+														await writable.write(blob);
+														await writable.close();
+														toast.success("Crash log saved.");
+													} else {
+														const url = URL.createObjectURL(blob);
+														const a = document.createElement("a");
+														a.href = url;
+														a.download = "crash-log.txt";
+														a.click();
+														URL.revokeObjectURL(url);
+													}
+												} catch (e) {
+													toast.error("Could not export crash log: " + (e?.message || e));
+												}
+											},
+											children: "Export crash log"
+										})
+									})]
 								}),
 								character?.devMode && /* @__PURE__ */ jsxs("div", {
 									className: "mt-4 border-t pt-3 space-y-2",
@@ -8399,7 +8431,7 @@ function RollTableEditor({ table, onChange, onDelete }) {
 				}]
 			}
 		}));
-		toast(`Added ${row.qty || 1}× ${row.name} to the shop.`);
+		toast$1(`Added ${row.qty || 1}× ${row.name} to the shop.`);
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
@@ -9057,9 +9089,9 @@ function LootPoolsTab() {
 					}
 				});
 				t.setItems(next);
-				toast(`Imported loot pools — ${added} added, ${replaced} replaced.`);
+				toast$1(`Imported loot pools — ${added} added, ${replaced} replaced.`);
 			} catch {
-				toast("Could not read that file — expected a loot pools JSON export.");
+				toast$1("Could not read that file — expected a loot pools JSON export.");
 			}
 		};
 		reader.readAsText(file);
@@ -14308,9 +14340,9 @@ function SaveLoadMenu({ open, onClose }) {
 				plots: loadPlots()
 			});
 			setSaves(listCharacterSaves());
-			toast.success(`Saved "${name || "Untitled character"}".`);
+			toast$1.success(`Saved "${name || "Untitled character"}".`);
 		} catch (e) {
-			toast.error(e?.message || "Could not save.");
+			toast$1.error(e?.message || "Could not save.");
 		}
 	};
 	const doLoad = (entry) => {
@@ -14341,7 +14373,7 @@ function SaveLoadMenu({ open, onClose }) {
 				applyLoadedSave(data, "sheet");
 				onClose();
 			} catch {
-				toast.error("Not a valid character save file.");
+				toast$1.error("Not a valid character save file.");
 			}
 		};
 		reader.readAsText(file);
@@ -17399,7 +17431,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	};
 	const handleInvest = (n, delta) => {
 		if ((n.nodeType || "") === "informative") {
-			toast.error("Informative nodes are reference only — they can't be invested.");
+			toast$1.error("Informative nodes are reference only — they can't be invested.");
 			return;
 		}
 		if (delta > 0) {
@@ -17411,28 +17443,28 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 					setSubtreePicker(n);
 					return;
 				}
-				toast.error("Already at max points.");
+				toast$1.error("Already at max points.");
 				return;
 			}
 			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
 				const other = tree.nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && ((n.exclusiveWith || []).includes(m.id) || (m.exclusiveWith || []).includes(n.id)));
-				toast.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
+				toast$1.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
 				return;
 			}
 			if (!(isAvailable(n, nodesById, unlockedNames) || cur > 0)) {
-				toast.error("Prerequisites not met — invest in the required skills first.");
+				toast$1.error("Prerequisites not met — invest in the required skills first.");
 				return;
 			}
 			const profs = character.proficiencies || {};
 			const missing = (n.requiredProficiencies || []).filter((r) => !(profs[r.type] || []).some((p) => (p.name || "").trim().toLowerCase() === String(r.name || "").trim().toLowerCase()));
 			if (missing.length) {
-				toast.error(`Requires proficiency in ${missing.map((m) => m.name || "?").join(", ")} first.`);
+				toast$1.error(`Requires proficiency in ${missing.map((m) => m.name || "?").join(", ")} first.`);
 				return;
 			}
 			if (cur === 0) {
 				const ab = abilityReqStatus(n.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
 				if (!ab.ok) {
-					toast.error(`Requires ${ab.missing.join(", ")} first.`);
+					toast$1.error(`Requires ${ab.missing.join(", ")} first.`);
 					return;
 				}
 			}
@@ -17442,7 +17474,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			if (cost > 0 && poolKey) {
 				const eff = effectivePools(pools, character, mergedTree, settings?.library?.levels);
 				if (usage[poolKey] + cost > eff[poolKey].total) {
-					toast.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
+					toast$1.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
 					return;
 				}
 			}
@@ -20964,7 +20996,7 @@ function SendToSubtreeDialog({ open, rows, onClose }) {
 				subIndex: opt.subIndex
 			};
 		}));
-		toast.success(`Sent ${rows.length} node${rows.length > 1 ? "s" : ""} into a subtree.`);
+		toast$1.success(`Sent ${rows.length} node${rows.length > 1 ? "s" : ""} into a subtree.`);
 		onClose();
 	};
 	return /* @__PURE__ */ jsx(Dialog, {
@@ -21205,7 +21237,7 @@ function RestDialog({ mode, onClose }) {
 		const text = downtime.trim();
 		if (text) next = pushActivityLog(next, `${mode === "long" ? "Long" : "Short"} rest downtime — ${text}`);
 		setCharacter(next);
-		toast.success(mode === "long" ? "Long rest complete" : "Short rest complete");
+		toast$1.success(mode === "long" ? "Long rest complete" : "Short rest complete");
 		setDowntime("");
 		setDice(0);
 		setTempDice(0);
@@ -22243,7 +22275,7 @@ function CharacterTab() {
 			if (st.kind === "snapshot") return (st.nodes || []).some((m) => m.id === n.id);
 			return false;
 		})) {
-			toast.error("This skill's tree isn't open in a panel — load it on the left or right first.");
+			toast$1.error("This skill's tree isn't open in a panel — load it on the left or right first.");
 			return;
 		}
 		focusNode(n.id);
@@ -23117,12 +23149,12 @@ function PropertyTab() {
 			properties: [...props_.filter((p) => !ids.includes(p.id)), ...snaps]
 		});
 		setImportOpen(false);
-		toast(`Imported ${snaps.length} propert${snaps.length === 1 ? "y" : "ies"}.`);
+		toast$1(`Imported ${snaps.length} propert${snaps.length === 1 ? "y" : "ies"}.`);
 	};
 	const refresh = (snapId) => {
 		const snap = props_.find((p) => p.id === snapId);
 		const fresh = loadPlots().find((p) => p.id === snapId);
-		if (!fresh) return toast("That plot no longer exists in the Homebuilder.");
+		if (!fresh) return toast$1("That plot no longer exists in the Homebuilder.");
 		setCharacter({
 			...character,
 			properties: props_.map((p) => p.id === snapId ? {
@@ -23130,7 +23162,7 @@ function PropertyTab() {
 				importedAt: snap.importedAt
 			} : p)
 		});
-		toast("Refreshed from the Homebuilder.");
+		toast$1("Refreshed from the Homebuilder.");
 	};
 	const remove = (snapId) => setCharacter({
 		...character,
@@ -26560,7 +26592,7 @@ function CharacterSheet({ onExport, fill = false }) {
 	const toggleSmallRace = (on) => {
 		if (!on) {
 			if (usage.heritage >= eff.heritage.total) {
-				toast.error(`You're using all ${eff.heritage.total} Heritage Points — the Small race bonus is one of them. Remove one Heritage point first.`);
+				toast$1.error(`You're using all ${eff.heritage.total} Heritage Points — the Small race bonus is one of them. Remove one Heritage point first.`);
 				return;
 			}
 			const prev = character.sizeBeforeSmallRace;
@@ -28578,7 +28610,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	});
 	const exit = () => {
 		window.close();
-		toast("Close this browser tab to exit.", { description: "Browsers only let a script close a tab it opened itself." });
+		toast$1("Close this browser tab to exit.", { description: "Browsers only let a script close a tab it opened itself." });
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "blue-fire relative flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-gradient-to-b from-background via-background to-muted px-4 py-10",
@@ -30647,8 +30679,8 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		};
 	})();
 	const placeFacility = (item) => {
-		if (!inBounds(item)) return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
-		if (facs.some((f) => overlaps(item, f))) return toast("That spot overlaps another structure on this floor.");
+		if (!inBounds(item)) return toast$1("That spot is outside the property boundary — buy more land tiles to expand it.");
+		if (facs.some((f) => overlaps(item, f))) return toast$1("That spot overlaps another structure on this floor.");
 		update((p) => ({
 			...p,
 			facilities: [...p.facilities, item]
@@ -30662,7 +30694,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 	const placeBalcony = (item) => {
 		const upIndex = floor.index + 1;
 		const up = plot.floors.find((f) => f.index === upIndex);
-		if ((plot.facilities || []).some((f) => f.floorId === up?.id && overlaps(item, f))) return toast("That spot is occupied on the floor above.");
+		if ((plot.facilities || []).some((f) => f.floorId === up?.id && overlaps(item, f))) return toast$1("That spot is occupied on the floor above.");
 		update((p) => {
 			const nf = up || {
 				id: uid(),
@@ -30682,7 +30714,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			kind: "facility",
 			id: item.id
 		});
-		toast("Balcony placed on the floor above.");
+		toast$1("Balcony placed on the floor above.");
 	};
 	const commitPlaceBox = (box) => {
 		const def = FACILITY_TYPES[tool.type];
@@ -30706,8 +30738,8 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 	const placeAt = (cell) => {
 		if (tool.kind === "bastion") {
 			const b = bastionFacilityByName(tool.type);
-			if ((plot.charLevel || 5) < b.level) return toast(`${b.name} requires character level ${b.level}.`);
-			if (!b.multi && (plot.facilities || []).some((f) => f.bastion === b.name)) return toast(`Your Bastion already has a ${b.name} — one only.`);
+			if ((plot.charLevel || 5) < b.level) return toast$1(`${b.name} requires character level ${b.level}.`);
+			if (!b.multi && (plot.facilities || []).some((f) => f.bastion === b.name)) return toast$1(`Your Bastion already has a ${b.name} — one only.`);
 			const { w, h } = ghostDims(tool);
 			placeFacility({
 				id: uid(),
@@ -30755,12 +30787,12 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				w,
 				h
 			};
-			if (def.businessOnly && !plotHasKind(plot, "business")) return toast(`${def.name} is only permitted on a Business property.`);
-			if (!inBounds(rect)) return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
+			if (def.businessOnly && !plotHasKind(plot, "business")) return toast$1(`${def.name} is only permitted on a Business property.`);
+			if (!inBounds(rect)) return toast$1("That spot is outside the property boundary — buy more land tiles to expand it.");
 			const fac = containingFacility(plot, floor.id, rect);
-			if (!fac && !def.outdoor) return toast(`${def.name} must be placed inside a facility (or a Courtyard).`);
+			if (!fac && !def.outdoor) return toast$1(`${def.name} must be placed inside a facility (or a Courtyard).`);
 			const clash = (r) => furs.some((fu) => overlaps(r, fu)) || !fac && facs.some((f) => overlaps(r, f));
-			if (clash(rect)) return toast("That spot is already occupied.");
+			if (clash(rect)) return toast$1("That spot is already occupied.");
 			const item = {
 				id: uid(),
 				facilityId: fac ? fac.id : null,
@@ -30793,8 +30825,8 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			...item,
 			w: 1,
 			h: 1
-		})) return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
-		if (conns.some((c) => c.type === item.type && c.x === item.x && c.y === item.y)) return toast("There is already a connection in that space.");
+		})) return toast$1("That spot is outside the property boundary — buy more land tiles to expand it.");
+		if (conns.some((c) => c.type === item.type && c.x === item.x && c.y === item.y)) return toast$1("There is already a connection in that space.");
 		update((p) => ({
 			...p,
 			connections: [...p.connections || [], item]
@@ -30816,7 +30848,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			w: run.w,
 			h: run.h
 		};
-		if (!inBounds(item) && !(item.type === "Interior Wall" && wallLineInBounds(item, boundary))) return toast("That run runs outside the property boundary — buy more land tiles to expand it.");
+		if (!inBounds(item) && !(item.type === "Interior Wall" && wallLineInBounds(item, boundary))) return toast$1("That run runs outside the property boundary — buy more land tiles to expand it.");
 		const touch = (a, b) => a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h;
 		const group = walls.filter((wl) => wl.type === item.type && item.h === 1 === (wl.h === 1) && (item.h === 1 ? wl.y === item.y : wl.x === item.x) && touch(item, wl));
 		if (group.length) {
@@ -30850,7 +30882,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			return;
 		}
 		const shared = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
-		if (tool.type === "Interior Wall" ? false : facs.some((f) => overlaps(item, f)) || furs.some((fu) => overlaps(item, fu)) || walls.some((wl) => wl.type !== "Interior Wall" && shared(item, wl) > 1)) return toast("A wall can't cut through a building, furnishing or another wall.");
+		if (tool.type === "Interior Wall" ? false : facs.some((f) => overlaps(item, f)) || furs.some((fu) => overlaps(item, fu)) || walls.some((wl) => wl.type !== "Interior Wall" && shared(item, wl) > 1)) return toast$1("A wall can't cut through a building, furnishing or another wall.");
 		update((p) => ({
 			...p,
 			walls: [...p.walls || [], item]
@@ -30871,9 +30903,9 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			h: run.h
 		};
 		const what = type === "Window" ? "window" : "door";
-		if (!inBounds(item) && !wallLineInBounds(item, boundary)) return toast(`That ${what} is outside the property boundary — buy more land tiles to expand it.`);
-		if (!doorFits(hostsRef.current, item)) return toast(`A ${what} can only be drawn along a wall or the frame of a room.`);
-		if (conns.some((c) => (c.type === "Doorway" || c.type === "Window") && overlaps(item, c))) return toast("There is already a door or window there.");
+		if (!inBounds(item) && !wallLineInBounds(item, boundary)) return toast$1(`That ${what} is outside the property boundary — buy more land tiles to expand it.`);
+		if (!doorFits(hostsRef.current, item)) return toast$1(`A ${what} can only be drawn along a wall or the frame of a room.`);
+		if (conns.some((c) => (c.type === "Doorway" || c.type === "Window") && overlaps(item, c))) return toast$1("There is already a door or window there.");
 		update((p) => ({
 			...p,
 			connections: [...p.connections || [], item]
@@ -30981,9 +31013,9 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		const f = facs.find((x) => x.id === facId);
 		const at = f?.[key];
 		if (!f || !at?.on || !def) return;
-		if (at.items.reduce((n, it) => n + it.w * it.h, 0) + def.foot[0] * def.foot[1] > f.w * f.h) return toast(`The ${ATTACHMENTS[key].label.toLowerCase()} is full — enlarge the room or free up space first.`);
+		if (at.items.reduce((n, it) => n + it.w * it.h, 0) + def.foot[0] * def.foot[1] > f.w * f.h) return toast$1(`The ${ATTACHMENTS[key].label.toLowerCase()} is full — enlarge the room or free up space first.`);
 		const pos = firstFitRoom(f, at.items, def.foot[0], def.foot[1]);
-		if (!pos) return toast(`No space left shaped for a ${def.foot[0]}×${def.foot[1]} ${type} in this ${ATTACHMENTS[key].label.toLowerCase()}.`);
+		if (!pos) return toast$1(`No space left shaped for a ${def.foot[0]}×${def.foot[1]} ${type} in this ${ATTACHMENTS[key].label.toLowerCase()}.`);
 		update((p) => ({
 			...p,
 			facilities: p.facilities.map((x) => x.id === facId ? {
@@ -31205,7 +31237,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				connections: [...p.connections || [], ...stairs]
 			};
 		});
-		toast("Tower placed — its two upper storeys and staircases came with it.");
+		toast$1("Tower placed — its two upper storeys and staircases came with it.");
 	};
 	const onPointerDown = (e) => {
 		setMenu(null);
@@ -32843,18 +32875,18 @@ function HomesteadSummary({ plot, update }) {
 	};
 	const shrink = (dir) => {
 		if (!(plot.landTiles > 0)) {
-			toast("You only own the tiles that came with the plot — sell a tile you bought first.");
+			toast$1("You only own the tiles that came with the plot — sell a tile you bought first.");
 			return;
 		}
 		const b = plotBoundary(plot);
 		const w = dir === "w" ? b.w - 1 : b.w;
 		const h = dir === "h" ? b.h - 1 : b.h;
 		if (w < 2 || h < 2) {
-			toast("A boundary can't shrink below 2×2 spaces.");
+			toast$1("A boundary can't shrink below 2×2 spaces.");
 			return;
 		}
 		if ((plot.facilities || []).some((f) => f.x + f.w > w || f.y + f.h > h) || (plot.furnishings || []).some((fu) => !(plot.facilities || []).some((f) => f.id === fu.facilityId) && (fu.x + fu.w > w || fu.y + fu.h > h)) || (plot.connections || []).some((c) => c.x >= w || c.y >= h) || (plot.walls || []).some((wl) => wl.x + wl.w > w || wl.y + wl.h > h)) {
-			toast("Move the items outside the smaller boundary before selling this tile.");
+			toast$1("Move the items outside the smaller boundary before selling this tile.");
 			return;
 		}
 		update((p) => ({
@@ -32866,7 +32898,7 @@ function HomesteadSummary({ plot, update }) {
 			landTiles: Math.max(0, (p.landTiles || 0) - 1),
 			landGold: Math.max(0, (p.landGold ?? (p.landTiles || 0) * 25) - 25)
 		}));
-		toast("Sold a land tile — 25 gp back.");
+		toast$1("Sold a land tile — 25 gp back.");
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-1.5 rounded-lg border bg-accent/30 p-3 text-xs",
@@ -34322,7 +34354,7 @@ function TurnPanel({ plot, update, log, biz }) {
 		const r = rollDice("1d6");
 		const weeks = r.total + 1 + (hasSNR ? 2 : 0);
 		const cost = 4 * weeks;
-		if ((biz.funds || 0) < cost) return toast(`Resupply costs ${money(cost)} — the business only holds ${money(biz.funds || 0)}.`);
+		if ((biz.funds || 0) < cost) return toast$1(`Resupply costs ${money(cost)} — the business only holds ${money(biz.funds || 0)}.`);
 		gain(-cost);
 		setBiz({ supplies: supplies + weeks });
 		log({
@@ -34331,7 +34363,7 @@ function TurnPanel({ plot, update, log, biz }) {
 		});
 	};
 	const scrounge = () => {
-		if ((biz.funds || 0) < 12) return toast("Scrounging costs 12 gp — the business can't cover it.");
+		if ((biz.funds || 0) < 12) return toast$1("Scrounging costs 12 gp — the business can't cover it.");
 		gain(-12);
 		setBiz({ supplies: supplies + 2 });
 		log({
@@ -34377,11 +34409,11 @@ function TurnPanel({ plot, update, log, biz }) {
 	const addRoute = (courier) => {
 		const rt = ROUTE_TYPES.find((t) => t.id === routeType);
 		if (courier) {
-			if (!hasLedger) return toast("Couriers need a Ledger Room.");
-			if (couriers >= 4) return toast("At most 4 courier-operated routes per business.");
+			if (!hasLedger) return toast$1("Couriers need a Ledger Room.");
+			if (couriers >= 4) return toast$1("At most 4 courier-operated routes per business.");
 		}
 		const cap = hasLedger ? 10 : 3;
-		if (routes.length >= cap) return toast(`Trade route limit: ${cap}${hasLedger ? " (Ledger Room)" : " — a Ledger Room raises it to 10"}.`);
+		if (routes.length >= cap) return toast$1(`Trade route limit: ${cap}${hasLedger ? " (Ledger Room)" : " — a Ledger Room raises it to 10"}.`);
 		setBiz({ routes: [...routes, {
 			id: uid(),
 			type: rt.id,
@@ -35812,8 +35844,8 @@ function Homebuilder({ onExit }) {
 				w: x.h,
 				h: x.w
 			}));
-			if (rotated.some((m) => m.x + m.w > b.w || m.y + m.h > b.h)) return toast("The rotated room runs outside the property boundary.");
-			if (plot.facilities.some((o) => !stackIds.has(o.id) && rotated.some((m) => overlaps(m, o)))) return toast("No space to rotate — another structure blocks it.");
+			if (rotated.some((m) => m.x + m.w > b.w || m.y + m.h > b.h)) return toast$1("The rotated room runs outside the property boundary.");
+			if (plot.facilities.some((o) => !stackIds.has(o.id) && rotated.some((m) => overlaps(m, o)))) return toast$1("No space to rotate — another structure blocks it.");
 			update((p) => ({
 				...p,
 				facilities: p.facilities.map((x) => {
@@ -35854,10 +35886,10 @@ function Homebuilder({ onExit }) {
 				h: fu.w
 			};
 			while (rect.w * rect.h < (def.min || 1)) rect.w++;
-			if (rect.x + rect.w > b.w || rect.y + rect.h > b.h) return toast("The rotated furnishing runs outside the property boundary.");
+			if (rect.x + rect.w > b.w || rect.y + rect.h > b.h) return toast$1("The rotated furnishing runs outside the property boundary.");
 			const fac = containingFacility(plot, floorId, rect);
-			if (!fac && !def.outdoor) return toast("The rotated furnishing would poke outside its room — move it first.");
-			if (plot.furnishings.some((o) => o.id !== fu.id && overlaps(rect, o)) || !fac && (plot.facilities || []).some((f) => f.floorId === floorId && overlaps(rect, f))) return toast("No space to rotate — something blocks it.");
+			if (!fac && !def.outdoor) return toast$1("The rotated furnishing would poke outside its room — move it first.");
+			if (plot.furnishings.some((o) => o.id !== fu.id && overlaps(rect, o)) || !fac && (plot.facilities || []).some((f) => f.floorId === floorId && overlaps(rect, f))) return toast$1("No space to rotate — something blocks it.");
 			update((p) => ({
 				...p,
 				furnishings: p.furnishings.map((x) => x.id === fu.id ? {
@@ -35881,7 +35913,7 @@ function Homebuilder({ onExit }) {
 				const clip = copySelection(plot, selection, floorId);
 				if (clip) {
 					clipRef.current = clip;
-					toast(`Copied ${clip.length} item${clip.length === 1 ? "" : "s"} — clipboard overwritten.`);
+					toast$1(`Copied ${clip.length} item${clip.length === 1 ? "" : "s"} — clipboard overwritten.`);
 				}
 				return;
 			}
@@ -35890,8 +35922,8 @@ function Homebuilder({ onExit }) {
 				if (res) {
 					update(() => res.plot);
 					setSelection(res.selection);
-					toast("Pasted.");
-				} else if (clipRef.current) toast("No free space nearby to paste the clipboard.");
+					toast$1("Pasted.");
+				} else if (clipRef.current) toast$1("No free space nearby to paste the clipboard.");
 				return;
 			}
 			if (tool) return;
@@ -35932,7 +35964,7 @@ function Homebuilder({ onExit }) {
 		setFloorId(next ? next.floors[0]?.id : null);
 		setSelection(null);
 		setTool(null);
-		toast("Plot deleted.");
+		toast$1("Plot deleted.");
 	};
 	if (!plots.length) return /* @__PURE__ */ jsxs("div", {
 		className: "flex h-screen flex-col items-center justify-center gap-6 bg-background text-foreground",
@@ -36054,7 +36086,7 @@ function Homebuilder({ onExit }) {
 		a.download = `${(plot.name || "plot").replace(/[^\w-]+/g, "_")}.homestead.json`;
 		a.click();
 		URL.revokeObjectURL(url);
-		toast("Plot saved to a file.");
+		toast$1("Plot saved to a file.");
 	};
 	const importPlotFile = (file) => {
 		const reader = new FileReader();
@@ -36062,7 +36094,7 @@ function Homebuilder({ onExit }) {
 			try {
 				const data = JSON.parse(reader.result);
 				const list = (Array.isArray(data) ? data : [data]).filter((p) => p && p.id && Array.isArray(p.floors));
-				if (!list.length) return toast("That file doesn't look like a saved plot.");
+				if (!list.length) return toast$1("That file doesn't look like a saved plot.");
 				setPlots((ps) => {
 					const byId = new Map(ps.map((p) => [p.id, p]));
 					for (const p of list) byId.set(p.id, p);
@@ -36072,9 +36104,9 @@ function Homebuilder({ onExit }) {
 				setFloorId(list[0].floors[0]?.id || null);
 				setSelection(null);
 				setTool(null);
-				toast(`Loaded ${list.length} plot${list.length === 1 ? "" : "s"}.`);
+				toast$1(`Loaded ${list.length} plot${list.length === 1 ? "" : "s"}.`);
 			} catch {
-				toast("Couldn't read that file.");
+				toast$1("Couldn't read that file.");
 			}
 		};
 		reader.readAsText(file);
@@ -36858,20 +36890,20 @@ function SideTreePanel({ slot, floating = false }) {
 	};
 	const handleInvest = (n, delta) => {
 		if ((n.nodeType || "") === "informative") {
-			toast.error("Informative nodes are reference only — they can't be invested.");
+			toast$1.error("Informative nodes are reference only — they can't be invested.");
 			return;
 		}
 		const isSub = !!st?.subtreeHostId;
 		if (isSub) {
 			const host = (tree?.nodes || []).find((m) => m.id === st.subtreeHostId);
 			if (!host || (host.currentPoints || 0) <= 0) {
-				toast.error(`Unlock “${host?.name || st.name || "the node"}” first — invest a point in it.`);
+				toast$1.error(`Unlock “${host?.name || st.name || "the node"}” first — invest a point in it.`);
 				return;
 			}
 			if ((st.abilityReqs || []).length) {
 				const ab = abilityReqStatus(st.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
 				if (!ab.ok) {
-					toast.error(`Requires ${ab.missing.join(", ")} before entering this tree.`);
+					toast$1.error(`Requires ${ab.missing.join(", ")} before entering this tree.`);
 					return;
 				}
 			}
@@ -36885,37 +36917,37 @@ function SideTreePanel({ slot, floating = false }) {
 					setSubtreePickNode(n);
 					return;
 				}
-				toast.error("Already at max points.");
+				toast$1.error("Already at max points.");
 				return;
 			}
 			if (isSub && st.exclusive && cur === 0) {
 				const inSet = new Set(nodes.map((m) => m.id));
 				const takenRoot = !(n.dependencies || []).some((d) => inSet.has(d)) ? nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && !(m.dependencies || []).some((d) => inSet.has(d))) : null;
 				if (takenRoot) {
-					toast.error(`Mutually exclusive with “${takenRoot.name || "another branch"}” — refund it first.`);
+					toast$1.error(`Mutually exclusive with “${takenRoot.name || "another branch"}” — refund it first.`);
 					return;
 				}
 			}
 			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
 				const other = nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && ((n.exclusiveWith || []).includes(m.id) || (m.exclusiveWith || []).includes(n.id)));
-				toast.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
+				toast$1.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
 				return;
 			}
 			if (!isAvailable(n, nodesById, unlockedNames) && cur === 0) {
-				toast.error("Prerequisites not met — invest in the required skills first.");
+				toast$1.error("Prerequisites not met — invest in the required skills first.");
 				return;
 			}
 			if (cur === 0) {
 				const ab = abilityReqStatus(n.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
 				if (!ab.ok) {
-					toast.error(`Requires ${ab.missing.join(", ")} first.`);
+					toast$1.error(`Requires ${ab.missing.join(", ")} first.`);
 					return;
 				}
 			}
 			const profs = character.proficiencies || {};
 			const missing = (n.requiredProficiencies || []).filter((r) => !(profs[r.type] || []).some((p) => (p.name || "").trim().toLowerCase() === String(r.name || "").trim().toLowerCase()));
 			if (missing.length) {
-				toast.error(`Requires proficiency in ${missing.map((m) => m.name || "?").join(", ")} first.`);
+				toast$1.error(`Requires proficiency in ${missing.map((m) => m.name || "?").join(", ")} first.`);
 				return;
 			}
 			const cost = Math.max(0, Number(n.cost ?? 1) || 0);
@@ -36924,7 +36956,7 @@ function SideTreePanel({ slot, floating = false }) {
 					const spent = nodes.reduce((a, m) => a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0);
 					const grant = Number(st.grantedPoints) || 0;
 					if (spent + cost > grant) {
-						toast.error(`No ${st.poolName || "Subtree"} points left — this tree grants ${grant}.`);
+						toast$1.error(`No ${st.poolName || "Subtree"} points left — this tree grants ${grant}.`);
 						return;
 					}
 				}
@@ -36933,7 +36965,7 @@ function SideTreePanel({ slot, floating = false }) {
 				if (cost > 0 && poolKey) {
 					const effPools = effectivePools(pools, character, mergedTree, levels);
 					if (usage[poolKey] + cost > effPools[poolKey].total) {
-						toast.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
+						toast$1.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
 						return;
 					}
 				}
@@ -36974,7 +37006,7 @@ function SideTreePanel({ slot, floating = false }) {
 			name: name || "Tree",
 			...p
 		});
-		toast.success(`Loaded "${name || "Tree"}" into the ${slot} panel.`);
+		toast$1.success(`Loaded "${name || "Tree"}" into the ${slot} panel.`);
 	};
 	const onFile = (e) => {
 		const file = e.target.files?.[0];
@@ -36985,7 +37017,7 @@ function SideTreePanel({ slot, floating = false }) {
 				const t = migrateTree(normalizeTree(JSON.parse(reader.result)));
 				loadSnapshot(t.name || "Imported tree", t.nodes, t.connections);
 			} catch {
-				toast.error("Invalid skill tree file.");
+				toast$1.error("Invalid skill tree file.");
 			}
 		};
 		reader.readAsText(file);

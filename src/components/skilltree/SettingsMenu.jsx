@@ -394,6 +394,32 @@ export function SettingsMenu({ open, onClose }) {
                     onCheckedChange={(v) => setCharacter({ ...character, devMode: v })}
                   />
                 </div>
+                {character?.devMode && (
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      try {
+                        const logs = ["Crash/Diagnostic log", new Date().toISOString(), "User agent: " + navigator.userAgent];
+                        const blob = new Blob([logs.join("\n")], { type: "text/plain" });
+                        if (window.showSaveFilePicker) {
+                          const handle = await window.showSaveFilePicker({ suggestedName: "crash-log.txt" });
+                          const writable = await handle.createWritable();
+                          await writable.write(blob);
+                          await writable.close();
+                          toast.success("Crash log saved.");
+                        } else {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "crash-log.txt";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      } catch (e) {
+                        toast.error("Could not export crash log: " + (e?.message || e));
+                      }
+                    }}>Export crash log</Button>
+                  </div>
+                )}
               </div>
             {character?.devMode && (
               <div className="mt-4 border-t pt-3 space-y-2">
