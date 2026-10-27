@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Fragment, createContext, createElement, useMemo } from "react";
+import { Fragment, createContext, createElement, useEffect, useMemo } from "react";
 import { ErrorComponent, HeadContent, Link, Outlet, Scripts, createFileRoute, createRootRoute, createRouter, lazyRouteComponent, rootRouteId, useMatch, useRouter } from "@tanstack/react-router";
 import { jsx, jsxs } from "react/jsx-runtime";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
@@ -333,6 +333,15 @@ var Route$2 = createRootRoute({
 	component: RootComponent
 });
 function RootComponent() {
+	useEffect(() => {
+		const handler = (e) => {
+			e.preventDefault();
+			e.returnValue = "";
+			return "";
+		};
+		window.addEventListener("beforeunload", handler);
+		return () => window.removeEventListener("beforeunload", handler);
+	}, []);
 	return /* @__PURE__ */ jsxs(AuthProvider, { children: [/* @__PURE__ */ jsx(Outlet, {}), /* @__PURE__ */ jsx(Toaster$1, {})] });
 }
 function RootDocument({ children }) {
@@ -350,7 +359,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-BKF7vhj1.js");
+var $$splitComponentImporter = () => import("./routes-B21Xzuuu.js");
 var Route$1 = createFileRoute("/")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter, "component"),
