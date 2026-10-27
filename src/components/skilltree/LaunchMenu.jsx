@@ -26,6 +26,7 @@ import {
 // Return here anytime from the toolbar's door button.
 export function LaunchMenu({ onHomebuilder, onDmScreen }) {
   const { enterApp, startNewTree, tree, character } = useTree();
+  const hasProject = !!(tree?.nodes?.length || character?.name);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
@@ -71,7 +72,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
         <div className="space-y-3">
           {menuBtn(<Plus className="h-5 w-5" />, "New", "Start a fresh skill tree", () => { if (window.confirm("Starting a new project will erase any unsaved changes. Continue?")) startNewTree(); })}
           <div className="grid grid-cols-2 gap-3">
-            {menuBtn(<Play className="h-5 w-5" />, "Continue", "Resume current tree without clearing", () => enterApp("edit"))}
+            {menuBtn(<Play className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />, "Continue", "Resume current tree without clearing", () => { if (hasProject) enterApp("edit"); })}
             {menuBtn(<FolderOpen className="h-5 w-5" />, "Save / Load", "Save or load a project", () => setSaveOpen(true))}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -147,6 +148,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
+
 
 
 

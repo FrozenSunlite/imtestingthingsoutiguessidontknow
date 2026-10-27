@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-B6nXB-Cv.js";
+import { i as cn, n as base44, r as Button } from "./router-C1Y85svl.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28535,6 +28535,7 @@ function StandaloneCopyDialog({ open, onClose }) {
 //#region src/components/skilltree/LaunchMenu.jsx
 function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	const { enterApp, startNewTree, tree, character } = useTree();
+	const hasProject = !!(tree?.nodes?.length || character?.name);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [showNewConfirm, setShowNewConfirm] = useState(false);
 	const [loadOpen, setLoadOpen] = useState(false);
@@ -28583,7 +28584,9 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-3",
-							children: [menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit")), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
+							children: [menuBtn(/* @__PURE__ */ jsx(Play, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "Continue", "Resume current tree without clearing", () => {
+								if (hasProject) enterApp("edit");
+							}), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-3",
