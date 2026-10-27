@@ -1,77 +1,230 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Homebrewery } from "@/components/rulebook/Homebrewery";
-import { loadRulebook, saveRulebook, newChapterId } from "@/lib/rulebookStore";
-import { BookOpen, ChevronDown, ChevronUp, Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  loadRulebook,
+  saveRulebook,
+  newChapterId,
+  newBookId,
+} from "@/lib/rulebookStore";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  ImagePlus,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
-// The Document Library: an organized rulebook separated by chapters, written
-// in Homebrewery-style markdown, with view and edit modes. Chapter 1 doubles
-// as the quick start guide — it sits on the app's first page.
+// The Document Library: one or more rulebooks, each split into chapters
+// written in Homebrewery-style markdown. Books and chapters live in
+// localStorage and are carried along with a saved project.
 export default function Rulebook({ className = "" }) {
-  const [rb, setRb] = useState(loadRulebook);
-  const [activeId, setActiveId] = useState(null);
+  const [rb, setRb] = useState(() => loadRulebook());
+  const [bookId, setBookId] = useState(() => loadRulebook().activeBookId);
+  const [chapterId, setChapterId] = useState(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [renamingId, setRenamingId] = useState(null);
   const [nameDraft, setNameDraft] = useState("");
+  const fileRef = useRef(null);
+  const areaRef = useRef(null);
 
-  useEffect(() => saveRulebook(rb), [rb]);
-
-  const chapters = rb.chapters || [];
-  const active = chapters.find((c) => c.id === activeId) || chapters[0] || null;
+  const books = rb.books || [];
+  const book = books.find((b) => b.id === bookId) || books[0] || null;
+  const chapters = book?.chapters || [];
+  const active = chapters.find((c) => c.id === chapterId) || chapters[0] || null;
   const idx = chapters.findIndex((c) => c.id === active?.id);
+
+  // Persist whenever the rulebook changes, keeping the active book in sync.
+  useEffect(() => {
+    saveRulebook({ ...rb, activeBookId: book?.id || rb.activeBookId });
+  }, [rb, book?.id, rb.activeBookId]);
+
+  const updateBook = (fn) =>
+    setRb((r) => ({
+      ...r,
+      books: (r.books || []).map((b) => (b.id === book.id ? fn(b) : b)),
+    }));
+
+  const selectBook = (id) => {
+    setBookId(id);
+    setChapterId(null);
+    setEditing(false);
+  };
+
+  const addBook = () => {
+    const b = {
+      id: newBookId(),
+      title: `Book ${books.length + 1}`,
+      chapters: [
+        { id: newChapterId(), title: "Chapter 1", content: "# Chapter 1\n\n" },
+      ],
+    };
+    setRb((r) => ({ ...r, books: [...(r.books || []), b], activeBookId: b.id }));
+    setBookId(b.id);
+    setChapterId(b.chapters[0].id);
+    setEditing(false);
+  };
+
+  const removeBook = () => {
+    if (!book || books.length <= 1) return;
+    const rest = books.filter((b) => b.id !== book.id);
+    setRb((r) => ({ ...r, books: rest, activeBookId: rest[0].id }));
+    setBookId(rest[0].id);
+    setChapterId(null);
+    setEditing(false);
+  };
+
+  const renameBook = (title) => {
+    if (!book) return;
+    updateBook((b) => ({ ...b, title: title.trim() || b.title }));
+  };
 
   const startEdit = () => {
     setDraft(active?.content || "");
     setEditing(true);
   };
+
   const saveEdit = () => {
-    setRb((r) => ({
-      ...r,
-      chapters: r.chapters.map((c) => (c.id === active.id ? { ...c, content: draft } : c)),
+    if (!active) return;
+    updateBook((b) => ({
+      ...b,
+      chapters: b.chapters.map((c) =>
+        c.id === active.id ? { ...c, content: draft } : c
+      ),
     }));
     setEditing(false);
   };
+
   const addChapter = () => {
-    const ch = { id: newChapterId(), title: `Chapter ${chapters.length + 1}`, content: `# Chapter ${chapters.length + 1}\n\n` };
-    setRb((r) => ({ ...r, chapters: [...r.chapters, ch] }));
-    setActiveId(ch.id);
+    const n = chapters.length + 1;
+    const ch = {
+      id: newChapterId(),
+      title: `Chapter ${n}`,
+      content: `# Chapter ${n}\n\n`,
+    };
+    updateBook((b) => ({ ...b, chapters: [...b.chapters, ch] }));
+    setChapterId(ch.id);
     setDraft(ch.content);
     setEditing(true);
   };
+
   const removeChapter = () => {
-    if (chapters.length <= 1) return;
-    setRb((r) => ({ ...r, chapters: r.chapters.filter((c) => c.id !== active.id) }));
-    setActiveId(null);
+    if (!active || chapters.length <= 1) return;
+    updateBook((b) => ({
+      ...b,
+      chapters: b.chapters.filter((c) => c.id !== active.id),
+    }));
+    setChapterId(null);
     setEditing(false);
   };
-  const move = (dir) => {
+
+  const moveChapter = (dir) => {
     const to = idx + dir;
-    if (to < 0 || to >= chapters.length) return;
-    setRb((r) => {
-      const next = [...r.chapters];
+    if (!active || to < 0 || to >= chapters.length) return;
+    updateBook((b) => {
+      const next = [...b.chapters];
       const [m] = next.splice(idx, 1);
       next.splice(to, 0, m);
-      return { ...r, chapters: next };
+      return { ...b, chapters: next };
     });
   };
+
   const commitRename = () => {
-    if (renamingId)
-      setRb((r) => ({
-        ...r,
-        chapters: r.chapters.map((c) => (c.id === renamingId ? { ...c, title: nameDraft.trim() || c.title } : c)),
+    if (renamingId && active) {
+      updateBook((b) => ({
+        ...b,
+        chapters: b.chapters.map((c) =>
+          c.id === renamingId ? { ...c, title: nameDraft.trim() || c.title } : c
+        ),
       }));
+    }
     setRenamingId(null);
   };
 
-  if (!active) return null;
+  // Insert the picked image as markdown at the caret so it lands where the
+  // author is writing rather than always at the end of the document.
+  const insertImage = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const markdown = `\n![${file.name.replace(/\.[^.]+$/, "")}](${reader.result})\n`;
+      const el = areaRef.current;
+      const start = el?.selectionStart ?? draft.length;
+      const end = el?.selectionEnd ?? draft.length;
+      setDraft((d) => d.slice(0, start) + markdown + d.slice(end));
+      requestAnimationFrame(() => {
+        if (!el) return;
+        const pos = start + markdown.length;
+        el.focus();
+        el.setSelectionRange(pos, pos);
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  if (!book) {
+    return (
+      <div className={`flex flex-col items-center justify-center gap-2 rounded-lg border bg-card p-6 text-sm text-muted-foreground ${className}`}>
+        <p>No rulebook found.</p>
+        <Button size="sm" onClick={addBook}>
+          <Plus className="mr-1 h-3.5 w-3.5" /> Create a book
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex min-h-0 overflow-hidden rounded-lg border bg-card ${className}`}>
-      <aside className="flex w-44 shrink-0 flex-col border-r">
-        <p className="flex items-center gap-1 border-b px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          <BookOpen className="h-3 w-3" /> Chapters
+      <aside className="flex w-52 shrink-0 flex-col border-r">
+        <div className="space-y-1 border-b p-2">
+          <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            <BookOpen className="h-3 w-3" /> Book
+          </label>
+          <select
+            className="w-full rounded border bg-background px-1.5 py-1 text-xs"
+            title="Choose which rulebook to read or edit"
+            value={book.id}
+            onChange={(e) => selectBook(e.target.value)}
+          >
+            {books.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.title}
+              </option>
+            ))}
+          </select>
+          <Input
+            className="h-6 text-xs"
+            title="Rename this book"
+            defaultValue={book.title}
+            key={book.id}
+            onBlur={(e) => renameBook(e.target.value)}
+          />
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="h-6 flex-1 px-1 text-[11px]" title="Add a new book" onClick={addBook}>
+              <Plus className="mr-1 h-3 w-3" /> New book
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-1"
+              title="Delete this book"
+              onClick={removeBook}
+              disabled={books.length <= 1}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        <p className="border-b px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Chapters
         </p>
         <div className="flex-1 overflow-y-auto p-1">
           {chapters.map((c, i) => (
@@ -90,12 +243,15 @@ export default function Rulebook({ className = "" }) {
                 />
               ) : (
                 <button
+                  type="button"
                   className={`flex-1 truncate rounded px-1.5 py-1 text-left text-xs ${
-                    c.id === active.id ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60"
+                    c.id === active?.id
+                      ? "bg-accent font-medium"
+                      : "text-muted-foreground hover:bg-accent/60"
                   }`}
                   title={`${i + 1}. ${c.title}${i === 0 ? " — quick start" : ""}`}
                   onClick={() => {
-                    setActiveId(c.id);
+                    setChapterId(c.id);
                     setEditing(false);
                   }}
                   onDoubleClick={() => {
@@ -106,12 +262,22 @@ export default function Rulebook({ className = "" }) {
                   {i + 1}. {c.title}
                 </button>
               )}
-              {c.id === active.id && renamingId !== c.id && (
+              {c.id === active?.id && renamingId !== c.id && (
                 <div className="flex shrink-0">
-                  <button className="text-muted-foreground hover:text-foreground" title="Move up" onClick={() => move(-1)}>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Move up"
+                    onClick={() => moveChapter(-1)}
+                  >
                     <ChevronUp className="h-3 w-3" />
                   </button>
-                  <button className="text-muted-foreground hover:text-foreground" title="Move down" onClick={() => move(1)}>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Move down"
+                    onClick={() => moveChapter(1)}
+                  >
                     <ChevronDown className="h-3 w-3" />
                   </button>
                 </div>
@@ -119,14 +285,15 @@ export default function Rulebook({ className = "" }) {
             </div>
           ))}
         </div>
-        <Button size="sm" variant="ghost" className="justify-start" onClick={addChapter}>
+        <Button size="sm" variant="ghost" className="justify-start" title="Add a chapter to this book" onClick={addChapter}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Add chapter
         </Button>
       </aside>
+
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold">{active.title}</h3>
+            <h3 className="truncate text-sm font-semibold">{active?.title || "Untitled"}</h3>
             <p className="text-[10px] text-muted-foreground">
               Chapter {idx + 1} of {chapters.length}
               {idx === 0 ? " — quick start guide" : ""}
@@ -135,12 +302,16 @@ export default function Rulebook({ className = "" }) {
           <div className="flex shrink-0 gap-1">
             {editing ? (
               <>
-                <Button size="sm" onClick={saveEdit}>Save</Button>
-                <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+                <Button size="sm" onClick={saveEdit} title="Save this chapter">
+                  Save
+                </Button>
+                <Button size="sm" variant="outline" title="Discard changes" onClick={() => setEditing(false)}>
+                  Cancel
+                </Button>
               </>
             ) : (
               <>
-                <Button size="sm" variant="outline" onClick={startEdit}>
+                <Button size="sm" variant="outline" title="Edit this chapter" onClick={startEdit} disabled={!active}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
                 </Button>
                 {chapters.length > 1 && (
@@ -152,28 +323,47 @@ export default function Rulebook({ className = "" }) {
             )}
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm">
-          {editing ? (
+
+        {editing ? (
+          <div className="grid min-h-0 flex-1 grid-cols-2 divide-x">
             <Textarea
-              className="h-full min-h-64 w-full font-mono text-xs"
+              ref={areaRef}
+              className="h-full min-h-64 w-full resize-none rounded-none border-0 font-mono text-xs"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              title="Homebrewery markdown source"
             />
-          ) : (
-            <Homebrewery text={active.content} />
+            <div className="h-full overflow-y-auto p-4 text-sm">
+              <Homebrewery text={draft} />
+            </div>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm">
+            <Homebrewery text={active?.content || ""} />
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 border-t px-3 py-1.5">
+          {editing && (
+            <>
+              <Button size="sm" variant="outline" title="Insert an image at the cursor" onClick={() => fileRef.current?.click()}>
+                <ImagePlus className="mr-1 h-3.5 w-3.5" /> Image
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={insertImage}
+              />
+            </>
           )}
+          <p className="text-[10px] text-muted-foreground">
+            {editing
+              ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save."
+              : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."}
+          </p>
         </div>
-        <p className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
-          {editing ? (
-            <>
-              Homebrewery markdown: <code># heading</code>, <code>**bold**</code>, <code>*italics*</code>, <code>&gt; quote</code>, <code>- list</code>, <code>| table | rows |</code>. Edits save when you press Save.
-            </>
-          ) : (
-            <>
-              Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename.
-            </>
-          )}
-        </p>
       </div>
     </div>
   );

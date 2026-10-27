@@ -1,11 +1,11 @@
-import { i as cn, n as base44, r as Button } from "./router-CflW1LuV.js";
+import { i as cn, n as base44, r as Button } from "./router-__ALiDit.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast as toast$1 } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, Link2, ListTree, Loader2, Lock, Maximize, Minus, MonitorCheck, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, ImagePlus, Library, Link2, ListTree, Loader2, Lock, Maximize, Minus, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -27836,6 +27836,7 @@ function MarkdownBlock({ text }) {
 //#region src/lib/rulebookStore.js
 var KEY = "skilltree:rulebook";
 var newChapterId = () => "ch" + Date.now() + "-" + Math.floor(Math.random() * 1e3);
+var newBookId = () => "bk" + Date.now() + "-" + Math.floor(Math.random() * 1e3);
 var DEFAULT_RULEBOOK = {
 	title: "Rulebook",
 	books: [{
@@ -27915,24 +27916,86 @@ function saveRulebook(rb) {
 //#endregion
 //#region src/components/rulebook/Rulebook.jsx
 function Rulebook({ className = "" }) {
-	const [rb, setRb] = useState(loadRulebook);
-	const [activeId, setActiveId] = useState(null);
+	const [rb, setRb] = useState(() => loadRulebook());
+	const [bookId, setBookId] = useState(() => loadRulebook().activeBookId);
+	const [chapterId, setChapterId] = useState(null);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState("");
 	const [renamingId, setRenamingId] = useState(null);
 	const [nameDraft, setNameDraft] = useState("");
-	useEffect(() => saveRulebook(rb), [rb]);
-	const chapters = rb.chapters || [];
-	const active = chapters.find((c) => c.id === activeId) || chapters[0] || null;
+	const fileRef = useRef(null);
+	const areaRef = useRef(null);
+	const books = rb.books || [];
+	const book = books.find((b) => b.id === bookId) || books[0] || null;
+	const chapters = book?.chapters || [];
+	const active = chapters.find((c) => c.id === chapterId) || chapters[0] || null;
 	const idx = chapters.findIndex((c) => c.id === active?.id);
+	useEffect(() => {
+		saveRulebook({
+			...rb,
+			activeBookId: book?.id || rb.activeBookId
+		});
+	}, [
+		rb,
+		book?.id,
+		rb.activeBookId
+	]);
+	const updateBook = (fn) => setRb((r) => ({
+		...r,
+		books: (r.books || []).map((b) => b.id === book.id ? fn(b) : b)
+	}));
+	const selectBook = (id) => {
+		setBookId(id);
+		setChapterId(null);
+		setEditing(false);
+	};
+	const addBook = () => {
+		const b = {
+			id: newBookId(),
+			title: `Book ${books.length + 1}`,
+			chapters: [{
+				id: newChapterId(),
+				title: "Chapter 1",
+				content: "# Chapter 1\n\n"
+			}]
+		};
+		setRb((r) => ({
+			...r,
+			books: [...r.books || [], b],
+			activeBookId: b.id
+		}));
+		setBookId(b.id);
+		setChapterId(b.chapters[0].id);
+		setEditing(false);
+	};
+	const removeBook = () => {
+		if (!book || books.length <= 1) return;
+		const rest = books.filter((b) => b.id !== book.id);
+		setRb((r) => ({
+			...r,
+			books: rest,
+			activeBookId: rest[0].id
+		}));
+		setBookId(rest[0].id);
+		setChapterId(null);
+		setEditing(false);
+	};
+	const renameBook = (title) => {
+		if (!book) return;
+		updateBook((b) => ({
+			...b,
+			title: title.trim() || b.title
+		}));
+	};
 	const startEdit = () => {
 		setDraft(active?.content || "");
 		setEditing(true);
 	};
 	const saveEdit = () => {
-		setRb((r) => ({
-			...r,
-			chapters: r.chapters.map((c) => c.id === active.id ? {
+		if (!active) return;
+		updateBook((b) => ({
+			...b,
+			chapters: b.chapters.map((c) => c.id === active.id ? {
 				...c,
 				content: draft
 			} : c)
@@ -27940,60 +28003,132 @@ function Rulebook({ className = "" }) {
 		setEditing(false);
 	};
 	const addChapter = () => {
+		const n = chapters.length + 1;
 		const ch = {
 			id: newChapterId(),
-			title: `Chapter ${chapters.length + 1}`,
-			content: `# Chapter ${chapters.length + 1}\n\n`
+			title: `Chapter ${n}`,
+			content: `# Chapter ${n}\n\n`
 		};
-		setRb((r) => ({
-			...r,
-			chapters: [...r.chapters, ch]
+		updateBook((b) => ({
+			...b,
+			chapters: [...b.chapters, ch]
 		}));
-		setActiveId(ch.id);
+		setChapterId(ch.id);
 		setDraft(ch.content);
 		setEditing(true);
 	};
 	const removeChapter = () => {
-		if (chapters.length <= 1) return;
-		setRb((r) => ({
-			...r,
-			chapters: r.chapters.filter((c) => c.id !== active.id)
+		if (!active || chapters.length <= 1) return;
+		updateBook((b) => ({
+			...b,
+			chapters: b.chapters.filter((c) => c.id !== active.id)
 		}));
-		setActiveId(null);
+		setChapterId(null);
 		setEditing(false);
 	};
-	const move = (dir) => {
+	const moveChapter = (dir) => {
 		const to = idx + dir;
-		if (to < 0 || to >= chapters.length) return;
-		setRb((r) => {
-			const next = [...r.chapters];
+		if (!active || to < 0 || to >= chapters.length) return;
+		updateBook((b) => {
+			const next = [...b.chapters];
 			const [m] = next.splice(idx, 1);
 			next.splice(to, 0, m);
 			return {
-				...r,
+				...b,
 				chapters: next
 			};
 		});
 	};
 	const commitRename = () => {
-		if (renamingId) setRb((r) => ({
-			...r,
-			chapters: r.chapters.map((c) => c.id === renamingId ? {
+		if (renamingId && active) updateBook((b) => ({
+			...b,
+			chapters: b.chapters.map((c) => c.id === renamingId ? {
 				...c,
 				title: nameDraft.trim() || c.title
 			} : c)
 		}));
 		setRenamingId(null);
 	};
-	if (!active) return null;
+	const insertImage = (e) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const reader = new FileReader();
+		reader.onload = () => {
+			const markdown = `\n![${file.name.replace(/\.[^.]+$/, "")}](${reader.result})\n`;
+			const el = areaRef.current;
+			const start = el?.selectionStart ?? draft.length;
+			const end = el?.selectionEnd ?? draft.length;
+			setDraft((d) => d.slice(0, start) + markdown + d.slice(end));
+			requestAnimationFrame(() => {
+				if (!el) return;
+				const pos = start + markdown.length;
+				el.focus();
+				el.setSelectionRange(pos, pos);
+			});
+		};
+		reader.readAsDataURL(file);
+		e.target.value = "";
+	};
+	if (!book) return /* @__PURE__ */ jsxs("div", {
+		className: `flex flex-col items-center justify-center gap-2 rounded-lg border bg-card p-6 text-sm text-muted-foreground ${className}`,
+		children: [/* @__PURE__ */ jsx("p", { children: "No rulebook found." }), /* @__PURE__ */ jsxs(Button, {
+			size: "sm",
+			onClick: addBook,
+			children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Create a book"]
+		})]
+	});
 	return /* @__PURE__ */ jsxs("div", {
 		className: `flex min-h-0 overflow-hidden rounded-lg border bg-card ${className}`,
 		children: [/* @__PURE__ */ jsxs("aside", {
-			className: "flex w-44 shrink-0 flex-col border-r",
+			className: "flex w-52 shrink-0 flex-col border-r",
 			children: [
-				/* @__PURE__ */ jsxs("p", {
-					className: "flex items-center gap-1 border-b px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-					children: [/* @__PURE__ */ jsx(BookOpen, { className: "h-3 w-3" }), " Chapters"]
+				/* @__PURE__ */ jsxs("div", {
+					className: "space-y-1 border-b p-2",
+					children: [
+						/* @__PURE__ */ jsxs("label", {
+							className: "flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+							children: [/* @__PURE__ */ jsx(BookOpen, { className: "h-3 w-3" }), " Book"]
+						}),
+						/* @__PURE__ */ jsx("select", {
+							className: "w-full rounded border bg-background px-1.5 py-1 text-xs",
+							title: "Choose which rulebook to read or edit",
+							value: book.id,
+							onChange: (e) => selectBook(e.target.value),
+							children: books.map((b) => /* @__PURE__ */ jsx("option", {
+								value: b.id,
+								children: b.title
+							}, b.id))
+						}),
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-6 text-xs",
+							title: "Rename this book",
+							defaultValue: book.title,
+							onBlur: (e) => renameBook(e.target.value)
+						}, book.id),
+						/* @__PURE__ */ jsxs("div", {
+							className: "flex gap-1",
+							children: [/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-6 flex-1 px-1 text-[11px]",
+								title: "Add a new book",
+								onClick: addBook,
+								children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3 w-3" }), " New book"]
+							}), /* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-6 px-1",
+								title: "Delete this book",
+								onClick: removeBook,
+								disabled: books.length <= 1,
+								children: /* @__PURE__ */ jsx(Trash2, { className: "h-3 w-3" })
+							})]
+						})
+					]
+				}),
+				/* @__PURE__ */ jsx("p", {
+					className: "border-b px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+					children: "Chapters"
 				}),
 				/* @__PURE__ */ jsx("div", {
 					className: "flex-1 overflow-y-auto p-1",
@@ -28010,10 +28145,11 @@ function Rulebook({ className = "" }) {
 								if (e.key === "Escape") setRenamingId(null);
 							}
 						}) : /* @__PURE__ */ jsxs("button", {
-							className: `flex-1 truncate rounded px-1.5 py-1 text-left text-xs ${c.id === active.id ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60"}`,
+							type: "button",
+							className: `flex-1 truncate rounded px-1.5 py-1 text-left text-xs ${c.id === active?.id ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60"}`,
 							title: `${i + 1}. ${c.title}${i === 0 ? " — quick start" : ""}`,
 							onClick: () => {
-								setActiveId(c.id);
+								setChapterId(c.id);
 								setEditing(false);
 							},
 							onDoubleClick: () => {
@@ -28025,17 +28161,19 @@ function Rulebook({ className = "" }) {
 								". ",
 								c.title
 							]
-						}), c.id === active.id && renamingId !== c.id && /* @__PURE__ */ jsxs("div", {
+						}), c.id === active?.id && renamingId !== c.id && /* @__PURE__ */ jsxs("div", {
 							className: "flex shrink-0",
 							children: [/* @__PURE__ */ jsx("button", {
+								type: "button",
 								className: "text-muted-foreground hover:text-foreground",
 								title: "Move up",
-								onClick: () => move(-1),
+								onClick: () => moveChapter(-1),
 								children: /* @__PURE__ */ jsx(ChevronUp, { className: "h-3 w-3" })
 							}), /* @__PURE__ */ jsx("button", {
+								type: "button",
 								className: "text-muted-foreground hover:text-foreground",
 								title: "Move down",
-								onClick: () => move(1),
+								onClick: () => moveChapter(1),
 								children: /* @__PURE__ */ jsx(ChevronDown, { className: "h-3 w-3" })
 							})]
 						})]
@@ -28045,6 +28183,7 @@ function Rulebook({ className = "" }) {
 					size: "sm",
 					variant: "ghost",
 					className: "justify-start",
+					title: "Add a chapter to this book",
 					onClick: addChapter,
 					children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " Add chapter"]
 				})
@@ -28058,7 +28197,7 @@ function Rulebook({ className = "" }) {
 						className: "min-w-0",
 						children: [/* @__PURE__ */ jsx("h3", {
 							className: "truncate text-sm font-semibold",
-							children: active.title
+							children: active?.title || "Untitled"
 						}), /* @__PURE__ */ jsxs("p", {
 							className: "text-[10px] text-muted-foreground",
 							children: [
@@ -28074,16 +28213,20 @@ function Rulebook({ className = "" }) {
 						children: editing ? /* @__PURE__ */ jsxs(Fragment$1, { children: [/* @__PURE__ */ jsx(Button, {
 							size: "sm",
 							onClick: saveEdit,
+							title: "Save this chapter",
 							children: "Save"
 						}), /* @__PURE__ */ jsx(Button, {
 							size: "sm",
 							variant: "outline",
+							title: "Discard changes",
 							onClick: () => setEditing(false),
 							children: "Cancel"
 						})] }) : /* @__PURE__ */ jsxs(Fragment$1, { children: [/* @__PURE__ */ jsxs(Button, {
 							size: "sm",
 							variant: "outline",
+							title: "Edit this chapter",
 							onClick: startEdit,
+							disabled: !active,
 							children: [/* @__PURE__ */ jsx(Pencil, { className: "mr-1 h-3.5 w-3.5" }), " Edit"]
 						}), chapters.length > 1 && /* @__PURE__ */ jsx(Button, {
 							size: "sm",
@@ -28094,31 +28237,40 @@ function Rulebook({ className = "" }) {
 						})] })
 					})]
 				}),
-				/* @__PURE__ */ jsx("div", {
-					className: "min-h-0 flex-1 overflow-y-auto p-4 text-sm",
-					children: editing ? /* @__PURE__ */ jsx(Textarea, {
-						className: "h-full min-h-64 w-full font-mono text-xs",
+				editing ? /* @__PURE__ */ jsxs("div", {
+					className: "grid min-h-0 flex-1 grid-cols-2 divide-x",
+					children: [/* @__PURE__ */ jsx(Textarea, {
+						ref: areaRef,
+						className: "h-full min-h-64 w-full resize-none rounded-none border-0 font-mono text-xs",
 						value: draft,
-						onChange: (e) => setDraft(e.target.value)
-					}) : /* @__PURE__ */ jsx(Homebrewery, { text: active.content })
+						onChange: (e) => setDraft(e.target.value),
+						title: "Homebrewery markdown source"
+					}), /* @__PURE__ */ jsx("div", {
+						className: "h-full overflow-y-auto p-4 text-sm",
+						children: /* @__PURE__ */ jsx(Homebrewery, { text: draft })
+					})]
+				}) : /* @__PURE__ */ jsx("div", {
+					className: "min-h-0 flex-1 overflow-y-auto p-4 text-sm",
+					children: /* @__PURE__ */ jsx(Homebrewery, { text: active?.content || "" })
 				}),
-				/* @__PURE__ */ jsx("p", {
-					className: "border-t px-3 py-1.5 text-[10px] text-muted-foreground",
-					children: editing ? /* @__PURE__ */ jsxs(Fragment$1, { children: [
-						"Homebrewery markdown: ",
-						/* @__PURE__ */ jsx("code", { children: "# heading" }),
-						", ",
-						/* @__PURE__ */ jsx("code", { children: "**bold**" }),
-						", ",
-						/* @__PURE__ */ jsx("code", { children: "*italics*" }),
-						", ",
-						/* @__PURE__ */ jsx("code", { children: "> quote" }),
-						", ",
-						/* @__PURE__ */ jsx("code", { children: "- list" }),
-						", ",
-						/* @__PURE__ */ jsx("code", { children: "| table | rows |" }),
-						". Edits save when you press Save."
-					] }) : /* @__PURE__ */ jsx(Fragment$1, { children: "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename." })
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center gap-2 border-t px-3 py-1.5",
+					children: [editing && /* @__PURE__ */ jsxs(Fragment$1, { children: [/* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "outline",
+						title: "Insert an image at the cursor",
+						onClick: () => fileRef.current?.click(),
+						children: [/* @__PURE__ */ jsx(ImagePlus, { className: "mr-1 h-3.5 w-3.5" }), " Image"]
+					}), /* @__PURE__ */ jsx("input", {
+						ref: fileRef,
+						type: "file",
+						accept: "image/*",
+						className: "hidden",
+						onChange: insertImage
+					})] }), /* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: editing ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save." : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."
+					})]
 				})
 			]
 		})]
@@ -28525,80 +28677,60 @@ function PinnedNodeCard() {
 		onClose: () => onClose(node.id)
 	}, node.id)) });
 }
-function StandaloneCopyDialog({ open, onClose }) {
-	return /* @__PURE__ */ jsx(Dialog, {
-		open,
-		onOpenChange: (v) => !v && onClose(),
-		children: /* @__PURE__ */ jsxs(DialogContent, {
-			className: "max-w-lg",
-			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, {
-					className: "font-display",
-					children: "Get a personal copy"
-				}), /* @__PURE__ */ jsx(DialogDescription, { children: "A standalone copy runs entirely on your own machine — your trees and characters keep working even if this service goes away. Each copy keeps its own save space; use the Save menu's file export to move data between copies. For personal use." })] }),
-				/* @__PURE__ */ jsxs("div", {
-					className: "flex items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4",
-					children: [/* @__PURE__ */ jsx("span", {
-						className: "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
-						children: /* @__PURE__ */ jsx(MonitorCheck, { className: "h-5 w-5" })
-					}), /* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
-						className: "block font-display text-base font-semibold",
-						children: "You're already running the desktop version"
-					}), /* @__PURE__ */ jsx("span", {
-						className: "block text-xs text-muted-foreground",
-						children: "Copies can only be downloaded from the hosted app."
-					})] })]
-				}),
-				false
-			]
-		})
-	});
-}
 //#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
 function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	const { enterApp, startNewTree, tree, character } = useTree();
-	const hasProject = !!(tree?.nodes?.length || character?.name);
-	const devMode = !!character?.devMode;
 	const [settingsOpen, setSettingsOpen] = useState(false);
-	const [showNewConfirm, setShowNewConfirm] = useState(false);
-	const [loadOpen, setLoadOpen] = useState(false);
-	const [copyOpen, setCopyOpen] = useState(false);
+	const [newConfirmOpen, setNewConfirmOpen] = useState(false);
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
-	const menuBtn = (icon, title, sub, onClick, disabled = false) => /* @__PURE__ */ jsxs("button", {
-		onClick,
-		title: sub,
-		className: "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" + (disabled ? " opacity-40 pointer-events-none" : ""),
-		children: [/* @__PURE__ */ jsx("span", {
-			className: "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
-			children: icon
-		}), /* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
-			className: "block font-display text-lg font-semibold",
-			children: title
-		}), /* @__PURE__ */ jsx("span", {
-			className: "block text-xs text-muted-foreground",
-			children: sub
-		})] })]
-	});
+	const hasProject = !!(tree?.nodes?.length || character?.name);
+	const devMode = !!character?.devMode;
+	const locked = !hasProject && !devMode;
 	const exit = () => {
 		window.close();
 		toast$1("Close this browser tab to exit.", { description: "Browsers only let a script close a tab it opened itself." });
 	};
+	const menuBtn = (icon, title, sub, onClick, disabled = false) => /* @__PURE__ */ jsxs("button", {
+		type: "button",
+		onClick: disabled ? void 0 : onClick,
+		disabled,
+		title: sub,
+		"aria-disabled": disabled,
+		className: "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" + (disabled ? " cursor-not-allowed opacity-40" : ""),
+		children: [/* @__PURE__ */ jsx("span", {
+			className: "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
+			children: icon
+		}), /* @__PURE__ */ jsxs("span", {
+			className: "min-w-0",
+			children: [/* @__PURE__ */ jsx("span", {
+				className: "block font-display text-lg font-semibold",
+				children: title
+			}), /* @__PURE__ */ jsx("span", {
+				className: "block text-xs leading-snug text-muted-foreground",
+				children: sub
+			})]
+		})]
+	});
 	return /* @__PURE__ */ jsxs("div", {
-		className: "blue-fire relative flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-gradient-to-b from-background via-background to-muted px-4 py-10",
+		className: "blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
-				className: "absolute right-4 top-4 flex gap-2",
+				className: "absolute right-4 top-4 z-10 flex gap-2",
 				children: [/* @__PURE__ */ jsx("button", {
+					type: "button",
 					onClick: () => setSettingsOpen(true),
 					title: "Settings",
+					"aria-label": "Settings",
 					className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
 					children: /* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" })
 				}), /* @__PURE__ */ jsx("button", {
+					type: "button",
 					onClick: exit,
 					title: "Exit",
+					"aria-label": "Exit",
 					className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
 					children: /* @__PURE__ */ jsx(Power, { className: "h-5 w-5" })
 				})]
@@ -28617,51 +28749,39 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 				}), /* @__PURE__ */ jsxs("div", {
 					className: "space-y-3",
 					children: [
-						menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", () => {
-							if (window.confirm("Starting a new project will erase any unsaved changes. Continue?")) startNewTree();
+						menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", () => setNewConfirmOpen(true)),
+						/* @__PURE__ */ jsxs("div", {
+							className: "grid grid-cols-2 gap-3",
+							children: [menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit"), locked), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-3",
-							children: [menuBtn(/* @__PURE__ */ jsx(Play, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "Continue", "Resume current tree without clearing", () => {
-								if (hasProject) enterApp("edit");
-							}, !hasProject && !devMode), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
+							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true)), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true))]
 						}),
-						/* @__PURE__ */ jsxs("div", {
-							className: "grid grid-cols-2 gap-3",
-							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read the rulebook", () => setRulebookOpen(true)), menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true))]
-						}),
-						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "Character Creator", "Build a character in the working sheet", () => {
-							if (hasProject) enterApp("sheet", { sheetOnly: true });
-						}, !hasProject && !devMode),
-						menuBtn(/* @__PURE__ */ jsx(Home, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "Architect", "Design a home, business or bastion plot", () => {
-							if (hasProject) onHomebuilder?.();
-						}, !hasProject && !devMode),
-						menuBtn(/* @__PURE__ */ jsx(Swords, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "DM Screen", "Quick rules and a dice roller for running the game", () => {
-							if (hasProject) onDmScreen?.();
-						}, !hasProject && !devMode),
-						menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read the rulebook — quick start guide and chapters", () => setRulebookOpen(true))
+						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true }), locked),
+						menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked),
+						menuBtn(/* @__PURE__ */ jsx(Swords, { className: "h-5 w-5" }), "DM Screen", "Quick rules and a dice roller for running the game", () => onDmScreen?.(), locked)
 					]
 				})]
 			}),
-			/* @__PURE__ */ jsx(SaveLoadMenu, {
-				open: saveOpen,
-				onClose: () => setSaveOpen(false)
+			/* @__PURE__ */ jsx("footer", {
+				className: "mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70",
+				children: "Not for Commercial Resale"
 			}),
-			"'      ",
 			/* @__PURE__ */ jsx(Dialog, {
-				open: showNewConfirm,
-				onOpenChange: setShowNewConfirm,
+				open: newConfirmOpen,
+				onOpenChange: setNewConfirmOpen,
 				children: /* @__PURE__ */ jsxs(DialogContent, {
 					className: "max-w-sm",
 					children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Start new project?" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Starting a new project will erase current work. Proceed?" })] }), /* @__PURE__ */ jsxs("div", {
 						className: "flex justify-end gap-2",
 						children: [/* @__PURE__ */ jsx(Button, {
 							variant: "outline",
-							onClick: () => setShowNewConfirm(false),
+							onClick: () => setNewConfirmOpen(false),
 							children: "Cancel"
 						}), /* @__PURE__ */ jsx(Button, {
 							onClick: () => {
-								setShowNewConfirm(false);
+								setNewConfirmOpen(false);
 								startNewTree();
 							},
 							children: "Continue"
@@ -28669,33 +28789,25 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 					})]
 				})
 			}),
-			/* @__PURE__ */ jsx(LibraryMenu, {
-				open: libraryOpen,
-				onClose: () => setLibraryOpen(false)
-			}),
-			/* @__PURE__ */ jsxs(Dialog, {
+			/* @__PURE__ */ jsx(Dialog, {
 				open: rulebookOpen,
 				onOpenChange: setRulebookOpen,
-				children: ["'", /* @__PURE__ */ jsxs(DialogContent, {
-					className: "flex h-[85vh] flex-col overflow-hidden sm:max-w-4xl",
+				children: /* @__PURE__ */ jsxs(DialogContent, {
+					className: "flex h-[85vh] flex-col overflow-hidden sm:max-w-5xl",
 					children: [/* @__PURE__ */ jsx(DialogHeader, { children: /* @__PURE__ */ jsx(DialogTitle, { children: "Rulebook" }) }), /* @__PURE__ */ jsx(Rulebook, { className: "min-h-0 flex-1" })]
-				})]
+				})
 			}),
 			/* @__PURE__ */ jsx(SettingsMenu, {
 				open: settingsOpen,
 				onClose: () => setSettingsOpen(false)
 			}),
 			/* @__PURE__ */ jsx(SaveLoadMenu, {
-				open: loadOpen,
-				onClose: () => setLoadOpen(false)
+				open: saveOpen,
+				onClose: () => setSaveOpen(false)
 			}),
-			/* @__PURE__ */ jsx(StandaloneCopyDialog, {
-				open: copyOpen,
-				onClose: () => setCopyOpen(false)
-			}),
-			/* @__PURE__ */ jsx("p", {
-				className: "mt-4 text-center text-[10px] text-muted-foreground/70",
-				children: "Not for Commercial Resale"
+			/* @__PURE__ */ jsx(LibraryMenu, {
+				open: libraryOpen,
+				onClose: () => setLibraryOpen(false)
 			})
 		]
 	});
