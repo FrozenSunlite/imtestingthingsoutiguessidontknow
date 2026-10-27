@@ -78,13 +78,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
             {menuBtn(<BookOpen className="h-5 w-5" />, "Rulebook", "Read the rulebook", () => setRulebookOpen(true))}
             {menuBtn(<BookOpen className="h-5 w-5" />, "Reference Library", "Browse the reference library", () => setLibraryOpen(true))}
           </div>
-          {menuBtn(<Play className="h-5 w-5" />, "Continue", "Resume current tree without clearing", () => enterApp("edit"))}
-          {menuBtn(
-            <FolderOpen className="h-5 w-5" />,
-            "Load",
-            "Continue a saved character",
-            () => setLoadOpen(true)
-          )}
+
           {menuBtn(
             <Wand2 className="h-5 w-5" />,
             "Character Creator",
