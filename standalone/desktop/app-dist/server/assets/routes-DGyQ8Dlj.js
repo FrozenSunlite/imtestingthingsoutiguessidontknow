@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-CVg2U7qn.js";
+import { i as cn, n as base44, r as Button } from "./router-BzOyQ7vT.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -20718,7 +20718,7 @@ function ConnectorEditorPanel() {
 //#endregion
 //#region src/components/skilltree/ContextMenu.jsx
 function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onClose }) {
-	const { rotateNode, flipNode, deleteNode, addNode, setUi, updateNode, toggleDependency, invertPrerequisites, grid, ui, copyNodes, cutNodes, moveNodesToTab, tabs, activeTabId, tree, enterSubtreeEditor } = useTree();
+	const { rotateNode, flipNode, deleteNode, addNode, setUi, updateNode, patchTab, toggleDependency, invertPrerequisites, grid, ui, copyNodes, cutNodes, moveNodesToTab, tabs, activeTabId, tree, enterSubtreeEditor } = useTree();
 	if (!editable) {
 		if (!node) return null;
 		const pinnedNow = (ui.pinnedNodeIds || []).includes(node.id);
@@ -20854,6 +20854,7 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 				...u,
 				editingNodeId: node.id
 			})), false, "Open the Edit Node panel for this node"),
+			item("Set as camera start", /* @__PURE__ */ jsx(Pin, { className: "h-4 w-4" }), () => patchTab && patchTab(activeTabId, { cameraStartNode: node.name }), false, "Center the view on this node when this tab opens"),
 			item((ui.pinnedNodeIds || []).includes(node.id) ? "Unpin from display" : "Pin for display", (ui.pinnedNodeIds || []).includes(node.id) ? /* @__PURE__ */ jsx(PinOff, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(Pin, { className: "h-4 w-4" }), () => setUi((u) => ({
 				...u,
 				pinnedNodeIds: (u.pinnedNodeIds || []).includes(node.id) ? (u.pinnedNodeIds || []).filter((id) => id !== node.id) : [...u.pinnedNodeIds || [], node.id]

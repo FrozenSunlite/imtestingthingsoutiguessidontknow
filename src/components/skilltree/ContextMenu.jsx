@@ -28,6 +28,7 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
     addNode,
     setUi,
     updateNode,
+    patchTab,
     toggleDependency,
     invertPrerequisites,
     grid,
@@ -181,6 +182,7 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
               false,
               "Open the Edit Node panel for this node"
             )}
+            {item("Set as camera start", <Pin className="h-4 w-4" />, () => patchTab && patchTab(activeTabId, { cameraStartNode: node.name }), false, "Center the view on this node when this tab opens")}
             {item(
               (ui.pinnedNodeIds || []).includes(node.id)
                 ? "Unpin from display"
