@@ -45,7 +45,7 @@ export function EncounterTablesTab() {
       ))}
       <p className="text-[10px] text-muted-foreground">
         Counts can be dice expressions — rolling an encounter decides how many of each monster
-        appears.
+        appears. Use the <strong>Encounter XP</strong> tab to check thresholds for a party of 4.
       </p>
     </div>
   );

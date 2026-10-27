@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C4ocBMNa.js";
+import { n as Button, r as cn } from "./router-B6v9gi7n.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3142,6 +3142,86 @@ var themedBoss = (room, index) => index === 0 ? room : {
 	...room,
 	name: `${room.name} — ${BOSS_THEMES[(index - 1) % BOSS_THEMES.length]}`
 };
+var NAME_ADJECTIVES = [
+	"Sunken",
+	"Ashen",
+	"Whispering",
+	"Broken",
+	"Gilded",
+	"Frozen",
+	"Hollow",
+	"Crimson",
+	"Forgotten",
+	"Umbral",
+	"Shifting",
+	"Iron",
+	"Verdant",
+	"Drowned",
+	"Cinder",
+	"Moonlit",
+	"Shattered",
+	"Silent",
+	"Thorned",
+	"Wandering"
+];
+var NAME_PLACES = [
+	"Crypt",
+	"Vault",
+	"Warren",
+	"Sanctum",
+	"Labyrinth",
+	"Catacomb",
+	"Keep",
+	"Reliquary",
+	"Gallery",
+	"Bastion",
+	"Undercroft",
+	"Mausoleum",
+	"Foundry"
+];
+var NAME_SPIRE_PLACES = [
+	"Spire",
+	"Tower",
+	"Ascent",
+	"Pinnacle",
+	"Citadel",
+	"Ziggurat",
+	"Needle"
+];
+var NAME_NOUNS = [
+	"Echo",
+	"Crown",
+	"Serpent",
+	"Lantern",
+	"Tide",
+	"Ember",
+	"Oracle",
+	"Warden",
+	"Choir",
+	"Colossus",
+	"Requiem",
+	"Root",
+	"Mask",
+	"Throne",
+	"Idol",
+	"Cinder"
+];
+function generateDungeonName(seed, mode = "single", rank = "E") {
+	const rng = makeRng(`${mode}:${rank}:${seed}:name`);
+	const place = rng.pick(mode === "spire" ? NAME_SPIRE_PLACES : NAME_PLACES);
+	const adj = rng.pick(NAME_ADJECTIVES);
+	const adj2 = rng.pick(NAME_ADJECTIVES.filter((word) => word !== adj));
+	const noun = rng.pick(NAME_NOUNS);
+	const theme = rng.pick(BOSS_THEMES);
+	return rng.pick([
+		() => `The ${adj} ${place}`,
+		() => `${adj} ${place} of the ${adj2} ${noun}`,
+		() => `The ${place} of ${theme}`,
+		() => `${place} of the ${noun}`,
+		() => `The ${noun}'s ${place}`,
+		() => `${adj} ${place} of the ${noun}`
+	])();
+}
 var TRAP_POOL = [
 	"Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
 	"Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
@@ -3693,6 +3773,9 @@ function insertBonfires(spine, rng) {
 		}
 	});
 	while (out.length && out[out.length - 1]?.bonfire) out.pop();
+	const last = out[out.length - 1];
+	const previous = out[out.length - 2];
+	if (last?.category === "Boss" && previous && previous.category !== "Rest" && !previous.bonfire) out.splice(out.length - 1, 0, makeBonfire(rng));
 	return out;
 }
 function positionSingle(rooms, rng) {
@@ -3764,7 +3847,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		monsters,
 		lootPools
 	};
-	let title = name || `${rank} ${mode === "spire" ? "Spire" : "Dungeon"}`;
+	let title = name || generateDungeonName(seed, mode, rank);
 	if (mode === "spire") {
 		const floors = 15;
 		const start = makeMissionStart();
@@ -3813,7 +3896,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			});
 			previous = current;
 			if (!current.every((r) => ["Rest", "Shop"].includes(r.category)) && !last) encounterFloors += 1;
-			if (encounterFloors >= 2 && !last && !current.some((r) => r.category === "Boss")) {
+			if (!last && (f === 13 || encounterFloors >= 2) && !current.some((r) => r.category === "Boss")) {
 				const camp = makeBonfire(rng);
 				camp.x = f * 22 + 11;
 				camp.y = 0;
@@ -3823,7 +3906,6 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 				encounterFloors = 0;
 			}
 		}
-		title = name || `${rank} Spire`;
 	} else {
 		const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
 		const spineCount = Math.max(2, total - branchCount);
@@ -3881,7 +3963,6 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			connections.push(link(bossParent.id, alt.id, bossParent.connector));
 		}
 		positionSingle(rooms, rng);
-		title = name || `${rank} Dungeon`;
 	}
 	const routes = buildRoutes(rooms, connections);
 	return {
@@ -12812,9 +12893,13 @@ function EncounterTablesTab() {
 				onChange: (next) => t.patch(i, next),
 				onDelete: () => t.remove(i)
 			}, i)),
-			/* @__PURE__ */ jsx("p", {
+			/* @__PURE__ */ jsxs("p", {
 				className: "text-[10px] text-muted-foreground",
-				children: "Counts can be dice expressions — rolling an encounter decides how many of each monster appears."
+				children: [
+					"Counts can be dice expressions — rolling an encounter decides how many of each monster appears. Use the ",
+					/* @__PURE__ */ jsx("strong", { children: "Encounter XP" }),
+					" tab to check thresholds for a party of 4."
+				]
 			})
 		]
 	});
@@ -15521,6 +15606,537 @@ function FiveEToolsCategoryTab({ categoryId }) {
 				})
 			})]
 		})]
+	});
+}
+//#endregion
+//#region src/lib/encounterXp.js
+var XP_BY_CR = {
+	0: 10,
+	.125: 25,
+	.25: 50,
+	.5: 100,
+	1: 200,
+	2: 450,
+	3: 700,
+	4: 1100,
+	5: 1800,
+	6: 2300,
+	7: 2900,
+	8: 3900,
+	9: 5e3,
+	10: 5900,
+	11: 7200,
+	12: 8400,
+	13: 1e4,
+	14: 11500,
+	15: 13e3,
+	16: 15e3,
+	17: 18e3,
+	18: 2e4,
+	19: 22e3,
+	20: 25e3,
+	21: 33e3,
+	22: 41e3,
+	23: 5e4,
+	24: 62e3,
+	25: 75e3,
+	26: 9e4,
+	27: 105e3,
+	28: 12e4,
+	29: 135e3,
+	30: 155e3
+};
+var XP_THRESHOLDS = {
+	1: [
+		25,
+		50,
+		75,
+		100
+	],
+	2: [
+		50,
+		100,
+		150,
+		200
+	],
+	3: [
+		75,
+		150,
+		225,
+		400
+	],
+	4: [
+		125,
+		250,
+		375,
+		500
+	],
+	5: [
+		250,
+		500,
+		750,
+		1100
+	],
+	6: [
+		300,
+		600,
+		900,
+		1400
+	],
+	7: [
+		350,
+		750,
+		1100,
+		1700
+	],
+	8: [
+		450,
+		900,
+		1400,
+		2100
+	],
+	9: [
+		550,
+		1100,
+		1600,
+		2400
+	],
+	10: [
+		600,
+		1200,
+		1900,
+		2800
+	],
+	11: [
+		800,
+		1600,
+		2400,
+		3600
+	],
+	12: [
+		1e3,
+		2e3,
+		3e3,
+		4500
+	],
+	13: [
+		1100,
+		2200,
+		3400,
+		5100
+	],
+	14: [
+		1250,
+		2500,
+		3800,
+		5700
+	],
+	15: [
+		1400,
+		2800,
+		4300,
+		6400
+	],
+	16: [
+		1600,
+		3200,
+		4800,
+		7200
+	],
+	17: [
+		2e3,
+		3900,
+		5900,
+		8800
+	],
+	18: [
+		2100,
+		4200,
+		6300,
+		9500
+	],
+	19: [
+		2400,
+		4900,
+		7300,
+		10900
+	],
+	20: [
+		2800,
+		5700,
+		8500,
+		12700
+	]
+};
+var DIFFICULTIES = [
+	"Easy",
+	"Medium",
+	"Hard",
+	"Deadly"
+];
+function monsterXp(monster) {
+	const raw = Number(String(monster?.xp ?? "").replace(/[^\d]/g, ""));
+	if (Number.isFinite(raw) && raw > 0) return raw;
+	return XP_BY_CR[crValue(monster?.cr)] || 0;
+}
+function thresholdsFor(level, partySize = 4) {
+	return (XP_THRESHOLDS[Math.max(1, Math.min(20, Math.round(Number(level) || 1)))] || XP_THRESHOLDS[1]).map((n) => n * Math.max(1, Number(partySize) || 4));
+}
+function encounterMultiplier(count) {
+	const n = Math.max(1, Number(count) || 1);
+	if (n === 1) return 1;
+	if (n === 2) return 1.5;
+	if (n <= 6) return 2;
+	if (n <= 10) return 2.5;
+	if (n <= 14) return 3;
+	return 4;
+}
+function difficultyFor(adjustedXp, thresholds) {
+	if (!thresholds?.length) return "—";
+	if (adjustedXp >= thresholds[3]) return "Deadly";
+	if (adjustedXp >= thresholds[2]) return "Hard";
+	if (adjustedXp >= thresholds[1]) return "Medium";
+	if (adjustedXp >= thresholds[0]) return "Easy";
+	return "Trivial";
+}
+function averageCount(value) {
+	const text = String(value ?? "").trim();
+	if (!text) return 1;
+	const dice = text.match(/^(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?$/i);
+	if (dice) {
+		const n = Number(dice[1]) || 1;
+		const size = Number(dice[2]) || 1;
+		const mod = dice[3] ? (dice[3] === "-" ? -1 : 1) * (Number(dice[4]) || 0) : 0;
+		return Math.max(1, Math.round(n * ((size + 1) / 2) + mod));
+	}
+	const range = text.match(/^(\d+)\s*[–-]\s*(\d+)$/);
+	if (range) return Math.max(1, Math.round((Number(range[1]) + Number(range[2])) / 2));
+	const flat = Number(text);
+	return Number.isFinite(flat) && flat > 0 ? Math.round(flat) : 1;
+}
+function encounterXp(rows = [], monsters = [], { partySize = 4 } = {}) {
+	const byName = new Map((monsters || []).map((m) => [m.name, m]));
+	const items = (rows || []).map((row) => {
+		const monster = byName.get(row.monster);
+		if (!monster) return null;
+		const count = Math.max(1, Math.round(Number(row.count) || 1));
+		const cr = crValue(monster.cr);
+		const xp = monsterXp(monster);
+		return {
+			...row,
+			monsterData: monster,
+			count,
+			cr,
+			xp,
+			total: xp * count
+		};
+	}).filter(Boolean);
+	const totalCount = items.reduce((sum, item) => sum + item.count, 0);
+	const baseXp = items.reduce((sum, item) => sum + item.total, 0);
+	const highestCR = items.reduce((max, item) => Math.max(max, item.cr), 0);
+	const level = Math.max(1, Math.min(20, Math.ceil(highestCR) || 1));
+	const lowerLevel = Math.max(1, level - 1);
+	const multiplier = encounterMultiplier(totalCount);
+	const adjustedXp = Math.round(baseXp * multiplier);
+	return {
+		items,
+		totalCount,
+		baseXp,
+		multiplier,
+		adjustedXp,
+		highestCR,
+		level,
+		lowerLevel,
+		levelThresholds: thresholdsFor(level, partySize),
+		lowerThresholds: thresholdsFor(lowerLevel, partySize),
+		levelDifficulty: difficultyFor(adjustedXp, thresholdsFor(level, partySize)),
+		lowerDifficulty: difficultyFor(adjustedXp, thresholdsFor(lowerLevel, partySize))
+	};
+}
+//#endregion
+//#region src/components/skilltree/library/EncounterXpCalculator.jsx
+var fmt = (n) => Number(n || 0).toLocaleString();
+var tagPool = (monsters, tag) => {
+	const needle = String(tag || "").toLowerCase();
+	return (monsters || []).filter((m) => [
+		m.type,
+		m.category,
+		...m.tags || []
+	].filter(Boolean).some((v) => String(v).toLowerCase().includes(needle)));
+};
+function EncounterXpCalculator() {
+	const { settings } = useTree();
+	const monsters = (settings?.library?.monsters || []).filter((m) => m.name);
+	const tables = settings?.library?.encounterTables || [];
+	const [tableId, setTableId] = useState("");
+	const [rows, setRows] = useState([]);
+	const [note, setNote] = useState("");
+	const result = useMemo(() => encounterXp(rows, monsters, { partySize: 4 }), [rows, monsters]);
+	const addRow = () => {
+		setRows((prev) => [...prev, {
+			monster: monsters[0]?.name || "",
+			count: "1"
+		}]);
+	};
+	const patchRow = (index, patch) => {
+		setRows((prev) => prev.map((row, i) => i === index ? {
+			...row,
+			...patch
+		} : row));
+	};
+	const removeRow = (index) => {
+		setRows((prev) => prev.filter((_, i) => i !== index));
+	};
+	const loadTable = (id) => {
+		setTableId(id);
+		const table = tables.find((t) => t.id === id);
+		if (!table) return;
+		const next = [];
+		let tagRows = 0;
+		(table.rows || []).forEach((row) => {
+			if (row.monster) {
+				const monster = monsters.find((m) => m.name === row.monster);
+				if (monster) next.push({
+					monster: monster.name,
+					count: String(averageCount(row.count))
+				});
+			} else if (row.tag) {
+				const pool = tagPool(monsters, row.tag);
+				if (pool.length) {
+					next.push({
+						monster: pool[0].name,
+						count: String(averageCount(row.count))
+					});
+					tagRows += 1;
+				}
+			}
+		});
+		setRows(next);
+		setNote(tagRows ? `${tagRows} tag row${tagRows === 1 ? "" : "s"} used the first matching monster. Pick a specific monster if you want a different result.` : "");
+	};
+	const clear = () => {
+		setRows([]);
+		setTableId("");
+		setNote("");
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-3",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap items-end gap-2",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "min-w-52 flex-1",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: "Load an encounter table"
+						}), /* @__PURE__ */ jsxs(Select, {
+							value: tableId,
+							onValueChange: loadTable,
+							children: [/* @__PURE__ */ jsx(SelectTrigger, {
+								className: "h-8 text-xs",
+								children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a tableâ€¦" })
+							}), /* @__PURE__ */ jsx(SelectContent, { children: tables.map((table, i) => /* @__PURE__ */ jsx(SelectItem, {
+								value: table.id || table.name,
+								children: table.name || `Encounter table ${i + 1}`
+							}, table.id || `${table.name}-${i}`)) })]
+						})]
+					}),
+					/* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: addRow,
+						children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add monster"]
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						onClick: clear,
+						disabled: !rows.length,
+						children: "Clear"
+					})
+				]
+			}),
+			note && /* @__PURE__ */ jsx("p", {
+				className: "rounded bg-muted/50 px-2 py-1 text-[10px] text-muted-foreground",
+				children: note
+			}),
+			rows.length === 0 ? /* @__PURE__ */ jsxs("div", {
+				className: "rounded-md border border-dashed p-4 text-xs text-muted-foreground",
+				children: [
+					"Add monsters or load a table. The calculator assumes a party of ",
+					/* @__PURE__ */ jsx("strong", { children: "4" }),
+					" and checks both the highest monster's CR level and one level below it."
+				]
+			}) : /* @__PURE__ */ jsx("div", {
+				className: "space-y-1.5",
+				children: rows.map((row, i) => {
+					const item = result.items.find((x) => x.monster === row.monster && Number(x.count) === Number(row.count));
+					return /* @__PURE__ */ jsxs("div", {
+						className: "flex items-center gap-1.5 rounded border p-1.5",
+						children: [
+							/* @__PURE__ */ jsxs(Select, {
+								value: row.monster || "",
+								onValueChange: (v) => patchRow(i, { monster: v }),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-8 min-w-40 flex-1 text-xs",
+									children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Monsterâ€¦" })
+								}), /* @__PURE__ */ jsx(SelectContent, { children: monsters.map((m) => /* @__PURE__ */ jsxs(SelectItem, {
+									value: m.name,
+									children: [m.name, m.cr ? ` (CR ${m.cr})` : ""]
+								}, m.name)) })]
+							}),
+							/* @__PURE__ */ jsx(Input, {
+								className: "h-8 w-16 text-center text-xs",
+								value: row.count ?? "1",
+								onChange: (e) => patchRow(i, { count: e.target.value }),
+								title: "Count"
+							}),
+							/* @__PURE__ */ jsx("span", {
+								className: "w-24 shrink-0 text-right text-[10px] text-muted-foreground",
+								children: item ? `${fmt(item.xp)} XP each` : "â€”"
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								className: "h-8 px-1",
+								onClick: () => removeRow(i),
+								children: /* @__PURE__ */ jsx(Trash2, { className: "h-3.5 w-3.5" })
+							})
+						]
+					}, i);
+				})
+			}),
+			rows.length > 0 && /* @__PURE__ */ jsxs(Fragment, { children: [
+				/* @__PURE__ */ jsx("div", {
+					className: "grid grid-cols-2 gap-2 sm:grid-cols-4",
+					children: DIFFICULTIES.map((label, i) => {
+						const active = result.levelDifficulty === label;
+						return /* @__PURE__ */ jsxs("div", {
+							className: `rounded-md border p-2 ${active ? "border-primary bg-primary/10" : ""}`,
+							children: [
+								/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+									children: label
+								}),
+								/* @__PURE__ */ jsx("p", {
+									className: "font-mono text-sm font-semibold",
+									children: fmt(result.levelThresholds[i])
+								}),
+								/* @__PURE__ */ jsxs("p", {
+									className: "text-[9px] text-muted-foreground",
+									children: ["at level ", result.level]
+								})
+							]
+						}, label);
+					})
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "grid gap-2 sm:grid-cols-2",
+					children: [/* @__PURE__ */ jsxs("div", {
+						className: "rounded-md border p-2 text-xs",
+						children: [
+							/* @__PURE__ */ jsxs("p", {
+								className: "font-medium",
+								children: ["At CR level ", result.level]
+							}),
+							/* @__PURE__ */ jsxs("p", {
+								className: "text-muted-foreground",
+								children: [
+									"Highest CR: ",
+									result.highestCR || "0",
+									" Â· party of 4"
+								]
+							}),
+							/* @__PURE__ */ jsxs("p", {
+								className: "mt-1",
+								children: [
+									"Base XP ",
+									/* @__PURE__ */ jsx("span", {
+										className: "font-mono font-semibold",
+										children: fmt(result.baseXp)
+									}),
+									" Â· Ã—",
+									result.multiplier,
+									" multiplier Â·",
+									" ",
+									/* @__PURE__ */ jsx("span", {
+										className: "font-mono font-semibold",
+										children: fmt(result.adjustedXp)
+									}),
+									" adjusted"
+								]
+							}),
+							/* @__PURE__ */ jsxs("p", {
+								className: "mt-1",
+								children: [
+									"Difficulty:",
+									" ",
+									/* @__PURE__ */ jsx("span", {
+										className: "font-semibold",
+										children: result.levelDifficulty
+									})
+								]
+							})
+						]
+					}), /* @__PURE__ */ jsxs("div", {
+						className: "rounded-md border p-2 text-xs",
+						children: [
+							/* @__PURE__ */ jsxs("p", {
+								className: "font-medium",
+								children: [
+									"One level below (",
+									result.lowerLevel,
+									")"
+								]
+							}),
+							/* @__PURE__ */ jsxs("p", {
+								className: "text-muted-foreground",
+								children: [
+									result.totalCount,
+									" monster",
+									result.totalCount === 1 ? "" : "s",
+									" total"
+								]
+							}),
+							/* @__PURE__ */ jsxs("p", {
+								className: "mt-1",
+								children: [
+									"Easy ",
+									fmt(result.lowerThresholds[0]),
+									" Â· Medium",
+									" ",
+									fmt(result.lowerThresholds[1]),
+									" Â· Hard ",
+									fmt(result.lowerThresholds[2]),
+									" Â· Deadly ",
+									fmt(result.lowerThresholds[3])
+								]
+							}),
+							/* @__PURE__ */ jsxs("p", {
+								className: "mt-1",
+								children: [
+									"Difficulty:",
+									" ",
+									/* @__PURE__ */ jsx("span", {
+										className: "font-semibold",
+										children: result.lowerDifficulty
+									})
+								]
+							})
+						]
+					})]
+				}),
+				/* @__PURE__ */ jsxs("p", {
+					className: "text-[10px] text-muted-foreground",
+					children: [
+						"Uses the 2014 DMG encounter multiplier for the total number of monsters. CR is read from the highest monster in the grouping. ",
+						/* @__PURE__ */ jsx(Wand2, { className: "inline h-3 w-3" }),
+						" A tag-based table row is resolved to its first matching monster when loaded."
+					]
+				})
+			] })
+		]
 	});
 }
 //#endregion
@@ -19516,7 +20132,8 @@ var TAB_GROUPS = [
 		["rollTables", "Roll Tables"],
 		["lootTables", "Loot Tables"],
 		["lootPools", "Loot Pools"],
-		["encounterTables", "Encounter Tables"]
+		["encounterTables", "Encounter Tables"],
+		["encounterCalc", "Encounter XP"]
 	]],
 	["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
 	["Imported", [["fiveETools", "5eTools Imports"]]]
@@ -19902,6 +20519,11 @@ function LibraryMenu({ open, onClose }) {
 								value: "fiveETools",
 								className: "mt-0",
 								children: /* @__PURE__ */ jsx(FiveEToolsImportsTab, {})
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "encounterCalc",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(EncounterXpCalculator, {})
 							}),
 							/* @__PURE__ */ jsx(TabsContent, {
 								value: "backgrounds",

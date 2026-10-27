@@ -50,6 +50,43 @@ const themedBoss = (room, index) =>
     ? room
     : { ...room, name: `${room.name} — ${BOSS_THEMES[(index - 1) % BOSS_THEMES.length]}` };
 
+const NAME_ADJECTIVES = [
+  "Sunken", "Ashen", "Whispering", "Broken", "Gilded", "Frozen", "Hollow",
+  "Crimson", "Forgotten", "Umbral", "Shifting", "Iron", "Verdant", "Drowned",
+  "Cinder", "Moonlit", "Shattered", "Silent", "Thorned", "Wandering",
+];
+const NAME_PLACES = [
+  "Crypt", "Vault", "Warren", "Sanctum", "Labyrinth", "Catacomb", "Keep",
+  "Reliquary", "Gallery", "Bastion", "Undercroft", "Mausoleum", "Foundry",
+];
+const NAME_SPIRE_PLACES = [
+  "Spire", "Tower", "Ascent", "Pinnacle", "Citadel", "Ziggurat", "Needle",
+];
+const NAME_NOUNS = [
+  "Echo", "Crown", "Serpent", "Lantern", "Tide", "Ember", "Oracle", "Warden",
+  "Choir", "Colossus", "Requiem", "Root", "Mask", "Throne", "Idol", "Cinder",
+];
+
+// Seeded, readable procedural names. The name rng is separate from the layout
+// rng so changing the naming tables never reshuffles an existing seed's rooms.
+export function generateDungeonName(seed, mode = "single", rank = "E") {
+  const rng = makeRng(`${mode}:${rank}:${seed}:name`);
+  const place = rng.pick(mode === "spire" ? NAME_SPIRE_PLACES : NAME_PLACES);
+  const adj = rng.pick(NAME_ADJECTIVES);
+  const adj2 = rng.pick(NAME_ADJECTIVES.filter((word) => word !== adj));
+  const noun = rng.pick(NAME_NOUNS);
+  const theme = rng.pick(BOSS_THEMES);
+  const patterns = [
+    () => `The ${adj} ${place}`,
+    () => `${adj} ${place} of the ${adj2} ${noun}`,
+    () => `The ${place} of ${theme}`,
+    () => `${place} of the ${noun}`,
+    () => `The ${noun}'s ${place}`,
+    () => `${adj} ${place} of the ${noun}`,
+  ];
+  return rng.pick(patterns)();
+}
+
 const TRAP_POOL = [
   "Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
   "Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
@@ -451,6 +488,18 @@ function insertBonfires(spine, rng) {
     }
   });
   while (out.length && out[out.length - 1]?.bonfire) out.pop();
+  // A guaranteed short rest immediately before the final boss. Alternate
+  // bosses branch from this same camp, so every route gets the rest.
+  const last = out[out.length - 1];
+  const previous = out[out.length - 2];
+  if (
+    last?.category === "Boss" &&
+    previous &&
+    previous.category !== "Rest" &&
+    !previous.bonfire
+  ) {
+    out.splice(out.length - 1, 0, makeBonfire(rng));
+  }
   return out;
 }
 
@@ -527,7 +576,7 @@ export function generateDungeon({
   const connections = [];
   const total = Math.max(3, Math.min(24, info.rooms));
   const opts = { monsters, lootPools };
-  let title = name || `${rank} ${mode === "spire" ? "Spire" : "Dungeon"}`;
+  let title = name || generateDungeonName(seed, mode, rank);
 
   if (mode === "spire") {
     const floors = 15;
@@ -582,9 +631,15 @@ export function generateDungeon({
       previous = current;
       const restFloor = current.every((r) => ["Rest", "Shop"].includes(r.category));
       if (!restFloor && !last) encounterFloors += 1;
-      // A bonfire landing after every two encounter floors. All paths from the
-      // previous floor converge here, then descend to the next floor.
-      if (encounterFloors >= 2 && !last && !current.some((r) => r.category === "Boss")) {
+      const beforeFinal = f === floors - 2;
+      // A bonfire landing after every two encounter floors, plus one guaranteed
+      // immediately before the final boss floor. All paths from the previous
+      // floor converge here, then descend to the next floor.
+      if (
+        !last &&
+        (beforeFinal || encounterFloors >= 2) &&
+        !current.some((r) => r.category === "Boss")
+      ) {
         const camp = makeBonfire(rng);
         camp.x = f * 22 + 11;
         camp.y = 0;
@@ -594,7 +649,6 @@ export function generateDungeon({
         encounterFloors = 0;
       }
     }
-    title = name || `${rank} Spire`;
   } else {
     const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
     const spineCount = Math.max(2, total - branchCount);
@@ -667,7 +721,6 @@ export function generateDungeon({
       }
     }
     positionSingle(rooms, rng);
-    title = name || `${rank} Dungeon`;
   }
 
   const routes = buildRoutes(rooms, connections);

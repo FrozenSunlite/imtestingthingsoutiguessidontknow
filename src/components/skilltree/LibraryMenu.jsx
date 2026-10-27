@@ -54,6 +54,7 @@ import { DieScalingTab } from "./library/DieScalingTab";
 import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
 import { FiveEToolsImportsTab } from "./library/FiveEToolsImportsTab";
 import { FiveEToolsCategoryTab } from "./library/FiveEToolsCategoryTab";
+import { EncounterXpCalculator } from "./library/EncounterXpCalculator";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
 import { SpellSchoolsTab } from "./library/SpellSchoolsTab";
@@ -93,6 +94,7 @@ const TAB_GROUPS = [
   ["Economy & Tables", [
     ["shop", "Shop"], ["rollTables", "Roll Tables"], ["lootTables", "Loot Tables"],
     ["lootPools", "Loot Pools"], ["encounterTables", "Encounter Tables"],
+    ["encounterCalc", "Encounter XP"],
   ]],
   ["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
   ["Imported", [["fiveETools", "5eTools Imports"]]],
@@ -286,6 +288,9 @@ export function LibraryMenu({ open, onClose }) {
             </TabsContent>
             <TabsContent value="fiveETools" className="mt-0">
               <FiveEToolsImportsTab />
+            </TabsContent>
+            <TabsContent value="encounterCalc" className="mt-0">
+              <EncounterXpCalculator />
             </TabsContent>
             <TabsContent value="backgrounds" className="mt-0">
               <FiveEToolsCategoryTab categoryId="backgrounds" />
