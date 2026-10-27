@@ -2,6 +2,7 @@ import { useLibList, ListHeader, EmptyNote, EntryCard } from "./shared";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -42,6 +43,7 @@ export function DungeonRoomsTab() {
             spawns: [],
             loot: [],
             notes: "",
+            enabled: true,
           })
         }
         addLabel="Add room"
@@ -50,14 +52,26 @@ export function DungeonRoomsTab() {
         searchPlaceholder="Search dungeon rooms…"
       />
       <p className="text-[10px] text-muted-foreground">
-        Rooms used by the Dungeon Generator. Sizes are in spaces; the generator rolls a size
-        between the minimum and maximum. Traps, spawns and loot are one entry per line.
+        Rooms used by the Dungeon Generator. Toggle <strong>Enabled</strong> off to keep a room
+        in the library without letting it appear in generated dungeons. Sizes are in spaces;
+        traps, spawns and loot are one entry per line.
       </p>
       {shown.length === 0 ? (
         <EmptyNote items={items} query={query} />
       ) : (
         shown.map(({ e, i }) => (
           <EntryCard key={i} entry={e} onPatch={(p) => patch(i, p)} onDelete={() => remove(i)}>
+            <label className="flex items-center justify-between rounded border px-2 py-1 text-[10px]">
+              <span>
+                {e.enabled === false
+                  ? "Disabled — never chosen by the generator"
+                  : "Enabled — can appear in generated dungeons"}
+              </span>
+              <Switch
+                checked={e.enabled !== false}
+                onCheckedChange={(v) => patch(i, { enabled: v })}
+              />
+            </label>
             <div className="grid grid-cols-2 gap-1.5">
               <Input
                 className="h-8"

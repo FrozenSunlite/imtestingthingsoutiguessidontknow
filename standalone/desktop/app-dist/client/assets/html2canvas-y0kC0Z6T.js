@@ -1,0 +1,1 @@
+import{n as e}from"./routes-DQ0o09Hz.js";export default e();

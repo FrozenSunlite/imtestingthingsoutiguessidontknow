@@ -14,6 +14,7 @@ import {
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
 import { RoomBattleMap } from "@/components/skilltree/dungeon/RoomBattleMap";
 import { RoomShapeBuilder } from "@/components/skilltree/dungeon/RoomShapeBuilder";
+import { DungeonDangerPanel } from "@/components/skilltree/dungeon/DungeonDangerPanel";
 import { rollEncounter } from "@/lib/dmLoot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +58,10 @@ const BLANK_ROOM = {
 // templates live in the Reference Library's new Dungeon Rooms tab.
 export function DungeonGenerator({ onExit, embedded = false }) {
   const { settings, setSettings } = useTree();
-  const roomTemplates = settings?.library?.dungeonRooms?.length
+  const allRoomTemplates = settings?.library?.dungeonRooms?.length
     ? settings.library.dungeonRooms
     : DEFAULT_DUNGEON_ROOMS;
+  const roomTemplates = allRoomTemplates.filter((r) => r.enabled !== false);
   const monsters = settings?.library?.monsters || [];
   const lootPools = settings?.library?.lootPools || [];
   const encounterTables = settings?.library?.encounterTables || [];
@@ -77,7 +79,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const [includeLoot, setIncludeLoot] = useState(true);
   const [savedId, setSavedId] = useState("");
   const [roomQuery, setRoomQuery] = useState("");
-  const [shapeOpen, setShapeOpen] = useState(false);
+  const [makerOpen, setMakerOpen] = useState(true);
+  const [makerRoom, setMakerRoom] = useState(null);
+  const [makerTemplateId, setMakerTemplateId] = useState("");
   const [ctxMenu, setCtxMenu] = useState(null);
   const pastRef = useRef([]);
   const futureRef = useRef([]);
@@ -302,14 +306,114 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     toast(`Connected to ${nearest.name}.`);
   };
 
-  const openShape = (id = selectedId) => {
+  const openMaker = (id = selectedId) => {
     if (!id) return;
+    const room = dungeon?.rooms?.find((r) => r.id === id);
+    if (!room) return;
     setSelectedId(id);
-    setShapeOpen(true);
+    setMakerRoom(room);
+    setMakerTemplateId(room.templateId || "");
+    setMakerOpen(true);
     setCtxMenu(null);
   };
 
+  const loadMakerTemplate = (template) => {
+    const room = roomFromTemplate(template, { x: 0, y: 0 });
+    setMakerRoom(room);
+    setMakerTemplateId(template.id || "");
+    setMakerOpen(true);
+  };
+
+  const applyMaker = (footprint) => {
+    if (!selected) return;
+    const base = makerRoom || selected;
+    patchSelected({
+      ...footprint,
+      name: base.name,
+      category: base.category,
+      w: base.w,
+      h: base.h,
+      environment: base.environment,
+      elevation: base.elevation,
+      cover: base.cover,
+      connector: base.connector,
+      traps: [...(base.traps || [])],
+      spawns: [...(base.spawns || [])],
+      loot: [...(base.loot || [])],
+      notes: base.notes,
+      cr0Only: !!base.cr0Only,
+      bonfire: !!base.bonfire,
+    });
+    setMakerRoom((room) => ({ ...(room || base), ...footprint }));
+    toast.success("Room Maker applied to the selected room.");
+  };
+
+  const uploadMaker = (footprint) => {
+    const baseRoom =
+      selected && makerRoom?.id === selected.id ? selected : makerRoom || selected;
+    const room = { ...baseRoom, ...footprint };
+    if (!room?.name && !room?.category) return;
+    const id = makerTemplateId || `room${Date.now().toString(36)}`;
+    setSettings((s) => {
+      const list = [...(s.library.dungeonRooms || [])];
+      const template = {
+        id,
+        name: room.name || "New Room",
+        category: room.category || "Chamber",
+        minW: room.w,
+        maxW: room.w,
+        minH: room.h,
+        maxH: room.h,
+        environment: room.environment || "",
+        elevation: room.elevation || "Flat",
+        cover: room.cover || "Open",
+        connector: room.connector || "Doorway",
+        traps: [...(room.traps || [])],
+        spawns: [...(room.spawns || [])],
+        loot: [...(room.loot || [])],
+        notes: room.notes || "",
+        cr0Only: !!room.cr0Only,
+        bonfire: !!room.bonfire,
+        enabled: true,
+        shape: footprint.shape,
+        cells: footprint.cells,
+        spawnPoints: footprint.spawnPoints,
+        ingressPoints: footprint.ingressPoints,
+      };
+      const i = list.findIndex((t) => t.id === id);
+      if (i >= 0) list[i] = { ...list[i], ...template };
+      else list.push(template);
+      return { ...s, library: { ...s.library, dungeonRooms: list } };
+    });
+    setMakerTemplateId(id);
+    toast.success("Room uploaded to Reference Library → Dungeon Rooms.");
+  };
+
+  const addMakerRoom = (footprint) => {
+    if (!dungeon) return;
+    const maxX = Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w));
+    const room = {
+      ...(makerRoom || selected || {}),
+      ...footprint,
+      id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+      x: maxX + 4,
+      y: 0,
+      templateId: makerTemplateId || "custom-room",
+      traps: [...(makerRoom?.traps || [])],
+      spawns: [...(makerRoom?.spawns || [])],
+      loot: [...(makerRoom?.loot || [])],
+    };
+    commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
+    setSelectedId(room.id);
+    setMakerRoom(room);
+    toast.success("Room added to the dungeon.");
+  };
+
   const generate = () => {
+    if (!roomTemplates.length) {
+      toast.error("Enable at least one room in Reference Library → Dungeon Rooms.");
+      return;
+    }
     const d = generateDungeon({
       mode,
       rank,
@@ -446,6 +550,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       notes: selected.notes,
       cr0Only: !!selected.cr0Only,
       bonfire: !!selected.bonfire,
+      enabled: true,
       shape: selected.shape || "",
       cells: Array.isArray(selected.cells)
         ? selected.cells.map(([x, y]) => [x, y])
@@ -487,6 +592,22 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       ),
     });
   };
+
+  useEffect(() => {
+    if (!selectedId) {
+      setMakerRoom(null);
+      setMakerTemplateId("");
+      return;
+    }
+    const room = dungeon?.rooms?.find((r) => r.id === selectedId);
+    if (room) {
+      setMakerRoom(room);
+      setMakerTemplateId(room.templateId || "");
+    }
+    // Only follow selection changes; edits inside the maker are local until
+    // Apply/Upload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -550,6 +671,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           </p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <Button size="sm" variant="ghost" onClick={() => setMakerOpen((open) => !open)}>
+            Room Maker
+          </Button>
           <Button size="sm" variant="outline" onClick={generate}>
             <Dices className="mr-1 h-4 w-4" /> Generate
           </Button>
@@ -657,6 +781,12 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 </p>
               </div>
             )}
+            <DungeonDangerPanel
+              dungeon={dungeon}
+              partyLevel={partyLevel}
+              monsters={monsters}
+              rank={rank}
+            />
           </div>
 
           <div className="space-y-1.5 border-t pt-2">
@@ -897,8 +1027,8 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                       : "Carve diamond, circular, T-shaped, irregular or painted footprints."}
                   </p>
                 </div>
-                <Button size="sm" variant="outline" className="h-7 shrink-0 text-xs" onClick={() => openShape(selected.id)}>
-                  Room builder
+                <Button size="sm" variant="outline" className="h-7 shrink-0 text-xs" onClick={() => openMaker(selected.id)}>
+                  Room Maker
                 </Button>
               </div>
               <RoomBattleMap room={selected} />
@@ -922,15 +1052,43 @@ export function DungeonGenerator({ onExit, embedded = false }) {
         </aside>
       </div>
 
-      <RoomShapeBuilder
-        open={shapeOpen}
-        onOpenChange={setShapeOpen}
-        room={selected}
-        onSave={(footprint) => {
-          if (selected) patchSelected(footprint);
-          toast.success("Room footprint, spawns and ingress updated.");
-        }}
-      />
+      {makerOpen && (
+        <div className="flex h-[390px] shrink-0 flex-col border-t bg-background">
+          <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Room Maker
+            </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => setMakerOpen(false)}
+            >
+              Hide
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {makerRoom ? (
+              <RoomShapeBuilder
+                inline
+                room={makerRoom}
+                templates={allRoomTemplates}
+                templateId={makerTemplateId}
+                onLoadTemplate={loadMakerTemplate}
+                onSave={applyMaker}
+                onUpload={uploadMaker}
+                onAdd={addMakerRoom}
+                onOpenChange={() => setMakerOpen(false)}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Select a room on the map to edit its footprint, spawn points and ingress zones,
+                or load a room template from the Reference Library.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {ctxMenu && (
         <div
@@ -967,9 +1125,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 <button
                   type="button"
                   className="w-full rounded px-2 py-1 text-left hover:bg-accent"
-                  onClick={() => openShape(ctxRoom.id)}
+                  onClick={() => openMaker(ctxRoom.id)}
                 >
-                  Room builder — shape, spawns, ingress…
+                  Room Maker — shape, spawns, ingress…
                 </button>
                 <button
                   type="button"

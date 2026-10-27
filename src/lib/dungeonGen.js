@@ -4,14 +4,14 @@
 // crMin/crMax is the challenge band for bosses (and elite mini-bosses).
 // Ordinary non-boss NPCs sit one or two CR below crMin.
 export const DUNGEON_RANKS = {
-  E: { label: "E", nickname: "Expie", rooms: 3, downtime: "2 weeks", level: "0–2", prof: 0, crMin: 0, crMax: 1, color: "#94a3b8" },
-  D: { label: "D", nickname: "Newk", rooms: 6, downtime: "3 weeks", level: "3–5", prof: 1, crMin: 2, crMax: 3, color: "#86efac" },
-  C: { label: "C", nickname: "Rookie", rooms: 9, downtime: "4 weeks", level: "6–8", prof: 2, crMin: 4, crMax: 6, color: "#5eead4" },
-  B: { label: "B", nickname: "Reg", rooms: 12, downtime: "5 weeks", level: "9–11", prof: 3, crMin: 7, crMax: 9, color: "#60a5fa" },
-  A: { label: "A", nickname: "Prestige", rooms: 15, downtime: "6 weeks", level: "12–14", prof: 4, crMin: 10, crMax: 12, color: "#a78bfa" },
-  S: { label: "S", nickname: "Cavalry", rooms: 18, downtime: "7 weeks", level: "15–17", prof: 5, crMin: 13, crMax: 15, color: "#f472b6" },
-  SS: { label: "SS", nickname: "Hero", rooms: 21, downtime: "8 weeks", level: "18–20", prof: 6, crMin: 16, crMax: 18, color: "#fb923c" },
-  SSS: { label: "SSS", nickname: "Mythos", rooms: 24, downtime: "9 weeks", level: "21+", prof: 7, crMin: 19, crMax: 30, color: "#ef4444" },
+  E: { label: "E", nickname: "Expie", rooms: 3, downtime: "2 weeks", level: "0–2", prof: 0, crMin: 0, crMax: 1, gold: [25, 100], loot: "Coins, mundane gear", color: "#94a3b8" },
+  D: { label: "D", nickname: "Newk", rooms: 6, downtime: "3 weeks", level: "3–5", prof: 1, crMin: 2, crMax: 3, gold: [100, 500], loot: "Coins, gems, uncommon items", color: "#86efac" },
+  C: { label: "C", nickname: "Rookie", rooms: 9, downtime: "4 weeks", level: "6–8", prof: 2, crMin: 4, crMax: 6, gold: [500, 2000], loot: "Gems, potions and scrolls, rare items", color: "#5eead4" },
+  B: { label: "B", nickname: "Reg", rooms: 12, downtime: "5 weeks", level: "9–11", prof: 3, crMin: 7, crMax: 9, gold: [2000, 8000], loot: "Rare items, trade bars, gems", color: "#60a5fa" },
+  A: { label: "A", nickname: "Prestige", rooms: 15, downtime: "6 weeks", level: "12–14", prof: 4, crMin: 10, crMax: 12, gold: [8000, 25000], loot: "Very rare items, art objects", color: "#a78bfa" },
+  S: { label: "S", nickname: "Cavalry", rooms: 18, downtime: "7 weeks", level: "15–17", prof: 5, crMin: 13, crMax: 15, gold: [25000, 75000], loot: "Legendary items, treasures", color: "#f472b6" },
+  SS: { label: "SS", nickname: "Hero", rooms: 21, downtime: "8 weeks", level: "18–20", prof: 6, crMin: 16, crMax: 18, gold: [75000, 200000], loot: "Legendary items, artifacts", color: "#fb923c" },
+  SSS: { label: "SSS", nickname: "Mythos", rooms: 24, downtime: "9 weeks", level: "21+", prof: 7, crMin: 19, crMax: 30, gold: [200000, 500000], loot: "Artifacts and mythic relics", color: "#ef4444" },
 };
 
 // Boss CR range plus the lower band used by ordinary non-boss NPCs. Elite

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C2Ro0waA.js";
+import { n as Button, r as cn } from "./router-ChDqhBB-.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3016,6 +3016,8 @@ var DUNGEON_RANKS = {
 		prof: 0,
 		crMin: 0,
 		crMax: 1,
+		gold: [25, 100],
+		loot: "Coins, mundane gear",
 		color: "#94a3b8"
 	},
 	D: {
@@ -3027,6 +3029,8 @@ var DUNGEON_RANKS = {
 		prof: 1,
 		crMin: 2,
 		crMax: 3,
+		gold: [100, 500],
+		loot: "Coins, gems, uncommon items",
 		color: "#86efac"
 	},
 	C: {
@@ -3038,6 +3042,8 @@ var DUNGEON_RANKS = {
 		prof: 2,
 		crMin: 4,
 		crMax: 6,
+		gold: [500, 2e3],
+		loot: "Gems, potions and scrolls, rare items",
 		color: "#5eead4"
 	},
 	B: {
@@ -3049,6 +3055,8 @@ var DUNGEON_RANKS = {
 		prof: 3,
 		crMin: 7,
 		crMax: 9,
+		gold: [2e3, 8e3],
+		loot: "Rare items, trade bars, gems",
 		color: "#60a5fa"
 	},
 	A: {
@@ -3060,6 +3068,8 @@ var DUNGEON_RANKS = {
 		prof: 4,
 		crMin: 10,
 		crMax: 12,
+		gold: [8e3, 25e3],
+		loot: "Very rare items, art objects",
 		color: "#a78bfa"
 	},
 	S: {
@@ -3071,6 +3081,8 @@ var DUNGEON_RANKS = {
 		prof: 5,
 		crMin: 13,
 		crMax: 15,
+		gold: [25e3, 75e3],
+		loot: "Legendary items, treasures",
 		color: "#f472b6"
 	},
 	SS: {
@@ -3082,6 +3094,8 @@ var DUNGEON_RANKS = {
 		prof: 6,
 		crMin: 16,
 		crMax: 18,
+		gold: [75e3, 2e5],
+		loot: "Legendary items, artifacts",
 		color: "#fb923c"
 	},
 	SSS: {
@@ -3093,6 +3107,8 @@ var DUNGEON_RANKS = {
 		prof: 7,
 		crMin: 19,
 		crMax: 30,
+		gold: [2e5, 5e5],
+		loot: "Artifacts and mythic relics",
 		color: "#ef4444"
 	}
 };
@@ -14381,16 +14397,21 @@ function DungeonRoomsTab() {
 					traps: [],
 					spawns: [],
 					loot: [],
-					notes: ""
+					notes: "",
+					enabled: true
 				}),
 				addLabel: "Add room",
 				query,
 				setQuery,
 				searchPlaceholder: "Search dungeon rooms…"
 			}),
-			/* @__PURE__ */ jsx("p", {
+			/* @__PURE__ */ jsxs("p", {
 				className: "text-[10px] text-muted-foreground",
-				children: "Rooms used by the Dungeon Generator. Sizes are in spaces; the generator rolls a size between the minimum and maximum. Traps, spawns and loot are one entry per line."
+				children: [
+					"Rooms used by the Dungeon Generator. Toggle ",
+					/* @__PURE__ */ jsx("strong", { children: "Enabled" }),
+					" off to keep a room in the library without letting it appear in generated dungeons. Sizes are in spaces; traps, spawns and loot are one entry per line."
+				]
 			}),
 			shown.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, {
 				items,
@@ -14400,6 +14421,13 @@ function DungeonRoomsTab() {
 				onPatch: (p) => patch(i, p),
 				onDelete: () => remove(i),
 				children: [
+					/* @__PURE__ */ jsxs("label", {
+						className: "flex items-center justify-between rounded border px-2 py-1 text-[10px]",
+						children: [/* @__PURE__ */ jsx("span", { children: e.enabled === false ? "Disabled — never chosen by the generator" : "Enabled — can appear in generated dungeons" }), /* @__PURE__ */ jsx(Switch, {
+							checked: e.enabled !== false,
+							onCheckedChange: (v) => patch(i, { enabled: v })
+						})]
+					}),
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-2 gap-1.5",
 						children: [
@@ -37874,7 +37902,7 @@ var TOOLS = [
 	["erase", "Erase"]
 ];
 var keyOf = (x, y) => `${x},${y}`;
-function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
+function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onSave, onUpload, onAdd, templates = [], onLoadTemplate, templateId = "" }) {
 	const w = Math.max(2, Math.min(20, Math.round(Number(room?.w) || 2)));
 	const h = Math.max(2, Math.min(20, Math.round(Number(room?.h) || 2)));
 	const [preset, setPreset] = useState("Rectangle");
@@ -37883,7 +37911,7 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 	const [spawns, setSpawns] = useState(() => /* @__PURE__ */ new Map());
 	const [ingress, setIngress] = useState(() => /* @__PURE__ */ new Map());
 	useEffect(() => {
-		if (!open || !room) return;
+		if (!room) return;
 		const initial = roomShapeCells({
 			...room,
 			w,
@@ -37896,17 +37924,12 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 		setTool("floor");
 		setPreset(room.shape || "Custom");
 	}, [
-		open,
 		room,
 		w,
 		h
 	]);
 	const list = useMemo(() => [...cells].map((key) => key.split(",").map(Number)), [cells]);
 	const connected = list.length > 0 && cellsConnected(list);
-	const removeMarkers = (key, nextSpawns, nextIngress) => {
-		nextSpawns.delete(key);
-		nextIngress.delete(key);
-	};
 	const applyCellClick = (x, y) => {
 		const key = keyOf(x, y);
 		if (tool === "spawn") {
@@ -37939,7 +37962,8 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 			const nextSpawns = new Map(spawns);
 			const nextIngress = new Map(ingress);
 			if (nextSpawns.has(key) || nextIngress.has(key)) {
-				removeMarkers(key, nextSpawns, nextIngress);
+				nextSpawns.delete(key);
+				nextIngress.delete(key);
 				setSpawns(nextSpawns);
 				setIngress(nextIngress);
 				return;
@@ -37970,165 +37994,411 @@ function RoomShapeBuilder({ open, onOpenChange, room, onSave }) {
 		setSpawns((prev) => new Map([...prev].filter(([key]) => next.has(key))));
 		setIngress((prev) => new Map([...prev].filter(([key]) => next.has(key))));
 	};
+	const payload = () => ({
+		cells: list,
+		shape: preset === "Custom" ? "Custom" : preset,
+		spawnPoints: [...spawns].map(([key, label]) => {
+			const [x, y] = key.split(",").map(Number);
+			return {
+				x,
+				y,
+				label
+			};
+		}),
+		ingressPoints: [...ingress].map(([key, label]) => {
+			const [x, y] = key.split(",").map(Number);
+			return {
+				x,
+				y,
+				label
+			};
+		})
+	});
 	const save = () => {
 		if (!connected) return;
-		onSave?.({
-			cells: list,
-			shape: preset === "Custom" ? "Custom" : preset,
-			spawnPoints: [...spawns].map(([key, label]) => {
-				const [x, y] = key.split(",").map(Number);
-				return {
-					x,
-					y,
-					label
-				};
-			}),
-			ingressPoints: [...ingress].map(([key, label]) => {
-				const [x, y] = key.split(",").map(Number);
-				return {
-					x,
-					y,
-					label
-				};
-			})
-		});
-		onOpenChange?.(false);
+		onSave?.(payload());
+		if (!inline) onOpenChange?.(false);
 	};
-	return /* @__PURE__ */ jsx(Dialog, {
-		open,
-		onOpenChange,
-		children: /* @__PURE__ */ jsxs(DialogContent, {
-			className: "max-w-2xl",
+	const content = /* @__PURE__ */ jsxs(Fragment, { children: [
+		inline ? /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("h3", {
+			className: "text-sm font-semibold",
+			children: ["Room Maker — ", room?.name || "Room"]
+		}), /* @__PURE__ */ jsxs("p", {
+			className: "text-[10px] text-muted-foreground",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Room builder — ", room?.name || "Room"] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
-					"Paint the floor cells, then place monster spawn points and player ingress zones. The shape must stay connected. Grid: ",
-					w,
-					" × ",
-					h,
-					"."
-				] })] }),
-				/* @__PURE__ */ jsxs("div", {
-					className: "flex flex-wrap items-center gap-2",
+				"Paint the floor, place spawns and ingress, then apply it to the selected room or upload it to the Reference Library. Grid: ",
+				w,
+				" × ",
+				h,
+				"."
+			]
+		})] }) : /* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Room builder — ", room?.name || "Room"] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
+			"Paint the floor cells, then place monster spawn points and player ingress zones. The shape must stay connected. Grid: ",
+			w,
+			" × ",
+			h,
+			"."
+		] })] }),
+		/* @__PURE__ */ jsxs("div", {
+			className: "flex flex-wrap items-center gap-2",
+			children: [
+				templates.length > 0 && onLoadTemplate && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "From library"
+				}), /* @__PURE__ */ jsxs(Select, {
+					value: templateId,
+					onValueChange: (id) => {
+						const template = templates.find((t) => t.id === id);
+						if (template) onLoadTemplate(template);
+					},
+					children: [/* @__PURE__ */ jsx(SelectTrigger, {
+						className: "h-8 w-40",
+						children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Load a room…" })
+					}), /* @__PURE__ */ jsx(SelectContent, { children: templates.map((template, i) => /* @__PURE__ */ jsx(SelectItem, {
+						value: template.id || `template-${i}`,
+						children: template.name || "Unnamed room"
+					}, template.id || `${template.name}-${i}`)) })]
+				})] }),
+				/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "Preset"
+				}),
+				/* @__PURE__ */ jsxs(Select, {
+					value: preset,
+					onValueChange: applyPreset,
+					children: [/* @__PURE__ */ jsx(SelectTrigger, {
+						className: "h-8 w-32",
+						children: /* @__PURE__ */ jsx(SelectValue, {})
+					}), /* @__PURE__ */ jsx(SelectContent, { children: [...ROOM_SHAPES, "Custom"].map((shape) => /* @__PURE__ */ jsx(SelectItem, {
+						value: shape,
+						disabled: shape === "Custom",
+						children: shape
+					}, shape)) })]
+				}),
+				/* @__PURE__ */ jsxs("span", {
+					className: "text-[10px] text-muted-foreground",
 					children: [
-						/* @__PURE__ */ jsx(Label, {
-							className: "text-[10px] text-muted-foreground",
-							children: "Preset"
-						}),
-						/* @__PURE__ */ jsxs(Select, {
-							value: preset,
-							onValueChange: applyPreset,
-							children: [/* @__PURE__ */ jsx(SelectTrigger, {
-								className: "h-8 w-36",
-								children: /* @__PURE__ */ jsx(SelectValue, {})
-							}), /* @__PURE__ */ jsx(SelectContent, { children: [...ROOM_SHAPES, "Custom"].map((shape) => /* @__PURE__ */ jsx(SelectItem, {
-								value: shape,
-								disabled: shape === "Custom",
-								children: shape
-							}, shape)) })]
-						}),
-						/* @__PURE__ */ jsxs("span", {
-							className: "text-[10px] text-muted-foreground",
-							children: [
-								list.length,
-								" cells · ",
-								connected ? "connected" : "disconnected"
-							]
-						}),
-						/* @__PURE__ */ jsxs("div", {
-							className: "ml-auto flex gap-1",
-							children: [/* @__PURE__ */ jsx(Button, {
-								size: "sm",
-								variant: "ghost",
-								onClick: () => applyPreset("Rectangle"),
-								children: "Fill"
-							}), /* @__PURE__ */ jsx(Button, {
-								size: "sm",
-								variant: "ghost",
-								onClick: () => {
-									setCells(/* @__PURE__ */ new Set());
-									setSpawns(/* @__PURE__ */ new Map());
-									setIngress(/* @__PURE__ */ new Map());
-								},
-								children: "Clear"
-							})]
-						})
+						list.length,
+						" cells · ",
+						connected ? "connected" : "disconnected"
 					]
 				}),
 				/* @__PURE__ */ jsxs("div", {
-					className: "flex flex-wrap items-center gap-1",
-					children: [
-						TOOLS.map(([id, label]) => /* @__PURE__ */ jsx(Button, {
-							size: "sm",
-							variant: tool === id ? "default" : "outline",
-							className: "h-7 text-xs",
-							onClick: () => setTool(id),
-							children: label
-						}, id)),
-						/* @__PURE__ */ jsx(Button, {
-							size: "sm",
-							variant: "ghost",
-							className: "h-7 text-xs",
-							onClick: () => {
-								setSpawns(/* @__PURE__ */ new Map());
-								setIngress(/* @__PURE__ */ new Map());
-							},
-							children: "Clear markers"
-						}),
-						/* @__PURE__ */ jsxs("span", {
-							className: "ml-auto text-[10px] text-muted-foreground",
-							children: [
-								spawns.size,
-								" spawn",
-								spawns.size === 1 ? "" : "s",
-								" · ",
-								ingress.size,
-								" ingress"
-							]
-						})
-					]
-				}),
-				/* @__PURE__ */ jsx("div", {
-					className: "overflow-auto rounded-md border p-2",
-					children: /* @__PURE__ */ jsx("div", {
-						className: "mx-auto grid w-max gap-0.5",
-						style: { gridTemplateColumns: `repeat(${w}, 2rem)` },
-						children: Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
-							const key = keyOf(x, y);
-							const active = cells.has(key);
-							const isSpawn = spawns.has(key);
-							const isIngress = ingress.has(key);
-							return /* @__PURE__ */ jsx("button", {
-								type: "button",
-								title: `${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}`,
-								onClick: () => applyCellClick(x, y),
-								className: `h-8 w-8 rounded-sm border text-[10px] font-semibold transition-colors ${isSpawn ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300" : isIngress ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300" : active ? "border-primary bg-primary/35 text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"}`,
-								children: isSpawn ? "S" : isIngress ? "IN" : active ? "·" : ""
-							}, key);
-						}))
-					})
-				}),
-				/* @__PURE__ */ jsxs("div", {
-					className: "flex flex-wrap items-center justify-between gap-2",
-					children: [/* @__PURE__ */ jsxs("div", {
-						className: "flex flex-wrap gap-2 text-[10px] text-muted-foreground",
-						children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-red-500" }), " monster spawn"] }), /* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" }), " player ingress"] })]
-					}), /* @__PURE__ */ jsxs("div", {
-						className: "flex shrink-0 gap-1",
-						children: [/* @__PURE__ */ jsx(Button, {
-							size: "sm",
-							variant: "outline",
-							onClick: () => onOpenChange?.(false),
-							children: "Cancel"
-						}), /* @__PURE__ */ jsx(Button, {
-							size: "sm",
-							onClick: save,
-							disabled: !connected,
-							children: "Save room"
-						})]
+					className: "ml-auto flex gap-1",
+					children: [/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						onClick: () => applyPreset("Rectangle"),
+						children: "Fill"
+					}), /* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						onClick: () => {
+							setCells(/* @__PURE__ */ new Set());
+							setSpawns(/* @__PURE__ */ new Map());
+							setIngress(/* @__PURE__ */ new Map());
+						},
+						children: "Clear"
 					})]
 				})
 			]
+		}),
+		/* @__PURE__ */ jsxs("div", {
+			className: "flex flex-wrap items-center gap-1",
+			children: [
+				TOOLS.map(([id, label]) => /* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: tool === id ? "default" : "outline",
+					className: "h-7 text-xs",
+					onClick: () => setTool(id),
+					children: label
+				}, id)),
+				/* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: "ghost",
+					className: "h-7 text-xs",
+					onClick: () => {
+						setSpawns(/* @__PURE__ */ new Map());
+						setIngress(/* @__PURE__ */ new Map());
+					},
+					children: "Clear markers"
+				}),
+				/* @__PURE__ */ jsxs("span", {
+					className: "ml-auto text-[10px] text-muted-foreground",
+					children: [
+						spawns.size,
+						" spawn",
+						spawns.size === 1 ? "" : "s",
+						" · ",
+						ingress.size,
+						" ingress"
+					]
+				})
+			]
+		}),
+		/* @__PURE__ */ jsx("div", {
+			className: "overflow-auto rounded-md border p-2",
+			children: /* @__PURE__ */ jsx("div", {
+				className: "mx-auto grid w-max gap-0.5",
+				style: { gridTemplateColumns: `repeat(${w}, 2rem)` },
+				children: Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
+					const key = keyOf(x, y);
+					const active = cells.has(key);
+					const isSpawn = spawns.has(key);
+					const isIngress = ingress.has(key);
+					return /* @__PURE__ */ jsx("button", {
+						type: "button",
+						title: `${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}`,
+						onClick: () => applyCellClick(x, y),
+						className: `h-8 w-8 rounded-sm border text-[10px] font-semibold transition-colors ${isSpawn ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300" : isIngress ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300" : active ? "border-primary bg-primary/35 text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"}`,
+						children: isSpawn ? "S" : isIngress ? "IN" : active ? "·" : ""
+					}, key);
+				}))
+			})
+		}),
+		/* @__PURE__ */ jsxs("div", {
+			className: "flex flex-wrap items-center justify-between gap-2",
+			children: [/* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap gap-2 text-[10px] text-muted-foreground",
+				children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-red-500" }), " monster spawn"] }), /* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" }), " player ingress"] })]
+			}), /* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap justify-end gap-1",
+				children: [
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: () => onOpenChange?.(false),
+						children: "Close"
+					}),
+					onUpload && /* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: () => onUpload(payload()),
+						disabled: !connected,
+						children: "Upload to Library"
+					}),
+					onAdd && /* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: () => onAdd(payload()),
+						disabled: !connected,
+						children: "Add as new room"
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						onClick: save,
+						disabled: !connected,
+						children: inline ? "Apply to selected room" : "Save room"
+					})
+				]
+			})]
 		})
+	] });
+	if (inline) return /* @__PURE__ */ jsx("div", {
+		className: "space-y-2",
+		children: content
+	});
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange,
+		children: /* @__PURE__ */ jsx(DialogContent, {
+			className: "max-w-2xl",
+			children: content
+		})
+	});
+}
+//#endregion
+//#region src/lib/dungeonAnalysis.js
+var DANGER_ORDER = [
+	"Trivial",
+	"Easy",
+	"Balanced",
+	"Hard",
+	"Deadly"
+];
+var danger = (label, reason) => ({
+	label,
+	severity: DANGER_ORDER.indexOf(label),
+	reason
+});
+function rankLevelRange(rank) {
+	const nums = String(DUNGEON_RANKS[rank]?.level || "1–1").match(/\d+/g)?.map(Number) || [1];
+	return {
+		min: nums[0] || 1,
+		max: nums[1] || nums[0] || 1
+	};
+}
+function dungeonDanger(dungeon, partyLevel) {
+	const rank = dungeon?.rank || "E";
+	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const level = Math.max(1, Math.round(Number(partyLevel) || 1));
+	const range = rankLevelRange(rank);
+	const crMin = Number(info.crMin) || 0;
+	const crMax = Number(info.crMax) || crMin;
+	const levelDanger = level < range.min - 2 ? danger("Deadly", `The party is more than two levels below this rank's band (${range.min}–${range.max}).`) : level < range.min ? danger("Hard", `The party is below this rank's expected level band (${range.min}–${range.max}).`) : level <= range.max ? danger("Balanced", `The party is inside this rank's expected level band (${range.min}–${range.max}).`) : level <= range.max + 2 ? danger("Easy", `The party is above this rank's expected band, but not overwhelmingly so.`) : danger("Trivial", `The party greatly outclasses this rank's expected level band.`);
+	const bossDanger = level + 3 <= crMin ? danger("Deadly", `The boss band starts at CR ${crMin}, far above the party's level.`) : level < crMin ? danger("Hard", `The boss band starts at CR ${crMin}, above the party's level.`) : level <= crMax ? danger("Balanced", `The boss CR band (${crMin}–${crMax}) matches the party's level.`) : level <= crMax + 2 ? danger("Easy", `The party is above the boss CR band (${crMin}–${crMax}).`) : danger("Trivial", `The party is far above the boss CR band (${crMin}–${crMax}).`);
+	return {
+		...levelDanger.severity >= bossDanger.severity ? levelDanger : bossDanger,
+		rank,
+		rankInfo: info,
+		partyLevel: level,
+		levelRange: range,
+		crMin,
+		crMax,
+		levelDanger,
+		bossDanger
+	};
+}
+var LOOT_HINTS = [
+	["coins", /\b(coins?|gold|gp|pp|sp|cp|treasure)\b/i],
+	["gems", /\b(gems?|jewel|jewels|gemstones?)\b/i],
+	["art objects", /\b(art|art objects?|paintings?|idols?|relics?)\b/i],
+	["magic items", /\b(magic|potions?|scrolls?|wands?|rods?|staff|staves|rings?|wondrous)\b/i],
+	["weapons / armor", /\b(weapons?|armou?r|shields?)\b/i],
+	["mundane gear", /\b(mundane|supplies|gear|rations?|ammunition)\b/i]
+];
+function dungeonLootProfile(dungeon) {
+	const text = (dungeon?.rooms || []).flatMap((room) => room.loot || []).join(" ");
+	const seen = LOOT_HINTS.filter(([, re]) => re.test(text)).map(([name]) => name);
+	const tier = (DUNGEON_RANKS[dungeon?.rank] || DUNGEON_RANKS.E).loot;
+	return {
+		tier,
+		seen,
+		summary: seen.length ? seen.join(", ") : tier
+	};
+}
+var spawnName = (line) => {
+	const text = String(line || "").trim();
+	const match = text.match(/^(\d+)(?:\s*[–-]\s*(\d+))?×\s*(.+?)(?:\s*\(CR\s*[^)]*\))?$/i);
+	return match ? match[3].trim() : text;
+};
+function dungeonMonsterProfile(dungeon, monsters = []) {
+	const byName = new Map((monsters || []).filter((m) => m.name).map((m) => [m.name, m]));
+	const counts = /* @__PURE__ */ new Map();
+	(dungeon?.rooms || []).forEach((room) => {
+		(room.spawns || []).forEach((line) => {
+			const name = spawnName(line);
+			const monster = byName.get(name);
+			if (!monster) return;
+			const type = monster.type || monster.category || (Array.isArray(monster.tags) ? monster.tags[0] : "") || "Unclassified";
+			const n = Number(String(line).match(/^(\d+)/)?.[1]) || 1;
+			counts.set(type, (counts.get(type) || 0) + n);
+		});
+	});
+	return [...counts].map(([type, count]) => ({
+		type,
+		count
+	})).sort((a, b) => b.count - a.count);
+}
+function dungeonPayout(dungeon) {
+	const info = DUNGEON_RANKS[dungeon?.rank] || DUNGEON_RANKS.E;
+	const [goldMin, goldMax] = info.gold || [0, 0];
+	return {
+		goldMin,
+		goldMax,
+		downtime: info.downtime,
+		text: `${Number(goldMin).toLocaleString()}–${Number(goldMax).toLocaleString()} gp · ${info.downtime} downtime`
+	};
+}
+function analyzeDungeon(dungeon, partyLevel, monsters = []) {
+	return {
+		danger: dungeonDanger(dungeon, partyLevel),
+		loot: dungeonLootProfile(dungeon),
+		monsters: dungeonMonsterProfile(dungeon, monsters),
+		payout: dungeonPayout(dungeon)
+	};
+}
+//#endregion
+//#region src/components/skilltree/dungeon/DungeonDangerPanel.jsx
+var DANGER_STYLE = {
+	Trivial: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
+	Easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+	Balanced: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+	Hard: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+	Deadly: "bg-red-500/15 text-red-700 dark:text-red-300"
+};
+function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = "E" }) {
+	const { danger, loot, monsters: profile, payout } = analyzeDungeon(dungeon || {
+		rank,
+		rooms: []
+	}, partyLevel, monsters);
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-1.5 rounded-md border p-2",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between gap-2",
+				children: [/* @__PURE__ */ jsx("p", {
+					className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+					children: "Danger Calculator"
+				}), /* @__PURE__ */ jsx("span", {
+					className: `rounded px-1.5 py-0.5 text-[10px] font-semibold ${DANGER_STYLE[danger.label] || ""}`,
+					children: danger.label
+				})]
+			}),
+			/* @__PURE__ */ jsxs("p", {
+				className: "text-[10px] text-muted-foreground",
+				children: [
+					"Party level ",
+					danger.partyLevel,
+					" · rank ",
+					danger.rank,
+					" levels ",
+					danger.levelRange.min,
+					"–",
+					danger.levelRange.max,
+					" · boss CR ",
+					danger.crMin,
+					"–",
+					danger.crMax
+				]
+			}),
+			/* @__PURE__ */ jsx("p", {
+				className: "text-[10px] leading-snug",
+				children: danger.reason
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "grid grid-cols-2 gap-1.5 text-[10px]",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "rounded bg-muted/40 px-1.5 py-1",
+					children: [
+						/* @__PURE__ */ jsx("p", {
+							className: "font-semibold text-muted-foreground",
+							children: "Loot"
+						}),
+						/* @__PURE__ */ jsx("p", {
+							className: "leading-snug",
+							children: loot.tier
+						}),
+						loot.seen.length > 0 && /* @__PURE__ */ jsxs("p", {
+							className: "leading-snug text-muted-foreground",
+							children: ["In rooms: ", loot.seen.join(", ")]
+						})
+					]
+				}), /* @__PURE__ */ jsxs("div", {
+					className: "rounded bg-muted/40 px-1.5 py-1",
+					children: [/* @__PURE__ */ jsx("p", {
+						className: "font-semibold text-muted-foreground",
+						children: "Gold / downtime"
+					}), /* @__PURE__ */ jsx("p", {
+						className: "leading-snug",
+						children: payout.text
+					})]
+				})]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "rounded bg-muted/40 px-1.5 py-1 text-[10px]",
+				children: [/* @__PURE__ */ jsx("p", {
+					className: "font-semibold text-muted-foreground",
+					children: "Primary monsters"
+				}), profile.length ? /* @__PURE__ */ jsx("p", {
+					className: "leading-snug",
+					children: profile.slice(0, 4).map((entry) => `${entry.type} (${entry.count})`).join(" · ")
+				}) : /* @__PURE__ */ jsx("p", {
+					className: "text-muted-foreground",
+					children: "No typed monsters yet — add monsters to the project or import them."
+				})]
+			})
+		]
 	});
 }
 //#endregion
@@ -38160,7 +38430,8 @@ var BLANK_ROOM = {
 };
 function DungeonGenerator({ onExit, embedded = false }) {
 	const { settings, setSettings } = useTree();
-	const roomTemplates = settings?.library?.dungeonRooms?.length ? settings.library.dungeonRooms : DEFAULT_DUNGEON_ROOMS;
+	const allRoomTemplates = settings?.library?.dungeonRooms?.length ? settings.library.dungeonRooms : DEFAULT_DUNGEON_ROOMS;
+	const roomTemplates = allRoomTemplates.filter((r) => r.enabled !== false);
 	const monsters = settings?.library?.monsters || [];
 	const lootPools = settings?.library?.lootPools || [];
 	const encounterTables = settings?.library?.encounterTables || [];
@@ -38177,7 +38448,9 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const [includeLoot, setIncludeLoot] = useState(true);
 	const [savedId, setSavedId] = useState("");
 	const [roomQuery, setRoomQuery] = useState("");
-	const [shapeOpen, setShapeOpen] = useState(false);
+	const [makerOpen, setMakerOpen] = useState(true);
+	const [makerRoom, setMakerRoom] = useState(null);
+	const [makerTemplateId, setMakerTemplateId] = useState("");
 	const [ctxMenu, setCtxMenu] = useState(null);
 	const pastRef = useRef([]);
 	const futureRef = useRef([]);
@@ -38400,13 +38673,128 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		setCtxMenu(null);
 		toast(`Connected to ${nearest.name}.`);
 	};
-	const openShape = (id = selectedId) => {
+	const openMaker = (id = selectedId) => {
 		if (!id) return;
+		const room = dungeon?.rooms?.find((r) => r.id === id);
+		if (!room) return;
 		setSelectedId(id);
-		setShapeOpen(true);
+		setMakerRoom(room);
+		setMakerTemplateId(room.templateId || "");
+		setMakerOpen(true);
 		setCtxMenu(null);
 	};
+	const loadMakerTemplate = (template) => {
+		const room = roomFromTemplate(template, {
+			x: 0,
+			y: 0
+		});
+		setMakerRoom(room);
+		setMakerTemplateId(template.id || "");
+		setMakerOpen(true);
+	};
+	const applyMaker = (footprint) => {
+		if (!selected) return;
+		const base = makerRoom || selected;
+		patchSelected({
+			...footprint,
+			name: base.name,
+			category: base.category,
+			w: base.w,
+			h: base.h,
+			environment: base.environment,
+			elevation: base.elevation,
+			cover: base.cover,
+			connector: base.connector,
+			traps: [...base.traps || []],
+			spawns: [...base.spawns || []],
+			loot: [...base.loot || []],
+			notes: base.notes,
+			cr0Only: !!base.cr0Only,
+			bonfire: !!base.bonfire
+		});
+		setMakerRoom((room) => ({
+			...room || base,
+			...footprint
+		}));
+		toast.success("Room Maker applied to the selected room.");
+	};
+	const uploadMaker = (footprint) => {
+		const room = {
+			...selected && makerRoom?.id === selected.id ? selected : makerRoom || selected,
+			...footprint
+		};
+		if (!room?.name && !room?.category) return;
+		const id = makerTemplateId || `room${Date.now().toString(36)}`;
+		setSettings((s) => {
+			const list = [...s.library.dungeonRooms || []];
+			const template = {
+				id,
+				name: room.name || "New Room",
+				category: room.category || "Chamber",
+				minW: room.w,
+				maxW: room.w,
+				minH: room.h,
+				maxH: room.h,
+				environment: room.environment || "",
+				elevation: room.elevation || "Flat",
+				cover: room.cover || "Open",
+				connector: room.connector || "Doorway",
+				traps: [...room.traps || []],
+				spawns: [...room.spawns || []],
+				loot: [...room.loot || []],
+				notes: room.notes || "",
+				cr0Only: !!room.cr0Only,
+				bonfire: !!room.bonfire,
+				enabled: true,
+				shape: footprint.shape,
+				cells: footprint.cells,
+				spawnPoints: footprint.spawnPoints,
+				ingressPoints: footprint.ingressPoints
+			};
+			const i = list.findIndex((t) => t.id === id);
+			if (i >= 0) list[i] = {
+				...list[i],
+				...template
+			};
+			else list.push(template);
+			return {
+				...s,
+				library: {
+					...s.library,
+					dungeonRooms: list
+				}
+			};
+		});
+		setMakerTemplateId(id);
+		toast.success("Room uploaded to Reference Library → Dungeon Rooms.");
+	};
+	const addMakerRoom = (footprint) => {
+		if (!dungeon) return;
+		const maxX = Math.max(0, ...(dungeon.rooms || []).map((r) => r.x + r.w));
+		const room = {
+			...makerRoom || selected || {},
+			...footprint,
+			id: `room${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+			x: maxX + 4,
+			y: 0,
+			templateId: makerTemplateId || "custom-room",
+			traps: [...makerRoom?.traps || []],
+			spawns: [...makerRoom?.spawns || []],
+			loot: [...makerRoom?.loot || []]
+		};
+		commit({
+			...dungeon,
+			rooms: [...dungeon.rooms, room]
+		});
+		setSelectedId(room.id);
+		setMakerRoom(room);
+		toast.success("Room added to the dungeon.");
+	};
 	const generate = () => {
+		if (!roomTemplates.length) {
+			toast.error("Enable at least one room in Reference Library → Dungeon Rooms.");
+			return;
+		}
 		const d = generateDungeon({
 			mode,
 			rank,
@@ -38541,6 +38929,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			notes: selected.notes,
 			cr0Only: !!selected.cr0Only,
 			bonfire: !!selected.bonfire,
+			enabled: true,
 			shape: selected.shape || "",
 			cells: Array.isArray(selected.cells) ? selected.cells.map(([x, y]) => [x, y]) : void 0,
 			spawnPoints: (selected.spawnPoints || []).map((p) => ({ ...p })),
@@ -38577,6 +38966,18 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			} : r)
 		});
 	};
+	useEffect(() => {
+		if (!selectedId) {
+			setMakerRoom(null);
+			setMakerTemplateId("");
+			return;
+		}
+		const room = dungeon?.rooms?.find((r) => r.id === selectedId);
+		if (room) {
+			setMakerRoom(room);
+			setMakerTemplateId(room.templateId || "");
+		}
+	}, [selectedId]);
 	useEffect(() => {
 		const onKey = (e) => {
 			const tag = document.activeElement?.tagName;
@@ -38646,6 +39047,12 @@ function DungeonGenerator({ onExit, embedded = false }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "ml-auto flex flex-wrap items-center gap-1.5",
 						children: [
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								onClick: () => setMakerOpen((open) => !open),
+								children: "Room Maker"
+							}),
 							/* @__PURE__ */ jsxs(Button, {
 								size: "sm",
 								variant: "outline",
@@ -38830,6 +39237,12 @@ function DungeonGenerator({ onExit, embedded = false }) {
 												]
 											})
 										]
+									}),
+									/* @__PURE__ */ jsx(DungeonDangerPanel, {
+										dungeon,
+										partyLevel,
+										monsters,
+										rank
 									})
 								]
 							}),
@@ -39197,8 +39610,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 										size: "sm",
 										variant: "outline",
 										className: "h-7 shrink-0 text-xs",
-										onClick: () => openShape(selected.id),
-										children: "Room builder"
+										onClick: () => openMaker(selected.id),
+										children: "Room Maker"
 									})]
 								}),
 								/* @__PURE__ */ jsx(RoomBattleMap, { room: selected }),
@@ -39236,14 +39649,37 @@ function DungeonGenerator({ onExit, embedded = false }) {
 					})
 				]
 			}),
-			/* @__PURE__ */ jsx(RoomShapeBuilder, {
-				open: shapeOpen,
-				onOpenChange: setShapeOpen,
-				room: selected,
-				onSave: (footprint) => {
-					if (selected) patchSelected(footprint);
-					toast.success("Room footprint, spawns and ingress updated.");
-				}
+			makerOpen && /* @__PURE__ */ jsxs("div", {
+				className: "flex h-[390px] shrink-0 flex-col border-t bg-background",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center justify-between border-b bg-muted/20 px-3 py-1.5",
+					children: [/* @__PURE__ */ jsx("p", {
+						className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+						children: "Room Maker"
+					}), /* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						className: "h-7 text-xs",
+						onClick: () => setMakerOpen(false),
+						children: "Hide"
+					})]
+				}), /* @__PURE__ */ jsx("div", {
+					className: "min-h-0 flex-1 overflow-y-auto p-3",
+					children: makerRoom ? /* @__PURE__ */ jsx(RoomShapeBuilder, {
+						inline: true,
+						room: makerRoom,
+						templates: allRoomTemplates,
+						templateId: makerTemplateId,
+						onLoadTemplate: loadMakerTemplate,
+						onSave: applyMaker,
+						onUpload: uploadMaker,
+						onAdd: addMakerRoom,
+						onOpenChange: () => setMakerOpen(false)
+					}) : /* @__PURE__ */ jsx("p", {
+						className: "text-xs text-muted-foreground",
+						children: "Select a room on the map to edit its footprint, spawn points and ingress zones, or load a room template from the Reference Library."
+					})
+				})]
 			}),
 			ctxMenu && /* @__PURE__ */ jsx("div", {
 				className: "fixed inset-0 z-50",
@@ -39276,8 +39712,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 						/* @__PURE__ */ jsx("button", {
 							type: "button",
 							className: "w-full rounded px-2 py-1 text-left hover:bg-accent",
-							onClick: () => openShape(ctxRoom.id),
-							children: "Room builder — shape, spawns, ingress…"
+							onClick: () => openMaker(ctxRoom.id),
+							children: "Room Maker — shape, spawns, ingress…"
 						}),
 						/* @__PURE__ */ jsx("button", {
 							type: "button",
