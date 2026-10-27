@@ -51,6 +51,7 @@ import { CreatureTypesTab } from "./library/CreatureTypesTab";
 import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
 import { ResourcesTab } from "./library/ResourcesTab";
 import { DieScalingTab } from "./library/DieScalingTab";
+import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
 import { SpellSchoolsTab } from "./library/SpellSchoolsTab";
@@ -87,6 +88,7 @@ const TAB_GROUPS = [
     ["shop", "Shop"], ["rollTables", "Roll Tables"], ["lootTables", "Loot Tables"],
     ["lootPools", "Loot Pools"], ["encounterTables", "Encounter Tables"],
   ]],
+  ["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
 ];
 
 // Every searchable library list, as [category label, tab value, entries].
@@ -120,6 +122,7 @@ const SEARCH_CATEGORIES = (lib) => [
   ["Senses", "senses", (lib.senses || []).map((n) => ({ name: n?.name || n }))],
   ["Resources", "resources", lib.resources || []],
   ["Die Scaling", "dieScaling", (lib.dieScaling || []).map((n) => ({ name: n?.name || n }))],
+  ["Dungeon Rooms", "dungeonRooms", lib.dungeonRooms || []],
   ["Monsters", "monsters", lib.monsters || []],
   ["Monster Templates", "monsters", lib.monsterTemplates || []],
   ["Spell Schools", "spellSchools", (lib.spellSchools || []).map((n) => ({ name: n }))],
@@ -265,6 +268,9 @@ export function LibraryMenu({ open, onClose }) {
             </TabsContent>
             <TabsContent value="encounterTables" className="mt-0">
               <EncounterTablesTab />
+            </TabsContent>
+            <TabsContent value="dungeonRooms" className="mt-0">
+              <DungeonRoomsTab />
             </TabsContent>
             <TabsContent value="downtime" className="mt-0">
               <DowntimeTab />

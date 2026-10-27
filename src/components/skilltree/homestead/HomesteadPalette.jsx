@@ -1,21 +1,44 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   FACILITY_TYPES, CONNECTION_TYPES, FURNISHINGS, FURNISH_CATS, STATIONS,
   WALL_TYPES, plotHasKind, BASTION_FACILITIES, BASTION_LEVELS,
 } from "@/lib/homestead";
-import { MousePointer2, Hammer, Ban } from "lucide-react";
+import { MousePointer2, Hammer, Ban, Search, ChevronDown, ChevronRight } from "lucide-react";
+
+function PaletteSection({ title, children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mb-1 mt-3 flex w-full items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {title}
+      </button>
+      {open && <div className="space-y-1">{children}</div>}
+    </div>
+  );
+}
 
 // Left-hand tool palette: pick a structure, furnishing or connection, then
-// click the canvas to place it. Business-only rooms stay disabled on other
-// plot kinds. Costs are shown per item so pricing is visible while building.
+// click the canvas to place it. Search and collapsible sections keep the long
+// list manageable. Business-only rooms stay disabled on other plot kinds.
 export default function HomesteadPalette({ plot, tool, setTool }) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
   const pick = (t) => setTool(tool && tool.type === t.type && tool.kind === t.kind ? null : t);
   const isPick = (kind, type) => tool && tool.kind === kind && tool.type === type;
   const biz = plotHasKind(plot, "business");
   const st = STATIONS[plot.comfort] || STATIONS.modest;
   const level = plot.charLevel || 5;
 
-  const toolBtn = (t, sub, disabled, note) => (
+  const toolBtn = (t, sub, disabled, note) => {
+    if (q && !`${t.type} ${sub || ""}`.toLowerCase().includes(q)) return null;
+    return (
     <Button
       key={`${t.kind}:${t.type}`}
       variant={isPick(t.kind, t.type) ? "secondary" : "outline"}
@@ -30,17 +53,30 @@ export default function HomesteadPalette({ plot, tool, setTool }) {
         <span className="block truncate text-[10px] text-muted-foreground">{sub}</span>
       </span>
     </Button>
-  );
+    );
+  };
 
-  const section = (title, children) => (
-    <div key={title}>
-      <p className="mb-1 mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
+  const section = (title, children) => {
+    const list = [].concat(children).filter(Boolean);
+    if (q && !list.length) return null;
+    return (
+      <PaletteSection key={title} title={title}>
+        {list}
+      </PaletteSection>
+    );
+  };
 
   return (
     <div className="space-y-0.5">
+      <div className="relative">
+        <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          className="h-8 pl-7 text-xs"
+          placeholder="Search tools and rooms…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
       <Button
         variant={!tool ? "secondary" : "outline"}
         size="sm"
@@ -57,26 +93,30 @@ export default function HomesteadPalette({ plot, tool, setTool }) {
       )}
 
       {section("Bastion special facilities",
-        BASTION_LEVELS.map((lv) => (
-          <div key={lv}>
-            <p className="mb-1 mt-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">Level {lv}</p>
-            <div className="space-y-1">
-              {BASTION_FACILITIES.filter((b) => b.level === lv).map((b) => {
-                const size = FACILITY_TYPES[b.space];
-                const locked = level < b.level;
-                const base = `${b.space} (${size.w}×${size.h}) · ${b.hirelings} hireling${b.hirelings === 1 ? "" : "s"} · free — no gold or build time`;
-                return toolBtn(
-                  { kind: "bastion", type: b.name },
-                  locked ? `Level ${b.level} · locked` : base,
-                  locked,
-                  locked
-                    ? `Requires character level ${b.level}${b.prereq ? ` · ${b.prereq}` : ""}`
-                    : `${b.prereq ? `${b.prereq} · ` : ""}${base}${b.multi ? "" : " · one only"}`
-                );
-              })}
+        BASTION_LEVELS.map((lv) => {
+          const items = BASTION_FACILITIES.filter((b) => b.level === lv)
+            .map((b) => {
+              const size = FACILITY_TYPES[b.space];
+              const locked = level < b.level;
+              const base = `${b.space} (${size.w}×${size.h}) · ${b.hirelings} hireling${b.hirelings === 1 ? "" : "s"} · free — no gold or build time`;
+              return toolBtn(
+                { kind: "bastion", type: b.name },
+                locked ? `Level ${b.level} · locked` : base,
+                locked,
+                locked
+                  ? `Requires character level ${b.level}${b.prereq ? ` · ${b.prereq}` : ""}`
+                  : `${b.prereq ? `${b.prereq} · ` : ""}${base}${b.multi ? "" : " · one only"}`
+              );
+            })
+            .filter(Boolean);
+          if (!items.length) return null;
+          return (
+            <div key={lv}>
+              <p className="mb-1 mt-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">Level {lv}</p>
+              <div className="space-y-1">{items}</div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
 
       {section("Attachments",

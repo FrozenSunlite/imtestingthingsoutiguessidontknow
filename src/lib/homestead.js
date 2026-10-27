@@ -174,8 +174,10 @@ export const bastionFacilityByName = (name) => BASTION_FACILITIES.find((b) => b.
 
 export const CONNECTION_TYPES = [
   { type: "Corridor", desc: "Hallway space — 25 gp, 1 week. May be built as unfurnishable empty space." },
-  { type: "Doorway", desc: "Drag along a wall or a room's frame to draw the door. 25 gp, 1 week." },
-  { type: "Window", desc: "Drag along a wall or a room's frame to add a window. 25 gp, 1 week." },
+  { type: "Doorway", desc: "Drag along a wall or a room's frame to draw a one-space door. 25 gp, 1 week." },
+  { type: "Double Door", desc: "Drag along a wall to draw two adjacent door leaves (two spaces). 50 gp, 1 week." },
+  { type: "Gate", desc: "Drag along a wall to draw a gate or portcullis (up to two spaces). 50 gp, 1 week." },
+  { type: "Window", desc: "Drag along a wall or a room's frame to add a one-space window. 25 gp, 1 week." },
   { type: "Staircase", desc: "1 space per floor connected — 25 gp, 1 week." },
   { type: "Ramp", desc: "1 space per floor connected — 25 gp, 1 week." },
 ];

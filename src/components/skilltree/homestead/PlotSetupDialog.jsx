@@ -40,6 +40,15 @@ export default function PlotSetupDialog({ kind, onClose, onCreate }) {
   const tier = STATIONS[isLand ? landTier : comfort] || STATIONS.modest;
   const def = defaultBoundary({ ownership, comfort, landTier });
 
+  // Keep the boundary in step with the procurement/comfort choice; the fields
+  // remain editable afterwards for extra land tiles.
+  useEffect(() => {
+    if (!kind) return;
+    const d = defaultBoundary({ ownership, comfort, landTier });
+    setW(d.w);
+    setH(d.h);
+  }, [kind, ownership, comfort, landTier]);
+
   const create = () => {
     if (!kind) return;
     const p = blankPlot(kind);

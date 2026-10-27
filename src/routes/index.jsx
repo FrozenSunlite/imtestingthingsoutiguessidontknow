@@ -12,6 +12,7 @@ import { PinnedNodeCard } from "@/components/skilltree/PinnedNodeCard";
 import { LaunchMenu } from "@/components/skilltree/LaunchMenu";
 import { DMScreen } from "@/components/skilltree/DMScreen";
 import Homebuilder from "@/components/skilltree/homestead/Homebuilder";
+import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
 import { SideTreePanel } from "@/components/skilltree/SideTreePanel";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
@@ -23,6 +24,7 @@ function Workspace() {
   const [ctx, setCtx] = useState(null); // {x, y, node}
   const [homebuilder, setHomebuilder] = useState(false);
   const [dmScreen, setDmScreen] = useState(false);
+  const [dungeon, setDungeon] = useState(false);
   const [sendRows, setSendRows] = useState(null); // "send to subtree" chooser
   const [exportOpen, setExportOpen] = useState(false);
   const [poolWins, setPoolWins] = useState([]);
@@ -40,6 +42,9 @@ function Workspace() {
 
   if (screen === "launch" && homebuilder) return <Homebuilder onExit={() => setHomebuilder(false)} />;
 
+  if (screen === "launch" && dungeon)
+    return <DungeonGenerator onExit={() => setDungeon(false)} />;
+
   if (screen === "launch" && dmScreen) return <DMScreen onExit={() => setDmScreen(false)} />;
 
   if (screen === "launch")
@@ -47,6 +52,7 @@ function Workspace() {
       <LaunchMenu
         onHomebuilder={() => setHomebuilder(true)}
         onDmScreen={() => setDmScreen(true)}
+        onDungeon={() => setDungeon(true)}
       />
     );
 

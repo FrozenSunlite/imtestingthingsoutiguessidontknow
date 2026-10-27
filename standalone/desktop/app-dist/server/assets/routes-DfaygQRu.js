@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-ttJFsX-f.js";
+import { n as Button, r as cn } from "./router-DsNxrWnQ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, ImagePlus, Library, Link2, ListTree, Loader2, Lock, Maximize, Minus, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Ban, BookOpen, Box, Castle, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Copy, Crosshair, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FlipHorizontal, FlipVertical, FolderOpen, GitBranch, Grid3x3, GripHorizontal, GripVertical, Hammer, Home, Image as Image$1, ImagePlus, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, Maximize, Minus, Moon, MousePointer2, MoveRight, Network, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Save, Scissors, ScrollText, Search, Settings, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Trash2, Undo2, Upload, UserPlus, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -1091,11 +1091,19 @@ var CONNECTION_TYPES = [
 	},
 	{
 		type: "Doorway",
-		desc: "Drag along a wall or a room's frame to draw the door. 25 gp, 1 week."
+		desc: "Drag along a wall or a room's frame to draw a one-space door. 25 gp, 1 week."
+	},
+	{
+		type: "Double Door",
+		desc: "Drag along a wall to draw two adjacent door leaves (two spaces). 50 gp, 1 week."
+	},
+	{
+		type: "Gate",
+		desc: "Drag along a wall to draw a gate or portcullis (up to two spaces). 50 gp, 1 week."
 	},
 	{
 		type: "Window",
-		desc: "Drag along a wall or a room's frame to add a window. 25 gp, 1 week."
+		desc: "Drag along a wall or a room's frame to add a one-space window. 25 gp, 1 week."
 	},
 	{
 		type: "Staircase",
@@ -1494,7 +1502,7 @@ var FURNISHINGS = [
 var furnishingByName = (name) => FURNISHINGS.find((f) => f.name === name);
 var OWNERSHIP_BY_ID = Object.fromEntries(OWNERSHIP.map((o) => [o.id, o]));
 var uidCounter = 0;
-var uid = () => `${Date.now().toString(36)}${(uidCounter++).toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+var uid$1 = () => `${Date.now().toString(36)}${(uidCounter++).toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 var PLOT_KINDS = [
 	{
 		id: "home",
@@ -1555,7 +1563,7 @@ var KIND_DEFAULT_NAMES = {
 };
 function blankPlot(kind = "home") {
 	return {
-		id: uid(),
+		id: uid$1(),
 		name: KIND_DEFAULT_NAMES[kind] || "My Home",
 		kind,
 		ownership: kind === "home" ? "purchased" : "land",
@@ -1567,7 +1575,7 @@ function blankPlot(kind = "home") {
 		charLevel: 5,
 		notes: "",
 		floors: [{
-			id: uid(),
+			id: uid$1(),
 			name: "1st Floor",
 			index: 0
 		}],
@@ -2986,6 +2994,683 @@ function resolveResourceDie(entry, lib = null) {
 	});
 }
 //#endregion
+//#region src/lib/dungeonGen.js
+var DUNGEON_RANKS = {
+	E: {
+		label: "E",
+		nickname: "Expie",
+		rooms: 3,
+		downtime: "2 weeks",
+		level: "0–2",
+		prof: 0,
+		color: "#94a3b8"
+	},
+	D: {
+		label: "D",
+		nickname: "Newk",
+		rooms: 6,
+		downtime: "3 weeks",
+		level: "3–5",
+		prof: 1,
+		color: "#86efac"
+	},
+	C: {
+		label: "C",
+		nickname: "Rookie",
+		rooms: 9,
+		downtime: "4 weeks",
+		level: "6–8",
+		prof: 2,
+		color: "#5eead4"
+	},
+	B: {
+		label: "B",
+		nickname: "Reg",
+		rooms: 12,
+		downtime: "5 weeks",
+		level: "9–11",
+		prof: 3,
+		color: "#60a5fa"
+	},
+	A: {
+		label: "A",
+		nickname: "Prestige",
+		rooms: 15,
+		downtime: "6 weeks",
+		level: "12–14",
+		prof: 4,
+		color: "#a78bfa"
+	},
+	S: {
+		label: "S",
+		nickname: "Cavalry",
+		rooms: 18,
+		downtime: "7 weeks",
+		level: "15–17",
+		prof: 5,
+		color: "#f472b6"
+	},
+	SS: {
+		label: "SS",
+		nickname: "Hero",
+		rooms: 21,
+		downtime: "8 weeks",
+		level: "18–20",
+		prof: 6,
+		color: "#fb923c"
+	},
+	SSS: {
+		label: "SSS",
+		nickname: "Mythos",
+		rooms: 24,
+		downtime: "9 weeks",
+		level: "21+",
+		prof: 7,
+		color: "#ef4444"
+	}
+};
+var DUNGEON_CATEGORIES = [
+	["Entrance", "#64748b"],
+	["Chamber", "#38bdf8"],
+	["Corridor", "#94a3b8"],
+	["Trap", "#f97316"],
+	["Puzzle", "#a78bfa"],
+	["Loot", "#facc15"],
+	["Elite", "#fb7185"],
+	["Boss", "#ef4444"],
+	["Rest", "#4ade80"],
+	["Shop", "#2dd4bf"]
+];
+var DUNGEON_ENVIRONMENTS = [
+	"Damp stone",
+	"Ancient ruins",
+	"Flooded cistern",
+	"Fungal cavern",
+	"Volcanic vents",
+	"Frozen halls",
+	"Shadowed crypt",
+	"Overgrown temple",
+	"Mine shafts",
+	"Arcane laboratory"
+];
+var TRAP_POOL = [
+	"Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
+	"Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
+	"Spike pit: DC 8 + 2×rank Dexterity save or 2d6×rank piercing",
+	"Alarm rune: alerts the nearest room",
+	"Collapsing bridge: DC 10 + rank Dexterity save or fall 2 spaces"
+];
+var ELEVATIONS = [
+	"Flat",
+	"Raised dais (+1)",
+	"Sunken floor (−1)",
+	"Tiered steps (+2)",
+	"Chasm edge (−2)"
+];
+var COVERS = [
+	"Open",
+	"Pillars (half cover)",
+	"Crates (half cover)",
+	"Low wall (three-quarters)",
+	"Fog (lightly obscured)"
+];
+var DEFAULT_DUNGEON_ROOMS = [
+	{
+		id: "room-entrance",
+		name: "Entrance Hall",
+		category: "Entrance",
+		minW: 4,
+		maxW: 6,
+		minH: 4,
+		maxH: 6,
+		environment: "Damp stone",
+		elevation: "Flat",
+		cover: "Pillars (half cover)",
+		connector: "Doorway",
+		traps: [],
+		spawns: ["2 rank minions"],
+		loot: [],
+		notes: "A threshold room with a clear exit behind the party."
+	},
+	{
+		id: "room-guard",
+		name: "Guard Post",
+		category: "Chamber",
+		minW: 3,
+		maxW: 5,
+		minH: 3,
+		maxH: 5,
+		environment: "Ancient ruins",
+		elevation: "Flat",
+		cover: "Crates (half cover)",
+		connector: "Doorway",
+		traps: [],
+		spawns: ["2–3 rank minions"],
+		loot: ["1d4 mundane items"],
+		notes: "A small forward post with a warning bell."
+	},
+	{
+		id: "room-pillared",
+		name: "Pillared Hall",
+		category: "Chamber",
+		minW: 6,
+		maxW: 9,
+		minH: 4,
+		maxH: 6,
+		environment: "Damp stone",
+		elevation: "Raised dais (+1)",
+		cover: "Pillars (half cover)",
+		connector: "Archway",
+		traps: [],
+		spawns: ["1–2 rank minions"],
+		loot: [],
+		notes: "Columns break line of sight and provide cover."
+	},
+	{
+		id: "room-collapsed",
+		name: "Collapsed Gallery",
+		category: "Chamber",
+		minW: 5,
+		maxW: 8,
+		minH: 4,
+		maxH: 6,
+		environment: "Ancient ruins",
+		elevation: "Sunken floor (−1)",
+		cover: "Low wall (three-quarters)",
+		connector: "Rubble passage",
+		traps: ["Unstable ceiling: DC 10 + rank Dexterity save or 1d6×rank bludgeoning"],
+		spawns: ["1 rank minion"],
+		loot: ["Buried cache: 1 rank loot roll"],
+		notes: "Rubble creates difficult terrain and hidden gaps."
+	},
+	{
+		id: "room-corridor",
+		name: "Narrow Passage",
+		category: "Corridor",
+		minW: 3,
+		maxW: 5,
+		minH: 2,
+		maxH: 2,
+		environment: "Mine shafts",
+		elevation: "Flat",
+		cover: "Open",
+		connector: "Doorway",
+		traps: [],
+		spawns: [],
+		loot: [],
+		notes: "A tight connector; one defender can hold the line."
+	},
+	{
+		id: "room-trap-corridor",
+		name: "Trapped Corridor",
+		category: "Trap",
+		minW: 3,
+		maxW: 5,
+		minH: 2,
+		maxH: 2,
+		environment: "Ancient ruins",
+		elevation: "Flat",
+		cover: "Open",
+		connector: "Doorway",
+		traps: ["Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing"],
+		spawns: [],
+		loot: ["Concealed maintenance cache"],
+		notes: "A visible mechanism gives an observant party a chance to disarm it."
+	},
+	{
+		id: "room-puzzle",
+		name: "Sealed Vault",
+		category: "Puzzle",
+		minW: 4,
+		maxW: 6,
+		minH: 4,
+		maxH: 6,
+		environment: "Arcane laboratory",
+		elevation: "Flat",
+		cover: "Pillars (half cover)",
+		connector: "Rune-sealed door",
+		traps: ["Arcane backlash: DC 10 + 2×rank Arcana or 2d6×rank force"],
+		spawns: [],
+		loot: ["Puzzle reward: 1 rank loot roll"],
+		notes: "A riddle, sequence or offering opens the way forward."
+	},
+	{
+		id: "room-loot",
+		name: "Treasure Vault",
+		category: "Loot",
+		minW: 3,
+		maxW: 5,
+		minH: 3,
+		maxH: 4,
+		environment: "Shadowed crypt",
+		elevation: "Raised dais (+1)",
+		cover: "Crates (half cover)",
+		connector: "Doorway",
+		traps: ["Glyph of warding: DC 10 + 2×rank Dexterity save or 2d6×rank fire"],
+		spawns: [],
+		loot: ["1d4 rank loot rolls"],
+		notes: "The reward for a side branch or a locked door."
+	},
+	{
+		id: "room-rest",
+		name: "Safe Alcove",
+		category: "Rest",
+		minW: 2,
+		maxW: 3,
+		minH: 2,
+		maxH: 3,
+		environment: "Damp stone",
+		elevation: "Flat",
+		cover: "Low wall (three-quarters)",
+		connector: "Doorway",
+		traps: [],
+		spawns: [],
+		loot: ["1 short-rest supply cache"],
+		notes: "A defensible nook; the party can take a short rest here."
+	},
+	{
+		id: "room-shop",
+		name: "Hidden Cache",
+		category: "Shop",
+		minW: 3,
+		maxW: 4,
+		minH: 2,
+		maxH: 3,
+		environment: "Ancient ruins",
+		elevation: "Flat",
+		cover: "Crates (half cover)",
+		connector: "Doorway",
+		traps: [],
+		spawns: ["1 neutral merchant"],
+		loot: ["Shop stock: 1d4 rank items at 2× cost"],
+		notes: "A wandering merchant or a automated vendor with limited stock."
+	},
+	{
+		id: "room-elite",
+		name: "Ritual Chamber",
+		category: "Elite",
+		minW: 5,
+		maxW: 8,
+		minH: 5,
+		maxH: 7,
+		environment: "Arcane laboratory",
+		elevation: "Raised dais (+1)",
+		cover: "Pillars (half cover)",
+		connector: "Archway",
+		traps: ["Summoning circle: DC 12 + rank Arcana or 1 elite reinforcement"],
+		spawns: ["1 elite + 2 rank minions"],
+		loot: ["1d4 rank loot rolls"],
+		notes: "A lieutenant or mini-boss holds this room."
+	},
+	{
+		id: "room-boss",
+		name: "Boss Sanctum",
+		category: "Boss",
+		minW: 8,
+		maxW: 10,
+		minH: 7,
+		maxH: 9,
+		environment: "Volcanic vents",
+		elevation: "Tiered steps (+2)",
+		cover: "Low wall (three-quarters)",
+		connector: "Gate",
+		traps: ["Arena hazard: 1d6×rank damage at the end of each round in the marked zone"],
+		spawns: ["1 boss + 2–4 rank minions"],
+		loot: ["Boss cache: 2 rank loot rolls"],
+		notes: "A large chamber with room to move, cover and a lair action."
+	},
+	{
+		id: "room-flooded",
+		name: "Flooded Cistern",
+		category: "Chamber",
+		minW: 5,
+		maxW: 8,
+		minH: 4,
+		maxH: 6,
+		environment: "Flooded cistern",
+		elevation: "Sunken floor (−1)",
+		cover: "Fog (lightly obscured)",
+		connector: "Bridge",
+		traps: ["Slippery ledge: DC 10 + rank Acrobatics or fall 1 space"],
+		spawns: ["1–2 rank minions"],
+		loot: ["1 rank loot roll"],
+		notes: "Shallow water is difficult terrain; deeper channels are hazards."
+	},
+	{
+		id: "room-fungal",
+		name: "Fungal Grotto",
+		category: "Chamber",
+		minW: 5,
+		maxW: 7,
+		minH: 4,
+		maxH: 6,
+		environment: "Fungal cavern",
+		elevation: "Flat",
+		cover: "Fog (lightly obscured)",
+		connector: "Rubble passage",
+		traps: ["Spore burst: DC 10 + rank Constitution or poisoned"],
+		spawns: ["1–3 rank minions"],
+		loot: ["1 rank loot roll"],
+		notes: "Spore clouds and soft ground make this room unpredictable."
+	},
+	{
+		id: "room-frozen",
+		name: "Frozen Hall",
+		category: "Chamber",
+		minW: 5,
+		maxW: 8,
+		minH: 3,
+		maxH: 5,
+		environment: "Frozen halls",
+		elevation: "Flat",
+		cover: "Pillars (half cover)",
+		connector: "Doorway",
+		traps: ["Ice patch: DC 10 + rank Acrobatics or prone"],
+		spawns: ["1–2 rank minions"],
+		loot: [],
+		notes: "Slick floors and brittle pillars reward careful movement."
+	},
+	{
+		id: "room-shadow",
+		name: "Shadow Gallery",
+		category: "Elite",
+		minW: 4,
+		maxW: 7,
+		minH: 4,
+		maxH: 6,
+		environment: "Shadowed crypt",
+		elevation: "Flat",
+		cover: "Fog (lightly obscured)",
+		connector: "Archway",
+		traps: [],
+		spawns: ["1 elite + 1 rank minion"],
+		loot: ["1 rank loot roll"],
+		notes: "Dim light and hiding spots favour stealthy enemies."
+	},
+	{
+		id: "room-spike",
+		name: "Spike Pit",
+		category: "Trap",
+		minW: 3,
+		maxW: 4,
+		minH: 3,
+		maxH: 4,
+		environment: "Mine shafts",
+		elevation: "Sunken floor (−1)",
+		cover: "Open",
+		connector: "Doorway",
+		traps: ["Spike pit: DC 8 + 2×rank Dexterity save or 2d6×rank piercing"],
+		spawns: [],
+		loot: ["1 rank loot roll at the bottom"],
+		notes: "A visible pit with a narrow rim and a reward below."
+	},
+	{
+		id: "room-bridge",
+		name: "Broken Bridge",
+		category: "Corridor",
+		minW: 4,
+		maxW: 6,
+		minH: 2,
+		maxH: 3,
+		environment: "Volcanic vents",
+		elevation: "Chasm edge (−2)",
+		cover: "Open",
+		connector: "Bridge",
+		traps: ["Collapsing section: DC 10 + rank Dexterity or fall 2 spaces"],
+		spawns: [],
+		loot: [],
+		notes: "A gap to cross under pressure; flight, ropes and jumps shine."
+	},
+	{
+		id: "room-mine",
+		name: "Abandoned Shaft",
+		category: "Corridor",
+		minW: 3,
+		maxW: 5,
+		minH: 2,
+		maxH: 3,
+		environment: "Mine shafts",
+		elevation: "Tiered steps (+2)",
+		cover: "Low wall (three-quarters)",
+		connector: "Stairs",
+		traps: ["Loose support: DC 10 + rank Dexterity or 1d6×rank bludgeoning"],
+		spawns: [],
+		loot: ["Raw ore: 1 rank loot roll"],
+		notes: "Old supports and a vertical shortcut between levels."
+	}
+];
+function hashSeed(seed) {
+	let h = 2166136261;
+	const s = String(seed || "dungeon");
+	for (let i = 0; i < s.length; i++) {
+		h ^= s.charCodeAt(i);
+		h = Math.imul(h, 16777619);
+	}
+	return h >>> 0;
+}
+function randomSeed() {
+	return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+function makeRng(seed) {
+	let a = hashSeed(seed);
+	const rand = () => {
+		a |= 0;
+		a = a + 1831565813 | 0;
+		let t = Math.imul(a ^ a >>> 15, 1 | a);
+		t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+		return ((t ^ t >>> 14) >>> 0) / 4294967296;
+	};
+	return {
+		rand,
+		int: (min, max) => min + Math.floor(rand() * (max - min + 1)),
+		pick: (arr) => arr?.length ? arr[Math.floor(rand() * arr.length)] : "",
+		chance: (p) => rand() < p,
+		shuffle: (arr) => {
+			const a = [...arr];
+			for (let i = a.length - 1; i > 0; i--) {
+				const j = Math.floor(rand() * (i + 1));
+				[a[i], a[j]] = [a[j], a[i]];
+			}
+			return a;
+		}
+	};
+}
+var uid = (prefix = "d") => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
+function templateFor(category, templates, rng) {
+	const pool = templates.filter((r) => r.category === category);
+	if (pool.length) return rng.pick(pool);
+	return templates.length ? rng.pick(templates) : DEFAULT_DUNGEON_ROOMS[0];
+}
+function instantiate(template, category, rng, rank, { monsters, lootPools }) {
+	const w = rng.int(template.minW || 3, template.maxW || template.minW || 5);
+	const h = rng.int(template.minH || 3, template.maxH || template.minH || 5);
+	const traps = [...template.traps || []];
+	if (!traps.length && (category === "Trap" || rng.chance(.18))) traps.push(rng.pick(TRAP_POOL));
+	const spawns = [...template.spawns || []];
+	if (!spawns.length && [
+		"Chamber",
+		"Corridor",
+		"Elite",
+		"Boss"
+	].includes(category)) {
+		const names = (monsters || []).map((m) => m.name).filter(Boolean);
+		if (names.length) spawns.push(`${rng.int(1, 3)}× ${rng.pick(names)}`);
+		else spawns.push(`${rng.int(1, 3)} rank ${rank} minions`);
+	}
+	const loot = [...template.loot || []];
+	if (!loot.length && (category === "Loot" || rng.chance(.22))) {
+		const pools = (lootPools || []).map((p) => p.name).filter(Boolean);
+		loot.push(pools.length ? `${rng.pick(pools)} (1 roll)` : `1 rank ${rank} loot roll`);
+	}
+	return {
+		id: uid("room"),
+		templateId: template.id,
+		name: template.name || `${category} ${rng.int(1, 9)}`,
+		category,
+		x: 0,
+		y: 0,
+		w,
+		h,
+		environment: template.environment || rng.pick(DUNGEON_ENVIRONMENTS),
+		elevation: template.elevation || rng.pick(ELEVATIONS),
+		cover: template.cover || rng.pick(COVERS),
+		connector: template.connector || "Doorway",
+		traps,
+		spawns,
+		loot,
+		notes: template.notes || ""
+	};
+}
+var link = (from, to, type = "Doorway") => ({
+	id: `${from}->${to}`,
+	from,
+	to,
+	type
+});
+function positionSingle(rooms, rng) {
+	const spine = rooms.filter((r) => !r.branch);
+	spine.forEach((room, i) => {
+		room.x = i * 18;
+		room.y = (i % 2 ? 9 : 0) + rng.int(-2, 2);
+	});
+	rooms.filter((r) => r.branch).forEach((room) => {
+		const parent = rooms.find((r) => r.id === room.parentId) || spine[0];
+		room.x = (parent?.x || 0) + 6;
+		room.y = (parent?.y || 0) + 20;
+	});
+}
+function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), templates = DEFAULT_DUNGEON_ROOMS, monsters = [], lootPools = [], name = "" } = {}) {
+	const rng = makeRng(`${mode}:${rank}:${seed}`);
+	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const source = (templates || []).length ? templates : DEFAULT_DUNGEON_ROOMS;
+	const rooms = [];
+	const connections = [];
+	const total = Math.max(3, Math.min(24, info.rooms));
+	const opts = {
+		monsters,
+		lootPools
+	};
+	let title = name || `${rank} ${mode === "spire" ? "Spire" : "Dungeon"}`;
+	if (mode === "spire") {
+		const floors = 15;
+		let entrance = instantiate(templateFor("Entrance", source, rng), "Entrance", rng, rank, opts);
+		entrance.x = 0;
+		entrance.y = 0;
+		rooms.push(entrance);
+		let previous = [entrance];
+		for (let f = 1; f < floors; f++) {
+			const last = f === 14;
+			const count = last ? 1 : rng.int(1, 3);
+			const current = [];
+			for (let lane = 0; lane < count; lane++) {
+				let category = "Chamber";
+				if (last) category = "Boss";
+				else if (f === 4 || f === 9) category = "Elite";
+				else if (f === 5 || f === 10) category = "Rest";
+				else if (f === 3 || f === 8) category = "Shop";
+				else if (rng.chance(.16)) category = rng.pick([
+					"Trap",
+					"Puzzle",
+					"Loot"
+				]);
+				const room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
+				room.x = f * 22;
+				room.y = (lane - (count - 1) / 2) * 14 + (last ? 0 : rng.int(-2, 2));
+				current.push(room);
+				rooms.push(room);
+			}
+			previous.forEach((p) => {
+				const nearest = [...current].sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y));
+				connections.push(link(p.id, nearest[0].id, p.connector));
+				if (nearest[1] && rng.chance(.35)) connections.push(link(p.id, nearest[1].id, p.connector));
+			});
+			current.forEach((c) => {
+				if (!connections.some((e) => e.to === c.id)) {
+					const p = [...previous].sort((a, b) => Math.abs(a.y - c.y) - Math.abs(b.y - c.y))[0];
+					if (p) connections.push(link(p.id, c.id, p.connector));
+				}
+			});
+			previous = current;
+		}
+		title = name || `${rank} Spire`;
+	} else {
+		const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
+		const spineCount = Math.max(2, total - branchCount);
+		const categories = ["Entrance"];
+		for (let i = 0; i < spineCount - 2; i++) {
+			let cat = "Chamber";
+			if (i === 0 && spineCount >= 6) cat = "Elite";
+			else if (i === 1 && spineCount >= 9) cat = "Rest";
+			else if (i === 2 && spineCount >= 9) cat = "Shop";
+			else if (rng.chance(.18)) cat = "Trap";
+			else if (rng.chance(.14)) cat = "Puzzle";
+			else if (rng.chance(.2)) cat = "Loot";
+			categories.push(cat);
+		}
+		categories.push("Boss");
+		const spine = categories.map((cat) => {
+			const room = instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
+			room.branch = false;
+			rooms.push(room);
+			return room;
+		});
+		for (let i = 0; i < spine.length - 1; i++) connections.push(link(spine[i].id, spine[i + 1].id, spine[i].connector));
+		for (let b = 0; b < branchCount; b++) {
+			const parent = spine[Math.min(spine.length - 2, 2 + b * 2)];
+			const cat = rng.pick([
+				"Loot",
+				"Trap",
+				"Chamber",
+				"Puzzle"
+			]);
+			const room = instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
+			room.branch = true;
+			room.parentId = parent.id;
+			rooms.push(room);
+			connections.push(link(parent.id, room.id, parent.connector));
+		}
+		positionSingle(rooms, rng);
+		title = name || `${rank} Dungeon`;
+	}
+	return {
+		id: uid("dungeon"),
+		name: title,
+		mode,
+		rank,
+		seed,
+		rooms,
+		connections,
+		notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
+		createdAt: (/* @__PURE__ */ new Date()).toISOString()
+	};
+}
+function dungeonBounds(dungeon) {
+	const rooms = dungeon?.rooms || [];
+	if (!rooms.length) return {
+		minX: 0,
+		minY: 0,
+		maxX: 10,
+		maxY: 10,
+		w: 10,
+		h: 10
+	};
+	const minX = Math.min(...rooms.map((r) => r.x));
+	const minY = Math.min(...rooms.map((r) => r.y));
+	const maxX = Math.max(...rooms.map((r) => r.x + r.w));
+	const maxY = Math.max(...rooms.map((r) => r.y + r.h));
+	return {
+		minX,
+		minY,
+		maxX,
+		maxY,
+		w: maxX - minX,
+		h: maxY - minY
+	};
+}
+function categoryColor(category) {
+	return (DUNGEON_CATEGORIES.find(([c]) => c === category) || [])[1] || "#94a3b8";
+}
+//#endregion
 //#region src/lib/optionTree.js
 function subtreeOptions(opt, nodesById) {
 	const st = opt?.subtree;
@@ -4114,7 +4799,14 @@ var DEFAULT_LIBRARY = {
 	tradeGoods: [],
 	poisons: [],
 	siege: [],
-	vehicles: []
+	vehicles: [],
+	dungeonRooms: DEFAULT_DUNGEON_ROOMS.map((r) => ({
+		...r,
+		traps: [...r.traps || []],
+		spawns: [...r.spawns || []],
+		loot: [...r.loot || []]
+	})),
+	dungeons: []
 };
 function poolForNode(node) {
 	const o = node?.poolOverride;
@@ -4506,7 +5198,14 @@ function mergeLibrary(lib) {
 		monsters: lib?.monsters || [],
 		monsterTemplates: lib?.monsterTemplates || [],
 		lootPools: lib?.lootPools || [],
-		encounterTables: lib?.encounterTables || []
+		encounterTables: lib?.encounterTables || [],
+		dungeonRooms: (lib?.dungeonRooms?.length ? lib.dungeonRooms : d.dungeonRooms).map((r) => ({
+			...r,
+			traps: [...r.traps || []],
+			spawns: [...r.spawns || []],
+			loot: [...r.loot || []]
+		})),
+		dungeons: Array.isArray(lib?.dungeons) ? lib.dungeons : []
 	};
 }
 function ensureTabs(tree) {
@@ -11677,6 +12376,170 @@ function DieScalingTab() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/library/DungeonRoomsTab.jsx
+var CONNECTORS$1 = [
+	"Doorway",
+	"Double Door",
+	"Gate",
+	"Archway",
+	"Corridor",
+	"Bridge",
+	"Stairs",
+	"Rubble passage",
+	"Rune-sealed door"
+];
+var lines$1 = (arr) => (arr || []).join("\n");
+var split$1 = (text) => String(text || "").split("\n").map((s) => s.trim()).filter(Boolean);
+function DungeonRoomsTab() {
+	const { items, add, patch, remove, query, setQuery, shown } = useLibList("dungeonRooms");
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [
+			/* @__PURE__ */ jsx(ListHeader, {
+				onAdd: () => add({
+					name: "",
+					category: "Chamber",
+					minW: 4,
+					maxW: 6,
+					minH: 4,
+					maxH: 6,
+					environment: "",
+					elevation: "Flat",
+					cover: "Open",
+					connector: "Doorway",
+					traps: [],
+					spawns: [],
+					loot: [],
+					notes: ""
+				}),
+				addLabel: "Add room",
+				query,
+				setQuery,
+				searchPlaceholder: "Search dungeon rooms…"
+			}),
+			/* @__PURE__ */ jsx("p", {
+				className: "text-[10px] text-muted-foreground",
+				children: "Rooms used by the Dungeon Generator. Sizes are in spaces; the generator rolls a size between the minimum and maximum. Traps, spawns and loot are one entry per line."
+			}),
+			shown.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, {
+				items,
+				query
+			}) : shown.map(({ e, i }) => /* @__PURE__ */ jsxs(EntryCard, {
+				entry: e,
+				onPatch: (p) => patch(i, p),
+				onDelete: () => remove(i),
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-1.5",
+						children: [
+							/* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								placeholder: "Room name",
+								value: e.name || "",
+								onChange: (ev) => patch(i, { name: ev.target.value })
+							}),
+							/* @__PURE__ */ jsxs(Select, {
+								value: e.category || "Chamber",
+								onValueChange: (v) => patch(i, { category: v }),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-8",
+									children: /* @__PURE__ */ jsx(SelectValue, {})
+								}), /* @__PURE__ */ jsx(SelectContent, { children: DUNGEON_CATEGORIES.map(([cat]) => /* @__PURE__ */ jsx(SelectItem, {
+									value: cat,
+									children: cat
+								}, cat)) })]
+							}),
+							[
+								["minW", "Min width"],
+								["maxW", "Max width"],
+								["minH", "Min height"],
+								["maxH", "Max height"]
+							].map(([key, label]) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] text-muted-foreground",
+								children: label
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								type: "number",
+								min: 2,
+								max: 20,
+								value: e[key] ?? "",
+								onChange: (ev) => patch(i, { [key]: Math.max(2, Math.min(20, Number(ev.target.value) || 2)) })
+							})] }, key)),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] text-muted-foreground",
+								children: "Environment"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								placeholder: "Damp stone",
+								value: e.environment || "",
+								onChange: (ev) => patch(i, { environment: ev.target.value })
+							})] }),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] text-muted-foreground",
+								children: "Elevation"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								value: e.elevation || "",
+								onChange: (ev) => patch(i, { elevation: ev.target.value })
+							})] }),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] text-muted-foreground",
+								children: "Cover"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								value: e.cover || "",
+								onChange: (ev) => patch(i, { cover: ev.target.value })
+							})] }),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] text-muted-foreground",
+								children: "Connector"
+							}), /* @__PURE__ */ jsxs(Select, {
+								value: e.connector || "Doorway",
+								onValueChange: (v) => patch(i, { connector: v }),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-8",
+									children: /* @__PURE__ */ jsx(SelectValue, {})
+								}), /* @__PURE__ */ jsx(SelectContent, { children: CONNECTORS$1.map((c) => /* @__PURE__ */ jsx(SelectItem, {
+									value: c,
+									children: c
+								}, c)) })]
+							})] })
+						]
+					}),
+					[
+						["traps", "Traps (one per line)"],
+						["spawns", "Spawns / placement (one per line)"],
+						["loot", "Loot (one per line)"]
+					].map(([key, label]) => /* @__PURE__ */ jsxs("div", {
+						className: "mt-1.5",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: label
+						}), /* @__PURE__ */ jsx(Textarea, {
+							className: "min-h-14 text-xs",
+							rows: 2,
+							value: lines$1(e[key]),
+							onChange: (ev) => patch(i, { [key]: split$1(ev.target.value) })
+						})]
+					}, key)),
+					/* @__PURE__ */ jsxs("div", {
+						className: "mt-1.5",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: "Notes / tactics"
+						}), /* @__PURE__ */ jsx(Textarea, {
+							className: "min-h-12 text-xs",
+							rows: 2,
+							value: e.notes || "",
+							onChange: (ev) => patch(i, { notes: ev.target.value })
+						})]
+					})
+				]
+			}, i))
+		]
+	});
+}
+//#endregion
 //#region src/components/skilltree/library/ActionsTab.jsx
 function ActionsTab() {
 	const { settings, setSettings } = useTree();
@@ -14973,7 +15836,8 @@ var TAB_GROUPS = [
 		["lootTables", "Loot Tables"],
 		["lootPools", "Loot Pools"],
 		["encounterTables", "Encounter Tables"]
-	]]
+	]],
+	["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]]
 ];
 var SEARCH_CATEGORIES = (lib) => [
 	[
@@ -15120,6 +15984,11 @@ var SEARCH_CATEGORIES = (lib) => [
 		"Die Scaling",
 		"dieScaling",
 		(lib.dieScaling || []).map((n) => ({ name: n?.name || n }))
+	],
+	[
+		"Dungeon Rooms",
+		"dungeonRooms",
+		lib.dungeonRooms || []
 	],
 	[
 		"Monsters",
@@ -15316,6 +16185,11 @@ function LibraryMenu({ open, onClose }) {
 								value: "encounterTables",
 								className: "mt-0",
 								children: /* @__PURE__ */ jsx(EncounterTablesTab, {})
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "dungeonRooms",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(DungeonRoomsTab, {})
 							}),
 							/* @__PURE__ */ jsx(TabsContent, {
 								value: "downtime",
@@ -30463,7 +31337,7 @@ function PinnedNodeCard() {
 }
 //#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
-function LaunchMenu({ onHomebuilder, onDmScreen }) {
+function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon }) {
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [newConfirmOpen, setNewConfirmOpen] = useState(false);
@@ -30543,7 +31417,10 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
 						}),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true }), locked),
-						menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked),
+						/* @__PURE__ */ jsxs("div", {
+							className: "grid grid-cols-2 gap-3",
+							children: [menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked), menuBtn(/* @__PURE__ */ jsx(Map$1, { className: "h-5 w-5" }), "Dungeon Generator", "Build or roll a dungeon or spire", () => onDungeon?.(), locked)]
+						}),
 						menuBtn(/* @__PURE__ */ jsx(Swords, { className: "h-5 w-5" }), "DM Screen", "Quick rules and a dice roller for running the game", () => onDmScreen?.(), locked)
 					]
 				})]
@@ -31581,6 +32458,762 @@ function DmDiceRoller() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/dungeon/DungeonMap.jsx
+var PX = 7;
+var PAD = 7;
+function DungeonMap({ dungeon, selectedId, onSelect }) {
+	const rooms = dungeon?.rooms || [];
+	const connections = dungeon?.connections || [];
+	const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
+	const toX = (x) => (x - b.minX + PAD) * PX;
+	const toY = (y) => (y - b.minY + PAD) * PX;
+	const width = (b.w + 14) * PX;
+	const height = (b.h + 14) * PX;
+	if (!rooms.length) return /* @__PURE__ */ jsx("div", {
+		className: "flex h-full min-h-[16rem] items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground",
+		children: "Generate a dungeon to see its map."
+	});
+	return /* @__PURE__ */ jsx("div", {
+		className: "h-full overflow-auto rounded-md border bg-background",
+		children: /* @__PURE__ */ jsxs("svg", {
+			width: Math.max(640, width),
+			height: Math.max(420, height),
+			viewBox: `0 0 ${Math.max(640, width)} ${Math.max(420, height)}`,
+			className: "block",
+			style: { minWidth: "100%" },
+			children: [
+				/* @__PURE__ */ jsx("defs", { children: /* @__PURE__ */ jsx("pattern", {
+					id: "dungeon-grid",
+					width: 14,
+					height: 14,
+					patternUnits: "userSpaceOnUse",
+					children: /* @__PURE__ */ jsx("path", {
+						d: `M 14 0 L 0 0 0 14`,
+						fill: "none",
+						stroke: "currentColor",
+						strokeOpacity: "0.06",
+						strokeWidth: "1"
+					})
+				}) }),
+				/* @__PURE__ */ jsx("rect", {
+					width: "100%",
+					height: "100%",
+					fill: "url(#dungeon-grid)"
+				}),
+				connections.map((c) => {
+					const from = rooms.find((r) => r.id === c.from);
+					const to = rooms.find((r) => r.id === c.to);
+					if (!from || !to) return null;
+					const x1 = toX(from.x + from.w / 2);
+					const y1 = toY(from.y + from.h / 2);
+					const x2 = toX(to.x + to.w / 2);
+					const y2 = toY(to.y + to.h / 2);
+					return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("line", {
+						x1,
+						y1,
+						x2,
+						y2,
+						stroke: "hsl(var(--muted-foreground))",
+						strokeOpacity: "0.55",
+						strokeWidth: "1.5"
+					}), /* @__PURE__ */ jsx("text", {
+						x: (x1 + x2) / 2,
+						y: (y1 + y2) / 2 - 3,
+						textAnchor: "middle",
+						fontSize: "7",
+						fill: "hsl(var(--muted-foreground))",
+						fillOpacity: "0.8",
+						children: c.type
+					})] }, c.id);
+				}),
+				rooms.map((room) => {
+					const x = toX(room.x);
+					const y = toY(room.y);
+					const w = room.w * PX;
+					const h = room.h * PX;
+					const selected = selectedId === room.id;
+					const color = categoryColor(room.category);
+					const badges = [
+						room.traps?.length ? "T" : "",
+						room.spawns?.length ? "S" : "",
+						room.loot?.length ? "L" : "",
+						room.elevation && room.elevation !== "Flat" ? "E" : "",
+						room.cover && room.cover !== "Open" ? "C" : ""
+					].filter(Boolean);
+					return /* @__PURE__ */ jsxs("g", {
+						onClick: () => onSelect?.(room.id),
+						style: { cursor: "pointer" },
+						children: [
+							/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
+							/* @__PURE__ */ jsx("rect", {
+								x,
+								y,
+								width: w,
+								height: h,
+								rx: 3,
+								fill: color,
+								fillOpacity: selected ? .35 : .16,
+								stroke: selected ? "hsl(var(--primary))" : color,
+								strokeWidth: selected ? 2.5 : 1.3
+							}),
+							/* @__PURE__ */ jsx("text", {
+								x: x + 4,
+								y: y + 12,
+								fontSize: "9",
+								fontWeight: "600",
+								fill: "hsl(var(--foreground))",
+								children: String(room.name || room.category).slice(0, 26)
+							}),
+							/* @__PURE__ */ jsxs("text", {
+								x: x + 4,
+								y: y + 21,
+								fontSize: "7",
+								fill: "hsl(var(--muted-foreground))",
+								children: [
+									room.category,
+									" · ",
+									room.w,
+									"×",
+									room.h
+								]
+							}),
+							badges.length > 0 && /* @__PURE__ */ jsx("text", {
+								x: x + 4,
+								y: y + h - 5,
+								fontSize: "7",
+								fontWeight: "600",
+								fill: color,
+								children: badges.join(" ")
+							})
+						]
+					}, room.id);
+				})
+			]
+		})
+	});
+}
+//#endregion
+//#region src/components/skilltree/dungeon/DungeonGenerator.jsx
+var lines = (arr) => (arr || []).join("\n");
+var split = (text) => String(text || "").split("\n").map((s) => s.trim()).filter(Boolean);
+var CONNECTORS = [
+	"Doorway",
+	"Double Door",
+	"Gate",
+	"Archway",
+	"Corridor",
+	"Bridge",
+	"Stairs",
+	"Rubble passage",
+	"Rune-sealed door"
+];
+function DungeonGenerator({ onExit, embedded = false }) {
+	const { settings, setSettings } = useTree();
+	const roomTemplates = settings?.library?.dungeonRooms?.length ? settings.library.dungeonRooms : DEFAULT_DUNGEON_ROOMS;
+	const monsters = settings?.library?.monsters || [];
+	const lootPools = settings?.library?.lootPools || [];
+	const saved = settings?.library?.dungeons || [];
+	const [mode, setMode] = useState("single");
+	const [rank, setRank] = useState("E");
+	const [seed, setSeed] = useState(randomSeed);
+	const [dungeon, setDungeon] = useState(null);
+	const [selectedId, setSelectedId] = useState(null);
+	const [includeTraps, setIncludeTraps] = useState(true);
+	const [includeSpawns, setIncludeSpawns] = useState(true);
+	const [includeLoot, setIncludeLoot] = useState(true);
+	const [savedId, setSavedId] = useState("");
+	const [roomQuery, setRoomQuery] = useState("");
+	const selected = dungeon?.rooms?.find((r) => r.id === selectedId) || null;
+	const rankInfo = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const filteredTemplates = roomTemplates.filter((r) => {
+		const q = roomQuery.trim().toLowerCase();
+		return !q || `${r.name} ${r.category}`.toLowerCase().includes(q);
+	});
+	const stats = useMemo(() => {
+		const rooms = dungeon?.rooms || [];
+		return {
+			rooms: rooms.length,
+			traps: rooms.filter((r) => (r.traps || []).length).length,
+			spawns: rooms.filter((r) => (r.spawns || []).length).length,
+			loot: rooms.filter((r) => (r.loot || []).length).length,
+			connections: dungeon?.connections?.length || 0
+		};
+	}, [dungeon]);
+	const generate = () => {
+		const d = generateDungeon({
+			mode,
+			rank,
+			seed: seed.trim() || randomSeed(),
+			templates: roomTemplates,
+			monsters,
+			lootPools
+		});
+		const rooms = (d.rooms || []).map((r) => ({
+			...r,
+			traps: includeTraps ? r.traps : [],
+			spawns: includeSpawns ? r.spawns : [],
+			loot: includeLoot ? r.loot : []
+		}));
+		setDungeon({
+			...d,
+			rooms
+		});
+		setSeed(d.seed);
+		setSelectedId(rooms[0]?.id || null);
+		toast.success(`${rankInfo.nickname} ${mode === "spire" ? "spire" : "dungeon"} generated.`);
+	};
+	const save = () => {
+		if (!dungeon) return;
+		setSettings((s) => {
+			const list = Array.isArray(s.library.dungeons) ? [...s.library.dungeons] : [];
+			const i = list.findIndex((d) => d.id === dungeon.id);
+			if (i >= 0) list[i] = dungeon;
+			else list.push(dungeon);
+			return {
+				...s,
+				library: {
+					...s.library,
+					dungeons: list
+				}
+			};
+		});
+		setSavedId(dungeon.id);
+		toast.success("Dungeon saved with the project.");
+	};
+	const load = (id) => {
+		const d = saved.find((x) => x.id === id);
+		if (!d) return;
+		setDungeon(d);
+		setMode(d.mode || "single");
+		setRank(d.rank || "E");
+		setSeed(d.seed || "");
+		setSavedId(id);
+		setSelectedId(d.rooms?.[0]?.id || null);
+	};
+	const removeSaved = (id) => {
+		setSettings((s) => ({
+			...s,
+			library: {
+				...s.library,
+				dungeons: (s.library.dungeons || []).filter((d) => d.id !== id)
+			}
+		}));
+		if (savedId === id) setSavedId("");
+		toast("Saved dungeon removed.");
+	};
+	const download = () => {
+		if (!dungeon) return;
+		const blob = new Blob([JSON.stringify(dungeon, null, 2)], { type: "application/json" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `${(dungeon.name || "dungeon").replace(/[^\w-]+/g, "_")}.dungeon.json`;
+		a.click();
+		URL.revokeObjectURL(url);
+	};
+	const patchSelected = (patch) => {
+		if (!dungeon || !selected) return;
+		setDungeon({
+			...dungeon,
+			rooms: dungeon.rooms.map((r) => r.id === selected.id ? {
+				...r,
+				...patch
+			} : r)
+		});
+	};
+	const removeSelected = () => {
+		if (!dungeon || !selected) return;
+		setDungeon({
+			...dungeon,
+			rooms: dungeon.rooms.filter((r) => r.id !== selected.id),
+			connections: dungeon.connections.filter((c) => c.from !== selected.id && c.to !== selected.id)
+		});
+		setSelectedId(null);
+	};
+	const saveSelectedAsTemplate = () => {
+		if (!selected) return;
+		const template = {
+			id: `room${Date.now().toString(36)}`,
+			name: selected.name,
+			category: selected.category,
+			minW: selected.w,
+			maxW: selected.w,
+			minH: selected.h,
+			maxH: selected.h,
+			environment: selected.environment,
+			elevation: selected.elevation,
+			cover: selected.cover,
+			connector: selected.connector,
+			traps: [...selected.traps || []],
+			spawns: [...selected.spawns || []],
+			loot: [...selected.loot || []],
+			notes: selected.notes
+		};
+		setSettings((s) => ({
+			...s,
+			library: {
+				...s.library,
+				dungeonRooms: [...s.library.dungeonRooms || [], template]
+			}
+		}));
+		toast.success("Room added to the Reference Library's Dungeon Rooms.");
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: `flex flex-col bg-background text-foreground ${embedded ? "h-[74vh] min-h-[560px]" : "h-screen"}`,
+		children: [/* @__PURE__ */ jsxs("header", {
+			className: "flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2",
+			children: [
+				!embedded && /* @__PURE__ */ jsx(Button, {
+					size: "icon",
+					variant: "outline",
+					className: "h-8 w-8",
+					title: "Back to menu",
+					onClick: onExit,
+					children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "min-w-0",
+					children: [/* @__PURE__ */ jsx("h1", {
+						className: "font-display text-base font-semibold leading-tight",
+						children: dungeon?.name || "Dungeon Generator"
+					}), /* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: dungeon ? `${rankInfo.nickname} · ${rankInfo.downtime} downtime · ${dungeon.mode === "spire" ? "Spire run" : "Single dungeon"}` : "Generate a single dungeon or a branching spire run"
+					})]
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "ml-auto flex flex-wrap items-center gap-1.5",
+					children: [
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: generate,
+							children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate"]
+						}),
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							disabled: !dungeon,
+							onClick: save,
+							children: [/* @__PURE__ */ jsx(Save, { className: "mr-1 h-4 w-4" }), " Save"]
+						}),
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							disabled: !dungeon,
+							onClick: download,
+							children: [/* @__PURE__ */ jsx(Download, { className: "mr-1 h-4 w-4" }), " Export"]
+						})
+					]
+				})
+			]
+		}), /* @__PURE__ */ jsxs("div", {
+			className: "flex min-h-0 flex-1",
+			children: [
+				/* @__PURE__ */ jsxs("aside", {
+					className: "w-64 shrink-0 space-y-3 overflow-y-auto border-r p-3",
+					children: [
+						/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1.5",
+							children: [
+								/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+									children: "Dungeon"
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "grid grid-cols-2 gap-1.5",
+									children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Mode"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: mode,
+										onValueChange: setMode,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+											value: "single",
+											children: "Single dungeon"
+										}), /* @__PURE__ */ jsx(SelectItem, {
+											value: "spire",
+											children: "Spire run"
+										})] })]
+									})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Rank"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: rank,
+										onValueChange: setRank,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: Object.values(DUNGEON_RANKS).map((r) => /* @__PURE__ */ jsxs(SelectItem, {
+											value: r.label,
+											children: [
+												r.label,
+												" — ",
+												r.nickname
+											]
+										}, r.label)) })]
+									})] })]
+								}),
+								/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Seed"
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "flex gap-1",
+									children: [/* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: seed,
+										onChange: (e) => setSeed(e.target.value),
+										placeholder: "Seed"
+									}), /* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-8 shrink-0",
+										onClick: () => setSeed(randomSeed()),
+										title: "New seed",
+										children: /* @__PURE__ */ jsx(Dices, { className: "h-4 w-4" })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: [
+										rankInfo.rooms,
+										" encounters · levels ",
+										rankInfo.level,
+										" · prof +",
+										rankInfo.prof
+									]
+								})
+							]
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1.5 border-t pt-2",
+							children: [
+								/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+									children: "Include"
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "flex items-center justify-between text-xs",
+									children: ["Traps ", /* @__PURE__ */ jsx(Switch, {
+										checked: includeTraps,
+										onCheckedChange: setIncludeTraps
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "flex items-center justify-between text-xs",
+									children: ["Spawns ", /* @__PURE__ */ jsx(Switch, {
+										checked: includeSpawns,
+										onCheckedChange: setIncludeSpawns
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "flex items-center justify-between text-xs",
+									children: ["Loot ", /* @__PURE__ */ jsx(Switch, {
+										checked: includeLoot,
+										onCheckedChange: setIncludeLoot
+									})]
+								})
+							]
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1.5 border-t pt-2",
+							children: [/* @__PURE__ */ jsx("p", {
+								className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+								children: "Saved dungeons"
+							}), saved.length === 0 ? /* @__PURE__ */ jsx("p", {
+								className: "text-[10px] text-muted-foreground",
+								children: "None saved yet."
+							}) : /* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsxs(Select, {
+									value: savedId,
+									onValueChange: load,
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-8",
+										children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Load a dungeon…" })
+									}), /* @__PURE__ */ jsx(SelectContent, { children: saved.map((d) => /* @__PURE__ */ jsx(SelectItem, {
+										value: d.id,
+										children: d.name || "Dungeon"
+									}, d.id)) })]
+								}), savedId && /* @__PURE__ */ jsxs(Button, {
+									size: "sm",
+									variant: "ghost",
+									className: "h-7 text-xs text-destructive",
+									onClick: () => removeSaved(savedId),
+									children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Delete saved"]
+								})]
+							})]
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1.5 border-t pt-2",
+							children: [
+								/* @__PURE__ */ jsxs("div", {
+									className: "flex items-center justify-between",
+									children: [/* @__PURE__ */ jsx("p", {
+										className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+										children: "Room library"
+									}), /* @__PURE__ */ jsx("span", {
+										className: "text-[10px] text-muted-foreground",
+										children: roomTemplates.length
+									})]
+								}),
+								/* @__PURE__ */ jsx(Input, {
+									className: "h-7 text-xs",
+									placeholder: "Search rooms…",
+									value: roomQuery,
+									onChange: (e) => setRoomQuery(e.target.value)
+								}),
+								/* @__PURE__ */ jsx("div", {
+									className: "max-h-52 space-y-1 overflow-y-auto pr-1",
+									children: filteredTemplates.map((r) => /* @__PURE__ */ jsxs("div", {
+										className: "rounded border px-1.5 py-1 text-[10px]",
+										children: [/* @__PURE__ */ jsx("div", {
+											className: "truncate font-medium",
+											children: r.name
+										}), /* @__PURE__ */ jsxs("div", {
+											className: "truncate text-muted-foreground",
+											children: [
+												r.category,
+												" · ",
+												r.minW,
+												"–",
+												r.maxW,
+												"×",
+												r.minH,
+												"–",
+												r.maxH
+											]
+										})]
+									}, r.id))
+								}),
+								/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: "Edit room templates in Reference Library → Dungeon Rooms."
+								})
+							]
+						})
+					]
+				}),
+				/* @__PURE__ */ jsx("main", {
+					className: "flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto p-3",
+					children: dungeon ? /* @__PURE__ */ jsxs(Fragment, { children: [
+						/* @__PURE__ */ jsxs("div", {
+							className: "flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
+							children: [
+								/* @__PURE__ */ jsxs("span", { children: [stats.rooms, " rooms"] }),
+								/* @__PURE__ */ jsxs("span", { children: [
+									"· ",
+									stats.connections,
+									" links"
+								] }),
+								/* @__PURE__ */ jsxs("span", { children: [
+									"· ",
+									stats.traps,
+									" trapped"
+								] }),
+								/* @__PURE__ */ jsxs("span", { children: [
+									"· ",
+									stats.spawns,
+									" with spawns"
+								] }),
+								/* @__PURE__ */ jsxs("span", { children: [
+									"· ",
+									stats.loot,
+									" with loot"
+								] })
+							]
+						}),
+						/* @__PURE__ */ jsx("div", {
+							className: "min-h-0 flex-1",
+							children: /* @__PURE__ */ jsx(DungeonMap, {
+								dungeon,
+								selectedId,
+								onSelect: setSelectedId
+							})
+						}),
+						/* @__PURE__ */ jsx("div", {
+							className: "flex flex-wrap gap-1.5",
+							children: DUNGEON_CATEGORIES.map(([cat, color]) => /* @__PURE__ */ jsxs("span", {
+								className: "inline-flex items-center gap-1 rounded bg-muted/50 px-1.5 py-0.5 text-[9px]",
+								children: [/* @__PURE__ */ jsx("span", {
+									className: "h-2 w-2 rounded-full",
+									style: { background: color }
+								}), cat]
+							}, cat))
+						})
+					] }) : /* @__PURE__ */ jsxs("div", {
+						className: "flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed p-8 text-center",
+						children: [
+							/* @__PURE__ */ jsx("p", {
+								className: "text-sm font-medium",
+								children: "No dungeon generated"
+							}),
+							/* @__PURE__ */ jsx("p", {
+								className: "max-w-sm text-xs text-muted-foreground",
+								children: "Pick a mode and rank, then Generate. A single dungeon gives a connected sequence with branches; a spire run gives a branching Slay-the-Spire-style map."
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								onClick: generate,
+								children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate dungeon"]
+							})
+						]
+					})
+				}),
+				/* @__PURE__ */ jsx("aside", {
+					className: "w-80 shrink-0 overflow-y-auto border-l p-3",
+					children: selected ? /* @__PURE__ */ jsxs("div", {
+						className: "space-y-2",
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex items-center justify-between",
+								children: [/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+									children: "Room"
+								}), /* @__PURE__ */ jsx("span", {
+									className: "text-[10px]",
+									style: { color: categoryColor(selected.category) },
+									children: selected.category
+								})]
+							}),
+							/* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								value: selected.name,
+								onChange: (e) => patchSelected({ name: e.target.value })
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-2 gap-1.5",
+								children: [
+									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Category"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: selected.category,
+										onValueChange: (v) => patchSelected({ category: v }),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: DUNGEON_CATEGORIES.map(([cat]) => /* @__PURE__ */ jsx(SelectItem, {
+											value: cat,
+											children: cat
+										}, cat)) })]
+									})] }),
+									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Connector"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: selected.connector || "Doorway",
+										onValueChange: (v) => patchSelected({ connector: v }),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: CONNECTORS.map((c) => /* @__PURE__ */ jsx(SelectItem, {
+											value: c,
+											children: c
+										}, c)) })]
+									})] }),
+									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Width (spaces)"
+									}), /* @__PURE__ */ jsx(Input, {
+										type: "number",
+										min: 2,
+										max: 20,
+										className: "h-8",
+										value: selected.w,
+										onChange: (e) => patchSelected({ w: Math.max(2, Math.min(20, Number(e.target.value) || 2)) })
+									})] }),
+									/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Height (spaces)"
+									}), /* @__PURE__ */ jsx(Input, {
+										type: "number",
+										min: 2,
+										max: 20,
+										className: "h-8",
+										value: selected.h,
+										onChange: (e) => patchSelected({ h: Math.max(2, Math.min(20, Number(e.target.value) || 2)) })
+									})] })
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Environment"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								value: selected.environment || "",
+								onChange: (e) => patchSelected({ environment: e.target.value })
+							})] }),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-2 gap-1.5",
+								children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Elevation"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									value: selected.elevation || "",
+									onChange: (e) => patchSelected({ elevation: e.target.value })
+								})] }), /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Cover"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									value: selected.cover || "",
+									onChange: (e) => patchSelected({ cover: e.target.value })
+								})] })]
+							}),
+							[
+								["traps", "Traps (one per line)"],
+								["spawns", "Enemy spawns / placement"],
+								["loot", "Loot (not on a creature)"]
+							].map(([key, label]) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: label
+							}), /* @__PURE__ */ jsx(Textarea, {
+								className: "min-h-14 text-xs",
+								rows: 2,
+								value: lines(selected[key]),
+								onChange: (e) => patchSelected({ [key]: split(e.target.value) })
+							})] }, key)),
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Notes"
+							}), /* @__PURE__ */ jsx(Textarea, {
+								className: "min-h-14 text-xs",
+								rows: 2,
+								value: selected.notes || "",
+								onChange: (e) => patchSelected({ notes: e.target.value })
+							})] }),
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex flex-wrap gap-1.5 border-t pt-2",
+								children: [/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "outline",
+									className: "h-7 text-xs",
+									onClick: saveSelectedAsTemplate,
+									children: "Save as room template"
+								}), /* @__PURE__ */ jsxs(Button, {
+									size: "sm",
+									variant: "ghost",
+									className: "h-7 text-xs text-destructive",
+									onClick: removeSelected,
+									children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-3.5 w-3.5" }), " Remove room"]
+								})]
+							})
+						]
+					}) : /* @__PURE__ */ jsx("p", {
+						className: "text-xs text-muted-foreground",
+						children: "Select a room on the map to edit its size, environment, elevation, cover, traps, spawns and loot."
+					})
+				})
+			]
+		})]
+	});
+}
+//#endregion
 //#region src/lib/dmTrackerStore.js
 var DM_TRACKER_KEY = "skilltree:dmTracker";
 function loadDmTracker() {
@@ -31686,6 +33319,10 @@ function DMScreen({ onExit }) {
 									children: "Encounters & Loot"
 								}),
 								/* @__PURE__ */ jsx(TabsTrigger, {
+									value: "dungeon",
+									children: "Dungeon Generator"
+								}),
+								/* @__PURE__ */ jsx(TabsTrigger, {
 									value: "reference",
 									children: "Quick Reference"
 								})
@@ -31706,6 +33343,10 @@ function DMScreen({ onExit }) {
 									encounterTables,
 									onEncounter: addSpawn
 								})
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "dungeon",
+								children: /* @__PURE__ */ jsx(DungeonGenerator, { embedded: true })
 							}),
 							/* @__PURE__ */ jsx(TabsContent, {
 								value: "reference",
@@ -31921,7 +33562,7 @@ function pasteClipboard(clipboard, plot, floorId) {
 		for (const { kind, item } of clipboard) {
 			if (kind !== "facility") continue;
 			const c = clone(item);
-			c.id = uid();
+			c.id = uid$1();
 			c.x = item.x + dx;
 			c.y = item.y + dy;
 			c.floorId = floorId;
@@ -31933,7 +33574,7 @@ function pasteClipboard(clipboard, plot, floorId) {
 				...c[key],
 				items: c[key].items.map((it) => ({
 					...it,
-					id: uid()
+					id: uid$1()
 				}))
 			};
 			facIds.set(item.id, c.id);
@@ -31943,7 +33584,7 @@ function pasteClipboard(clipboard, plot, floorId) {
 		for (const { kind, item } of clipboard) {
 			if (kind === "facility") continue;
 			const c = clone(item);
-			c.id = uid();
+			c.id = uid$1();
 			c.x = item.x + dx;
 			c.y = item.y + dy;
 			if (kind === "furnishing") {
@@ -32393,6 +34034,25 @@ var BASTION_ORDERS = {
 };
 //#endregion
 //#region src/components/skilltree/homestead/HomesteadCanvas.jsx
+var OPENING_TYPES = /* @__PURE__ */ new Set([
+	"Doorway",
+	"Double Door",
+	"Gate",
+	"Window"
+]);
+var isOpening = (type) => OPENING_TYPES.has(type);
+var clampOpeningRun = (run, type) => {
+	const max = type === "Double Door" || type === "Gate" ? 2 : 1;
+	return (run.w || 0) >= (run.h || 0) ? {
+		...run,
+		w: Math.min(run.w || 1, max),
+		h: 1
+	} : {
+		...run,
+		w: 1,
+		h: Math.min(run.h || 1, max)
+	};
+};
 var FAC_FILL = {
 	Cramped: "fill-cyan-500/10 stroke-cyan-400/70",
 	Roomy: "fill-sky-500/10 stroke-sky-400/70",
@@ -32588,7 +34248,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		if ((plot.facilities || []).some((f) => f.floorId === up?.id && overlaps(item, f))) return toast("That spot is occupied on the floor above.");
 		update((p) => {
 			const nf = up || {
-				id: uid(),
+				id: uid$1(),
 				name: `${ordinal$1(p.floors.filter((f) => f.index >= 0).length + 1)} Floor`,
 				index: upIndex
 			};
@@ -32612,7 +34272,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		let w = box.w, h = box.h;
 		if (def.minSpaces) while (w * h < def.minSpaces) w++;
 		const item = {
-			id: uid(),
+			id: uid$1(),
 			type: tool.type,
 			name: tool.type,
 			x: box.x,
@@ -32633,7 +34293,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			if (!b.multi && (plot.facilities || []).some((f) => f.bastion === b.name)) return toast(`Your Bastion already has a ${b.name} — one only.`);
 			const { w, h } = ghostDims(tool);
 			placeFacility({
-				id: uid(),
+				id: uid$1(),
 				floorId: floor.id,
 				type: b.space,
 				bastion: b.name,
@@ -32649,7 +34309,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		if (tool.kind === "facility" || tool.kind === "attachment") {
 			const { w, h } = ghostDims(tool);
 			if (tool.type === "Balcony") return placeBalcony({
-				id: uid(),
+				id: uid$1(),
 				type: "Balcony",
 				name: "Balcony",
 				x: cell.x,
@@ -32658,7 +34318,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				h
 			});
 			placeFacility({
-				id: uid(),
+				id: uid$1(),
 				floorId: floor.id,
 				type: tool.type,
 				name: tool.type,
@@ -32685,7 +34345,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			const clash = (r) => furs.some((fu) => overlaps(r, fu)) || !fac && facs.some((f) => overlaps(r, f));
 			if (clash(rect)) return toast("That spot is already occupied.");
 			const item = {
-				id: uid(),
+				id: uid$1(),
 				facilityId: fac ? fac.id : null,
 				type: def.name,
 				label: "",
@@ -32706,7 +34366,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			return;
 		}
 		const item = {
-			id: uid(),
+			id: uid$1(),
 			floorId: floor.id,
 			type: tool.type,
 			x: cell.x,
@@ -32731,7 +34391,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 	hostsRef.current = doorHostSpans(plot, floor.id);
 	const commitWall = (run) => {
 		const item = {
-			id: uid(),
+			id: uid$1(),
 			floorId: floor.id,
 			type: tool.type,
 			x: run.x,
@@ -32785,18 +34445,15 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 	};
 	const commitDoor = (run, type = "Doorway") => {
 		const item = {
-			id: uid(),
+			id: uid$1(),
 			floorId: floor.id,
 			type,
-			x: run.x,
-			y: run.y,
-			w: run.w,
-			h: run.h
+			...clampOpeningRun(run, type)
 		};
-		const what = type === "Window" ? "window" : "door";
+		const what = type === "Window" ? "window" : type === "Gate" ? "gate" : "door";
 		if (!inBounds(item) && !wallLineInBounds(item, boundary)) return toast(`That ${what} is outside the property boundary — buy more land tiles to expand it.`);
 		if (!doorFits(hostsRef.current, item)) return toast(`A ${what} can only be drawn along a wall or the frame of a room.`);
-		if (conns.some((c) => (c.type === "Doorway" || c.type === "Window") && overlaps(item, c))) return toast("There is already a door or window there.");
+		if (conns.some((c) => OPENING_TYPES.has(c.type) && overlaps(item, c))) return toast("There is already a door, gate or window there.");
 		update((p) => ({
 			...p,
 			connections: [...p.connections || [], item]
@@ -32914,7 +34571,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				[key]: {
 					...x[key],
 					items: [...x[key].items, {
-						id: uid(),
+						id: uid$1(),
 						type,
 						w: def.foot[0],
 						h: def.foot[1],
@@ -32944,7 +34601,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 					const hi = Math.max(run.x + run.w, ...group.map((g) => g.x + g.w));
 					const hiY = Math.max(run.y + run.h, ...group.map((g) => g.y + g.h));
 					walls = [...walls.filter((wl) => !ids.has(wl.id)), run.h === 1 ? {
-						id: uid(),
+						id: uid$1(),
 						floorId: run.floorId,
 						type: "Interior Wall",
 						free: true,
@@ -32953,7 +34610,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 						w: hi - lo,
 						h: 1
 					} : {
-						id: uid(),
+						id: uid$1(),
 						floorId: run.floorId,
 						type: "Interior Wall",
 						free: true,
@@ -32966,7 +34623,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				}
 				if (walls.some((wl) => wl.type === "Interior Wall" && wl.x === run.x && wl.y === run.y && wl.w === run.w && wl.h === run.h)) return;
 				walls.push({
-					id: uid(),
+					id: uid$1(),
 					floorId: run.floorId,
 					type: "Interior Wall",
 					free: true,
@@ -33062,7 +34719,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				}
 				const above = floors.filter((f) => f.index >= 0 && f.index < idx).length;
 				const nf = {
-					id: uid(),
+					id: uid$1(),
 					name: `${ordinal$1(above + 1)} Floor`,
 					index: idx
 				};
@@ -33080,7 +34737,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				}, f))) continue;
 				facilities.push({
 					...item,
-					id: uid(),
+					id: uid$1(),
 					floorId: fid,
 					stackOf: item.id
 				});
@@ -33114,7 +34771,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				const fid = ids[idx];
 				if ((p.connections || []).some((c) => c.floorId === fid && c.x === x && c.y === y)) continue;
 				stairs.push({
-					id: uid(),
+					id: uid$1(),
 					floorId: fid,
 					type: "Staircase",
 					x,
@@ -33147,7 +34804,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 			return;
 		}
 		if (tool) {
-			if (tool.kind === "wall" || tool.kind === "connection" && (tool.type === "Doorway" || tool.type === "Window")) {
+			if (tool.kind === "wall" || tool.kind === "connection" && isOpening(tool.type)) {
 				const c = toCell(e);
 				gestureRef.current = {
 					type: "wall",
@@ -33257,10 +34914,11 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 					w: 1,
 					h: dy + 1
 				};
+				const preview = g.tool.kind === "connection" && isOpening(g.tool.type) ? clampOpeningRun(run, g.tool.type) : run;
 				setWallGhost(g.tool.kind === "connection" ? {
-					...run,
-					ok: doorFits(hostsRef.current, run)
-				} : run);
+					...preview,
+					ok: doorFits(hostsRef.current, preview)
+				} : preview);
 			} else {
 				const c = cellOf(e);
 				const w = g.edge.includes("e") ? Math.max(1, c.x - g.x + 1) : g.w;
@@ -33842,7 +35500,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 						}, wl.id);
 					}),
 					conns.map((c) => {
-						if ((c.type === "Doorway" || c.type === "Window") && (c.w > 1 || c.h > 1)) {
+						if (isOpening(c.type) && (c.w > 1 || c.h > 1)) {
 							const horiz = c.h === 1;
 							const selCls = isSel("connection", c.id);
 							const X0 = c.x * 32, Y0 = c.y * 32;
@@ -33964,35 +35622,73 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 										className: "stroke-background",
 										strokeWidth: 8
 									}),
-									horiz ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("line", {
-										x1: X0,
-										y1: Y0,
-										x2: X0,
-										y2: Y0 + r,
-										className: leaf,
-										strokeWidth: selCls ? 3 : 2.5,
-										strokeLinecap: "round"
-									}), /* @__PURE__ */ jsx("path", {
-										d: `M ${X0} ${Y0 + r} A ${r} ${r} 0 0 0 ${X0 + r} ${Y0}`,
-										fill: "none",
-										className: arc,
-										strokeWidth: 1.2,
-										strokeDasharray: "3 3"
-									})] }) : /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("line", {
-										x1: X0,
-										y1: Y0,
-										x2: X0 + r,
-										y2: Y0,
-										className: leaf,
-										strokeWidth: selCls ? 3 : 2.5,
-										strokeLinecap: "round"
-									}), /* @__PURE__ */ jsx("path", {
-										d: `M ${X0 + r} ${Y0} A ${r} ${r} 0 0 1 ${X0} ${Y0 + r}`,
-										fill: "none",
-										className: arc,
-										strokeWidth: 1.2,
-										strokeDasharray: "3 3"
-									})] })
+									horiz ? /* @__PURE__ */ jsxs(Fragment, { children: [
+										/* @__PURE__ */ jsx("line", {
+											x1: X0,
+											y1: Y0,
+											x2: X0,
+											y2: Y0 + r,
+											className: leaf,
+											strokeWidth: selCls ? 3 : 2.5,
+											strokeLinecap: "round"
+										}),
+										/* @__PURE__ */ jsx("path", {
+											d: `M ${X0} ${Y0 + r} A ${r} ${r} 0 0 0 ${X0 + r} ${Y0}`,
+											fill: "none",
+											className: arc,
+											strokeWidth: 1.2,
+											strokeDasharray: "3 3"
+										}),
+										/* @__PURE__ */ jsx("line", {
+											x1: X0 + len,
+											y1: Y0,
+											x2: X0 + len,
+											y2: Y0 + r,
+											className: leaf,
+											strokeWidth: selCls ? 3 : 2.5,
+											strokeLinecap: "round"
+										}),
+										/* @__PURE__ */ jsx("path", {
+											d: `M ${X0 + len} ${Y0 + r} A ${r} ${r} 0 0 1 ${X0 + len - r} ${Y0}`,
+											fill: "none",
+											className: arc,
+											strokeWidth: 1.2,
+											strokeDasharray: "3 3"
+										})
+									] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+										/* @__PURE__ */ jsx("line", {
+											x1: X0,
+											y1: Y0,
+											x2: X0 + r,
+											y2: Y0,
+											className: leaf,
+											strokeWidth: selCls ? 3 : 2.5,
+											strokeLinecap: "round"
+										}),
+										/* @__PURE__ */ jsx("path", {
+											d: `M ${X0 + r} ${Y0} A ${r} ${r} 0 0 1 ${X0} ${Y0 + r}`,
+											fill: "none",
+											className: arc,
+											strokeWidth: 1.2,
+											strokeDasharray: "3 3"
+										}),
+										/* @__PURE__ */ jsx("line", {
+											x1: X0,
+											y1: Y0 + len,
+											x2: X0 + r,
+											y2: Y0 + len,
+											className: leaf,
+											strokeWidth: selCls ? 3 : 2.5,
+											strokeLinecap: "round"
+										}),
+										/* @__PURE__ */ jsx("path", {
+											d: `M ${X0 + r} ${Y0 + len} A ${r} ${r} 0 0 0 ${X0} ${Y0 + len - r}`,
+											fill: "none",
+											className: arc,
+											strokeWidth: 1.2,
+											strokeDasharray: "3 3"
+										})
+									] })
 								]
 							}, c.id);
 						}
@@ -34032,7 +35728,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 								width: 26,
 								height: 26,
 								rx: "3",
-								className: c.type === "Doorway" ? "fill-amber-400/50 stroke-amber-600" : c.type === "Window" ? "fill-sky-400/50 stroke-sky-600" : "fill-muted stroke-border",
+								className: c.type === "Doorway" ? "fill-amber-400/50 stroke-amber-600" : c.type === "Double Door" ? "fill-amber-500/60 stroke-amber-700" : c.type === "Gate" ? "fill-stone-400/60 stroke-stone-600" : c.type === "Window" ? "fill-sky-400/50 stroke-sky-600" : "fill-muted stroke-border",
 								strokeWidth: isSel("connection", c.id) ? 2 : 1.5
 							})
 						}, c.id);
@@ -34152,11 +35848,11 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 						children: tool.type.toLowerCase()
 					}),
 					" — runs fuse and join at corners automatically. Esc or the Select tool to stop."
-				] }) : tool.kind === "connection" && tool.type === "Doorway" ? /* @__PURE__ */ jsxs(Fragment, { children: [
+				] }) : tool.kind === "connection" && isOpening(tool.type) ? /* @__PURE__ */ jsxs(Fragment, { children: [
 					"Drag along a wall or a room's frame to draw ",
 					/* @__PURE__ */ jsx("span", {
 						className: "font-semibold",
-						children: "Doorway"
+						children: tool.type
 					}),
 					" — Esc or the Select tool to stop."
 				] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -34228,40 +35924,67 @@ function deleteByKind(update, plot, kind, id) {
 }
 //#endregion
 //#region src/components/skilltree/homestead/HomesteadPalette.jsx
+function PaletteSection({ title, children }) {
+	const [open, setOpen] = useState(true);
+	return /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("button", {
+		type: "button",
+		onClick: () => setOpen((v) => !v),
+		className: "mb-1 mt-3 flex w-full items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground",
+		children: [open ? /* @__PURE__ */ jsx(ChevronDown, { className: "h-3 w-3" }) : /* @__PURE__ */ jsx(ChevronRight, { className: "h-3 w-3" }), title]
+	}), open && /* @__PURE__ */ jsx("div", {
+		className: "space-y-1",
+		children
+	})] });
+}
 function HomesteadPalette({ plot, tool, setTool }) {
+	const [query, setQuery] = useState("");
+	const q = query.trim().toLowerCase();
 	const pick = (t) => setTool(tool && tool.type === t.type && tool.kind === t.kind ? null : t);
 	const isPick = (kind, type) => tool && tool.kind === kind && tool.type === type;
 	const biz = plotHasKind(plot, "business");
 	const st = STATIONS[plot.comfort] || STATIONS.modest;
 	const level = plot.charLevel || 5;
-	const toolBtn = (t, sub, disabled, note) => /* @__PURE__ */ jsx(Button, {
-		variant: isPick(t.kind, t.type) ? "secondary" : "outline",
-		size: "sm",
-		disabled,
-		title: note || sub,
-		className: "h-auto w-full justify-start px-2.5 py-1.5 text-left",
-		onClick: () => pick(t),
-		children: /* @__PURE__ */ jsxs("span", {
-			className: "min-w-0",
-			children: [/* @__PURE__ */ jsx("span", {
-				className: "block truncate text-xs font-medium",
-				children: t.type
-			}), /* @__PURE__ */ jsx("span", {
-				className: "block truncate text-[10px] text-muted-foreground",
-				children: sub
-			})]
-		})
-	}, `${t.kind}:${t.type}`);
-	const section = (title, children) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
-		className: "mb-1 mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-		children: title
-	}), /* @__PURE__ */ jsx("div", {
-		className: "space-y-1",
-		children
-	})] }, title);
+	const toolBtn = (t, sub, disabled, note) => {
+		if (q && !`${t.type} ${sub || ""}`.toLowerCase().includes(q)) return null;
+		return /* @__PURE__ */ jsx(Button, {
+			variant: isPick(t.kind, t.type) ? "secondary" : "outline",
+			size: "sm",
+			disabled,
+			title: note || sub,
+			className: "h-auto w-full justify-start px-2.5 py-1.5 text-left",
+			onClick: () => pick(t),
+			children: /* @__PURE__ */ jsxs("span", {
+				className: "min-w-0",
+				children: [/* @__PURE__ */ jsx("span", {
+					className: "block truncate text-xs font-medium",
+					children: t.type
+				}), /* @__PURE__ */ jsx("span", {
+					className: "block truncate text-[10px] text-muted-foreground",
+					children: sub
+				})]
+			})
+		}, `${t.kind}:${t.type}`);
+	};
+	const section = (title, children) => {
+		const list = [].concat(children).filter(Boolean);
+		if (q && !list.length) return null;
+		return /* @__PURE__ */ jsx(PaletteSection, {
+			title,
+			children: list
+		}, title);
+	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-0.5",
 		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "relative",
+				children: [/* @__PURE__ */ jsx(Search, { className: "absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" }), /* @__PURE__ */ jsx(Input, {
+					className: "h-8 pl-7 text-xs",
+					placeholder: "Search tools and rooms…",
+					value: query,
+					onChange: (e) => setQuery(e.target.value)
+				})]
+			}),
 			/* @__PURE__ */ jsxs(Button, {
 				variant: !tool ? "secondary" : "outline",
 				size: "sm",
@@ -34277,12 +36000,8 @@ function HomesteadPalette({ plot, tool, setTool }) {
 				kind: "facility",
 				type
 			}, FACILITY_TYPES[type].desc))),
-			section("Bastion special facilities", BASTION_LEVELS.map((lv) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("p", {
-				className: "mb-1 mt-2 text-[10px] uppercase tracking-widest text-muted-foreground/70",
-				children: ["Level ", lv]
-			}), /* @__PURE__ */ jsx("div", {
-				className: "space-y-1",
-				children: BASTION_FACILITIES.filter((b) => b.level === lv).map((b) => {
+			section("Bastion special facilities", BASTION_LEVELS.map((lv) => {
+				const items = BASTION_FACILITIES.filter((b) => b.level === lv).map((b) => {
 					const size = FACILITY_TYPES[b.space];
 					const locked = level < b.level;
 					const base = `${b.space} (${size.w}×${size.h}) · ${b.hirelings} hireling${b.hirelings === 1 ? "" : "s"} · free — no gold or build time`;
@@ -34290,8 +36009,16 @@ function HomesteadPalette({ plot, tool, setTool }) {
 						kind: "bastion",
 						type: b.name
 					}, locked ? `Level ${b.level} · locked` : base, locked, locked ? `Requires character level ${b.level}${b.prereq ? ` · ${b.prereq}` : ""}` : `${b.prereq ? `${b.prereq} · ` : ""}${base}${b.multi ? "" : " · one only"}`);
-				})
-			})] }, lv))),
+				}).filter(Boolean);
+				if (!items.length) return null;
+				return /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("p", {
+					className: "mb-1 mt-2 text-[10px] uppercase tracking-widest text-muted-foreground/70",
+					children: ["Level ", lv]
+				}), /* @__PURE__ */ jsx("div", {
+					className: "space-y-1",
+					children: items
+				})] }, lv);
+			})),
 			section("Attachments", [
 				"Courtyard",
 				"Porch",
@@ -34655,7 +36382,7 @@ function AttachmentEditor({ plot, f, keyName, update }) {
 		const pos = firstFitRoom(f, at.items, def.foot[0], def.foot[1]);
 		if (!pos) return;
 		setUp({ items: [...at.items, {
-			id: uid(),
+			id: uid$1(),
 			type,
 			w: def.foot[0],
 			h: def.foot[1],
@@ -36306,7 +38033,7 @@ function TurnPanel({ plot, update, log, biz }) {
 		const cap = hasLedger ? 10 : 3;
 		if (routes.length >= cap) return toast(`Trade route limit: ${cap}${hasLedger ? " (Ledger Room)" : " — a Ledger Room raises it to 10"}.`);
 		setBiz({ routes: [...routes, {
-			id: uid(),
+			id: uid$1(),
 			type: rt.id,
 			dc: rt.dc,
 			bonus: rt.bonus,
@@ -37411,6 +39138,21 @@ function PlotSetupDialog({ kind, onClose, onCreate }) {
 		comfort,
 		landTier
 	});
+	useEffect(() => {
+		if (!kind) return;
+		const d = defaultBoundary({
+			ownership,
+			comfort,
+			landTier
+		});
+		setW(d.w);
+		setH(d.h);
+	}, [
+		kind,
+		ownership,
+		comfort,
+		landTier
+	]);
 	const create = () => {
 		if (!kind) return;
 		const p = blankPlot(kind);
@@ -37713,6 +39455,8 @@ function Homebuilder({ onExit }) {
 	const [setupKind, setSetupKind] = useState(null);
 	const loadRef = useRef(null);
 	const clipRef = useRef(null);
+	const pastRef = useRef([]);
+	const futureRef = useRef([]);
 	useEffect(() => {
 		const first = plots[0];
 		if (first && !activeId) {
@@ -37795,12 +39539,23 @@ function Homebuilder({ onExit }) {
 	useEffect(() => {
 		const onKey = (e) => {
 			if (e.key === "Escape") {
-				setTool(null);
+				if (tool) setTool(null);
+				else setSelection(null);
 				return;
 			}
 			const tag = document.activeElement?.tagName;
 			if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-			if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) {
+			const meta = e.ctrlKey || e.metaKey;
+			if (meta && (e.key === "z" || e.key === "Z")) {
+				if (e.shiftKey) redo();
+				else undo();
+				return;
+			}
+			if (meta && (e.key === "y" || e.key === "Y")) {
+				redo();
+				return;
+			}
+			if (meta && (e.key === "c" || e.key === "C")) {
 				const clip = copySelection(plot, selection, floorId);
 				if (clip) {
 					clipRef.current = clip;
@@ -37808,7 +39563,17 @@ function Homebuilder({ onExit }) {
 				}
 				return;
 			}
-			if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+			if (meta && (e.key === "x" || e.key === "X")) {
+				const clip = copySelection(plot, selection, floorId);
+				if (clip) {
+					clipRef.current = clip;
+					update((p) => deleteSelectionFromPlot(p, selection));
+					setSelection(null);
+					toast(`Cut ${clip.length} item${clip.length === 1 ? "" : "s"}.`);
+				}
+				return;
+			}
+			if (meta && (e.key === "v" || e.key === "V")) {
 				const res = pasteClipboard(clipRef.current, plot, floorId);
 				if (res) {
 					update(() => res.plot);
@@ -37832,7 +39597,32 @@ function Homebuilder({ onExit }) {
 		return () => window.removeEventListener("keydown", onKey);
 	});
 	const plot = plots.find((p) => p.id === activeId) || null;
-	const update = (fn) => setPlots((ps) => ps.map((p) => p.id === activeId ? fn(p) : p));
+	const update = (fn) => setPlots((ps) => {
+		const next = ps.map((p) => p.id === activeId ? fn(p) : p);
+		if (next === ps) return ps;
+		pastRef.current.push(ps);
+		if (pastRef.current.length > 80) pastRef.current.shift();
+		futureRef.current = [];
+		return next;
+	});
+	const undo = () => {
+		const prev = pastRef.current.pop();
+		if (!prev) return;
+		setPlots((cur) => {
+			futureRef.current.push(cur);
+			return prev;
+		});
+		setSelection(null);
+	};
+	const redo = () => {
+		const next = futureRef.current.pop();
+		if (!next) return;
+		setPlots((cur) => {
+			pastRef.current.push(cur);
+			return next;
+		});
+		setSelection(null);
+	};
 	useEffect(() => {
 		const valid = selectionValid(plot, selection);
 		if (valid !== selection) setSelection(valid);
@@ -37840,6 +39630,8 @@ function Homebuilder({ onExit }) {
 	const totals = plot ? plotTotals(plot) : null;
 	const addPlot = (kind) => setSetupKind(kind);
 	const createPlot = (p) => {
+		pastRef.current.push(plots);
+		futureRef.current = [];
 		setPlots((ps) => [...ps, p]);
 		setActiveId(p.id);
 		setFloorId(p.floors[0].id);
@@ -37849,6 +39641,8 @@ function Homebuilder({ onExit }) {
 	};
 	const deletePlot = () => {
 		if (!plot) return;
+		pastRef.current.push(plots);
+		futureRef.current = [];
 		setPlots((ps) => ps.filter((p) => p.id !== plot.id));
 		const next = plots.find((p) => p.id !== plot.id);
 		setActiveId(next ? next.id : null);
@@ -37904,11 +39698,11 @@ function Homebuilder({ onExit }) {
 		const above = plot.floors.filter((f) => f.index >= 0);
 		const cellars = plot.floors.filter((f) => f.index < 0);
 		const next = below ? {
-			id: uid(),
+			id: uid$1(),
 			name: `Cellar ${cellars.length + 1}`,
 			index: Math.min(...cellars.map((f) => f.index), 0) - 1
 		} : {
-			id: uid(),
+			id: uid$1(),
 			name: `${ordinal(above.length + 1)} Floor`,
 			index: Math.max(...above.map((f) => f.index), -1) + 1
 		};
@@ -38146,7 +39940,7 @@ function Homebuilder({ onExit }) {
 				className: "flex min-h-0 flex-1",
 				children: [
 					/* @__PURE__ */ jsx("aside", {
-						className: "w-60 shrink-0 space-y-2 overflow-y-auto border-r p-3",
+						className: "w-72 shrink-0 space-y-2 overflow-y-auto border-r p-3",
 						children: plot && /* @__PURE__ */ jsxs(Fragment, { children: [
 							/* @__PURE__ */ jsx(MetaPanel, {
 								plot,
@@ -40333,6 +42127,7 @@ function Workspace() {
 	const [ctx, setCtx] = useState(null);
 	const [homebuilder, setHomebuilder] = useState(false);
 	const [dmScreen, setDmScreen] = useState(false);
+	const [dungeon, setDungeon] = useState(false);
 	const [sendRows, setSendRows] = useState(null);
 	const [exportOpen, setExportOpen] = useState(false);
 	const [poolWins, setPoolWins] = useState([]);
@@ -40344,10 +42139,12 @@ function Workspace() {
 		collapsed: false
 	}]);
 	if (screen === "launch" && homebuilder) return /* @__PURE__ */ jsx(Homebuilder, { onExit: () => setHomebuilder(false) });
+	if (screen === "launch" && dungeon) return /* @__PURE__ */ jsx(DungeonGenerator, { onExit: () => setDungeon(false) });
 	if (screen === "launch" && dmScreen) return /* @__PURE__ */ jsx(DMScreen, { onExit: () => setDmScreen(false) });
 	if (screen === "launch") return /* @__PURE__ */ jsx(LaunchMenu, {
 		onHomebuilder: () => setHomebuilder(true),
-		onDmScreen: () => setDmScreen(true)
+		onDmScreen: () => setDmScreen(true),
+		onDungeon: () => setDungeon(true)
 	});
 	if (loading || !tree) return /* @__PURE__ */ jsxs("div", {
 		className: "flex h-screen flex-col items-center justify-center gap-3 bg-background",

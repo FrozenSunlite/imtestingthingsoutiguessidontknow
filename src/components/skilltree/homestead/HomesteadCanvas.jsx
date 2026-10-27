@@ -26,6 +26,16 @@ import HomesteadContextMenu from "./HomesteadContextMenu";
 import { BASTION_ORDERS } from "@/lib/homesteadBastionOrders";
 import { wallLineInBounds } from "@/lib/homesteadEdit";
 
+const OPENING_TYPES = new Set(["Doorway", "Double Door", "Gate", "Window"]);
+const isOpening = (type) => OPENING_TYPES.has(type);
+const clampOpeningRun = (run, type) => {
+  const max = type === "Double Door" || type === "Gate" ? 2 : 1;
+  const horiz = (run.w || 0) >= (run.h || 0);
+  return horiz
+    ? { ...run, w: Math.min(run.w || 1, max), h: 1 }
+    : { ...run, w: 1, h: Math.min(run.h || 1, max) };
+};
+
 // Facilities sit at the very bottom of each building's stack, heavily
 // transparent so the rooms (furnishings) placed inside them stay readable.
 const FAC_FILL = {
@@ -336,14 +346,20 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
   // line that must lie on a wall run (the line of an interior wall, either
   // edge of a thick wall or fence) or along a room's frame.
   const commitDoor = (run, type = "Doorway") => {
-    const item = { id: uid(), floorId: floor.id, type, x: run.x, y: run.y, w: run.w, h: run.h };
-    const what = type === "Window" ? "window" : "door";
+    // A normal door/window is one space; double doors and gates may span two.
+    const item = {
+      id: uid(),
+      floorId: floor.id,
+      type,
+      ...clampOpeningRun(run, type),
+    };
+    const what = type === "Window" ? "window" : type === "Gate" ? "gate" : "door";
     if (!inBounds(item) && !wallLineInBounds(item, boundary))
       return toast(`That ${what} is outside the property boundary — buy more land tiles to expand it.`);
     if (!doorFits(hostsRef.current, item))
       return toast(`A ${what} can only be drawn along a wall or the frame of a room.`);
-    if (conns.some((c) => (c.type === "Doorway" || c.type === "Window") && overlaps(item, c)))
-      return toast("There is already a door or window there.");
+    if (conns.some((c) => OPENING_TYPES.has(c.type) && overlaps(item, c)))
+      return toast("There is already a door, gate or window there.");
     update((p) => ({ ...p, connections: [...(p.connections || []), item] }));
     onSelect({ kind: "connection", id: item.id });
   };
@@ -576,7 +592,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
       return;
     }
     if (tool) {
-      if (tool.kind === "wall" || (tool.kind === "connection" && (tool.type === "Doorway" || tool.type === "Window"))) {
+      if (tool.kind === "wall" || (tool.kind === "connection" && isOpening(tool.type))) {
         // Wall / fence / door / window tools draw a run by dragging across the grid.
         const c = toCell(e);
         gestureRef.current = { type: "wall", tool, ax: c.x, ay: c.y, sx: e.clientX, sy: e.clientY, moved: false };
@@ -644,7 +660,10 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
         const run = dx >= dy
           ? { x: Math.min(g.ax, c.x), y: g.ay, w: dx + 1, h: 1 }
           : { x: g.ax, y: Math.min(g.ay, c.y), w: 1, h: dy + 1 };
-        setWallGhost(g.tool.kind === "connection" ? { ...run, ok: doorFits(hostsRef.current, run) } : run);
+        const preview = g.tool.kind === "connection" && isOpening(g.tool.type)
+          ? clampOpeningRun(run, g.tool.type)
+          : run;
+        setWallGhost(g.tool.kind === "connection" ? { ...preview, ok: doorFits(hostsRef.current, preview) } : preview);
       } else {
         const c = cellOf(e);
         const w = g.edge.includes("e") ? Math.max(1, c.x - g.x + 1) : g.w;
@@ -1054,7 +1073,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
         {conns.map((c) => {
           // Drawn doors (longer than one space) render as an opening in their
           // host line — a background-colored gap, a leaf and a swing arc.
-          if ((c.type === "Doorway" || c.type === "Window") && (c.w > 1 || c.h > 1)) {
+          if (isOpening(c.type) && (c.w > 1 || c.h > 1)) {
             const horiz = c.h === 1;
             const selCls = isSel("connection", c.id);
             const X0 = c.x * CELL, Y0 = c.y * CELL;
@@ -1115,11 +1134,15 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
                   <>
                     <line x1={X0} y1={Y0} x2={X0} y2={Y0 + r} className={leaf} strokeWidth={selCls ? 3 : 2.5} strokeLinecap="round" />
                     <path d={`M ${X0} ${Y0 + r} A ${r} ${r} 0 0 0 ${X0 + r} ${Y0}`} fill="none" className={arc} strokeWidth={1.2} strokeDasharray="3 3" />
+                    <line x1={X0 + len} y1={Y0} x2={X0 + len} y2={Y0 + r} className={leaf} strokeWidth={selCls ? 3 : 2.5} strokeLinecap="round" />
+                    <path d={`M ${X0 + len} ${Y0 + r} A ${r} ${r} 0 0 1 ${X0 + len - r} ${Y0}`} fill="none" className={arc} strokeWidth={1.2} strokeDasharray="3 3" />
                   </>
                 ) : (
                   <>
                     <line x1={X0} y1={Y0} x2={X0 + r} y2={Y0} className={leaf} strokeWidth={selCls ? 3 : 2.5} strokeLinecap="round" />
                     <path d={`M ${X0 + r} ${Y0} A ${r} ${r} 0 0 1 ${X0} ${Y0 + r}`} fill="none" className={arc} strokeWidth={1.2} strokeDasharray="3 3" />
+                    <line x1={X0} y1={Y0 + len} x2={X0 + r} y2={Y0 + len} className={leaf} strokeWidth={selCls ? 3 : 2.5} strokeLinecap="round" />
+                    <path d={`M ${X0 + r} ${Y0 + len} A ${r} ${r} 0 0 0 ${X0} ${Y0 + len - r}`} fill="none" className={arc} strokeWidth={1.2} strokeDasharray="3 3" />
                   </>
                 )}
               </g>
@@ -1140,7 +1163,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
               e.stopPropagation(); onSelect({ kind: "connection", id: c.id }); startDragItem("connection", raw0(c), e);
             }}>
               <rect x={c.x * CELL + 3} y={c.y * CELL + 3} width={CELL - 6} height={CELL - 6} rx="3"
-                className={c.type === "Doorway" ? "fill-amber-400/50 stroke-amber-600" : c.type === "Window" ? "fill-sky-400/50 stroke-sky-600" : "fill-muted stroke-border"}
+                className={c.type === "Doorway" ? "fill-amber-400/50 stroke-amber-600" : c.type === "Double Door" ? "fill-amber-500/60 stroke-amber-700" : c.type === "Gate" ? "fill-stone-400/60 stroke-stone-600" : c.type === "Window" ? "fill-sky-400/50 stroke-sky-600" : "fill-muted stroke-border"}
                 strokeWidth={isSel("connection", c.id) ? 2 : 1.5} />
             </g>
           );
@@ -1220,8 +1243,8 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
         <div className="pointer-events-none absolute left-3 top-3 rounded-md border bg-background/90 px-2.5 py-1 text-xs shadow">
           {tool.kind === "wall"
             ? <>Drag across the grid to draw <span className="font-semibold">{tool.type.toLowerCase()}</span> — runs fuse and join at corners automatically. Esc or the Select tool to stop.</>
-            : tool.kind === "connection" && tool.type === "Doorway"
-              ? <>Drag along a wall or a room's frame to draw <span className="font-semibold">Doorway</span> — Esc or the Select tool to stop.</>
+            : tool.kind === "connection" && isOpening(tool.type)
+              ? <>Drag along a wall or a room's frame to draw <span className="font-semibold">{tool.type}</span> — Esc or the Select tool to stop.</>
               : <>Left-click a space to place <span className="font-semibold">{tool.type}</span> — Esc or the Select tool to stop.</>}
         </div>
       )}

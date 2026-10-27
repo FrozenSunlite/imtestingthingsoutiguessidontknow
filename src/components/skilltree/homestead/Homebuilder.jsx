@@ -63,6 +63,8 @@ export default function Homebuilder({ onExit }) {
   const [setupKind, setSetupKind] = useState(null); // kind awaiting its setup dialog
   const loadRef = useRef(null);
   const clipRef = useRef(null); // copy/paste clipboard — every copy overwrites it
+  const pastRef = useRef([]); // undo history (snapshots of the plot list)
+  const futureRef = useRef([]); // redo history
 
   useEffect(() => {
     const first = plots[0];
@@ -129,16 +131,29 @@ export default function Homebuilder({ onExit }) {
     }
   };
 
-  // Esc cancels the active placement tool; Delete removes the selection;
-  // Ctrl+C / Ctrl+V copy & paste it (every copy overwrites the clipboard);
-  // R rotates the selection (the canvas rotates its placement ghost instead
-  // while a tool is active).
+  // Esc cancels the active placement tool, then clears the selection; Delete
+  // removes the selection; Ctrl+C / Ctrl+X / Ctrl+V copy, cut and paste;
+  // Ctrl+Z / Ctrl+Y undo and redo; R rotates the selection.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") { setTool(null); return; }
+      if (e.key === "Escape") {
+        if (tool) setTool(null);
+        else setSelection(null);
+        return;
+      }
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) {
+      const meta = e.ctrlKey || e.metaKey;
+      if (meta && (e.key === "z" || e.key === "Z")) {
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (meta && (e.key === "y" || e.key === "Y")) {
+        redo();
+        return;
+      }
+      if (meta && (e.key === "c" || e.key === "C")) {
         const clip = copySelection(plot, selection, floorId);
         if (clip) {
           clipRef.current = clip;
@@ -146,7 +161,17 @@ export default function Homebuilder({ onExit }) {
         }
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+      if (meta && (e.key === "x" || e.key === "X")) {
+        const clip = copySelection(plot, selection, floorId);
+        if (clip) {
+          clipRef.current = clip;
+          update((p) => deleteSelectionFromPlot(p, selection));
+          setSelection(null);
+          toast(`Cut ${clip.length} item${clip.length === 1 ? "" : "s"}.`);
+        }
+        return;
+      }
+      if (meta && (e.key === "v" || e.key === "V")) {
         const res = pasteClipboard(clipRef.current, plot, floorId);
         if (res) {
           update(() => res.plot);
@@ -174,7 +199,33 @@ export default function Homebuilder({ onExit }) {
 
   const plot = plots.find((p) => p.id === activeId) || null;
   const update = (fn) =>
-    setPlots((ps) => ps.map((p) => (p.id === activeId ? fn(p) : p)));
+    setPlots((ps) => {
+      const next = ps.map((p) => (p.id === activeId ? fn(p) : p));
+      if (next === ps) return ps;
+      pastRef.current.push(ps);
+      if (pastRef.current.length > 80) pastRef.current.shift();
+      futureRef.current = [];
+      return next;
+    });
+
+  const undo = () => {
+    const prev = pastRef.current.pop();
+    if (!prev) return;
+    setPlots((cur) => {
+      futureRef.current.push(cur);
+      return prev;
+    });
+    setSelection(null);
+  };
+  const redo = () => {
+    const next = futureRef.current.pop();
+    if (!next) return;
+    setPlots((cur) => {
+      pastRef.current.push(cur);
+      return next;
+    });
+    setSelection(null);
+  };
   // A deleted selection points at items that no longer exist — drop it so
   // the details panel stops showing a ghost selection.
   useEffect(() => {
@@ -187,6 +238,8 @@ export default function Homebuilder({ onExit }) {
   const addPlot = (kind) => setSetupKind(kind);
 
   const createPlot = (p) => {
+    pastRef.current.push(plots);
+    futureRef.current = [];
     setPlots((ps) => [...ps, p]);
     setActiveId(p.id);
     setFloorId(p.floors[0].id);
@@ -197,6 +250,8 @@ export default function Homebuilder({ onExit }) {
 
   const deletePlot = () => {
     if (!plot) return;
+    pastRef.current.push(plots);
+    futureRef.current = [];
     setPlots((ps) => ps.filter((p) => p.id !== plot.id));
     const next = plots.find((p) => p.id !== plot.id);
     setActiveId(next ? next.id : null);
@@ -401,7 +456,7 @@ export default function Homebuilder({ onExit }) {
       <PlotSetupDialog kind={setupKind} onClose={() => setSetupKind(null)} onCreate={createPlot} />
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-60 shrink-0 space-y-2 overflow-y-auto border-r p-3">
+        <aside className="w-72 shrink-0 space-y-2 overflow-y-auto border-r p-3">
           {plot && (
             <>
               <MetaPanel plot={plot} update={update} isLand={isLand} devMode={devMode} />

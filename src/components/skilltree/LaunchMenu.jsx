@@ -24,11 +24,12 @@ import {
   BookOpen,
   Library,
   Swords,
+  Map,
 } from "lucide-react";
 
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
-export function LaunchMenu({ onHomebuilder, onDmScreen }) {
+export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon }) {
   const { enterApp, startNewTree, tree, character, settings } = useTree();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
@@ -154,13 +155,22 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
             () => enterApp("sheet", { sheetOnly: true }),
             locked
           )}
-          {menuBtn(
-            <Home className="h-5 w-5" />,
-            "Architect",
-            "Design a home, business or bastion plot",
-            () => onHomebuilder?.(),
-            locked
-          )}
+          <div className="grid grid-cols-2 gap-3">
+            {menuBtn(
+              <Home className="h-5 w-5" />,
+              "Architect",
+              "Design a home, business or bastion plot",
+              () => onHomebuilder?.(),
+              locked
+            )}
+            {menuBtn(
+              <Map className="h-5 w-5" />,
+              "Dungeon Generator",
+              "Build or roll a dungeon or spire",
+              () => onDungeon?.(),
+              locked
+            )}
+          </div>
           {menuBtn(
             <Swords className="h-5 w-5" />,
             "DM Screen",

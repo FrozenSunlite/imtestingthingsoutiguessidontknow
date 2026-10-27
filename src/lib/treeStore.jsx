@@ -21,7 +21,8 @@ import {
   DEFAULT_SENSES,
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
-import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";import { optionAtPath } from "@/lib/optionTree";
+import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
+import { DEFAULT_DUNGEON_ROOMS } from "@/lib/dungeonGen";import { optionAtPath } from "@/lib/optionTree";
 import {
   DEFAULT_SUBTREE,
   flattenSubtreeForPlay,
@@ -185,6 +186,14 @@ export const DEFAULT_LIBRARY = {
   poisons: [],
   siege: [],
   vehicles: [],
+  // Procedural dungeon room templates and saved generated dungeons.
+  dungeonRooms: DEFAULT_DUNGEON_ROOMS.map((r) => ({
+    ...r,
+    traps: [...(r.traps || [])],
+    spawns: [...(r.spawns || [])],
+    loot: [...(r.loot || [])],
+  })),
+  dungeons: [],
 };
 
 // Node types and the RPG file format live in treeFormat.js — re-exported so
@@ -537,6 +546,13 @@ function mergeLibrary(lib) {
     monsterTemplates: lib?.monsterTemplates || [],
     lootPools: lib?.lootPools || [],
     encounterTables: lib?.encounterTables || [],
+    dungeonRooms: (lib?.dungeonRooms?.length ? lib.dungeonRooms : d.dungeonRooms).map((r) => ({
+      ...r,
+      traps: [...(r.traps || [])],
+      spawns: [...(r.spawns || [])],
+      loot: [...(r.loot || [])],
+    })),
+    dungeons: Array.isArray(lib?.dungeons) ? lib.dungeons : [],
   };
 }
 

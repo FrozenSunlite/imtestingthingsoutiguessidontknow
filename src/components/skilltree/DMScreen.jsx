@@ -7,6 +7,7 @@ import { EncountersLoot } from "@/components/skilltree/EncountersLoot";
 import { LibraryReference } from "@/components/skilltree/LibraryReference";
 import { DmDiceRoller } from "@/components/skilltree/DmDiceRoller";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
+import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
 import { loadDmTracker, DM_TRACKER_KEY } from "@/lib/dmTrackerStore";
 import { parseMaxHp, dexMod } from "@/lib/dmLoot";
 import { Swords, DoorOpen, BookOpen } from "lucide-react";
@@ -86,6 +87,7 @@ export function DMScreen({ onExit }) {
             <TabsList>
               <TabsTrigger value="tracker">Combat Tracker</TabsTrigger>
               <TabsTrigger value="encounters">Encounters & Loot</TabsTrigger>
+              <TabsTrigger value="dungeon">Dungeon Generator</TabsTrigger>
               <TabsTrigger value="reference">Quick Reference</TabsTrigger>
             </TabsList>
             <TabsContent value="tracker">
@@ -98,6 +100,9 @@ export function DMScreen({ onExit }) {
                 encounterTables={encounterTables}
                 onEncounter={addSpawn}
               />
+            </TabsContent>
+            <TabsContent value="dungeon">
+              <DungeonGenerator embedded />
             </TabsContent>
             <TabsContent value="reference">
               <LibraryReference spells={(settings?.library?.spells || []).filter((s) => s.name)} />
