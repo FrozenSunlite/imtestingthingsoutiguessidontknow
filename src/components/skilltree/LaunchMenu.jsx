@@ -25,7 +25,8 @@ import {
 // Return here anytime from the toolbar's door button.
 export function LaunchMenu({ onHomebuilder, onDmScreen }) {
   const { enterApp, startNewTree, tree, character } = useTree();
-  const [settingsOpen, setSettingsOpen] = useState(false);\n  const [showNewConfirm, setShowNewConfirm] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
