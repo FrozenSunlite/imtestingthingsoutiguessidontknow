@@ -75,6 +75,7 @@ export function SideTreePanel({ slot, floating = false }) {
     character,
     setCharacter,
     settings,
+    ui,
     setSubtreeNodePoints,
     openSubtreePanel,
   } = useTree();
@@ -686,7 +687,7 @@ export function SideTreePanel({ slot, floating = false }) {
                 connections={connections}
                 nodesById={nodesById}
                 visibleIds={visibleIds}
-                style="curved"
+                style={ui?.connectionStyle || "curved"}
                 showArrows
                 connector={settings.connector}
                 altActive={false}

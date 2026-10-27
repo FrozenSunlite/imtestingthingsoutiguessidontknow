@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BYa_l8e3.js";
+import { n as Button, r as cn } from "./router-DpGvI8zR.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -21,6 +21,7 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 //#region src/lib/geometry.js
 function connectionPath(x1, y1, x2, y2, style = "curved") {
+	if (style === "straight") return `M ${x1} ${y1} L ${x2} ${y2}`;
 	if (style === "angular") {
 		const mx = (x1 + x2) / 2;
 		return `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
@@ -283,6 +284,11 @@ function connectionPoints(conn, from, to) {
 }
 function pathThroughPoints(pts, style = "curved") {
 	if (pts.length < 2) return "";
+	if (style === "straight") {
+		const a = pts[0];
+		const b = pts[pts.length - 1];
+		return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+	}
 	if (style === "angular") return "M " + pts.map((p) => `${p.x} ${p.y}`).join(" L ");
 	let d = `M ${pts[0].x} ${pts[0].y}`;
 	for (let i = 0; i < pts.length - 1; i++) {
@@ -16757,13 +16763,20 @@ function Toolbar({ onAddPoolWindow }) {
 										className: "h-8 w-28",
 										children: /* @__PURE__ */ jsx(SelectValue, {})
 									})
-								}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-									value: "curved",
-									children: "Curved"
-								}), /* @__PURE__ */ jsx(SelectItem, {
-									value: "angular",
-									children: "Angular"
-								})] })]
+								}), /* @__PURE__ */ jsxs(SelectContent, { children: [
+									/* @__PURE__ */ jsx(SelectItem, {
+										value: "curved",
+										children: "Curved"
+									}),
+									/* @__PURE__ */ jsx(SelectItem, {
+										value: "angular",
+										children: "Angular"
+									}),
+									/* @__PURE__ */ jsx(SelectItem, {
+										value: "straight",
+										children: "Straight"
+									})
+								] })]
 							}),
 							/* @__PURE__ */ jsx(InfoTip, {
 								label: "Show direction arrows on connectors",
@@ -17577,7 +17590,7 @@ var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, vi
 						onConnContextMenu?.(e, c);
 					}
 				}),
-				selected && pts.slice(1, -1).map((p, i) => /* @__PURE__ */ jsx("circle", {
+				selected && style !== "straight" && pts.slice(1, -1).map((p, i) => /* @__PURE__ */ jsx("circle", {
 					cx: p.x,
 					cy: p.y,
 					r: 6,
@@ -38477,7 +38490,7 @@ function prefixTree(nodes, connections, prefix) {
 	};
 }
 function SideTreePanel({ slot, floating = false }) {
-	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, setSubtreeNodePoints, openSubtreePanel } = useTree();
+	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel } = useTree();
 	const st = (sideTrees || {})[slot];
 	const [width, setPanelWidth] = usePanelWidth(440, 260, 720, "skilltree:sideWidth:" + slot);
 	const [view, setView] = useState({
@@ -39060,7 +39073,7 @@ function SideTreePanel({ slot, floating = false }) {
 						connections,
 						nodesById,
 						visibleIds,
-						style: "curved",
+						style: ui?.connectionStyle || "curved",
 						showArrows: true,
 						connector: settings.connector,
 						altActive: false,

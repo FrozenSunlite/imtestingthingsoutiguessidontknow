@@ -116,6 +116,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
               }}
             />
             {selected &&
+              style !== "straight" &&
               pts.slice(1, -1).map((p, i) => (
                 <circle
                   key={i}

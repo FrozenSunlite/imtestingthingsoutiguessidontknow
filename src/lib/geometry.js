@@ -2,6 +2,9 @@
 
 // Build an SVG path between two node centers.
 export function connectionPath(x1, y1, x2, y2, style = "curved") {
+  if (style === "straight") {
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  }
   if (style === "angular") {
     const mx = (x1 + x2) / 2;
     return `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
@@ -306,9 +309,15 @@ export function connectionPoints(conn, from, to) {
 }
 
 // Build an SVG path through a list of points.
-// angular: polyline; curved: smooth Catmull-Rom converted to cubic beziers.
+// straight: one direct line; angular: polyline; curved: smooth Catmull-Rom
+// converted to cubic beziers.
 export function pathThroughPoints(pts, style = "curved") {
   if (pts.length < 2) return "";
+  if (style === "straight") {
+    const a = pts[0];
+    const b = pts[pts.length - 1];
+    return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+  }
   if (style === "angular") {
     return "M " + pts.map((p) => `${p.x} ${p.y}`).join(" L ");
   }

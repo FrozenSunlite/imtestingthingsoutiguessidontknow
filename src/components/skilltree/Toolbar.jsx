@@ -393,6 +393,7 @@ export function Toolbar({ onAddPoolWindow }) {
           <SelectContent>
             <SelectItem value="curved">Curved</SelectItem>
             <SelectItem value="angular">Angular</SelectItem>
+            <SelectItem value="straight">Straight</SelectItem>
           </SelectContent>
         </Select>
         <InfoTip label="Show direction arrows on connectors">
