@@ -497,16 +497,6 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       };
     }
     (e.currentTarget).setPointerCapture?.(e.pointerId);
-    // Only a plain left-click on empty space clears the selection — panning
-    // with the middle mouse button or right button keeps it.
-    if (e.button === 0) {
-      setUi((u) => ({
-        ...u,
-        selectedNodeId: null,
-        selectedNodeIds: [],
-        selectedConnectionId: null,
-      }));
-    }
   };
 
   const onNodePointerDown = useCallback(
@@ -705,6 +695,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     if (d.type === "marquee") {
       const rect = containerRef.current.getBoundingClientRect();
       const cur = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (Math.hypot(cur.x - d.startScreen.x, cur.y - d.startScreen.y) > 4) d.moved = true;
       setMarquee({ x1: d.startScreen.x, y1: d.startScreen.y, x2: cur.x, y2: cur.y });
       const z = viewRef.current.zoom || 0.1;
       const wx1 = (Math.min(d.startScreen.x, cur.x) - view.panX) / z;
@@ -714,7 +705,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       const ids = tree.nodes
         .filter((n) => n.x >= wx1 && n.x <= wx2 && n.y >= wy1 && n.y <= wy2)
         .map((n) => n.id);
-      setUi((u) => ({ ...u, selectedNodeIds: ids, selectedNodeId: null, editingNodeId: null }));
+      setUi((u) => ({ ...u, selectedNodeIds: ids }));
     } else if (d.type === "pan") {
       const dx = e.clientX - d.startScreen.x;
       const dy = e.clientY - d.startScreen.y;
@@ -816,7 +807,12 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     }
     if (d?.type === "pan" && d.moved)
       rightDragRef.current = { moved: true, at: Date.now() };
-    if (d?.type === "marquee") setMarquee(null);
+    if (d?.type === "marquee") {
+      setMarquee(null);
+      if (!d.moved) {
+        setUi((u) => ({ ...u, selectedNodeId: null, selectedNodeIds: [], selectedConnectionId: null }));
+      }
+    }
     dragRef.current = null;
   };
 

@@ -1,0 +1,1 @@
+import{n as e}from"./routes-Mcfvepja.js";export default e();

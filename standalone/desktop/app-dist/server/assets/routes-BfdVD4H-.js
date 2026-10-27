@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-BzOyQ7vT.js";
+import { i as cn, n as base44, r as Button } from "./router-BRBtRvq8.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -17025,12 +17025,6 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			}
 		};
 		e.currentTarget.setPointerCapture?.(e.pointerId);
-		if (e.button === 0) setUi((u) => ({
-			...u,
-			selectedNodeId: null,
-			selectedNodeIds: [],
-			selectedConnectionId: null
-		}));
 	};
 	const onNodePointerDown = useCallback((e, node) => {
 		e.stopPropagation();
@@ -17232,6 +17226,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				x: e.clientX - rect.left,
 				y: e.clientY - rect.top
 			};
+			if (Math.hypot(cur.x - d.startScreen.x, cur.y - d.startScreen.y) > 4) d.moved = true;
 			setMarquee({
 				x1: d.startScreen.x,
 				y1: d.startScreen.y,
@@ -17246,9 +17241,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			const ids = tree.nodes.filter((n) => n.x >= wx1 && n.x <= wx2 && n.y >= wy1 && n.y <= wy2).map((n) => n.id);
 			setUi((u) => ({
 				...u,
-				selectedNodeIds: ids,
-				selectedNodeId: null,
-				editingNodeId: null
+				selectedNodeIds: ids
 			}));
 		} else if (d.type === "pan") {
 			const dx = e.clientX - d.startScreen.x;
@@ -17334,7 +17327,15 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			moved: true,
 			at: Date.now()
 		};
-		if (d?.type === "marquee") setMarquee(null);
+		if (d?.type === "marquee") {
+			setMarquee(null);
+			if (!d.moved) setUi((u) => ({
+				...u,
+				selectedNodeId: null,
+				selectedNodeIds: [],
+				selectedConnectionId: null
+			}));
+		}
 		dragRef.current = null;
 	};
 	const onConnSelect = useCallback((e, conn) => {
