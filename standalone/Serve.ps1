@@ -1,3 +1,4 @@
+try { $r = Invoke-WebRequest "http://localhost:4173" -UseBasicParsing -TimeoutSec 1; $url = "http://localhost:4173"; $launched=$false; $edgePath="C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"; if (-not (Test-Path $edgePath)) { $edgePath=(Get-Command msedge -EA 0).Source }; if ($edgePath) { Start-Process $edgePath -ArgumentList "--app=$url","--start-fullscreen" | Out-Null; $launched=$true }; if (-not $launched) { Start-Process $url }; exit } catch {}
 $root = Join-Path $PSScriptRoot "desktop\app-dist\client"
 $shell = "_shell.html"
 $port = 4173
@@ -29,3 +30,4 @@ while ($listener.IsListening) {
   $ctx.Response.OutputStream.Write($bytes,0,$bytes.Length)
   $ctx.Response.Close()
 }
+
