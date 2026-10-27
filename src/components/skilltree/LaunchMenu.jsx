@@ -10,6 +10,7 @@ import { IS_STANDALONE } from "@/lib/env";
 import { toast } from "sonner";
 import {
   Plus,
+  Play,
   FolderOpen,
   Wand2,
   Settings as SettingsIcon,

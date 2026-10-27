@@ -1,0 +1,1 @@
+import{n as e}from"./routes-BSDZfTDx.js";export default e();
