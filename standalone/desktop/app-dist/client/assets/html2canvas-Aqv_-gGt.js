@@ -1,0 +1,1 @@
+import{n as e}from"./routes-CoTsB7R3.js";export default e();

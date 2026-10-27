@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DpGvI8zR.js";
+import { n as Button, r as cn } from "./router-ttJFsX-f.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3092,48 +3092,39 @@ function setSubtreePoint(nodes, path, points) {
 }
 function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
 	const subtree = (host?.subtrees || [])[subIndex] ?? (host?.subtrees || [])[0] ?? {};
-	const nodes = [];
-	const connections = [];
 	const subLabel = subtree.poolName || subtree.name || host?.name || "Subtree";
-	const walk = (sub, parentFlatId, path) => {
-		const base = [
-			"sub",
-			host.id,
-			subIndex,
-			...path
-		].join("-");
-		const idMap = {};
-		(sub.nodes || []).forEach((n) => {
-			idMap[n.id] = !n.__hostCopy || keepHostCopies ? `${base}-${n.id}` : null;
+	const base = [
+		"sub",
+		host.id,
+		subIndex
+	].join("-");
+	const idMap = {};
+	(subtree.nodes || []).forEach((n) => {
+		idMap[n.id] = !n.__hostCopy || keepHostCopies ? `${base}-${n.id}` : null;
+	});
+	const nodes = [];
+	(subtree.nodes || []).forEach((n) => {
+		if (n.__hostCopy && !keepHostCopies) return;
+		const fid = idMap[n.id];
+		if (!fid) return;
+		nodes.push({
+			...n,
+			id: fid,
+			poolOverride: "__subtree",
+			dependencies: (n.dependencies || []).map((d) => idMap[d]).filter(Boolean),
+			__originalId: n.id,
+			__path: [n.id],
+			__subtreeLabel: subLabel
 		});
-		(sub.nodes || []).forEach((n) => {
-			if (n.__hostCopy && !keepHostCopies) return;
-			const fid = idMap[n.id];
-			const p = [...path, n.id];
-			nodes.push({
-				...n,
-				id: fid,
-				poolOverride: "__subtree",
-				dependencies: [...(n.dependencies || []).map((d) => idMap[d]).filter(Boolean), ...parentFlatId ? [parentFlatId] : []],
-				__path: p,
-				__subtreeLabel: subLabel
-			});
-			walk(n.subtrees ? { nodes: (n.subtrees || []).flatMap((s) => s.nodes || []) } : n.subtree || {}, fid, p);
-		});
-		(sub.connections || []).forEach((c) => {
-			if (!idMap[c.from] || !idMap[c.to]) return;
-			connections.push({
-				...c,
-				id: `${idMap[c.from]}->${idMap[c.to]}`,
-				from: idMap[c.from],
-				to: idMap[c.to]
-			});
-		});
-	};
-	walk(subtree, null, []);
+	});
 	return {
 		nodes,
-		connections
+		connections: (subtree.connections || []).filter((c) => idMap[c.from] && idMap[c.to]).map((c) => ({
+			...c,
+			id: `${idMap[c.from]}->${idMap[c.to]}`,
+			from: idMap[c.from],
+			to: idMap[c.to]
+		}))
 	};
 }
 //#endregion
@@ -4587,6 +4578,41 @@ async function deleteCharacterSave(id) {
 		await removeSave(id);
 	} catch {}
 }
+function subtreeAtChain(nodes, chain) {
+	let current = nodes || [];
+	let host = null;
+	let subtree = null;
+	for (const seg of chain || []) {
+		host = current.find((n) => n.id === seg.hostId);
+		if (!host) return null;
+		subtree = (host.subtrees || [])[seg.subIndex ?? 0];
+		if (!subtree) return null;
+		current = subtree.nodes || [];
+	}
+	return {
+		host,
+		subtree
+	};
+}
+function updateSubtreeAtChain(nodes, chain, update, level = 0) {
+	const seg = chain?.[level];
+	if (!seg) return nodes;
+	return (nodes || []).map((n) => {
+		if (n.id !== seg.hostId) return n;
+		const subtrees = (n.subtrees || []).map((st, i) => {
+			if (i !== (seg.subIndex ?? 0)) return st;
+			if (level === chain.length - 1) return update(st);
+			return {
+				...st,
+				nodes: updateSubtreeAtChain(st.nodes || [], chain, update, level + 1)
+			};
+		});
+		return {
+			...n,
+			subtrees
+		};
+	});
+}
 function TreeProvider({ children }) {
 	const [treeRaw, setTreeRaw] = useState(null);
 	const [dirty, setDirty] = useState(false);
@@ -4692,68 +4718,81 @@ function TreeProvider({ children }) {
 			selectedConnectionId: null
 		}));
 	}, [setUi]);
-	const setSubtreeNodePoints = useCallback((hostId, subIndex, path, points) => {
+	const setSubtreeNodePoints = useCallback((hostChain, path, points) => {
 		setTree((t) => {
-			if (!t) return t;
+			if (!t || !hostChain?.length) return t;
 			return {
 				...t,
-				nodes: t.nodes.map((n) => n.id === hostId ? {
-					...n,
-					subtrees: (n.subtrees || []).map((st, i) => i === (subIndex ?? 0) ? {
-						...st,
-						nodes: setSubtreePoint(st.nodes || [], path, points)
-					} : st)
-				} : n)
+				nodes: updateSubtreeAtChain(t.nodes || [], hostChain, (st) => ({
+					...st,
+					nodes: setSubtreePoint(st.nodes || [], path, points)
+				}))
 			};
 		});
 	}, []);
 	const devModeRef = useRef(false);
-	const openSubtreePanel = useCallback((hostId, subIndex = 0) => {
+	const openSubtreePanel = useCallback((hostId, subIndex = 0, parentChain = []) => {
 		setTreeRaw((prev) => {
 			if (!prev) return prev;
-			const host = prev.nodes.find((n) => n.id === hostId);
-			const stored = (host?.subtrees || [])[subIndex ?? 0];
-			if (!host || !stored) return prev;
-			const st = (host.currentPoints || 0) > 0 ? autoGrantFirstNode(stored) : stored;
-			const hostNow = st === stored ? host : {
-				...host,
-				subtrees: (host.subtrees || []).map((s, i) => i === (subIndex ?? 0) ? st : s)
+			const chain = [...Array.isArray(parentChain) ? parentChain : [], {
+				hostId,
+				subIndex: subIndex ?? 0
+			}];
+			const key = chain.map((s) => `${s.hostId}:${s.subIndex ?? 0}`).join("|");
+			let nodes = prev.nodes || [];
+			let resolved = subtreeAtChain(nodes, chain);
+			if (!resolved) return prev;
+			if ((resolved.host.currentPoints || 0) > 0) {
+				nodes = updateSubtreeAtChain(nodes, chain, (st) => autoGrantFirstNode(st));
+				resolved = subtreeAtChain(nodes, chain);
+				if (!resolved) return prev;
+			}
+			const finalIndex = chain[chain.length - 1].subIndex ?? 0;
+			const flat = flattenSubtreeForPlay(resolved.host, finalIndex, !!devModeRef.current);
+			const tab = {
+				key,
+				hostChain: chain,
+				subtreeHostId: hostId,
+				subtreeIndex: finalIndex,
+				name: `${resolved.host.name || "Node"} — ${resolved.subtree.name || "subtree"}`,
+				grantedPoints: Number(resolved.subtree.grantedPoints) || 0,
+				poolName: resolved.subtree.poolName || "",
+				exclusive: !!resolved.subtree.exclusive,
+				abilityReqs: resolved.subtree.abilityReqs || [],
+				nodes: flat.nodes,
+				connections: flat.connections
 			};
-			const nodesNow = st === stored ? prev.nodes : prev.nodes.map((n) => n.id === hostId ? hostNow : n);
 			const side = prev.sideTrees || {
 				left: { kind: "main" },
 				right: null
 			};
-			const openSlot = ["left", "right"].find((s) => side[s]?.subtreeHostId === hostId && side[s]?.subtreeIndex === (subIndex ?? 0) && !side[s]?.closed);
-			if (openSlot) return {
-				...prev,
-				sideTrees: {
-					...side,
-					[openSlot]: {
-						...side[openSlot],
-						closed: true
-					}
-				}
+			const left = {
+				...side.left || {},
+				kind: "main",
+				closed: false,
+				tabs: void 0
 			};
-			const flat = flattenSubtreeForPlay(hostNow, subIndex ?? 0, !!devModeRef.current);
-			const slot = !side.right || side.right.closed ? "right" : !side.left || side.left.closed ? "left" : "right";
+			const right = side.right || {};
+			const tabs = Array.isArray(right.tabs) ? [...right.tabs] : [];
+			const existing = tabs.findIndex((t) => t.key === key);
+			if (existing >= 0) tabs[existing] = {
+				...tabs[existing],
+				...tab
+			};
+			else tabs.push(tab);
 			return {
 				...prev,
-				nodes: nodesNow,
+				nodes,
 				sideTrees: {
 					...side,
-					[slot]: {
-						kind: "snapshot",
-						floating: true,
-						name: `${host.name || "Node"} — ${st.name || "subtree"}`,
-						subtreeHostId: hostId,
-						subtreeIndex: subIndex ?? 0,
-						grantedPoints: Number(st.grantedPoints) || 0,
-						poolName: st.poolName || "",
-						exclusive: !!st.exclusive,
-						abilityReqs: st.abilityReqs || [],
-						nodes: flat.nodes,
-						connections: flat.connections
+					left,
+					right: {
+						...right,
+						...tab,
+						kind: "subtrees",
+						tabs,
+						activeKey: key,
+						closed: false
 					}
 				}
 			};
@@ -17969,10 +18008,9 @@ function AbilityChoiceDialog({ node, nodesById, choices, perTake = 1, onPick, on
 }
 //#endregion
 //#region src/components/skilltree/SubtreePickerDialog.jsx
-function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
+function SubtreePickerDialog({ node, onPick, onClose }) {
 	if (!node) return null;
 	const subtrees = node.subtrees || [];
-	const openSlot = (i) => ["left", "right"].find((s) => sideTrees?.[s]?.subtreeHostId === node.id && sideTrees[s].subtreeIndex === i && !sideTrees[s].closed);
 	return /* @__PURE__ */ jsx(Dialog, {
 		open: !!node,
 		onOpenChange: (v) => !v && onClose(),
@@ -17983,9 +18021,8 @@ function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
 				/* @__PURE__ */ jsxs("div", {
 					className: "max-h-[50vh] space-y-2 overflow-y-auto pr-1",
 					children: [subtrees.map((s, i) => {
-						const slot = openSlot(i);
 						const empty = (s.nodes || []).length === 0;
-						const locked = !!slot || empty;
+						const locked = empty;
 						return /* @__PURE__ */ jsxs("button", {
 							disabled: locked,
 							onClick: () => onPick(i),
@@ -18002,13 +18039,9 @@ function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
 										children: empty ? "No nodes yet" : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted`
 									})]
 								}),
-								slot && /* @__PURE__ */ jsxs("span", {
+								!empty && /* @__PURE__ */ jsx("span", {
 									className: "shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground",
-									children: [
-										"Open in ",
-										slot,
-										" panel"
-									]
+									children: "Right panel"
 								})
 							]
 						}, s.id || i);
@@ -19092,7 +19125,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 							grid,
 							zoom: shown.zoom
 						}),
-						shown.zoom > .27 && /* @__PURE__ */ jsx(ConnectionLayer, {
+						/* @__PURE__ */ jsx(ConnectionLayer, {
 							connections: tree.connections,
 							nodesById,
 							visibleIds,
@@ -30101,11 +30134,6 @@ function ViewSheet({ onExport }) {
 								value: "character",
 								children: "Character"
 							}),
-							/* @__PURE__ */ jsxs(TabsTrigger, {
-								value: "rulebook",
-								className: "gap-1",
-								children: [/* @__PURE__ */ jsx(BookOpen, { className: "h-3 w-3" }), " Rulebook"]
-							}),
 							/* @__PURE__ */ jsx(TabsTrigger, {
 								value: "fluff",
 								children: "Fluff"
@@ -30133,6 +30161,11 @@ function ViewSheet({ onExport }) {
 							/* @__PURE__ */ jsx(TabsTrigger, {
 								value: "property",
 								children: "Property"
+							}),
+							/* @__PURE__ */ jsxs(TabsTrigger, {
+								value: "rulebook",
+								className: "gap-1",
+								children: [/* @__PURE__ */ jsx(BookOpen, { className: "h-3 w-3" }), " Rulebook"]
 							}),
 							dev && /* @__PURE__ */ jsx(TabsTrigger, {
 								value: "values",
@@ -38509,8 +38542,8 @@ function SideTreePanel({ slot, floating = false }) {
 	const fileRef = useRef(null);
 	const dragRef = useRef(null);
 	const isMain = st?.kind === "main";
-	const nodes = isMain ? tree?.nodes || [] : st?.kind === "snapshot" ? st.nodes || [] : [];
-	const connections = isMain ? tree?.connections || [] : st?.kind === "snapshot" ? st.connections || [] : [];
+	const nodes = isMain ? tree?.nodes || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.nodes || [] : [];
+	const connections = isMain ? tree?.connections || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.connections || [] : [];
 	const nodesById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
 	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
 	const hiddenIds = useMemo(() => {
@@ -38596,9 +38629,27 @@ function SideTreePanel({ slot, floating = false }) {
 			panY: -(bounds.minY - 100) * z
 		});
 	};
-	const sig = nodes.length + ":" + (nodes[0]?.id || "");
+	const startNode = (() => {
+		if (!nodes.length) return null;
+		if (isMain) {
+			const id = String(settings?.cameraStartNode || "");
+			const configured = id ? nodesById[id] : null;
+			if (configured) return configured;
+		}
+		return nodes.find((n) => n.__autoGranted) || nodes[0];
+	})();
+	const sig = nodes.length + ":" + (nodes[0]?.id || "") + ":" + (startNode?.id || "");
 	useEffect(() => {
-		fit();
+		if (startNode) {
+			const vw = containerRef.current?.clientWidth || vp.w || 440;
+			const vh = containerRef.current?.clientHeight || vp.h || 500;
+			const z = Math.max(.4, Math.min(.8, view.zoom || .5));
+			setView({
+				zoom: z,
+				panX: vw / 2 - startNode.x * z,
+				panY: vh / 2 - startNode.y * z
+			});
+		}
 		setSelectedId(null);
 	}, [sig]);
 	useEffect(() => {
@@ -38725,12 +38776,26 @@ function SideTreePanel({ slot, floating = false }) {
 				currentPoints: next
 			};
 		});
-		setSideTree(slot, {
+		const nextSt = Array.isArray(st.tabs) && st.activeKey ? {
+			...st,
+			nodes: updated,
+			tabs: st.tabs.map((t) => t.key === st.activeKey ? {
+				...t,
+				nodes: updated
+			} : t)
+		} : {
 			...st,
 			nodes: updated
-		});
+		};
+		setSideTree(slot, nextSt);
 		const target = updated.find((m) => m.id === id);
-		if (st.subtreeHostId && Array.isArray(target?.__path)) setSubtreeNodePoints(st.subtreeHostId, st.subtreeIndex ?? 0, target.__path, target.currentPoints || 0);
+		if (st.subtreeHostId && Array.isArray(target?.__path)) {
+			const chain = st.hostChain || [{
+				hostId: st.subtreeHostId,
+				subIndex: st.subtreeIndex ?? 0
+			}];
+			setSubtreeNodePoints(chain, target.__path, target.currentPoints || 0);
+		}
 	};
 	const commitInvest = (n, delta, optionNames) => {
 		applyPoints(n.id, delta);
@@ -38974,6 +39039,20 @@ function SideTreePanel({ slot, floating = false }) {
 				className: "hidden",
 				onChange: onFile
 			}),
+			Array.isArray(st?.tabs) && st.tabs.length > 1 && /* @__PURE__ */ jsx("div", {
+				className: "flex flex-wrap items-center gap-1 border-b bg-muted/30 px-1.5 py-1",
+				children: st.tabs.map((tab) => /* @__PURE__ */ jsx("button", {
+					type: "button",
+					title: tab.name,
+					onClick: () => setSideTree(slot, {
+						...st,
+						...tab,
+						activeKey: tab.key
+					}),
+					className: `max-w-48 truncate rounded border px-2 py-0.5 text-[10px] ${tab.key === st.activeKey ? "border-primary/60 bg-primary/10 font-semibold text-foreground" : "border-border text-muted-foreground hover:bg-accent"}`,
+					children: tab.name
+				}, tab.key))
+			}),
 			st?.subtreeHostId ? /* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
 				title: "Tree-specific points granted by the node that owns this subtree",
@@ -39069,7 +39148,7 @@ function SideTreePanel({ slot, floating = false }) {
 						transformOrigin: "0 0",
 						willChange: "transform"
 					},
-					children: [view.zoom > .27 && /* @__PURE__ */ jsx(ConnectionLayer, {
+					children: [/* @__PURE__ */ jsx(ConnectionLayer, {
 						connections,
 						nodesById,
 						visibleIds,
@@ -39098,7 +39177,7 @@ function SideTreePanel({ slot, floating = false }) {
 						onHoverEnd,
 						onContextMenu: () => {},
 						onInvest,
-						onOpenSubtree: isMain ? (n) => setSubtreePickNode(n) : void 0,
+						onOpenSubtree: isMain || st?.subtreeHostId && Array.isArray(st?.hostChain) ? (n) => setSubtreePickNode(n) : void 0,
 						dblClickInvest: floating
 					}, n.id))]
 				}), /* @__PURE__ */ jsx(NodeTooltip, {
@@ -39149,7 +39228,12 @@ function SideTreePanel({ slot, floating = false }) {
 				node: subtreePickNode,
 				sideTrees: tree?.sideTrees,
 				onPick: (i) => {
-					openSubtreePanel(subtreePickNode.id, i);
+					const n = subtreePickNode;
+					const parentChain = st?.hostChain || (st?.subtreeHostId ? [{
+						hostId: st.subtreeHostId,
+						subIndex: st.subtreeIndex ?? 0
+					}] : []);
+					openSubtreePanel(n.__originalId || n.id, i, parentChain);
 					setSubtreePickNode(null);
 				},
 				onClose: () => setSubtreePickNode(null)

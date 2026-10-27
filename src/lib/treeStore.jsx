@@ -631,6 +631,41 @@ export async function deleteCharacterSave(id) {
   }
 }
 
+// Resolve a nested subtree chain. Each segment is { hostId, subIndex } where
+// hostId is a node in the parent space and subIndex picks that node's subtree.
+// The first segment starts from the main tree.
+function subtreeAtChain(nodes, chain) {
+  let current = nodes || [];
+  let host = null;
+  let subtree = null;
+  for (const seg of chain || []) {
+    host = current.find((n) => n.id === seg.hostId);
+    if (!host) return null;
+    subtree = (host.subtrees || [])[seg.subIndex ?? 0];
+    if (!subtree) return null;
+    current = subtree.nodes || [];
+  }
+  return { host, subtree };
+}
+
+// Replace one subtree wherever it lives in a nested chain.
+function updateSubtreeAtChain(nodes, chain, update, level = 0) {
+  const seg = chain?.[level];
+  if (!seg) return nodes;
+  return (nodes || []).map((n) => {
+    if (n.id !== seg.hostId) return n;
+    const subtrees = (n.subtrees || []).map((st, i) => {
+      if (i !== (seg.subIndex ?? 0)) return st;
+      if (level === chain.length - 1) return update(st);
+      return {
+        ...st,
+        nodes: updateSubtreeAtChain(st.nodes || [], chain, update, level + 1),
+      };
+    });
+    return { ...n, subtrees };
+  });
+}
+
 export function TreeProvider({ children }) {
   const [treeRaw, setTreeRaw] = useState(null);
   // Unsaved-changes tracking: any edit marks the project dirty, while an
@@ -757,23 +792,15 @@ export function TreeProvider({ children }) {
 
   // Write a play-time investment back to the host's stored subtree (path =
   // chain of original node ids), so points survive reloads.
-  const setSubtreeNodePoints = useCallback((hostId, subIndex, path, points) => {
+  const setSubtreeNodePoints = useCallback((hostChain, path, points) => {
     setTree((t) => {
-      if (!t) return t;
+      if (!t || !hostChain?.length) return t;
       return {
         ...t,
-        nodes: t.nodes.map((n) =>
-          n.id === hostId
-            ? {
-                ...n,
-                subtrees: (n.subtrees || []).map((st, i) =>
-                  i === (subIndex ?? 0)
-                    ? { ...st, nodes: setSubtreePoint(st.nodes || [], path, points) }
-                    : st
-                ),
-              }
-            : n
-        ),
+        nodes: updateSubtreeAtChain(t.nodes || [], hostChain, (st) => ({
+          ...st,
+          nodes: setSubtreePoint(st.nodes || [], path, points),
+        })),
       };
     });
   }, []);
@@ -782,50 +809,66 @@ export function TreeProvider({ children }) {
   // Mirrors devMode: in dev mode the subtree's duplicate host node is kept in
   // the flattened snapshot so it shows on the panel.
   const devModeRef = useRef(false);
-  const openSubtreePanel = useCallback((hostId, subIndex = 0) => {
+  const openSubtreePanel = useCallback((hostId, subIndex = 0, parentChain = []) => {
     setTreeRaw((prev) => {
       if (!prev) return prev;
-      const host = prev.nodes.find((n) => n.id === hostId);
-      const stored = (host?.subtrees || [])[subIndex ?? 0];
-      if (!host || !stored) return prev;
+      const chain = [
+        ...(Array.isArray(parentChain) ? parentChain : []),
+        { hostId, subIndex: subIndex ?? 0 },
+      ];
+      const key = chain.map((s) => `${s.hostId}:${s.subIndex ?? 0}`).join("|");
+      let nodes = prev.nodes || [];
+      let resolved = subtreeAtChain(nodes, chain);
+      if (!resolved) return prev;
       // A purchased talent grants its tree's first node for free. Granting on
       // open also covers trees authored after the talent was bought.
-      const st = (host.currentPoints || 0) > 0 ? autoGrantFirstNode(stored) : stored;
-      const hostNow =
-        st === stored
-          ? host
-          : {
-              ...host,
-              subtrees: (host.subtrees || []).map((s, i) =>
-                i === (subIndex ?? 0) ? st : s
-              ),
-            };
-      const nodesNow = st === stored ? prev.nodes : prev.nodes.map((n) => (n.id === hostId ? hostNow : n));
-      const side = prev.sideTrees || { left: { kind: "main" }, right: null };
-      const openSlot = ["left", "right"].find(
-        (s) => side[s]?.subtreeHostId === hostId && side[s]?.subtreeIndex === (subIndex ?? 0) && !side[s]?.closed
+      if ((resolved.host.currentPoints || 0) > 0) {
+        nodes = updateSubtreeAtChain(nodes, chain, (st) => autoGrantFirstNode(st));
+        resolved = subtreeAtChain(nodes, chain);
+        if (!resolved) return prev;
+      }
+      const finalIndex = chain[chain.length - 1].subIndex ?? 0;
+      const flat = flattenSubtreeForPlay(
+        resolved.host,
+        finalIndex,
+        !!devModeRef.current
       );
-      if (openSlot)
-        return { ...prev, sideTrees: { ...side, [openSlot]: { ...side[openSlot], closed: true } } };
-      const flat = flattenSubtreeForPlay(hostNow, subIndex ?? 0, !!devModeRef.current);
-      const slot = !side.right || side.right.closed ? "right" : !side.left || side.left.closed ? "left" : "right";
+      const tab = {
+        key,
+        hostChain: chain,
+        subtreeHostId: hostId,
+        subtreeIndex: finalIndex,
+        name: `${resolved.host.name || "Node"} — ${resolved.subtree.name || "subtree"}`,
+        grantedPoints: Number(resolved.subtree.grantedPoints) || 0,
+        poolName: resolved.subtree.poolName || "",
+        exclusive: !!resolved.subtree.exclusive,
+        abilityReqs: resolved.subtree.abilityReqs || [],
+        nodes: flat.nodes,
+        connections: flat.connections,
+      };
+      const side = prev.sideTrees || { left: { kind: "main" }, right: null };
+      // Keep the macro/main tree on the left; subtrees stack as tabs on the
+      // right. Re-picking an already-open tree focuses its tab instead of
+      // closing it.
+      const left = { ...(side.left || {}), kind: "main", closed: false, tabs: undefined };
+      const right = side.right || {};
+      const tabs = Array.isArray(right.tabs) ? [...right.tabs] : [];
+      const existing = tabs.findIndex((t) => t.key === key);
+      if (existing >= 0) tabs[existing] = { ...tabs[existing], ...tab };
+      else tabs.push(tab);
       return {
         ...prev,
-        nodes: nodesNow,
+        nodes,
         sideTrees: {
           ...side,
-          [slot]: {
-            kind: "snapshot",
-            floating: true,
-            name: `${host.name || "Node"} — ${st.name || "subtree"}`,
-            subtreeHostId: hostId,
-            subtreeIndex: subIndex ?? 0,
-            grantedPoints: Number(st.grantedPoints) || 0,
-            poolName: st.poolName || "",
-            exclusive: !!st.exclusive,
-            abilityReqs: st.abilityReqs || [],
-            nodes: flat.nodes,
-            connections: flat.connections,
+          left,
+          right: {
+            ...right,
+            ...tab,
+            kind: "subtrees",
+            tabs,
+            activeKey: key,
+            closed: false,
           },
         },
       };

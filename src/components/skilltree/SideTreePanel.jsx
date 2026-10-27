@@ -95,12 +95,12 @@ export function SideTreePanel({ slot, floating = false }) {
   const isMain = st?.kind === "main";
   const nodes = isMain
     ? tree?.nodes || []
-    : st?.kind === "snapshot"
+    : st?.kind === "snapshot" || st?.kind === "subtrees"
     ? st.nodes || []
     : [];
   const connections = isMain
     ? tree?.connections || []
-    : st?.kind === "snapshot"
+    : st?.kind === "snapshot" || st?.kind === "subtrees"
     ? st.connections || []
     : [];
   const nodesById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
@@ -186,9 +186,32 @@ export function SideTreePanel({ slot, floating = false }) {
     const z = Math.min(vw / w, vh / h, 1);
     setView({ zoom: z, panX: -(bounds.minX - 100) * z, panY: -(bounds.minY - 100) * z });
   };
-  const sig = nodes.length + ":" + (nodes[0]?.id || "");
+  // The node the View camera opens on: the configured starter node, else the
+  // first node placed (or the auto-granted first node of a subtree).
+  const startNode = (() => {
+    if (!nodes.length) return null;
+    if (isMain) {
+      const id = String(settings?.cameraStartNode || "");
+      const configured = id ? nodesById[id] : null;
+      if (configured) return configured;
+    }
+    return nodes.find((n) => n.__autoGranted) || nodes[0];
+  })();
+  const sig = nodes.length + ":" + (nodes[0]?.id || "") + ":" + (startNode?.id || "");
   useEffect(() => {
-    fit();
+    // Entering the View page (or opening another subtree tab) centres the
+    // camera on the configured starter node, or the first node placed. This
+    // view state is local to the panel, so View panning never touches Edit.
+    if (startNode) {
+      const vw = containerRef.current?.clientWidth || vp.w || 440;
+      const vh = containerRef.current?.clientHeight || vp.h || 500;
+      const z = Math.max(0.4, Math.min(0.8, view.zoom || 0.5));
+      setView({
+        zoom: z,
+        panX: vw / 2 - startNode.x * z,
+        panY: vh / 2 - startNode.y * z,
+      });
+    }
     setSelectedId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig]);
@@ -300,17 +323,25 @@ export function SideTreePanel({ slot, floating = false }) {
         ? { ...m, currentPoints: next, acquiredOrder: m.acquiredOrder || Date.now() }
         : { ...m, currentPoints: next };
     });
-    setSideTree(slot, { ...st, nodes: updated });
+    const nextSt = Array.isArray(st.tabs) && st.activeKey
+      ? {
+          ...st,
+          nodes: updated,
+          tabs: st.tabs.map((t) =>
+            t.key === st.activeKey ? { ...t, nodes: updated } : t
+          ),
+        }
+      : { ...st, nodes: updated };
+    setSideTree(slot, nextSt);
     // Subtree investments persist on the host node's stored subtree (keyed by
     // the node's original id chain), so they survive reloads.
     const target = updated.find((m) => m.id === id);
-    if (st.subtreeHostId && Array.isArray(target?.__path))
-      setSubtreeNodePoints(
-        st.subtreeHostId,
-        st.subtreeIndex ?? 0,
-        target.__path,
-        target.currentPoints || 0
-      );
+    if (st.subtreeHostId && Array.isArray(target?.__path)) {
+      const chain =
+        st.hostChain ||
+        [{ hostId: st.subtreeHostId, subIndex: st.subtreeIndex ?? 0 }];
+      setSubtreeNodePoints(chain, target.__path, target.currentPoints || 0);
+    }
   };
 
   const commitInvest = (n, delta, optionNames) => {
@@ -613,6 +644,27 @@ export function SideTreePanel({ slot, floating = false }) {
       </div>
       <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={onFile} />
 
+      {/* Opened subtrees stack as tabs on the right; the main tree stays left. */}
+      {Array.isArray(st?.tabs) && st.tabs.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1 border-b bg-muted/30 px-1.5 py-1">
+          {st.tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              title={tab.name}
+              onClick={() => setSideTree(slot, { ...st, ...tab, activeKey: tab.key })}
+              className={`max-w-48 truncate rounded border px-2 py-0.5 text-[10px] ${
+                tab.key === st.activeKey
+                  ? "border-primary/60 bg-primary/10 font-semibold text-foreground"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {tab.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Subtree slot: its own tree-specific point pool. */}
       {st?.subtreeHostId ? (
         <div
@@ -682,22 +734,20 @@ export function SideTreePanel({ slot, floating = false }) {
               willChange: "transform",
             }}
           >
-            {view.zoom > 0.27 && (
-              <ConnectionLayer
-                connections={connections}
-                nodesById={nodesById}
-                visibleIds={visibleIds}
-                style={ui?.connectionStyle || "curved"}
-                showArrows
-                connector={settings.connector}
-                altActive={false}
-                hidden={hiddenIds}
-                selectedId={null}
-                onConnPointerDown={() => {}}
-                onConnSelect={() => {}}
-                onConnContextMenu={() => {}}
-              />
-            )}
+            <ConnectionLayer
+              connections={connections}
+              nodesById={nodesById}
+              visibleIds={visibleIds}
+              style={ui?.connectionStyle || "curved"}
+              showArrows
+              connector={settings.connector}
+              altActive={false}
+              hidden={hiddenIds}
+              selectedId={null}
+              onConnPointerDown={() => {}}
+              onConnSelect={() => {}}
+              onConnContextMenu={() => {}}
+            />
             {visibleNodes.map((n) => (
               <SkillNodeView
                 key={n.id}
@@ -716,7 +766,11 @@ export function SideTreePanel({ slot, floating = false }) {
                 onHoverEnd={onHoverEnd}
                 onContextMenu={() => {}}
                 onInvest={onInvest}
-                onOpenSubtree={isMain ? (n) => setSubtreePickNode(n) : undefined}
+                onOpenSubtree={
+                  isMain || (st?.subtreeHostId && Array.isArray(st?.hostChain))
+                    ? (n) => setSubtreePickNode(n)
+                    : undefined
+                }
                 dblClickInvest={floating}
               />
             ))}
@@ -762,7 +816,13 @@ export function SideTreePanel({ slot, floating = false }) {
         node={subtreePickNode}
         sideTrees={tree?.sideTrees}
         onPick={(i) => {
-          openSubtreePanel(subtreePickNode.id, i);
+          const n = subtreePickNode;
+          const parentChain =
+            st?.hostChain ||
+            (st?.subtreeHostId
+              ? [{ hostId: st.subtreeHostId, subIndex: st.subtreeIndex ?? 0 }]
+              : []);
+          openSubtreePanel(n.__originalId || n.id, i, parentChain);
           setSubtreePickNode(null);
         }}
         onClose={() => setSubtreePickNode(null)}

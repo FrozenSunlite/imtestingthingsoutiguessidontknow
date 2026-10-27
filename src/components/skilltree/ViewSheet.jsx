@@ -74,9 +74,6 @@ export function ViewSheet({ onExport }) {
       <Tabs defaultValue="character" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="flex h-auto w-full flex-wrap justify-start sm:w-auto sm:justify-center">
           <TabsTrigger value="character">Character</TabsTrigger>
-          <TabsTrigger value="rulebook" className="gap-1">
-            <BookOpen className="h-3 w-3" /> Rulebook
-          </TabsTrigger>
           <TabsTrigger value="fluff">Fluff</TabsTrigger>
           <TabsTrigger value="actions">Actions</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
@@ -84,6 +81,9 @@ export function ViewSheet({ onExport }) {
           <TabsTrigger value="shop">Shop</TabsTrigger>
           <TabsTrigger value="familiar">Familiar</TabsTrigger>
           <TabsTrigger value="property">Property</TabsTrigger>
+          <TabsTrigger value="rulebook" className="gap-1">
+            <BookOpen className="h-3 w-3" /> Rulebook
+          </TabsTrigger>
           {dev && <TabsTrigger value="values">Values</TabsTrigger>}
         </TabsList>
 

@@ -106,55 +106,44 @@ export function setSubtreePoint(nodes, path, points) {
   return changed ? out : nodes;
 }
 
-// Flatten a host's subtree (nested levels included) into a single playable
-// node list with prefixed, collision-safe ids:
-//   sub-<hostId>-<subtreeIndex>-<level1Id>-<level2Id>…
-// Every node keeps `__path` (its chain of original ids, for writing investments
-// back), draws from the subtree pool (`poolOverride: "__subtree"`), and gains a
-// dependency on its parent subtree node so deeper branches gate on the branch
-// above them. Host copies are skipped — the original node already exists on
-// the View screen, so copies never reflect there.
+// Flatten ONE host subtree (nested levels excluded) into a playable node list
+// with prefixed, collision-safe ids:
+//   sub-<hostId>-<subtreeIndex>-<nodeId>
+// Every node keeps `__path` (its id within this subtree, for writing
+// investments back) and `__originalId` (used to open its own nested subtree in
+// another tab). Host copies are skipped unless `keepHostCopies` is set (dev
+// mode); the original host node already appears on the main tree.
 export function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
   const subtree =
     (host?.subtrees || [])[subIndex] ?? (host?.subtrees || [])[0] ?? {};
-  const nodes = [];
-  const connections = [];
-  // Label the character sheet groups these nodes by (pool name, then the
-  // subtree's own name, then the host node's).
   const subLabel = subtree.poolName || subtree.name || host?.name || "Subtree";
-  const walk = (sub, parentFlatId, path) => {
-    const base = ["sub", host.id, subIndex, ...path].join("-");
-    const idMap = {};
-    (sub.nodes || []).forEach((n) => {
-      idMap[n.id] = !n.__hostCopy || keepHostCopies ? `${base}-${n.id}` : null;
+  const base = ["sub", host.id, subIndex].join("-");
+  const idMap = {};
+  (subtree.nodes || []).forEach((n) => {
+    idMap[n.id] = !n.__hostCopy || keepHostCopies ? `${base}-${n.id}` : null;
+  });
+  const nodes = [];
+  (subtree.nodes || []).forEach((n) => {
+    if (n.__hostCopy && !keepHostCopies) return;
+    const fid = idMap[n.id];
+    if (!fid) return;
+    nodes.push({
+      ...n,
+      id: fid,
+      poolOverride: "__subtree",
+      dependencies: (n.dependencies || []).map((d) => idMap[d]).filter(Boolean),
+      __originalId: n.id,
+      __path: [n.id],
+      __subtreeLabel: subLabel,
     });
-    (sub.nodes || []).forEach((n) => {
-      if (n.__hostCopy && !keepHostCopies) return;
-      const fid = idMap[n.id];
-      const p = [...path, n.id];
-      nodes.push({
-        ...n,
-        id: fid,
-        poolOverride: "__subtree",
-        dependencies: [
-          ...(n.dependencies || []).map((d) => idMap[d]).filter(Boolean),
-          ...(parentFlatId ? [parentFlatId] : []),
-        ],
-        __path: p,
-        __subtreeLabel: subLabel,
-      });
-      walk(n.subtrees ? { nodes: (n.subtrees || []).flatMap((s) => s.nodes || []) } : n.subtree || {}, fid, p);
-    });
-    (sub.connections || []).forEach((c) => {
-      if (!idMap[c.from] || !idMap[c.to]) return;
-      connections.push({
-        ...c,
-        id: `${idMap[c.from]}->${idMap[c.to]}`,
-        from: idMap[c.from],
-        to: idMap[c.to],
-      });
-    });
-  };
-  walk(subtree, null, []);
+  });
+  const connections = (subtree.connections || [])
+    .filter((c) => idMap[c.from] && idMap[c.to])
+    .map((c) => ({
+      ...c,
+      id: `${idMap[c.from]}->${idMap[c.to]}`,
+      from: idMap[c.from],
+      to: idMap[c.to],
+    }));
   return { nodes, connections };
 }

@@ -1159,7 +1159,6 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         }}
       >
         <GridLayer bounds={gridBounds} grid={grid} zoom={shown.zoom} />
-        {shown.zoom > 0.27 && (
         <ConnectionLayer
           connections={tree.connections}
           nodesById={nodesById}
@@ -1174,7 +1173,6 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
           onConnSelect={onConnSelect}
           onConnContextMenu={onConnContext}
         />
-        )}
         {visibleNodes.map((n) => (
           <SkillNodeView
             key={n.id}

@@ -12,17 +12,9 @@ import { ListTree } from "lucide-react";
 // that owns its own skill trees: pick which tree to open in a side panel and
 // spend its granted pool in. Trees already open in a panel are greyed out —
 // one tree, one panel — as are trees with no nodes to invest in.
-export function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
+export function SubtreePickerDialog({ node, onPick, onClose }) {
   if (!node) return null;
   const subtrees = node.subtrees || [];
-
-  const openSlot = (i) =>
-    ["left", "right"].find(
-      (s) =>
-        sideTrees?.[s]?.subtreeHostId === node.id &&
-        sideTrees[s].subtreeIndex === i &&
-        !sideTrees[s].closed
-    );
 
   return (
     <Dialog open={!!node} onOpenChange={(v) => !v && onClose()}>
@@ -36,9 +28,8 @@ export function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
         </DialogHeader>
         <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
           {subtrees.map((s, i) => {
-            const slot = openSlot(i);
             const empty = (s.nodes || []).length === 0;
-            const locked = !!slot || empty;
+            const locked = empty;
             return (
               <button
                 key={s.id || i}
@@ -57,9 +48,9 @@ export function SubtreePickerDialog({ node, sideTrees, onPick, onClose }) {
                       : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted`}
                   </span>
                 </span>
-                {slot && (
+                {!empty && (
                   <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    Open in {slot} panel
+                    Right panel
                   </span>
                 )}
               </button>
