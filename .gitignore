@@ -30,3 +30,10 @@ src/routeTree.gen.ts
 
 # Local link to a Base44 app, written by `base44 link`
 base44/.app.jsonc
+
+# Project saves & exports (per-user, do not commit)
+Saves/
+*.save.json
+*.project.json
+*.bundle.json
+
