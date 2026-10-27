@@ -22,7 +22,8 @@ import {
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
-import { DEFAULT_DUNGEON_ROOMS } from "@/lib/dungeonGen";import { optionAtPath } from "@/lib/optionTree";
+import { DEFAULT_DUNGEON_ROOMS } from "@/lib/dungeonGen";
+import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";import { optionAtPath } from "@/lib/optionTree";
 import {
   DEFAULT_SUBTREE,
   flattenSubtreeForPlay,
@@ -194,6 +195,9 @@ export const DEFAULT_LIBRARY = {
     loot: [...(r.loot || [])],
   })),
   dungeons: [],
+  // Entries imported from the local 5eTools Reference Index that do not map to
+  // an existing library list are kept here by category.
+  fiveETools: {},
 };
 
 // Node types and the RPG file format live in treeFormat.js — re-exported so
@@ -553,6 +557,7 @@ function mergeLibrary(lib) {
       loot: [...(r.loot || [])],
     })),
     dungeons: Array.isArray(lib?.dungeons) ? lib.dungeons : [],
+    fiveETools: lib?.fiveETools && typeof lib.fiveETools === "object" ? lib.fiveETools : {},
   };
 }
 
@@ -2027,6 +2032,73 @@ export function TreeProvider({ children }) {
     );
   }, []);
 
+  // Import a 5eTools class/feat/option as a new tree tab. Features are
+  // informative nodes chained in order, so they read like a feature ladder
+  // without touching any point pool.
+  const addImportedTab = useCallback((name, features, meta = {}) => {
+    const list = (features || []).filter((f) => f && (f.name || f.text));
+    if (!list.length) return null;
+    const id = `tab-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
+    const stamp = Date.now();
+    const nodes = list.map((f, i) => {
+      const nodeId = `n${stamp}i${i}`;
+      return {
+        id: nodeId,
+        name: f.name || `Feature ${i + 1}`,
+        description: f.text || "",
+        flavor: "",
+        x: i * 190,
+        y: (i % 2) * 130,
+        maxPoints: 1,
+        currentPoints: 0,
+        cost: 0,
+        nodeType: "informative",
+        pointType: "talent",
+        talentType: meta.category || "5eTools",
+        size: 100,
+        rotation: 0,
+        flipped: false,
+        flipV: false,
+        image: "",
+        frameImage: "",
+        resources: [],
+        dependencies: i ? [`n${stamp}i${i - 1}`] : [],
+        exclusiveWith: [],
+      };
+    });
+    const connections = nodes.slice(1).map((n, i) => ({
+      id: `${nodes[i].id}->${n.id}`,
+      from: nodes[i].id,
+      to: n.id,
+    }));
+    const tab = {
+      id,
+      name: name || "Imported Features",
+      nodes,
+      connections,
+      cameraStartNode: nodes[0]?.id || "",
+    };
+    setTreeRaw((prev) =>
+      prev
+        ? {
+            ...prev,
+            tabs: [...(prev.tabs || []), tab],
+            activeTabId: id,
+            nodes,
+            connections,
+          }
+        : prev
+    );
+    setUi((u) => ({
+      ...u,
+      selectedNodeId: null,
+      editingNodeId: null,
+      selectedNodeIds: [],
+      selectedConnectionId: null,
+    }));
+    return id;
+  }, []);
+
   const deleteTab = useCallback((tabId) => {
     setTreeRaw((prev) => {
       if (!prev || (prev.tabs || []).length <= 1) return prev;
@@ -2115,6 +2187,7 @@ export function TreeProvider({ children }) {
         });
       if (entry.pools) setPools({ ...DEFAULT_POOLS, ...entry.pools });
       if (entry.library) setSettings((s) => ({ ...s, library: mergeLibrary(entry.library) }));
+      if (entry.referenceSources) restoreFiveEToolsSources(entry.referenceSources);
       // Homebuilder plots ride with the save: fold them back into the store.
       if (Array.isArray(entry.plots) && entry.plots.length) mergePlots(entry.plots);
       setUi((u) => ({
@@ -2221,6 +2294,7 @@ export function TreeProvider({ children }) {
     activeTabId: tree?.activeTabId || null,
     setActiveTab,
     addTab,
+    addImportedTab,
     renameTab,
     deleteTab,
     patchTab,

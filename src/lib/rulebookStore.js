@@ -48,19 +48,42 @@ Use \\pagebreak between sections, keep one chapter per topic, and players can re
 
 export const DEFAULT_RULEBOOK = {
   title: "Rulebook",
-  books: [{ id: "bk-default", title: "Rulebook", chapters: [{ id: "ch-quick-start", title: "Quick Start Guide", content: QUICK_START }] }],
+  books: [{
+    id: "bk-default",
+    title: "Rulebook",
+    chapters: [
+      { id: "ch-quick-start", title: "Quick Start Guide", content: QUICK_START },
+      { id: "ch-credits", title: "Credits", credits: true, names: [], content: "# Credits\n\nAdd the project creator and collaborators here." },
+    ],
+  }],
   activeBookId: "bk-default",
 };
 
+export const creditsContent = (names = []) =>
+  `# Credits\n\n${names.length ? names.map((n) => `- ${n}`).join("\n") : "Add the project creator and collaborators here."}\n`;
+
 export function loadRulebook() {
+  const ensureCredits = (rb) => {
+    const first = rb?.books?.[0];
+    if (!first || !Array.isArray(first.chapters)) return rb;
+    if (first.chapters.some((c) => c.credits)) return rb;
+    first.chapters.push({
+      id: "ch-credits",
+      title: "Credits",
+      credits: true,
+      names: [],
+      content: creditsContent([]),
+    });
+    return rb;
+  };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || "null");
     if (saved && Array.isArray(saved.books) && saved.books.length) {
-      return { title: "Rulebook", books: saved.books, activeBookId: saved.activeBookId || saved.books[0].id };
+      return ensureCredits({ title: "Rulebook", books: saved.books, activeBookId: saved.activeBookId || saved.books[0].id });
     }
     if (saved && Array.isArray(saved.chapters) && saved.chapters.length) {
       const b = { id: "bk-migrated", title: saved.title || "Rulebook", chapters: saved.chapters };
-      return { title: "Rulebook", books: [b], activeBookId: b.id };
+      return ensureCredits({ title: "Rulebook", books: [b], activeBookId: b.id });
     }
   } catch {
     /* ignore */

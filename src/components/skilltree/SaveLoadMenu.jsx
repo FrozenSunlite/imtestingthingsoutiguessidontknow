@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Download, FolderOpen, Save, Trash2, Upload } from "lucide-react";
 import { inlineImages, rehydrateImages } from "@/lib/imageStore";
+import { getFiveEToolsSources } from "@/lib/fiveEToolsCache";
 
 // Save & load characters: named slots in the browser plus .json export/import.
 // A save bundles the skill tree, the character, the point pools and the
@@ -29,6 +30,7 @@ export function SaveLoadMenu({ open, onClose }) {
   const [saves, setSaves] = useState([]);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [includeSources, setIncludeSources] = useState(false);
   const fileRef = useRef(null);
 
   // Save slots live in IndexedDB, so listing them is asynchronous.
@@ -61,6 +63,7 @@ export function SaveLoadMenu({ open, onClose }) {
         pools,
         library: settings?.library,
         plots: loadPlots(),
+        ...(includeSources ? { referenceSources: getFiveEToolsSources() } : {}),
       });
       await refresh();
       clearDirty?.();
@@ -172,6 +175,19 @@ export function SaveLoadMenu({ open, onClose }) {
             <Save className="mr-1 h-4 w-4" /> Save
           </Button>
         </div>
+
+        <label className="flex items-start gap-2 rounded-md border bg-muted/20 p-2 text-[10px] text-muted-foreground">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={includeSources}
+            onChange={(e) => setIncludeSources(e.target.checked)}
+          />
+          <span>
+            Also include raw 5eTools source JSON that was browsed but not imported. Leave this
+            off to keep saves small; imported entries are always included.
+          </span>
+        </label>
 
         <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-1">
           {saves.length === 0 && (

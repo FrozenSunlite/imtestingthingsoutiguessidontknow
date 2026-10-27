@@ -76,6 +76,53 @@ while ($listener.IsListening) {
       continue
     }
 
+    # --- 5eTools Reference Index -------------------------------------------
+    # Read the local 5eTools data folder (E:\5etools\data by default) so the
+    # Reference Index can browse files and import selected entries. Raw files
+    # stay on disk and are only read on demand.
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/status") {
+      $root5e = $env:TT_5ETOOLS_ROOT
+      if (-not $root5e) { $root5e = "E:\5etools\data" }
+      $ok = Test-Path $root5e -PathType Container
+      $body = [Text.Encoding]::UTF8.GetBytes((@{ available = $ok; root = $root5e } | ConvertTo-Json -Compress))
+      $res.ContentType = "application/json"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/index") {
+      $root5e = $env:TT_5ETOOLS_ROOT
+      if (-not $root5e) { $root5e = "E:\5etools\data" }
+      if (-not (Test-Path $root5e -PathType Container)) {
+        $body = [Text.Encoding]::UTF8.GetBytes('{"available":false,"files":[]}')
+      } else {
+        $files = Get-ChildItem -Path $root5e -Recurse -File -Filter *.json -ErrorAction SilentlyContinue |
+          ForEach-Object {
+            $rel = $_.FullName.Substring($root5e.Length).TrimStart('\').Replace('\','/')
+            @{ path = $rel; name = $_.Name; dir = (Split-Path $rel -Parent); size = $_.Length }
+          }
+        $body = [Text.Encoding]::UTF8.GetBytes((@{ available = $true; root = $root5e; files = @($files) } | ConvertTo-Json -Compress -Depth 5))
+      }
+      $res.ContentType = "application/json"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/file") {
+      $root5e = $env:TT_5ETOOLS_ROOT
+      if (-not $root5e) { $root5e = "E:\5etools\data" }
+      $rel = [string]$req.QueryString["path"]
+      if (-not $rel) { throw "missing path" }
+      $full = [IO.Path]::GetFullPath((Join-Path $root5e $rel))
+      $rootFull = [IO.Path]::GetFullPath($root5e)
+      if (-not $full.StartsWith($rootFull) -or -not (Test-Path $full -PathType Leaf)) { throw "bad path" }
+      $bytes = [IO.File]::ReadAllBytes($full)
+      $res.ContentType = "application/json; charset=utf-8"
+      $res.OutputStream.Write($bytes,0,$bytes.Length)
+      $res.Close()
+      continue
+    }
+
     # --- Static files -------------------------------------------------------
     if ($path.StartsWith("images/")) {
       $file = Join-Path $uploadRoot ($path.Substring(7))

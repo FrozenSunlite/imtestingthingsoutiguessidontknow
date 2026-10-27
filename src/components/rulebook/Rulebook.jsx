@@ -9,6 +9,7 @@ import {
   saveRulebook,
   newChapterId,
   newBookId,
+  creditsContent,
 } from "@/lib/rulebookStore";
 import {
   BookOpen,
@@ -31,6 +32,7 @@ export default function Rulebook({ className = "" }) {
   const [draft, setDraft] = useState("");
   const [renamingId, setRenamingId] = useState(null);
   const [nameDraft, setNameDraft] = useState("");
+  const [creditDraft, setCreditDraft] = useState("");
   const fileRef = useRef(null);
   const areaRef = useRef(null);
 
@@ -39,6 +41,27 @@ export default function Rulebook({ className = "" }) {
   const chapters = book?.chapters || [];
   const active = chapters.find((c) => c.id === chapterId) || chapters[0] || null;
   const idx = chapters.findIndex((c) => c.id === active?.id);
+  const isCredits = !!active?.credits;
+
+  const updateCredits = (names) =>
+    updateBook((b) => ({
+      ...b,
+      chapters: (b.chapters || []).map((c) =>
+        c.id === active.id ? { ...c, names, content: creditsContent(names) } : c
+      ),
+    }));
+
+  const addCredit = () => {
+    const n = creditDraft.trim();
+    if (!n || !active) return;
+    updateCredits([...(active.names || []), n]);
+    setCreditDraft("");
+  };
+
+  const removeCredit = (i) => {
+    if (!active) return;
+    updateCredits((active.names || []).filter((_, j) => j !== i));
+  };
 
   // Persist whenever the rulebook changes, keeping the active book in sync.
   useEffect(() => {
@@ -258,6 +281,7 @@ export default function Rulebook({ className = "" }) {
                     setEditing(false);
                   }}
                   onDoubleClick={() => {
+                    if (c.credits) return;
                     setRenamingId(c.id);
                     setNameDraft(c.title);
                   }}
@@ -303,7 +327,7 @@ export default function Rulebook({ className = "" }) {
             </p>
           </div>
           <div className="flex shrink-0 gap-1">
-            {editing ? (
+            {isCredits ? null : editing ? (
               <>
                 <Button size="sm" onClick={saveEdit} title="Save this chapter">
                   Save
@@ -327,7 +351,41 @@ export default function Rulebook({ className = "" }) {
           </div>
         </header>
 
-        {editing ? (
+        {isCredits ? (
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm">
+            <p className="text-muted-foreground">
+              Credits for this project. Add the creator and any collaborators; this page cannot be
+              edited as free text.
+            </p>
+            <div className="flex items-center gap-1">
+              <Input
+                className="h-8 flex-1"
+                placeholder="Name"
+                value={creditDraft}
+                onChange={(e) => setCreditDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addCredit();
+                }}
+              />
+              <Button size="sm" onClick={addCredit} disabled={!creditDraft.trim()}>
+                <Plus className="mr-1 h-4 w-4" /> Add name
+              </Button>
+            </div>
+            <div className="space-y-1">
+              {(active.names || []).map((n, i) => (
+                <div key={`${n}-${i}`} className="flex items-center gap-1 rounded border px-2 py-1">
+                  <span className="flex-1">{n}</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => removeCredit(i)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              {(active.names || []).length === 0 && (
+                <p className="text-xs text-muted-foreground">No names added yet.</p>
+              )}
+            </div>
+          </div>
+        ) : editing ? (
           <div className="grid min-h-0 flex-1 grid-cols-2 divide-x">
             <Textarea
               ref={areaRef}
@@ -362,7 +420,9 @@ export default function Rulebook({ className = "" }) {
             </>
           )}
           <p className="text-[10px] text-muted-foreground">
-            {editing
+            {isCredits
+              ? "Add or remove names only — this page can't be edited as free text."
+              : editing
               ? "Homebrewery markdown — # heading, **bold**, *italics*, > quote, - list, | table | rows |. Edits save when you press Save."
               : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."}
           </p>
