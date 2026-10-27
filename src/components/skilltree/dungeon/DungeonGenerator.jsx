@@ -104,7 +104,8 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const stats = useMemo(() => {
     const rooms = dungeon?.rooms || [];
     return {
-      rooms: rooms.length,
+      rooms: rooms.filter((r) => !r.side).length,
+      sideRooms: rooms.filter((r) => r.side).length,
       traps: rooms.filter((r) => (r.traps || []).length).length,
       spawns: rooms.filter((r) => (r.spawns || []).length).length,
       loot: rooms.filter((r) => (r.loot || []).length).length,
@@ -379,6 +380,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
         cells: footprint.cells,
         spawnPoints: footprint.spawnPoints,
         ingressPoints: footprint.ingressPoints,
+        harvest: [...(room.harvest || [])],
       };
       const i = list.findIndex((t) => t.id === id);
       if (i >= 0) list[i] = { ...list[i], ...template };
@@ -402,6 +404,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       traps: [...(makerRoom?.traps || [])],
       spawns: [...(makerRoom?.spawns || [])],
       loot: [...(makerRoom?.loot || [])],
+      harvest: [...(makerRoom?.harvest || [])],
     };
     commit({ ...dungeon, rooms: [...dungeon.rooms, room] });
     setSelectedId(room.id);
@@ -557,6 +560,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
         : undefined,
       spawnPoints: (selected.spawnPoints || []).map((p) => ({ ...p })),
       ingressPoints: (selected.ingressPoints || []).map((p) => ({ ...p })),
+      harvest: [...(selected.harvest || [])],
     };
     setSettings((s) => ({
       ...s,
@@ -861,11 +865,12 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-3">
           {dungeon ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
                 <span>{stats.rooms} rooms</span>
+                {stats.sideRooms > 0 && <span>· {stats.sideRooms} side rooms</span>}
                 <span>· {stats.connections} links</span>
                 <span>· {stats.traps} trapped</span>
                 <span>· {stats.spawns} with spawns</span>
@@ -904,6 +909,43 @@ export function DungeonGenerator({ onExit, embedded = false }) {
               <Button onClick={generate}>
                 <Dices className="mr-1 h-4 w-4" /> Generate dungeon
               </Button>
+            </div>
+          )}
+          {makerOpen && (
+            <div className="flex h-[360px] shrink-0 flex-col rounded-md border bg-background">
+              <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Room Maker
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() => setMakerOpen(false)}
+                >
+                  Hide
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {makerRoom ? (
+                  <RoomShapeBuilder
+                    inline
+                    room={makerRoom}
+                    templates={allRoomTemplates}
+                    templateId={makerTemplateId}
+                    onLoadTemplate={loadMakerTemplate}
+                    onSave={applyMaker}
+                    onUpload={uploadMaker}
+                    onAdd={addMakerRoom}
+                    onOpenChange={() => setMakerOpen(false)}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Select a room on the map to edit its footprint, spawn points and ingress zones,
+                    or load a room template from the Reference Library.
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </main>
@@ -986,6 +1028,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 ["traps", "Traps (one per line)"],
                 ["spawns", "Enemy spawns / placement"],
                 ["loot", "Loot (not on a creature)"],
+                ["harvest", "Harvestable materials (one per line)"],
               ].map(([key, label]) => (
                 <div key={key}>
                   <Label className="text-[10px]">{label}</Label>
@@ -1051,44 +1094,6 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           )}
         </aside>
       </div>
-
-      {makerOpen && (
-        <div className="flex h-[390px] shrink-0 flex-col border-t bg-background">
-          <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Room Maker
-            </p>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs"
-              onClick={() => setMakerOpen(false)}
-            >
-              Hide
-            </Button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {makerRoom ? (
-              <RoomShapeBuilder
-                inline
-                room={makerRoom}
-                templates={allRoomTemplates}
-                templateId={makerTemplateId}
-                onLoadTemplate={loadMakerTemplate}
-                onSave={applyMaker}
-                onUpload={uploadMaker}
-                onAdd={addMakerRoom}
-                onOpenChange={() => setMakerOpen(false)}
-              />
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Select a room on the map to edit its footprint, spawn points and ingress zones,
-                or load a room template from the Reference Library.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {ctxMenu && (
         <div

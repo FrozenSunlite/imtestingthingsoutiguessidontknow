@@ -26,6 +26,7 @@ export function RoomBattleMap({ room }) {
   const traps = room.traps || [];
   const spawns = room.spawns || [];
   const loot = room.loot || [];
+  const harvest = room.harvest || [];
   const spawnPoints = (room.spawnPoints || []).filter(
     (p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y))
   );
@@ -209,12 +210,33 @@ export function RoomBattleMap({ room }) {
             {label((center[0] + 0.5) * cell, (center[1] + 0.7) * cell, "L", "hsl(var(--foreground))", 5)}
           </g>
         )}
+
+        {harvest.length > 0 && (() => {
+          const [hx, hy] = at(5);
+          const cx = (hx + 0.5) * cell;
+          const cy = (hy + 0.5) * cell;
+          return (
+            <g>
+              <rect
+                x={cx - cell * 0.35}
+                y={cy - cell * 0.35}
+                width={cell * 0.7}
+                height={cell * 0.7}
+                transform={`rotate(45 ${cx} ${cy})`}
+                fill="hsl(188 85% 45%)"
+                fillOpacity="0.85"
+              />
+              {label(cx, cy + 2, "H", "hsl(var(--background))", 5)}
+            </g>
+          );
+        })()}
       </svg>
       <div className="flex flex-wrap gap-2 text-[9px] text-muted-foreground">
         <span>▲ trap</span>
         <span>● monster spawn</span>
         <span>● player ingress</span>
         <span>◆ loot</span>
+        <span>◆ harvest</span>
         <span>▭ cover</span>
         <span>◌ elevation</span>
         {room.bonfire && <span>♨ bonfire / short rest</span>}

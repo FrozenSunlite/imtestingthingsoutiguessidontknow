@@ -37,6 +37,11 @@ export function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = 
           {loot.seen.length > 0 && (
             <p className="leading-snug text-muted-foreground">In rooms: {loot.seen.join(", ")}</p>
           )}
+          {loot.harvest.length > 0 && (
+            <p className="leading-snug text-cyan-700 dark:text-cyan-300">
+              Harvest: {loot.harvest.slice(0, 5).join(", ")}
+            </p>
+          )}
         </div>
         <div className="rounded bg-muted/40 px-1.5 py-1">
           <p className="font-semibold text-muted-foreground">Gold / downtime</p>

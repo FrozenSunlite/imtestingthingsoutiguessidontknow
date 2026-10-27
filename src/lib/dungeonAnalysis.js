@@ -77,9 +77,15 @@ export function dungeonLootProfile(dungeon) {
     .join(" ");
   const seen = LOOT_HINTS.filter(([, re]) => re.test(text)).map(([name]) => name);
   const tier = (DUNGEON_RANKS[dungeon?.rank] || DUNGEON_RANKS.E).loot;
+  const harvest = [
+    ...new Set(
+      (dungeon?.rooms || []).flatMap((room) => room.harvest || []).filter(Boolean)
+    ),
+  ];
   return {
     tier,
     seen,
+    harvest,
     summary: seen.length ? seen.join(", ") : tier,
   };
 }

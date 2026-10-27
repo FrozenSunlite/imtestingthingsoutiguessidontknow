@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-ChDqhBB-.js";
+import { n as Button, r as cn } from "./router-D0782pYM.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3135,7 +3135,8 @@ var DUNGEON_CATEGORIES = [
 	["Elite", "#fb7185"],
 	["Boss", "#ef4444"],
 	["Rest", "#4ade80"],
-	["Shop", "#2dd4bf"]
+	["Shop", "#2dd4bf"],
+	["Harvest", "#22d3ee"]
 ];
 var DUNGEON_ENVIRONMENTS = [
 	"Damp stone",
@@ -3613,6 +3614,72 @@ var DEFAULT_DUNGEON_ROOMS = [
 		notes: "Old supports and a vertical shortcut between levels."
 	},
 	{
+		id: "room-crystal-vein",
+		name: "Crystal Vein",
+		category: "Harvest",
+		minW: 3,
+		maxW: 5,
+		minH: 3,
+		maxH: 5,
+		environment: "Fungal cavern",
+		elevation: "Flat",
+		cover: "Pillars (half cover)",
+		connector: "Side passage",
+		traps: [],
+		spawns: [],
+		loot: [],
+		harvest: [
+			"Glow crystal",
+			"Mana crystal",
+			"Resonance shard"
+		],
+		notes: "Non-combat side chamber. Harvest crystals with an Arcana or Mining check; the vein can be tapped once per delve."
+	},
+	{
+		id: "room-herb-grove",
+		name: "Herb Grove",
+		category: "Harvest",
+		minW: 3,
+		maxW: 5,
+		minH: 3,
+		maxH: 5,
+		environment: "Overgrown temple",
+		elevation: "Flat",
+		cover: "Fog (lightly obscured)",
+		connector: "Side passage",
+		traps: [],
+		spawns: [],
+		loot: [],
+		harvest: [
+			"Silverleaf",
+			"Bloodroot",
+			"Sunpetal"
+		],
+		notes: "Non-combat side chamber. A Nature or Herbalism check yields rare reagents for potions and salves."
+	},
+	{
+		id: "room-ore-seam",
+		name: "Ore Seam",
+		category: "Harvest",
+		minW: 3,
+		maxW: 5,
+		minH: 2,
+		maxH: 4,
+		environment: "Mine shafts",
+		elevation: "Sunken floor (−1)",
+		cover: "Low wall (three-quarters)",
+		connector: "Side passage",
+		traps: [],
+		spawns: [],
+		loot: [],
+		harvest: [
+			"Iron ore",
+			"Silver ore",
+			"Mithral fragment"
+		],
+		notes: "Non-combat side chamber. Mining checks produce crafting materials; a rich seam may need several trips."
+	},
+	{
 		id: "room-bonfire",
 		name: "Bonfire Camp",
 		category: "Rest",
@@ -3717,6 +3784,8 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
 		traps,
 		spawns,
 		loot,
+		harvest: [...template.harvest || []],
+		side: !!template.side,
 		notes: template.notes || "",
 		cr0Only: !!template.cr0Only,
 		bonfire: !!template.bonfire
@@ -3881,12 +3950,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 		start.x = -22;
 		start.y = 0;
 		rooms.push(start);
-		let entrance = instantiate(templateFor("Entrance", source, rng), "Entrance", rng, rank, opts);
-		entrance.x = 0;
-		entrance.y = 0;
-		rooms.push(entrance);
-		connections.push(link(start.id, entrance.id, "Trail"));
-		let previous = [entrance];
+		let previous = [start];
 		let encounterFloors = 0;
 		for (let f = 1; f < floors; f++) {
 			const last = f === 14;
@@ -3936,8 +4000,8 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 	} else {
 		const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
 		const spineCount = Math.max(2, total - branchCount);
-		const categories = ["Start", "Entrance"];
-		for (let i = 0; i < spineCount - 2; i++) {
+		const categories = ["Start"];
+		for (let i = 0; i < spineCount - 1; i++) {
 			let cat = "Chamber";
 			if (i === 0 && spineCount >= 6) cat = "Elite";
 			else if (i === 1 && spineCount >= 9) cat = "Rest";
@@ -3990,6 +4054,32 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed(), tem
 			connections.push(link(bossParent.id, alt.id, bossParent.connector));
 		}
 		positionSingle(rooms, rng);
+	}
+	let harvestPool = source.filter((t) => t.category === "Harvest" && t.enabled !== false);
+	if (!harvestPool.length) harvestPool = DEFAULT_DUNGEON_ROOMS.filter((t) => t.category === "Harvest");
+	const sideParents = rooms.filter((r) => !r.branch && !["Start", "Boss"].includes(r.category));
+	if (harvestPool.length && sideParents.length) {
+		const sideCount = Math.max(1, Math.ceil(info.rooms / 4));
+		for (let i = 0; i < sideCount; i += 1) {
+			const template = rng.pick(harvestPool);
+			const parent = rng.pick(sideParents);
+			const room = instantiate(template, "Harvest", rng, rank, {
+				monsters: [],
+				lootPools
+			});
+			room.name = template.name || "Harvesting Site";
+			room.side = true;
+			room.branch = true;
+			room.combat = false;
+			room.parentId = parent.id;
+			room.traps = [];
+			room.spawns = [];
+			room.spawnPoints = [];
+			room.x = parent.x + 8 + i % 2 * 6;
+			room.y = parent.y + parent.h + 4 + Math.floor(i / 2) * 6;
+			rooms.push(room);
+			connections.push(link(parent.id, room.id, "Side passage"));
+		}
 	}
 	const routes = buildRoutes(rooms, connections);
 	return {
@@ -4217,6 +4307,8 @@ function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 		traps: [...t.traps || []],
 		spawns: [...t.spawns || []],
 		loot: [...t.loot || []],
+		harvest: [...t.harvest || []],
+		side: false,
 		notes: t.notes || "",
 		cr0Only: !!t.cr0Only,
 		bonfire: !!t.bonfire
@@ -4238,11 +4330,12 @@ function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [], 
 	return {
 		...dungeon,
 		rooms: (dungeon.rooms || []).map((room) => {
-			if (room.bonfire || [
+			if (room.bonfire || room.side || [
 				"Rest",
 				"Shop",
 				"Entrance",
-				"Start"
+				"Start",
+				"Harvest"
 			].includes(room.category)) return room;
 			const miniBoss = room.category === "Boss" || room.category === "Elite";
 			const lo = miniBoss ? band.minCR : band.minionMin;
@@ -14397,6 +14490,7 @@ function DungeonRoomsTab() {
 					traps: [],
 					spawns: [],
 					loot: [],
+					harvest: [],
 					notes: "",
 					enabled: true
 				}),
@@ -14508,7 +14602,8 @@ function DungeonRoomsTab() {
 					[
 						["traps", "Traps (one per line)"],
 						["spawns", "Spawns / placement (one per line)"],
-						["loot", "Loot (one per line)"]
+						["loot", "Loot (one per line)"],
+						["harvest", "Harvestable materials (one per line)"]
 					].map(([key, label]) => /* @__PURE__ */ jsxs("div", {
 						className: "mt-1.5",
 						children: [/* @__PURE__ */ jsx(Label, {
@@ -37612,6 +37707,7 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 							const outlinePath = cellsOutlinePath(cells, px, x, y);
 							const badges = [
 								room.bonfire ? "♨" : "",
+								room.side ? "H" : "",
 								room.traps?.length ? "T" : "",
 								room.spawns?.length || room.spawnPoints?.length ? "S" : "",
 								room.ingressPoints?.length ? "I" : "",
@@ -37634,7 +37730,7 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 								},
 								style: { cursor: "grab" },
 								children: [
-									/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
+									/* @__PURE__ */ jsx("title", { children: `${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.side ? "\nSide room — non-combat / harvesting" : ""}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}${room.harvest?.length ? `\nHarvest: ${room.harvest.join("; ")}` : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}` }),
 									/* @__PURE__ */ jsx("path", {
 										d: fillPath,
 										fill: color,
@@ -37645,7 +37741,8 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 										fill: "none",
 										stroke: selected || onRoute ? "hsl(var(--primary))" : color,
 										strokeWidth: selected ? 2.5 : onRoute ? 1.9 : 1.2,
-										strokeLinecap: "square"
+										strokeLinecap: "square",
+										strokeDasharray: room.side ? "3 2" : void 0
 									}),
 									/* @__PURE__ */ jsx("text", {
 										x: x + 4,
@@ -37722,6 +37819,7 @@ function RoomBattleMap({ room }) {
 	const traps = room.traps || [];
 	const spawns = room.spawns || [];
 	const loot = room.loot || [];
+	const harvest = room.harvest || [];
 	const spawnPoints = (room.spawnPoints || []).filter((p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)));
 	const ingressPoints = (room.ingressPoints || []).filter((p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)));
 	const at = (i) => cells[(i % cells.length + cells.length) % cells.length] || center;
@@ -37875,7 +37973,21 @@ function RoomBattleMap({ room }) {
 						transform: `rotate(45 ${(center[0] + .5) * cell} ${(center[1] + .5) * cell})`,
 						fill: "hsl(45 95% 55%)",
 						fillOpacity: "0.85"
-					}), label((center[0] + .5) * cell, (center[1] + .7) * cell, "L", "hsl(var(--foreground))", 5)] })
+					}), label((center[0] + .5) * cell, (center[1] + .7) * cell, "L", "hsl(var(--foreground))", 5)] }),
+					harvest.length > 0 && (() => {
+						const [hx, hy] = at(5);
+						const cx = (hx + .5) * cell;
+						const cy = (hy + .5) * cell;
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
+							x: cx - cell * .35,
+							y: cy - cell * .35,
+							width: cell * .7,
+							height: cell * .7,
+							transform: `rotate(45 ${cx} ${cy})`,
+							fill: "hsl(188 85% 45%)",
+							fillOpacity: "0.85"
+						}), label(cx, cy + 2, "H", "hsl(var(--background))", 5)] });
+					})()
 				]
 			}),
 			/* @__PURE__ */ jsxs("div", {
@@ -37885,6 +37997,7 @@ function RoomBattleMap({ room }) {
 					/* @__PURE__ */ jsx("span", { children: "● monster spawn" }),
 					/* @__PURE__ */ jsx("span", { children: "● player ingress" }),
 					/* @__PURE__ */ jsx("span", { children: "◆ loot" }),
+					/* @__PURE__ */ jsx("span", { children: "◆ harvest" }),
 					/* @__PURE__ */ jsx("span", { children: "▭ cover" }),
 					/* @__PURE__ */ jsx("span", { children: "◌ elevation" }),
 					room.bonfire && /* @__PURE__ */ jsx("span", { children: "♨ bonfire / short rest" })
@@ -38264,6 +38377,7 @@ function dungeonLootProfile(dungeon) {
 	return {
 		tier,
 		seen,
+		harvest: [...new Set((dungeon?.rooms || []).flatMap((room) => room.harvest || []).filter(Boolean))],
 		summary: seen.length ? seen.join(", ") : tier
 	};
 }
@@ -38372,6 +38486,10 @@ function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = "E" }) 
 						loot.seen.length > 0 && /* @__PURE__ */ jsxs("p", {
 							className: "leading-snug text-muted-foreground",
 							children: ["In rooms: ", loot.seen.join(", ")]
+						}),
+						loot.harvest.length > 0 && /* @__PURE__ */ jsxs("p", {
+							className: "leading-snug text-cyan-700 dark:text-cyan-300",
+							children: ["Harvest: ", loot.harvest.slice(0, 5).join(", ")]
 						})
 					]
 				}), /* @__PURE__ */ jsxs("div", {
@@ -38469,7 +38587,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const stats = useMemo(() => {
 		const rooms = dungeon?.rooms || [];
 		return {
-			rooms: rooms.length,
+			rooms: rooms.filter((r) => !r.side).length,
+			sideRooms: rooms.filter((r) => r.side).length,
 			traps: rooms.filter((r) => (r.traps || []).length).length,
 			spawns: rooms.filter((r) => (r.spawns || []).length).length,
 			loot: rooms.filter((r) => (r.loot || []).length).length,
@@ -38749,7 +38868,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 				shape: footprint.shape,
 				cells: footprint.cells,
 				spawnPoints: footprint.spawnPoints,
-				ingressPoints: footprint.ingressPoints
+				ingressPoints: footprint.ingressPoints,
+				harvest: [...room.harvest || []]
 			};
 			const i = list.findIndex((t) => t.id === id);
 			if (i >= 0) list[i] = {
@@ -38780,7 +38900,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			templateId: makerTemplateId || "custom-room",
 			traps: [...makerRoom?.traps || []],
 			spawns: [...makerRoom?.spawns || []],
-			loot: [...makerRoom?.loot || []]
+			loot: [...makerRoom?.loot || []],
+			harvest: [...makerRoom?.harvest || []]
 		};
 		commit({
 			...dungeon,
@@ -38933,7 +39054,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			shape: selected.shape || "",
 			cells: Array.isArray(selected.cells) ? selected.cells.map(([x, y]) => [x, y]) : void 0,
 			spawnPoints: (selected.spawnPoints || []).map((p) => ({ ...p })),
-			ingressPoints: (selected.ingressPoints || []).map((p) => ({ ...p }))
+			ingressPoints: (selected.ingressPoints || []).map((p) => ({ ...p })),
+			harvest: [...selected.harvest || []]
 		};
 		setSettings((s) => ({
 			...s,
@@ -39365,13 +39487,18 @@ function DungeonGenerator({ onExit, embedded = false }) {
 							})
 						]
 					}),
-					/* @__PURE__ */ jsx("main", {
-						className: "flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto p-3",
-						children: dungeon ? /* @__PURE__ */ jsxs(Fragment, { children: [
+					/* @__PURE__ */ jsxs("main", {
+						className: "flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-3",
+						children: [dungeon ? /* @__PURE__ */ jsxs(Fragment, { children: [
 							/* @__PURE__ */ jsxs("div", {
 								className: "flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
 								children: [
 									/* @__PURE__ */ jsxs("span", { children: [stats.rooms, " rooms"] }),
+									stats.sideRooms > 0 && /* @__PURE__ */ jsxs("span", { children: [
+										"· ",
+										stats.sideRooms,
+										" side rooms"
+									] }),
 									/* @__PURE__ */ jsxs("span", { children: [
 										"· ",
 										stats.connections,
@@ -39439,7 +39566,38 @@ function DungeonGenerator({ onExit, embedded = false }) {
 									children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate dungeon"]
 								})
 							]
-						})
+						}), makerOpen && /* @__PURE__ */ jsxs("div", {
+							className: "flex h-[360px] shrink-0 flex-col rounded-md border bg-background",
+							children: [/* @__PURE__ */ jsxs("div", {
+								className: "flex items-center justify-between border-b bg-muted/20 px-3 py-1.5",
+								children: [/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+									children: "Room Maker"
+								}), /* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "ghost",
+									className: "h-7 text-xs",
+									onClick: () => setMakerOpen(false),
+									children: "Hide"
+								})]
+							}), /* @__PURE__ */ jsx("div", {
+								className: "min-h-0 flex-1 overflow-y-auto p-3",
+								children: makerRoom ? /* @__PURE__ */ jsx(RoomShapeBuilder, {
+									inline: true,
+									room: makerRoom,
+									templates: allRoomTemplates,
+									templateId: makerTemplateId,
+									onLoadTemplate: loadMakerTemplate,
+									onSave: applyMaker,
+									onUpload: uploadMaker,
+									onAdd: addMakerRoom,
+									onOpenChange: () => setMakerOpen(false)
+								}) : /* @__PURE__ */ jsx("p", {
+									className: "text-xs text-muted-foreground",
+									children: "Select a room on the map to edit its footprint, spawn points and ingress zones, or load a room template from the Reference Library."
+								})
+							})]
+						})]
 					}),
 					/* @__PURE__ */ jsx("aside", {
 						className: "w-80 shrink-0 overflow-y-auto border-l p-3",
@@ -39567,7 +39725,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 								[
 									["traps", "Traps (one per line)"],
 									["spawns", "Enemy spawns / placement"],
-									["loot", "Loot (not on a creature)"]
+									["loot", "Loot (not on a creature)"],
+									["harvest", "Harvestable materials (one per line)"]
 								].map(([key, label]) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 									className: "text-[10px]",
 									children: label
@@ -39648,38 +39807,6 @@ function DungeonGenerator({ onExit, embedded = false }) {
 						})
 					})
 				]
-			}),
-			makerOpen && /* @__PURE__ */ jsxs("div", {
-				className: "flex h-[390px] shrink-0 flex-col border-t bg-background",
-				children: [/* @__PURE__ */ jsxs("div", {
-					className: "flex items-center justify-between border-b bg-muted/20 px-3 py-1.5",
-					children: [/* @__PURE__ */ jsx("p", {
-						className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
-						children: "Room Maker"
-					}), /* @__PURE__ */ jsx(Button, {
-						size: "sm",
-						variant: "ghost",
-						className: "h-7 text-xs",
-						onClick: () => setMakerOpen(false),
-						children: "Hide"
-					})]
-				}), /* @__PURE__ */ jsx("div", {
-					className: "min-h-0 flex-1 overflow-y-auto p-3",
-					children: makerRoom ? /* @__PURE__ */ jsx(RoomShapeBuilder, {
-						inline: true,
-						room: makerRoom,
-						templates: allRoomTemplates,
-						templateId: makerTemplateId,
-						onLoadTemplate: loadMakerTemplate,
-						onSave: applyMaker,
-						onUpload: uploadMaker,
-						onAdd: addMakerRoom,
-						onOpenChange: () => setMakerOpen(false)
-					}) : /* @__PURE__ */ jsx("p", {
-						className: "text-xs text-muted-foreground",
-						children: "Select a room on the map to edit its footprint, spawn points and ingress zones, or load a room template from the Reference Library."
-					})
-				})]
 			}),
 			ctxMenu && /* @__PURE__ */ jsx("div", {
 				className: "fixed inset-0 z-50",

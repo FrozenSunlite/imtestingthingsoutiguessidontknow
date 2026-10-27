@@ -42,6 +42,7 @@ export function DungeonRoomsTab() {
             traps: [],
             spawns: [],
             loot: [],
+            harvest: [],
             notes: "",
             enabled: true,
           })
@@ -146,6 +147,7 @@ export function DungeonRoomsTab() {
               ["traps", "Traps (one per line)"],
               ["spawns", "Spawns / placement (one per line)"],
               ["loot", "Loot (one per line)"],
+              ["harvest", "Harvestable materials (one per line)"],
             ].map(([key, label]) => (
               <div key={key} className="mt-1.5">
                 <Label className="text-[10px] text-muted-foreground">{label}</Label>

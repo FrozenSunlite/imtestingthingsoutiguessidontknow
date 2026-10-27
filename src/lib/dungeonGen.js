@@ -41,6 +41,7 @@ export const DUNGEON_CATEGORIES = [
   ["Boss", "#ef4444"],
   ["Rest", "#4ade80"],
   ["Shop", "#2dd4bf"],
+  ["Harvest", "#22d3ee"],
 ];
 
 export const DUNGEON_ENVIRONMENTS = [
@@ -303,6 +304,39 @@ export const DEFAULT_DUNGEON_ROOMS = [
     notes: "Old supports and a vertical shortcut between levels.",
   },
   {
+    id: "room-crystal-vein",
+    name: "Crystal Vein",
+    category: "Harvest",
+    minW: 3, maxW: 5, minH: 3, maxH: 5,
+    environment: "Fungal cavern", elevation: "Flat", cover: "Pillars (half cover)",
+    connector: "Side passage", traps: [], spawns: [], loot: [],
+    harvest: ["Glow crystal", "Mana crystal", "Resonance shard"],
+    notes:
+      "Non-combat side chamber. Harvest crystals with an Arcana or Mining check; the vein can be tapped once per delve.",
+  },
+  {
+    id: "room-herb-grove",
+    name: "Herb Grove",
+    category: "Harvest",
+    minW: 3, maxW: 5, minH: 3, maxH: 5,
+    environment: "Overgrown temple", elevation: "Flat", cover: "Fog (lightly obscured)",
+    connector: "Side passage", traps: [], spawns: [], loot: [],
+    harvest: ["Silverleaf", "Bloodroot", "Sunpetal"],
+    notes:
+      "Non-combat side chamber. A Nature or Herbalism check yields rare reagents for potions and salves.",
+  },
+  {
+    id: "room-ore-seam",
+    name: "Ore Seam",
+    category: "Harvest",
+    minW: 3, maxW: 5, minH: 2, maxH: 4,
+    environment: "Mine shafts", elevation: "Sunken floor (−1)", cover: "Low wall (three-quarters)",
+    connector: "Side passage", traps: [], spawns: [], loot: [],
+    harvest: ["Iron ore", "Silver ore", "Mithral fragment"],
+    notes:
+      "Non-combat side chamber. Mining checks produce crafting materials; a rich seam may need several trips.",
+  },
+  {
     id: "room-bonfire",
     name: "Bonfire Camp",
     category: "Rest",
@@ -411,6 +445,8 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
     traps,
     spawns,
     loot,
+    harvest: [...(template.harvest || [])],
+    side: !!template.side,
     notes: template.notes || "",
     cr0Only: !!template.cr0Only,
     bonfire: !!template.bonfire,
@@ -594,12 +630,7 @@ export function generateDungeon({
     start.x = -22;
     start.y = 0;
     rooms.push(start);
-    let entrance = instantiate(templateFor("Entrance", source, rng), "Entrance", rng, rank, opts);
-    entrance.x = 0;
-    entrance.y = 0;
-    rooms.push(entrance);
-    connections.push(link(start.id, entrance.id, "Trail"));
-    let previous = [entrance];
+    let previous = [start];
     let encounterFloors = 0;
     for (let f = 1; f < floors; f++) {
       const last = f === floors - 1;
@@ -662,8 +693,8 @@ export function generateDungeon({
   } else {
     const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
     const spineCount = Math.max(2, total - branchCount);
-    const categories = ["Start", "Entrance"];
-    for (let i = 0; i < spineCount - 2; i++) {
+    const categories = ["Start"];
+    for (let i = 0; i < spineCount - 1; i++) {
       let cat = "Chamber";
       if (i === 0 && spineCount >= 6) cat = "Elite";
       else if (i === 1 && spineCount >= 9) cat = "Rest";
@@ -731,6 +762,40 @@ export function generateDungeon({
       }
     }
     positionSingle(rooms, rng);
+  }
+
+  // Branching non-combat side rooms. These are extra to the rank's encounter
+  // count and are reached from a normal room by a side passage. They are for
+  // harvesting, lore and exploration rather than fights.
+  let harvestPool = source.filter((t) => t.category === "Harvest" && t.enabled !== false);
+  if (!harvestPool.length) {
+    harvestPool = DEFAULT_DUNGEON_ROOMS.filter((t) => t.category === "Harvest");
+  }
+  const sideParents = rooms.filter(
+    (r) => !r.branch && !["Start", "Boss"].includes(r.category)
+  );
+  if (harvestPool.length && sideParents.length) {
+    const sideCount = Math.max(1, Math.ceil(info.rooms / 4));
+    for (let i = 0; i < sideCount; i += 1) {
+      const template = rng.pick(harvestPool);
+      const parent = rng.pick(sideParents);
+      const room = instantiate(template, "Harvest", rng, rank, {
+        monsters: [],
+        lootPools,
+      });
+      room.name = template.name || "Harvesting Site";
+      room.side = true;
+      room.branch = true;
+      room.combat = false;
+      room.parentId = parent.id;
+      room.traps = [];
+      room.spawns = [];
+      room.spawnPoints = [];
+      room.x = parent.x + 8 + (i % 2) * 6;
+      room.y = parent.y + parent.h + 4 + Math.floor(i / 2) * 6;
+      rooms.push(room);
+      connections.push(link(parent.id, room.id, "Side passage"));
+    }
   }
 
   const routes = buildRoutes(rooms, connections);
@@ -983,6 +1048,8 @@ export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
     traps: [...(t.traps || [])],
     spawns: [...(t.spawns || [])],
     loot: [...(t.loot || [])],
+    harvest: [...(t.harvest || [])],
+    side: false,
     notes: t.notes || "",
     cr0Only: !!t.cr0Only,
     bonfire: !!t.bonfire,
@@ -1027,7 +1094,11 @@ export function scaleEncounters(
   return {
     ...dungeon,
     rooms: (dungeon.rooms || []).map((room) => {
-      if (room.bonfire || ["Rest", "Shop", "Entrance", "Start"].includes(room.category)) {
+      if (
+        room.bonfire ||
+        room.side ||
+        ["Rest", "Shop", "Entrance", "Start", "Harvest"].includes(room.category)
+      ) {
         return room;
       }
       const miniBoss = room.category === "Boss" || room.category === "Elite";

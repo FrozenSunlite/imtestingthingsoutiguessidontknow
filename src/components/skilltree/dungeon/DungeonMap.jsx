@@ -285,6 +285,7 @@ export function DungeonMap({
             const outlinePath = cellsOutlinePath(cells, px, x, y);
             const badges = [
               room.bonfire ? "♨" : "",
+              room.side ? "H" : "",
               room.traps?.length ? "T" : "",
               room.spawns?.length || room.spawnPoints?.length ? "S" : "",
               room.ingressPoints?.length ? "I" : "",
@@ -310,7 +311,7 @@ export function DungeonMap({
                 style={{ cursor: "grab" }}
               >
                 <title>
-                  {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
+                  {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.side ? "\nSide room — non-combat / harvesting" : ""}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}${room.harvest?.length ? `\nHarvest: ${room.harvest.join("; ")}` : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
                 </title>
                 <path
                   d={fillPath}
@@ -323,6 +324,7 @@ export function DungeonMap({
                   stroke={selected || onRoute ? "hsl(var(--primary))" : color}
                   strokeWidth={selected ? 2.5 : onRoute ? 1.9 : 1.2}
                   strokeLinecap="square"
+                  strokeDasharray={room.side ? "3 2" : undefined}
                 />
                 <text x={x + 4} y={y + 12} fontSize="9" fontWeight="600" fill="hsl(var(--foreground))">
                   {String(room.name || room.category).slice(0, 26)}
