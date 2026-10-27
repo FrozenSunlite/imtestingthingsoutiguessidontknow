@@ -68,8 +68,18 @@ export function NodeEditorPanel() {
     if (!file || !node) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
-      updateNode(node.id, { [field]: file_url });
+      const reader = new FileReader();
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      console.log("saving image", field, String(dataUrl).slice(0, 30));
+      updateNode(node.id, { [field]: dataUrl });
+      alert("Image captured (" + String(dataUrl).length + " chars).");
+    } catch (e) {
+      console.error(e);
+      alert("Upload failed: " + (e && e.message ? e.message : e));
     } finally {
       setUploading(false);
     }
