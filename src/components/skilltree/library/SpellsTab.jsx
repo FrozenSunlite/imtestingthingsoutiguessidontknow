@@ -403,7 +403,7 @@ export function SpellsTab() {
                 </button>
               </div>
               {sp.flavor && (
-                <p className="line-clamp-1 pl-5 text-xs italic text-muted-foreground">{sp.flavor}</p>
+                <p className="line-clamp-1 pl-5 text-xs italic text-muted-foreground">{String(sp.flavor)}</p>
               )}
               {open[i] && (
                 <div className="grid grid-cols-2 gap-1.5">

@@ -214,7 +214,7 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
   const patch = onPatch;
   const weaponNames = (lib.weapons || []).map((w) => w.name).filter(Boolean);
   const armorNames = (lib.armor || []).map((a) => a.name).filter(Boolean);
-  const summary = [m.size, m.type].filter(Boolean).join(" ");
+  const summary = [m.size, m.type].filter(Boolean).map(String).join(" ");
   const movement = Array.isArray(m.speeds) && m.speeds.length ? m.speeds : speedEntries(m.speed);
   const speedTypeOptions = [
     ...new Set([
@@ -264,7 +264,7 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
       </div>
       {!!(m.description || m.alignment || eff.ac || eff.hp || eff.spellcasting || eff.legendary > 0) && (
         <div className="mt-1 space-y-0.5 px-5 text-xs text-muted-foreground">
-          {m.alignment && <p>Alignment: {m.alignment}</p>}
+          {m.alignment && <p>Alignment: {String(m.alignment)}</p>}
           {(eff.ac || eff.hp) && (
             <p>
               AC {eff.ac || "—"}
@@ -273,8 +273,8 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
             </p>
           )}
           {eff.spellcasting && <p>Spellcasting: {eff.spellcasting}</p>}
-          {m.description && <p className="line-clamp-2">{m.description}</p>}
-          {m.flavor && <p className="line-clamp-2 italic">{m.flavor}</p>}
+          {m.description && <p className="line-clamp-2">{String(m.description)}</p>}
+          {m.flavor && <p className="line-clamp-2 italic">{String(m.flavor)}</p>}
         </div>
       )}
       {open && (

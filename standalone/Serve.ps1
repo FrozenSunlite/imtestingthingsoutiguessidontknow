@@ -77,31 +77,34 @@ while ($listener.IsListening) {
     }
 
     # --- 5eTools Reference Index -------------------------------------------
-    # Read the local 5eTools data folder (E:\5etools\data by default) so the
-    # Reference Index can browse files and import selected entries. Raw files
-    # stay on disk and are only read on demand.
+    # Read the local 5eTools folders (partnered data, homebrew and prerelease)
+    # so the Reference Index can browse files and import selected entries. Raw
+    # files stay on disk and are only read on demand.
+    $fiveBase = "E:\5etools"
+    $fiveRoots = @("data", "homebrew", "prerelease")
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/status") {
-      $root5e = $env:TT_5ETOOLS_ROOT
-      if (-not $root5e) { $root5e = "E:\5etools\data" }
-      $ok = Test-Path $root5e -PathType Container
-      $body = [Text.Encoding]::UTF8.GetBytes((@{ available = $ok; root = $root5e } | ConvertTo-Json -Compress))
+      $roots = @{}
+      foreach ($r in $fiveRoots) { $roots[$r] = Test-Path (Join-Path $fiveBase $r) -PathType Container }
+      $body = [Text.Encoding]::UTF8.GetBytes((@{ available = (@($roots.Values) -contains $true); base = $fiveBase; roots = $roots } | ConvertTo-Json -Compress -Depth 4))
       $res.ContentType = "application/json"
       $res.OutputStream.Write($body,0,$body.Length)
       $res.Close()
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/index") {
-      $root5e = $env:TT_5ETOOLS_ROOT
-      if (-not $root5e) { $root5e = "E:\5etools\data" }
+      $rootName = [string]$req.QueryString["root"]
+      if (-not $rootName) { $rootName = "data" }
+      if ($fiveRoots -notcontains $rootName) { throw "bad root" }
+      $root5e = Join-Path $fiveBase $rootName
       if (-not (Test-Path $root5e -PathType Container)) {
         $body = [Text.Encoding]::UTF8.GetBytes('{"available":false,"files":[]}')
       } else {
         $files = Get-ChildItem -Path $root5e -Recurse -File -Filter *.json -ErrorAction SilentlyContinue |
           ForEach-Object {
             $rel = $_.FullName.Substring($root5e.Length).TrimStart('\').Replace('\','/')
-            @{ path = $rel; name = $_.Name; dir = (Split-Path $rel -Parent); size = $_.Length }
+            @{ root = $rootName; path = $rel; name = $_.Name; dir = (Split-Path $rel -Parent); size = $_.Length }
           }
-        $body = [Text.Encoding]::UTF8.GetBytes((@{ available = $true; root = $root5e; files = @($files) } | ConvertTo-Json -Compress -Depth 5))
+        $body = [Text.Encoding]::UTF8.GetBytes((@{ available = $true; root = $rootName; base = $fiveBase; files = @($files) } | ConvertTo-Json -Compress -Depth 5))
       }
       $res.ContentType = "application/json"
       $res.OutputStream.Write($body,0,$body.Length)
@@ -109,8 +112,10 @@ while ($listener.IsListening) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/file") {
-      $root5e = $env:TT_5ETOOLS_ROOT
-      if (-not $root5e) { $root5e = "E:\5etools\data" }
+      $rootName = [string]$req.QueryString["root"]
+      if (-not $rootName) { $rootName = "data" }
+      if ($fiveRoots -notcontains $rootName) { throw "bad root" }
+      $root5e = Join-Path $fiveBase $rootName
       $rel = [string]$req.QueryString["path"]
       if (-not $rel) { throw "missing path" }
       $full = [IO.Path]::GetFullPath((Join-Path $root5e $rel))
@@ -118,6 +123,20 @@ while ($listener.IsListening) {
       if (-not $full.StartsWith($rootFull) -or -not (Test-Path $full -PathType Leaf)) { throw "bad path" }
       $bytes = [IO.File]::ReadAllBytes($full)
       $res.ContentType = "application/json; charset=utf-8"
+      $res.OutputStream.Write($bytes,0,$bytes.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/image") {
+      $rel = [string]$req.QueryString["path"]
+      if (-not $rel) { throw "missing path" }
+      $full = [IO.Path]::GetFullPath((Join-Path $fiveBase $rel))
+      $rootFull = [IO.Path]::GetFullPath($fiveBase)
+      if (-not $full.StartsWith($rootFull) -or -not (Test-Path $full -PathType Leaf)) { throw "bad path" }
+      $ext = [IO.Path]::GetExtension($full).ToLower()
+      $ct = if ($mimes[$ext]) { $mimes[$ext] } else { "application/octet-stream" }
+      $bytes = [IO.File]::ReadAllBytes($full)
+      $res.ContentType = $ct
       $res.OutputStream.Write($bytes,0,$bytes.Length)
       $res.Close()
       continue

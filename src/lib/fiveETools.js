@@ -96,7 +96,10 @@ const textOf = (value) => {
   if (typeof value === "object") {
     if (value.entries) return textOf(value.entries);
     if (value.items) return Object.values(value.items).map(textOf).filter(Boolean).join("\n");
+    if (value.name && value.description) return `${value.name}: ${textOf(value.description)}`;
     if (value.name) return String(value.name);
+    if (value.description) return textOf(value.description);
+    if (value.entry) return textOf(value.entry);
     return "";
   }
   return String(value);
@@ -191,7 +194,7 @@ export function spellToLibrary(s) {
 // containing file, class and subclass features are pulled from its top-level
 // arrays.
 export function featuresForEntry(categoryId, entry, raw) {
-  const text = (e) => ({ name: e.name || "", text: entryText(e) });
+  const text = (e) => ({ name: String(e.name || ""), text: String(entryText(e) || "") });
   if (categoryId === "feats" || categoryId === "charOptions" || categoryId === "optionalFeatures") {
     return [text(entry)];
   }

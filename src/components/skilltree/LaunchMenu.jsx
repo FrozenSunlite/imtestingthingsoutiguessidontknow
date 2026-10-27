@@ -25,11 +25,12 @@ import {
   Library,
   Swords,
   Map,
+  Database,
 } from "lucide-react";
 
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
-export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon }) {
+export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex }) {
   const { enterApp, startNewTree, tree, character, settings } = useTree();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
@@ -147,6 +148,14 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon }) {
               locked
             )}
           </div>
+
+          {menuBtn(
+            <Database className="h-5 w-5" />,
+            "Reference Index",
+            "Browse and import local 5eTools data",
+            () => onReferenceIndex?.(),
+            locked
+          )}
 
           {menuBtn(
             <Wand2 className="h-5 w-5" />,

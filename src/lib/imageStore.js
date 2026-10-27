@@ -89,6 +89,25 @@ export async function importImage(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
   }
 }
 
+// Import an image referenced by a URL (local 5eTools image, remote artwork)
+// into the project's image folder. Falls back to the original URL.
+export async function importImageFromUrl(url) {
+  if (!url || isDataUrl(url) || isProjectImage(url)) return url;
+  try {
+    const res = await fetch(url, { cache: "no-cache" });
+    if (!res.ok) throw new Error("image fetch failed");
+    const blob = await res.blob();
+    const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
+    try {
+      return await uploadBlob(blob, `5etools.${ext}`);
+    } catch {
+      return await blobToDataUrl(blob);
+    }
+  } catch {
+    return url;
+  }
+}
+
 // Rebuild an object with one async string transform applied everywhere,
 // including inside arrays and nested objects.
 async function mapDeep(value, fn) {

@@ -52,7 +52,6 @@ import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
 import { ResourcesTab } from "./library/ResourcesTab";
 import { DieScalingTab } from "./library/DieScalingTab";
 import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
-import { ReferenceIndexTab } from "./library/ReferenceIndexTab";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
 import { SpellSchoolsTab } from "./library/SpellSchoolsTab";
@@ -65,7 +64,6 @@ const DIE_SIZES = ["d4", "d6", "d8", "d10", "d12", "d20"];
 
 // Tabs grouped into themed sections instead of one flat list.
 const TAB_GROUPS = [
-  ["Reference Index", [["referenceIndex", "5eTools"]]],
   ["Character & Progression", [
     ["levels", "Levels"], ["attributes", "Attributes"], ["skills", "Skills"], ["tools", "Tools"],
     ["languages", "Languages"], ["speedTypes", "Speed Types"], ["senses", "Senses"],
@@ -232,9 +230,6 @@ export function LibraryMenu({ open, onClose }) {
             </div>
           ) : (
           <div className="max-h-[50vh] overflow-y-auto pt-3">
-            <TabsContent value="referenceIndex" className="mt-0">
-              <ReferenceIndexTab />
-            </TabsContent>
             <TabsContent value="types" className="mt-0 space-y-2">
               <CreatureTypesTab />
             </TabsContent>

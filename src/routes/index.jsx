@@ -11,6 +11,7 @@ import { ViewSheet } from "@/components/skilltree/ViewSheet";
 import { PinnedNodeCard } from "@/components/skilltree/PinnedNodeCard";
 import { LaunchMenu } from "@/components/skilltree/LaunchMenu";
 import { DMScreen } from "@/components/skilltree/DMScreen";
+import { ReferenceIndexPage } from "@/components/skilltree/ReferenceIndexPage";
 import Homebuilder from "@/components/skilltree/homestead/Homebuilder";
 import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
 import { SideTreePanel } from "@/components/skilltree/SideTreePanel";
@@ -25,6 +26,7 @@ function Workspace() {
   const [homebuilder, setHomebuilder] = useState(false);
   const [dmScreen, setDmScreen] = useState(false);
   const [dungeon, setDungeon] = useState(false);
+  const [referenceIndex, setReferenceIndex] = useState(false);
   const [sendRows, setSendRows] = useState(null); // "send to subtree" chooser
   const [exportOpen, setExportOpen] = useState(false);
   const [poolWins, setPoolWins] = useState([]);
@@ -40,6 +42,9 @@ function Workspace() {
       },
     ]);
 
+  if (referenceIndex)
+    return <ReferenceIndexPage onExit={() => setReferenceIndex(false)} />;
+
   if (screen === "launch" && homebuilder) return <Homebuilder onExit={() => setHomebuilder(false)} />;
 
   if (screen === "launch" && dungeon)
@@ -53,6 +58,7 @@ function Workspace() {
         onHomebuilder={() => setHomebuilder(true)}
         onDmScreen={() => setDmScreen(true)}
         onDungeon={() => setDungeon(true)}
+        onReferenceIndex={() => setReferenceIndex(true)}
       />
     );
 
@@ -67,7 +73,10 @@ function Workspace() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <Toolbar onAddPoolWindow={addPoolWindow} />
+      <Toolbar
+        onAddPoolWindow={addPoolWindow}
+        onReferenceIndex={() => setReferenceIndex(true)}
+      />
       <div className="relative flex flex-1 overflow-hidden">
         {mode !== "sheet" && (
           <div id="canvas-viewport" className="relative flex-1">

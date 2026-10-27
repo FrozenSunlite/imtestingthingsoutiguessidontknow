@@ -11,9 +11,15 @@ const textOf = (value) => {
   if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join("\n");
   if (typeof value === "object") {
     if (value.entries) return textOf(value.entries);
+    if (value.items) return Object.values(value.items).map(textOf).filter(Boolean).join("\n");
+    if (value.name && (value.description || value.desc)) {
+      return `${value.name}: ${textOf(value.description ?? value.desc)}`;
+    }
     if (value.text) return textOf(value.text);
     if (value.desc) return textOf(value.desc);
-    return value.name ? String(value.name) : "";
+    if (value.description) return textOf(value.description);
+    if (value.name) return String(value.name);
+    return "";
   }
   return String(value);
 };
@@ -76,17 +82,17 @@ export function normalizeImportedMonster(raw) {
     .join(", ");
   const speeds = speedEntries(speed);
   return {
-    name: raw.name || "",
-    image: raw.image || raw.img || "",
+    name: textOf(raw.name) || "",
+    image: typeof (raw.image || raw.img) === "string" ? raw.image || raw.img : "",
     size: sizeText,
-    type: type || "",
-    category: raw.category || "",
+    type: textOf(type),
+    category: textOf(raw.category),
     tags,
-    source: raw.source || "",
+    source: textOf(raw.source),
     alignment: join(raw.alignment),
     cr: cr == null ? "" : String(cr),
-    description: raw.description || raw.flavor || "",
-    flavor: raw.flavor || "",
+    description: textOf(raw.description ?? raw.flavor ?? ""),
+    flavor: textOf(raw.flavor ?? ""),
     ac: ac == null ? "" : String(ac),
     hp: hp == null ? "" : String(hp),
     speed: speedTextFromEntries(speeds) || feetToSpacesText(typeof speed === "string" ? speed : ""),

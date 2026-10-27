@@ -2044,8 +2044,8 @@ export function TreeProvider({ children }) {
       const nodeId = `n${stamp}i${i}`;
       return {
         id: nodeId,
-        name: f.name || `Feature ${i + 1}`,
-        description: f.text || "",
+        name: String(f.name || `Feature ${i + 1}`),
+        description: String(f.text || ""),
         flavor: "",
         x: i * 190,
         y: (i % 2) * 130,
@@ -2073,7 +2073,7 @@ export function TreeProvider({ children }) {
     }));
     const tab = {
       id,
-      name: name || "Imported Features",
+      name: String(name || "Imported Features"),
       nodes,
       connections,
       cameraStartNode: nodes[0]?.id || "",

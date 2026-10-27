@@ -54,8 +54,9 @@ import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
 import { TabBar } from "@/components/skilltree/TabBar";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { SearchBox } from "@/components/skilltree/SearchBox";
+import { Database } from "lucide-react";
 
-export function Toolbar({ onAddPoolWindow }) {
+export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   const {
     tree,
     mode,
@@ -502,6 +503,11 @@ export function Toolbar({ onAddPoolWindow }) {
         <InfoTip label="Reference library: weapons, armor, speed types, senses, resources and lists">
           <Button size="sm" variant="ghost" onClick={() => setLibraryOpen(true)}>
             <BookOpen className="mr-1 h-4 w-4" /> Library
+          </Button>
+        </InfoTip>
+        <InfoTip label="Reference Index: browse and import local 5eTools data">
+          <Button size="sm" variant="ghost" onClick={() => onReferenceIndex?.()}>
+            <Database className="mr-1 h-4 w-4" /> Ref. Index
           </Button>
         </InfoTip>
       </div>
