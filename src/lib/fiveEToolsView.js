@@ -19,6 +19,14 @@ const join = (value, sep = ", ") => {
   return clean(value);
 };
 const yesNo = (v) => (v ? "Yes" : "");
+const SIZE_LABEL = {
+  T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan",
+};
+const sizeText = (value) => {
+  if (value == null) return "";
+  if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
+  return SIZE_LABEL[value] || clean(value);
+};
 
 const feet = (n) => {
   const v = Math.round((Number(n) / 5) * 10) / 10;
@@ -334,7 +342,7 @@ const backgroundDetails = (entry) => ({
 
 const speciesDetails = (entry) => ({
   fields: [
-    ["Size", join(entry.size)],
+    ["Size", sizeText(entry.size)],
     ["Speed", speedText(entry.speed)],
     ["Ability Scores", join(entry.ability)],
     ["Languages", proficiencyText(entry.languageProficiencies)],
@@ -453,7 +461,7 @@ const deityDetails = (entry) => ({
 const vehicleDetails = (entry) => ({
   fields: [
     ["Type", clean(entry.vehicleType)],
-    ["Size", join(entry.size)],
+    ["Size", sizeText(entry.size)],
     ["Terrain", clean(entry.terrain)],
     ["Crew", entry.capCrew != null ? String(entry.capCrew) : ""],
     ["Passengers", entry.capPassenger != null ? String(entry.capPassenger) : ""],
@@ -470,7 +478,7 @@ const vehicleDetails = (entry) => ({
 const objectDetails = (entry) => ({
   fields: [
     ["Type", clean(entry.objectType)],
-    ["Size", join(entry.size)],
+    ["Size", sizeText(entry.size)],
     ["Armor Class", clean(entry.ac)],
     ["Hit Points", clean(entry.hp)],
     ["Speed", speedText(entry.speed)],

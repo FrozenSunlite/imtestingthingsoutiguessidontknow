@@ -278,14 +278,42 @@ const spellRange = (range) => {
 
 const spellComponents = (components) => {
   if (!components) return { v: true, s: true, m: false, items: "", cost: "", consumed: false };
+  const mat = components.m;
   return {
     v: !!components.v,
     s: !!components.s,
-    m: !!components.m,
-    items: typeof components.m === "string" ? components.m : textOf(components.m),
-    cost: Number(components.m && typeof components.m === "object" ? components.m.cost : 0) || "",
-    consumed: !!(components.m && typeof components.m === "object" && components.m.consume),
+    m: !!mat,
+    items:
+      typeof mat === "string"
+        ? mat
+        : mat && typeof mat === "object"
+          ? textOf(mat.text ?? mat.items ?? mat)
+          : "",
+    cost: Number(mat && typeof mat === "object" ? mat.cost : 0) || "",
+    consumed: !!(mat && typeof mat === "object" && mat.consume),
   };
+};
+
+const UNIT = {
+  action: "action", bonus: "bonus action", reaction: "reaction",
+  round: "round", minute: "minute", hour: "hour", day: "day",
+};
+
+const spellDuration = (duration) => {
+  if (!duration) return "";
+  const one = (d) => {
+    if (!d) return "";
+    if (typeof d === "string") return fiveText(d);
+    if (d.type === "instant") return "Instantaneous";
+    if (d.type === "permanent") return "Permanent";
+    if (d.type === "timed") {
+      const amount = Number(d.duration?.amount) || 1;
+      const unit = UNIT[d.duration?.type] || d.duration?.type || "";
+      return `${amount} ${unit}${amount === 1 || unit.endsWith("s") ? "" : "s"}${d.concentration ? " (concentration)" : ""}`;
+    }
+    return fiveText(d.type || d);
+  };
+  return Array.isArray(duration) ? duration.map(one).filter(Boolean).join(", ") : one(duration);
 };
 
 // A 5eTools spell mapped into the Spells tab's schema.
@@ -299,7 +327,7 @@ export function spellToLibrary(s) {
     repeats: "",
     castingTime: spellTime(s.time),
     range: spellRange(s.range),
-    duration: textOf(s.duration),
+    duration: spellDuration(s.duration),
     saveType: s.savingThrow ? "save" : "none",
     saveAbility: Array.isArray(s.savingThrow) ? s.savingThrow.join(", ") : s.savingThrow || "",
     attackKind: s.attack ? "spell" : "",

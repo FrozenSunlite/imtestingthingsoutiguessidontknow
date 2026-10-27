@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CWdjQTJ5.js";
+import { n as Button, r as cn } from "./router-Btk5XVJa.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -4255,14 +4255,40 @@ var spellComponents = (components) => {
 		cost: "",
 		consumed: false
 	};
+	const mat = components.m;
 	return {
 		v: !!components.v,
 		s: !!components.s,
-		m: !!components.m,
-		items: typeof components.m === "string" ? components.m : textOf$1(components.m),
-		cost: Number(components.m && typeof components.m === "object" ? components.m.cost : 0) || "",
-		consumed: !!(components.m && typeof components.m === "object" && components.m.consume)
+		m: !!mat,
+		items: typeof mat === "string" ? mat : mat && typeof mat === "object" ? textOf$1(mat.text ?? mat.items ?? mat) : "",
+		cost: Number(mat && typeof mat === "object" ? mat.cost : 0) || "",
+		consumed: !!(mat && typeof mat === "object" && mat.consume)
 	};
+};
+var UNIT = {
+	action: "action",
+	bonus: "bonus action",
+	reaction: "reaction",
+	round: "round",
+	minute: "minute",
+	hour: "hour",
+	day: "day"
+};
+var spellDuration = (duration) => {
+	if (!duration) return "";
+	const one = (d) => {
+		if (!d) return "";
+		if (typeof d === "string") return fiveText(d);
+		if (d.type === "instant") return "Instantaneous";
+		if (d.type === "permanent") return "Permanent";
+		if (d.type === "timed") {
+			const amount = Number(d.duration?.amount) || 1;
+			const unit = UNIT[d.duration?.type] || d.duration?.type || "";
+			return `${amount} ${unit}${amount === 1 || unit.endsWith("s") ? "" : "s"}${d.concentration ? " (concentration)" : ""}`;
+		}
+		return fiveText(d.type || d);
+	};
+	return Array.isArray(duration) ? duration.map(one).filter(Boolean).join(", ") : one(duration);
 };
 function spellToLibrary(s) {
 	const comp = spellComponents(s.components);
@@ -4274,7 +4300,7 @@ function spellToLibrary(s) {
 		repeats: "",
 		castingTime: spellTime(s.time),
 		range: spellRange(s.range),
-		duration: textOf$1(s.duration),
+		duration: spellDuration(s.duration),
 		saveType: s.savingThrow ? "save" : "none",
 		saveAbility: Array.isArray(s.savingThrow) ? s.savingThrow.join(", ") : s.savingThrow || "",
 		attackKind: s.attack ? "spell" : "",
@@ -14021,6 +14047,19 @@ var join = (value, sep = ", ") => {
 	return clean(value);
 };
 var yesNo = (v) => v ? "Yes" : "";
+var SIZE_LABEL = {
+	T: "Tiny",
+	S: "Small",
+	M: "Medium",
+	L: "Large",
+	H: "Huge",
+	G: "Gargantuan"
+};
+var sizeText = (value) => {
+	if (value == null) return "";
+	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
+	return SIZE_LABEL[value] || clean(value);
+};
 var feet = (n) => {
 	const v = Math.round(Number(n) / 5 * 10) / 10;
 	return Number.isFinite(v) ? `${v} ${v === 1 ? "space" : "spaces"}` : "";
@@ -14285,7 +14324,7 @@ var backgroundDetails = (entry) => ({
 });
 var speciesDetails = (entry) => ({
 	fields: [
-		["Size", join(entry.size)],
+		["Size", sizeText(entry.size)],
 		["Speed", speedText(entry.speed)],
 		["Ability Scores", join(entry.ability)],
 		["Languages", proficiencyText(entry.languageProficiencies)],
@@ -14399,7 +14438,7 @@ var deityDetails = (entry) => ({
 var vehicleDetails = (entry) => ({
 	fields: [
 		["Type", clean(entry.vehicleType)],
-		["Size", join(entry.size)],
+		["Size", sizeText(entry.size)],
 		["Terrain", clean(entry.terrain)],
 		["Crew", entry.capCrew != null ? String(entry.capCrew) : ""],
 		["Passengers", entry.capPassenger != null ? String(entry.capPassenger) : ""],
@@ -14415,7 +14454,7 @@ var vehicleDetails = (entry) => ({
 var objectDetails = (entry) => ({
 	fields: [
 		["Type", clean(entry.objectType)],
-		["Size", join(entry.size)],
+		["Size", sizeText(entry.size)],
 		["Armor Class", clean(entry.ac)],
 		["Hit Points", clean(entry.hp)],
 		["Speed", speedText(entry.speed)],
@@ -37826,7 +37865,7 @@ function ReferenceIndexTab() {
 									})
 								]
 							}),
-							category.kind && /* @__PURE__ */ jsx("p", {
+							/* @__PURE__ */ jsx("p", {
 								className: "border-t px-2 py-1 text-[10px] text-muted-foreground",
 								children: {
 									monsters: "Bestiary entries import into the normal Monsters tab.",
@@ -37842,7 +37881,7 @@ function ReferenceIndexTab() {
 									senses: "Senses import into the Senses library.",
 									tables: "Tables import into Roll Tables.",
 									vehicles: "Vehicles import into the Vehicles library."
-								}[category.kind] || "Imported entries are kept in the 5eTools library."
+								}[category.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."
 							})
 						]
 					}),

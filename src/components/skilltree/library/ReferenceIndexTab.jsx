@@ -609,26 +609,24 @@ export function ReferenceIndexTab() {
               );
             })}
           </div>
-          {category.kind && (
-            <p className="border-t px-2 py-1 text-[10px] text-muted-foreground">
-              {{
-                monsters: "Bestiary entries import into the normal Monsters tab.",
-                spells: "Spells import into the normal Spells tab.",
-                classes:
-                  "Class features import into a level-aligned tab. Select a class and its subclasses together to branch them into one tab.",
-                feats: "Feats import as an informative feature tab in the Tree system.",
-                options: "Features import as an informative tab in the Tree system.",
-                items: "Items are sorted into Weapons, Armor, Wondrous Items, gear, poisons, explosives and vehicles.",
-                conditions: "Conditions, diseases and statuses import into Status Effects.",
-                actions: "Actions import into the Actions tab with their action/bonus/reaction timing.",
-                languages: "Languages import into the Languages list.",
-                skills: "Skills import with their governing ability.",
-                senses: "Senses import into the Senses library.",
-                tables: "Tables import into Roll Tables.",
-                vehicles: "Vehicles import into the Vehicles library.",
-              }[category.kind] || "Imported entries are kept in the 5eTools library."}
-            </p>
-          )}
+          <p className="border-t px-2 py-1 text-[10px] text-muted-foreground">
+            {{
+              monsters: "Bestiary entries import into the normal Monsters tab.",
+              spells: "Spells import into the normal Spells tab.",
+              classes:
+                "Class features import into a level-aligned tab. Select a class and its subclasses together to branch them into one tab.",
+              feats: "Feats import as an informative feature tab in the Tree system.",
+              options: "Features import as an informative tab in the Tree system.",
+              items: "Items are sorted into Weapons, Armor, Wondrous Items, gear, poisons, explosives and vehicles.",
+              conditions: "Conditions, diseases and statuses import into Status Effects.",
+              actions: "Actions import into the Actions tab with their action/bonus/reaction timing.",
+              languages: "Languages import into the Languages list.",
+              skills: "Skills import with their governing ability.",
+              senses: "Senses import into the Senses library.",
+              tables: "Tables import into Roll Tables.",
+              vehicles: "Vehicles import into the Vehicles library.",
+            }[category.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."}
+          </p>
         </section>
 
         <aside className="flex min-h-0 flex-col rounded-md border">
