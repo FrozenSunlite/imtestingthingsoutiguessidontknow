@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { Button } from "@/components/ui/button";
 import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
+import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import Rulebook from "@/components/rulebook/Rulebook";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
@@ -31,6 +32,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
   const [copyOpen, setCopyOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const menuBtn = (icon, title, sub, onClick) => (
     <button
@@ -128,6 +130,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
           </div>
         </DialogContent>
       </Dialog>
+      <LibraryMenu open={libraryOpen} onClose={() => setLibraryOpen(false)} />
       <Dialog open={rulebookOpen} onOpenChange={setRulebookOpen}>'
         <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-4xl">
           <DialogHeader>
@@ -142,6 +145,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
+
 
 
 

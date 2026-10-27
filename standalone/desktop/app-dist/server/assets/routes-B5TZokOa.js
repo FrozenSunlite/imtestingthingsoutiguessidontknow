@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-DlT15pgF.js";
+import { i as cn, n as base44, r as Button } from "./router-BAd0eZ9w.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28541,6 +28541,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	const [copyOpen, setCopyOpen] = useState(false);
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
+	const [libraryOpen, setLibraryOpen] = useState(false);
 	const menuBtn = (icon, title, sub, onClick) => /* @__PURE__ */ jsxs("button", {
 		onClick,
 		title: sub,
@@ -28617,6 +28618,10 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 						})]
 					})]
 				})
+			}),
+			/* @__PURE__ */ jsx(LibraryMenu, {
+				open: libraryOpen,
+				onClose: () => setLibraryOpen(false)
 			}),
 			/* @__PURE__ */ jsxs(Dialog, {
 				open: rulebookOpen,

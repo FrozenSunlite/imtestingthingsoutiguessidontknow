@@ -1,0 +1,1 @@
+import{n as e}from"./routes-CSu_h6IL.js";export default e();
