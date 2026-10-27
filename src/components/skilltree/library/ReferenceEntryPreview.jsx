@@ -15,8 +15,8 @@ export function ReferenceEntryPreview({ details, imageSrc, onImport, importingLa
   return (
     <div className="space-y-3">
       <div>
-        <p className="font-semibold leading-tight">{details.name}</p>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-sm font-semibold leading-tight">{details.name}</p>
+        <p className="text-[11px] text-muted-foreground">
           {[details.source, details.page ? `p.${details.page}` : "", details.edition]
             .filter(Boolean)
             .join(" · ")}
@@ -33,7 +33,7 @@ export function ReferenceEntryPreview({ details, imageSrc, onImport, importingLa
       )}
 
       {details.fields.length > 0 && (
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-[11px]">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-xs">
           {details.fields.map(([label, value]) => (
             <div key={label} className="contents">
               <dt className="font-medium text-muted-foreground">{label}</dt>
@@ -45,18 +45,18 @@ export function ReferenceEntryPreview({ details, imageSrc, onImport, importingLa
 
       {details.sections.map((section, i) => (
         <section key={`${section.title}-${i}`} className="space-y-1 border-t pt-2">
-          <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {section.title}
           </h3>
           {section.text && (
-            <p className="whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground">
+            <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
               {section.text}
             </p>
           )}
           {section.list?.length > 0 && (
             <ul className="space-y-1">
               {section.list.map((item, j) => (
-                <li key={`${item.label}-${j}`} className="text-[11px] leading-snug">
+                <li key={`${item.label}-${j}`} className="text-xs leading-relaxed">
                   <span className="font-medium">{item.label}</span>
                   {item.text && (
                     <span className="text-muted-foreground"> — {item.text}</span>
@@ -67,7 +67,7 @@ export function ReferenceEntryPreview({ details, imageSrc, onImport, importingLa
           )}
           {section.columns?.length > 0 && (
             <div className="overflow-x-auto rounded border">
-              <table className="w-full border-collapse text-[10px]">
+              <table className="w-full border-collapse text-[11px]">
                 <thead className="bg-muted/60">
                   <tr>
                     {section.columns.map((col, j) => (

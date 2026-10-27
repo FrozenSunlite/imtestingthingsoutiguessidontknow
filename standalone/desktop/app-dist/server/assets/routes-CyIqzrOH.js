@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Btk5XVJa.js";
+import { n as Button, r as cn } from "./router-DWhkgyH7.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -4085,9 +4085,59 @@ function filesForCategory(category, files) {
 		return dirs.some((d) => f.path === d || f.path.startsWith(`${d}/`));
 	});
 }
-function entriesFromRaw(raw) {
+var PROP_KEYS = {
+	class: ["class", "subclass"],
+	subclass: ["subclass"],
+	monster: ["monster"],
+	spell: ["spell"],
+	item: [
+		"item",
+		"baseitem",
+		"itemGroup"
+	],
+	baseitem: ["baseitem"],
+	magicvariant: ["magicvariant"],
+	feat: ["feat"],
+	race: ["race", "subrace"],
+	subrace: ["subrace"],
+	background: ["background"],
+	condition: [
+		"condition",
+		"disease",
+		"status"
+	],
+	status: ["status"],
+	action: ["action"],
+	language: ["language"],
+	table: ["table"],
+	vehicle: ["vehicle", "vehicleUpgrade"],
+	deity: ["deity"],
+	object: ["object"],
+	trap: ["trap", "hazard"],
+	hazard: ["hazard"],
+	reward: ["reward", "boon"],
+	charoption: ["charoption"],
+	optionalfeature: ["optionalfeature"],
+	classFeature: ["classFeature"],
+	subclassFeature: ["subclassFeature"],
+	adventure: ["adventure", "adventureData"],
+	book: ["book", "bookData"],
+	encounter: ["encounter"],
+	facility: ["facility"],
+	cult: ["cult", "boon"],
+	psionic: ["psionic"],
+	deck: ["deck", "card"],
+	individual: ["individual"],
+	hoard: ["hoard"],
+	dragon: ["dragon"]
+};
+function entriesFromRaw(raw, preferredProp = "") {
 	if (Array.isArray(raw)) return raw;
 	if (!raw || typeof raw !== "object") return [];
+	if (preferredProp) {
+		const picked = (PROP_KEYS[preferredProp] || [preferredProp]).flatMap((k) => Array.isArray(raw[k]) ? raw[k] : []);
+		if (picked.length) return picked;
+	}
 	if (Array.isArray(raw.data)) return raw.data;
 	if (Array.isArray(raw.item) || Array.isArray(raw.baseitem)) return [...raw.item || [], ...raw.baseitem || []];
 	if (Array.isArray(raw.class) || Array.isArray(raw.subclass)) return [...raw.class || [], ...raw.subclass || []];
@@ -14189,6 +14239,35 @@ var tableBlock = (table) => {
 		rows
 	};
 };
+var findImage = (value) => {
+	if (!value) return "";
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const found = findImage(item);
+			if (found) return found;
+		}
+		return "";
+	}
+	if (typeof value !== "object") return "";
+	if (value.type === "image" || value.type === "gallery") {
+		const href = value.href;
+		if (typeof href === "string") return href;
+		if (href?.url) return href.url;
+		if (href?.path) return href.path;
+		if (href?.paths?.length) return findImage(href.paths);
+		if (value.url) return value.url;
+	}
+	return findImage(value.entries) || findImage(value.items) || findImage(value.fluff);
+};
+function entryImage(entry) {
+	if (!entry) return "";
+	return [
+		entry.img,
+		entry.image,
+		entry.portrait,
+		entry.cover
+	].find((v) => typeof v === "string" && v) || findImage(entry.entries) || findImage(entry.fluff) || "";
+}
 var contentsList = (contents, depth = 0) => (contents || []).flatMap((c) => {
 	if (!c) return [];
 	if (typeof c === "string") return [{
@@ -14610,12 +14689,7 @@ function entryDetails(categoryId, entry, raw, context = {}) {
 		fields: [],
 		sections: []
 	};
-	const image = [
-		entry.img,
-		entry.image,
-		entry.portrait,
-		entry.cover
-	].find((v) => typeof v === "string" && v) || "";
+	const image = entryImage(entry);
 	return {
 		name: entryName$1(entry),
 		source: clean(entry.source || entry.classSource || entry.id),
@@ -14650,10 +14724,10 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 		className: "space-y-3",
 		children: [
 			/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
-				className: "font-semibold leading-tight",
+				className: "text-sm font-semibold leading-tight",
 				children: details.name
 			}), /* @__PURE__ */ jsx("p", {
-				className: "text-[10px] text-muted-foreground",
+				className: "text-[11px] text-muted-foreground",
 				children: [
 					details.source,
 					details.page ? `p.${details.page}` : "",
@@ -14667,7 +14741,7 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 				style: { imageRendering: "pixelated" }
 			}),
 			details.fields.length > 0 && /* @__PURE__ */ jsx("dl", {
-				className: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-[11px]",
+				className: "grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-xs",
 				children: details.fields.map(([label, value]) => /* @__PURE__ */ jsxs("div", {
 					className: "contents",
 					children: [/* @__PURE__ */ jsx("dt", {
@@ -14683,17 +14757,17 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 				className: "space-y-1 border-t pt-2",
 				children: [
 					/* @__PURE__ */ jsx("h3", {
-						className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+						className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
 						children: section.title
 					}),
 					section.text && /* @__PURE__ */ jsx("p", {
-						className: "whitespace-pre-wrap text-[11px] leading-snug text-muted-foreground",
+						className: "whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground",
 						children: section.text
 					}),
 					section.list?.length > 0 && /* @__PURE__ */ jsx("ul", {
 						className: "space-y-1",
 						children: section.list.map((item, j) => /* @__PURE__ */ jsxs("li", {
-							className: "text-[11px] leading-snug",
+							className: "text-xs leading-relaxed",
 							children: [/* @__PURE__ */ jsx("span", {
 								className: "font-medium",
 								children: item.label
@@ -14706,7 +14780,7 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 					section.columns?.length > 0 && /* @__PURE__ */ jsx("div", {
 						className: "overflow-x-auto rounded border",
 						children: /* @__PURE__ */ jsxs("table", {
-							className: "w-full border-collapse text-[10px]",
+							className: "w-full border-collapse text-[11px]",
 							children: [/* @__PURE__ */ jsx("thead", {
 								className: "bg-muted/60",
 								children: /* @__PURE__ */ jsx("tr", { children: section.columns.map((col, j) => /* @__PURE__ */ jsx("th", {
@@ -20878,7 +20952,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 								})
 							}),
 							/* @__PURE__ */ jsx(InfoTip, {
-								label: "Reference Index: browse and import local 5eTools data",
+								label: "Reference Index: browse official, homebrew and prerelease 5eTools data",
 								children: /* @__PURE__ */ jsxs(Button, {
 									size: "sm",
 									variant: "ghost",
@@ -34753,7 +34827,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex }) 
 							className: "grid grid-cols-2 gap-3",
 							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
 						}),
-						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse and import local 5eTools data", () => onReferenceIndex?.(), locked),
+						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse official, homebrew and prerelease 5eTools data", () => onReferenceIndex?.(), locked),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true }), locked),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-3",
@@ -37248,18 +37322,78 @@ function DMScreen({ onExit }) {
 //#region src/components/skilltree/library/ReferenceIndexTab.jsx
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 var ROOTS = [
-	["data", "Partnered"],
+	["data", "Official & Partnered"],
 	["homebrew", "Homebrew"],
 	["prerelease", "Prerelease"]
 ];
+var CATALOG_PROPS = {
+	rulesGlossary: ["variantrule"],
+	tables: ["table"],
+	books: ["book", "bookData"],
+	classes: ["class", "subclass"],
+	backgrounds: ["background"],
+	feats: ["feat"],
+	species: ["race", "subrace"],
+	charOptions: ["charoption"],
+	optionalFeatures: ["optionalfeature"],
+	adventures: ["adventure", "adventureData"],
+	cults: ["cult", "boon"],
+	objects: ["object"],
+	traps: ["trap", "hazard"],
+	encounterGen: ["encounter"],
+	lootGen: [
+		"individual",
+		"hoard",
+		"dragon"
+	],
+	actions: ["action"],
+	bastions: ["facility"],
+	bestiary: ["monster"],
+	conditions: [
+		"condition",
+		"disease",
+		"status"
+	],
+	senses: ["sense"],
+	skills: ["skill"],
+	decks: ["deck", "card"],
+	deities: ["deity"],
+	items: [
+		"item",
+		"baseitem",
+		"itemGroup",
+		"magicvariant"
+	],
+	languages: ["language"],
+	gifts: ["reward"],
+	psionics: ["psionic"],
+	spells: ["spell"],
+	vehicles: ["vehicle"]
+};
+var isRemoteRoot = (root) => root === "homebrew" || root === "prerelease";
+var categoryForProps = (props = []) => {
+	const prop = props[0];
+	const hit = Object.entries(CATALOG_PROPS).find(([, list]) => list.includes(prop));
+	return hit ? hit[0] : "";
+};
 var isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
 var sourceOf = (entry) => String(entry?.source || entry?.classSource || entry?.subclassSource || entry?.bookSource || entry?.monster?.source || "");
 var imageFor = (entry, root, filePath) => {
 	const raw = entry?.img || entry?.image || entry?.portrait || entry?.cover;
 	if (!raw || typeof raw !== "string") return "";
-	if (/^(https?:|data:|\/images\/)/i.test(raw)) return raw;
-	const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+	if (/^(data:|\/images\/)/i.test(raw)) return raw;
+	if (isRemoteRoot(root)) {
+		const hb = raw.match(/^https?:\/\/raw\.githubusercontent\.com\/TheGiddyLimit\/homebrew-img\/main\/(.+)$/i);
+		if (hb) return `/api/5etools/brew-image?kind=homebrew&path=${encodeURIComponent(hb[1])}`;
+		const pre = raw.match(/^https?:\/\/raw\.githubusercontent\.com\/5etools-mirror-3\/5etools-src\/main\/(.+)$/i);
+		if (pre) return `/api/5etools/brew-image?kind=prerelease&path=${encodeURIComponent(pre[1])}`;
+		if (/^https?:/i.test(raw)) return raw;
+		const cleaned = raw.replace(/^\/+/, "");
+		return `/api/5etools/brew-image?kind=${root}&path=${encodeURIComponent(cleaned)}`;
+	}
+	if (/^https?:/i.test(raw)) return raw;
 	const cleaned = raw.replace(/^\/+/, "");
+	const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
 	const candidate = cleaned.startsWith(`${root}/`) || cleaned.startsWith("img/") ? cleaned : `${root}/${dir}/${cleaned}`.replace(/\/+/g, "/");
 	return `/api/5etools/image?path=${encodeURIComponent(candidate)}`;
 };
@@ -37268,7 +37402,11 @@ function ReferenceIndexTab() {
 	const [status, setStatus] = useState(null);
 	const [root, setRoot] = useState("data");
 	const [index, setIndex] = useState([]);
+	const [catalog, setCatalog] = useState([]);
+	const [fileQuery, setFileQuery] = useState("");
+	const [partneredOnly, setPartneredOnly] = useState(false);
 	const [categoryId, setCategoryId] = useState("bestiary");
+	const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
 	const [filePath, setFilePath] = useState("");
 	const [raw, setRaw] = useState(null);
 	const [entries, setEntries] = useState([]);
@@ -37281,12 +37419,36 @@ function ReferenceIndexTab() {
 	const [importing, setImporting] = useState(0);
 	const [updating, setUpdating] = useState(false);
 	const [spellLookup, setSpellLookup] = useState(null);
-	const category = FIVE_CATEGORIES.find((c) => c.id === categoryId) || FIVE_CATEGORIES[0];
+	const isRemote = isRemoteRoot(root);
+	const category = categoryId === "__all__" ? {
+		id: "__all__",
+		label: "All files"
+	} : FIVE_CATEGORIES.find((c) => c.id === categoryId) || FIVE_CATEGORIES[0];
+	const activeCategory = activeCategoryId === "__all__" ? {
+		id: "__all__",
+		label: "All files"
+	} : FIVE_CATEGORIES.find((c) => c.id === activeCategoryId) || category;
 	const files = useMemo(() => {
+		if (isRemote) {
+			let list = catalog;
+			if (categoryId !== "__all__") {
+				const props = CATALOG_PROPS[categoryId];
+				if (props) list = list.filter((f) => (f.props || []).some((p) => props.includes(p)));
+			}
+			if (root === "homebrew" && partneredOnly) list = list.filter((f) => f.partnered);
+			const q = fileQuery.trim().toLowerCase();
+			if (q) list = list.filter((f) => `${f.name} ${f.author} ${f.path}`.toLowerCase().includes(q));
+			return [...list].sort((a, b) => String(a.name || a.path).localeCompare(String(b.name || b.path)));
+		}
 		return (root === "data" ? filesForCategory(category, index) : index.filter((f) => isSourceFile(f.path))).sort((a, b) => a.path.localeCompare(b.path));
 	}, [
 		category,
+		categoryId,
+		catalog,
+		fileQuery,
 		index,
+		isRemote,
+		partneredOnly,
 		root
 	]);
 	const sourceOptions = useMemo(() => [...new Set(entries.map(sourceOf).filter(Boolean))].sort(), [entries]);
@@ -37297,9 +37459,9 @@ function ReferenceIndexTab() {
 		return true;
 	});
 	const imported = settings?.library?.fiveETools || {};
-	const previewDetails = useMemo(() => preview ? entryDetails(category.id, preview, raw, { spellLookup }) : null, [
+	const previewDetails = useMemo(() => preview ? entryDetails(activeCategory.id, preview, raw, { spellLookup }) : null, [
 		preview,
-		category.id,
+		activeCategory.id,
 		raw,
 		spellLookup
 	]);
@@ -37307,14 +37469,23 @@ function ReferenceIndexTab() {
 		try {
 			const s = await fetch("/api/5etools/status").then((r) => r.json());
 			setStatus(s);
-			const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) => r.json());
-			setIndex(Array.isArray(i.files) ? i.files : []);
+			if (isRemote) {
+				const c = await fetch(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`).then((r) => r.json());
+				setCatalog(Array.isArray(c.entries) ? c.entries : []);
+				setIndex([]);
+			} else {
+				const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) => r.json());
+				setIndex(Array.isArray(i.files) ? i.files : []);
+				setCatalog([]);
+			}
 		} catch {
-			setStatus({
+			if (!isRemote) setStatus({
 				available: false,
 				roots: {}
 			});
+			else toast.error("Could not load the remote 5eTools catalog. Check your connection.");
 			setIndex([]);
+			setCatalog([]);
 		}
 	};
 	const updateData = async () => {
@@ -37342,27 +37513,35 @@ function ReferenceIndexTab() {
 	}, [root]);
 	useEffect(() => {
 		setFilePath(files[0]?.path || "");
+		setActiveCategoryId(categoryId);
 		setEntries([]);
 		setPreview(null);
 		setSelected(/* @__PURE__ */ new Set());
 	}, [
 		categoryId,
 		root,
-		index.length
+		index.length,
+		catalog.length,
+		partneredOnly
 	]);
 	const loadFile = async (path) => {
 		if (!path) return;
 		setLoading(true);
 		try {
-			const data = await fetch(`/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`).then((r) => r.json());
+			const data = await fetch(isRemote ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}` : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`).then((r) => r.json());
 			cacheFiveEToolsSource(`${root}/${path}`, data);
-			const list = entriesFromRaw(data).map((e) => ({ ...e }));
+			const info = isRemote ? catalog.find((f) => f.path === path) : null;
+			const list = entriesFromRaw(data, info?.props?.[0]).map((e) => ({ ...e }));
 			setRaw(data);
 			setEntries(list);
 			setPreview(list[0] || null);
 			setSelected(/* @__PURE__ */ new Set());
 			setSourceFilter("__all__");
 			setFilePath(path);
+			if (info) {
+				const inferred = categoryForProps(info.props || []);
+				setActiveCategoryId(inferred || categoryId);
+			} else setActiveCategoryId(categoryId);
 			if (!list.length) toast("That file has no importable entries.");
 		} catch {
 			toast.error("Could not read that 5eTools file.");
@@ -37541,7 +37720,10 @@ function ReferenceIndexTab() {
 		}
 		if (cat.kind === "monsters") {
 			let value = entry;
-			const image = imageFor(entry, root, filePath);
+			const image = imageFor({
+				...entry,
+				img: entryImage(entry)
+			}, root, filePath);
 			if (image && !image.startsWith("/images/") && !image.startsWith("data:")) try {
 				value = {
 					...entry,
@@ -37581,7 +37763,7 @@ function ReferenceIndexTab() {
 		}
 		setImporting(picked.length);
 		let done = 0;
-		if (category.kind === "classes") {
+		if (activeCategory.kind === "classes") {
 			const bases = picked.filter((e) => !isSubclassEntry(e));
 			const subs = picked.filter(isSubclassEntry);
 			const bundles = bases.map((base) => ({
@@ -37592,11 +37774,11 @@ function ReferenceIndexTab() {
 				const bundle = bundles.find((b) => b.base.name === s.className && (!s.classSource || !b.base.source || b.base.source === s.classSource)) || bundles.find((b) => b.base.name === s.className);
 				if (bundle) bundle.subs.push(s);
 				else {
-					storeRaw(category.id, s);
-					const features = featuresForEntry(category.id, s, raw);
+					storeRaw(activeCategory.id, s);
+					const features = featuresForEntry(activeCategory.id, s, raw);
 					if (features.length) {
 						addImportedTab(`Subclass: ${entryName$1(s)}`, features, {
-							category: category.label,
+							category: activeCategory.label,
 							layout: "class",
 							className: s.className
 						});
@@ -37605,12 +37787,12 @@ function ReferenceIndexTab() {
 				}
 			});
 			for (const { base, subs: selectedSubs } of bundles) {
-				storeRaw(category.id, base);
-				selectedSubs.forEach((s) => storeRaw(category.id, s));
+				storeRaw(activeCategory.id, base);
+				selectedSubs.forEach((s) => storeRaw(activeCategory.id, s));
 				const features = featuresForClassBundle(base, selectedSubs, raw);
 				if (features.length) {
 					addImportedTab(`Class: ${entryName$1(base)}`, features, {
-						category: category.label,
+						category: activeCategory.label,
 						layout: "class",
 						className: base.name
 					});
@@ -37620,21 +37802,21 @@ function ReferenceIndexTab() {
 				await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
 			}
 		} else for (const entry of picked) {
-			await importEntry(category, entry);
+			await importEntry(activeCategory, entry);
 			done += 1;
 			setImporting(picked.length - done);
 			await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
 		}
 		setImporting(0);
 		setSelected(/* @__PURE__ */ new Set());
-		toast.success(category.kind === "classes" ? `Imported ${done} class tab${done === 1 ? "" : "s"}.` : `Imported ${done} ${category.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`);
+		toast.success(activeCategory.kind === "classes" ? `Imported ${done} class tab${done === 1 ? "" : "s"}.` : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`);
 	};
 	const importPreview = async () => {
 		if (!preview) return;
-		await importEntry(category, preview);
+		await importEntry(activeCategory, preview);
 		toast.success(`Imported ${entryName$1(preview)}.`);
 	};
-	if (status && !status.available) return /* @__PURE__ */ jsxs("div", {
+	if (!isRemote && status && !status.available) return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2 rounded-md border border-dashed p-4 text-xs",
 		children: [
 			/* @__PURE__ */ jsx("p", {
@@ -37666,7 +37848,10 @@ function ReferenceIndexTab() {
 			})
 		]
 	});
-	const previewImage = preview ? imageFor(preview, root, filePath) : "";
+	const previewImage = preview ? imageFor({
+		...preview,
+		img: previewDetails?.image || preview?.img
+	}, root, filePath) : "";
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2",
 		children: [
@@ -37684,13 +37869,18 @@ function ReferenceIndexTab() {
 							children: "Source"
 						}), /* @__PURE__ */ jsxs(Select, {
 							value: root,
-							onValueChange: setRoot,
+							onValueChange: (v) => {
+								setRoot(v);
+								setCategoryId((cur) => isRemoteRoot(v) ? "__all__" : cur === "__all__" ? "bestiary" : cur);
+								setFileQuery("");
+								setPartneredOnly(false);
+							},
 							children: [/* @__PURE__ */ jsx(SelectTrigger, {
 								className: "h-7 w-32 text-xs",
 								children: /* @__PURE__ */ jsx(SelectValue, {})
 							}), /* @__PURE__ */ jsx(SelectContent, { children: ROOTS.map(([id, label]) => /* @__PURE__ */ jsx(SelectItem, {
 								value: id,
-								disabled: !status?.roots?.[id],
+								disabled: id === "data" && !status?.roots?.data,
 								children: label
 							}, id)) })]
 						})]
@@ -37698,14 +37888,14 @@ function ReferenceIndexTab() {
 					/* @__PURE__ */ jsxs("span", {
 						className: "min-w-0 text-[10px] text-muted-foreground",
 						children: [
-							status?.base ? `${status.base}\\${root}` : "Reading local 5eTools data…",
-							status?.version ? ` · ${status.version}` : "",
-							status?.managed ? " · downloaded" : status?.base ? " · local folder" : ""
+							isRemote ? `${root === "homebrew" ? "TheGiddyLimit/homebrew" : "TheGiddyLimit/unearthed-arcana"} · ${catalog.length} files` : status?.base ? `${status.base}\\${root}` : "Reading local 5eTools data…",
+							!isRemote && status?.version ? ` · ${status.version}` : "",
+							!isRemote && (status?.managed ? " · downloaded" : status?.base ? " · local folder" : "")
 						]
 					}),
 					/* @__PURE__ */ jsxs("div", {
 						className: "ml-auto flex items-center gap-1",
-						children: [/* @__PURE__ */ jsx(Button, {
+						children: [!isRemote && /* @__PURE__ */ jsx(Button, {
 							size: "sm",
 							variant: "outline",
 							className: "h-7 text-xs",
@@ -37718,7 +37908,7 @@ function ReferenceIndexTab() {
 							variant: "outline",
 							className: "h-7 text-xs",
 							onClick: refresh,
-							children: "Refresh index"
+							children: isRemote ? "Refresh catalog" : "Refresh index"
 						})]
 					})
 				]
@@ -37726,38 +37916,75 @@ function ReferenceIndexTab() {
 			/* @__PURE__ */ jsxs("div", {
 				className: "grid h-[64vh] min-h-[430px] grid-cols-[150px_200px_minmax(0,1fr)_minmax(260px,1.1fr)] gap-2",
 				children: [
-					/* @__PURE__ */ jsx("aside", {
+					/* @__PURE__ */ jsxs("aside", {
 						className: "overflow-y-auto rounded-md border p-1",
-						children: FIVE_CATEGORIES.map((c) => /* @__PURE__ */ jsx("button", {
+						children: [isRemote && /* @__PURE__ */ jsx("button", {
+							type: "button",
+							onClick: () => setCategoryId("__all__"),
+							className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${categoryId === "__all__" ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
+							title: "Show every file in this repository",
+							children: "All files"
+						}), FIVE_CATEGORIES.map((c) => /* @__PURE__ */ jsx("button", {
 							type: "button",
 							onClick: () => setCategoryId(c.id),
 							className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${c.id === categoryId ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
 							title: c.label,
 							children: c.label
-						}, c.id))
+						}, c.id))]
 					}),
 					/* @__PURE__ */ jsxs("aside", {
 						className: "flex min-h-0 flex-col rounded-md border",
-						children: [/* @__PURE__ */ jsxs("div", {
-							className: "border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground",
-							children: [
-								"Files (",
-								files.length,
-								")"
-							]
-						}), /* @__PURE__ */ jsxs("div", {
-							className: "min-h-0 flex-1 overflow-y-auto p-1",
-							children: [files.map((f) => /* @__PURE__ */ jsx("button", {
-								type: "button",
-								onClick: () => loadFile(f.path),
-								className: `w-full truncate rounded px-1.5 py-1 text-left text-[10px] ${f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"}`,
-								title: f.path,
-								children: f.path
-							}, f.path)), files.length === 0 && /* @__PURE__ */ jsx("p", {
-								className: "p-2 text-[10px] text-muted-foreground",
-								children: "No files in this source/category."
-							})]
-						})]
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground",
+								children: [
+									"Files (",
+									files.length,
+									")"
+								]
+							}),
+							isRemote && /* @__PURE__ */ jsxs("div", {
+								className: "space-y-1 border-b p-1",
+								children: [/* @__PURE__ */ jsx(Input, {
+									className: "h-7 text-xs",
+									placeholder: "Find a brew…",
+									value: fileQuery,
+									onChange: (e) => setFileQuery(e.target.value)
+								}), root === "homebrew" && /* @__PURE__ */ jsxs("label", {
+									className: "flex items-center gap-1.5 text-[10px] text-muted-foreground",
+									children: [/* @__PURE__ */ jsx(Switch, {
+										checked: partneredOnly,
+										onCheckedChange: setPartneredOnly
+									}), "Partnered only"]
+								})]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "min-h-0 flex-1 overflow-y-auto p-1",
+								children: [files.map((f) => /* @__PURE__ */ jsx("button", {
+									type: "button",
+									onClick: () => loadFile(f.path),
+									className: `w-full rounded px-1.5 py-1 text-left text-[10px] ${f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"}`,
+									title: isRemote ? `${f.name} — ${f.author}\n${f.path}` : f.path,
+									children: isRemote ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("span", {
+										className: "block truncate font-medium",
+										children: f.name || f.path
+									}), /* @__PURE__ */ jsx("span", {
+										className: "block truncate text-muted-foreground",
+										children: [
+											f.author,
+											f.partnered ? "Partnered" : "",
+											f.status !== "ready" ? f.status : ""
+										].filter(Boolean).join(" · ")
+									})] }) : /* @__PURE__ */ jsx("span", {
+										className: "block truncate",
+										children: f.path
+									})
+								}, f.path)), files.length === 0 && /* @__PURE__ */ jsx("p", {
+									className: "p-2 text-[10px] text-muted-foreground",
+									children: "No files in this source/category."
+								})]
+							})
+						]
 					}),
 					/* @__PURE__ */ jsxs("section", {
 						className: "flex min-h-0 flex-col rounded-md border",
@@ -37881,14 +38108,14 @@ function ReferenceIndexTab() {
 									senses: "Senses import into the Senses library.",
 									tables: "Tables import into Roll Tables.",
 									vehicles: "Vehicles import into the Vehicles library."
-								}[category.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."
+								}[activeCategory.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."
 							})
 						]
 					}),
 					/* @__PURE__ */ jsxs("aside", {
 						className: "flex min-h-0 flex-col rounded-md border",
 						children: [/* @__PURE__ */ jsx("div", {
-							className: "border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground",
+							className: "border-b px-2 py-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground",
 							children: "Preview"
 						}), /* @__PURE__ */ jsx("div", {
 							className: "min-h-0 flex-1 overflow-y-auto p-2 text-xs",
@@ -37936,7 +38163,7 @@ function ReferenceIndexPage({ onExit }) {
 						children: "Reference Index"
 					}), /* @__PURE__ */ jsx("p", {
 						className: "text-[10px] text-muted-foreground",
-						children: "Browse local 5eTools partnered, homebrew and prerelease data, preview it and import selected entries into the project."
+						children: "Browse official and partnered 5eTools data, the public homebrew catalog and prerelease Unearthed Arcana. Preview files and import selected entries into the project."
 					})]
 				})
 			]

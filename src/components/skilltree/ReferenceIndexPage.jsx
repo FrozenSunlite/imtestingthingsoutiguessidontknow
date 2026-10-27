@@ -18,8 +18,8 @@ export function ReferenceIndexPage({ onExit }) {
         <div className="min-w-0">
           <h1 className="font-display text-base font-semibold leading-tight">Reference Index</h1>
           <p className="text-[10px] text-muted-foreground">
-            Browse local 5eTools partnered, homebrew and prerelease data, preview it and import
-            selected entries into the project.
+            Browse official and partnered 5eTools data, the public homebrew catalog and
+            prerelease Unearthed Arcana. Preview files and import selected entries into the project.
           </p>
         </div>
       </header>

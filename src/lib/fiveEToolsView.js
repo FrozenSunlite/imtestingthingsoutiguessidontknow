@@ -196,6 +196,41 @@ const tableBlock = (table) => {
   return { title: clean(table.name || table.caption || "Table"), columns, rows };
 };
 
+// Find the first embedded image in a 5eTools entry tree. Homebrew commonly
+// uses an `image` entry with an external href instead of a top-level `img`.
+const findImage = (value) => {
+  if (!value) return "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findImage(item);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (typeof value !== "object") return "";
+  if (value.type === "image" || value.type === "gallery") {
+    const href = value.href;
+    if (typeof href === "string") return href;
+    if (href?.url) return href.url;
+    if (href?.path) return href.path;
+    if (href?.paths?.length) return findImage(href.paths);
+    if (value.url) return value.url;
+  }
+  return findImage(value.entries) || findImage(value.items) || findImage(value.fluff);
+};
+
+export function entryImage(entry) {
+  if (!entry) return "";
+  return (
+    [entry.img, entry.image, entry.portrait, entry.cover].find(
+      (v) => typeof v === "string" && v
+    ) ||
+    findImage(entry.entries) ||
+    findImage(entry.fluff) ||
+    ""
+  );
+}
+
 const contentsList = (contents, depth = 0) =>
   (contents || []).flatMap((c) => {
     if (!c) return [];
@@ -695,10 +730,7 @@ export function entryDetails(categoryId, entry, raw, context = {}) {
     (categoryId === "spells"
       ? spellDetails(entry, context)
       : detailer(entry)) || { fields: [], sections: [] };
-  const image =
-    [entry.img, entry.image, entry.portrait, entry.cover].find(
-      (v) => typeof v === "string" && v
-    ) || "";
+  const image = entryImage(entry);
   return {
     name: entryName(entry),
     source: clean(entry.source || entry.classSource || entry.id),

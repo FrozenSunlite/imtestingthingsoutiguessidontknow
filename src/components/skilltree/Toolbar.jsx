@@ -505,7 +505,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
             <BookOpen className="mr-1 h-4 w-4" /> Library
           </Button>
         </InfoTip>
-        <InfoTip label="Reference Index: browse and import local 5eTools data">
+        <InfoTip label="Reference Index: browse official, homebrew and prerelease 5eTools data">
           <Button size="sm" variant="ghost" onClick={() => onReferenceIndex?.()}>
             <Database className="mr-1 h-4 w-4" /> Ref. Index
           </Button>

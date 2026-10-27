@@ -20,7 +20,7 @@ import {
   tableToRollTable,
   vehicleToLibrary,
 } from "@/lib/fiveETools";
-import { entryDetails } from "@/lib/fiveEToolsView";
+import { entryDetails, entryImage } from "@/lib/fiveEToolsView";
 import { loadSpellLookup } from "@/lib/fiveEToolsLookup";
 import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
@@ -29,6 +29,7 @@ import { importImageFromUrl } from "@/lib/imageStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -40,10 +41,54 @@ import { toast } from "sonner";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ROOTS = [
-  ["data", "Partnered"],
+  ["data", "Official & Partnered"],
   ["homebrew", "Homebrew"],
   ["prerelease", "Prerelease"],
 ];
+
+// Which 5eTools data properties (and therefore which catalog files) belong to
+// each Reference Index category.
+const CATALOG_PROPS = {
+  rulesGlossary: ["variantrule"],
+  tables: ["table"],
+  books: ["book", "bookData"],
+  classes: ["class", "subclass"],
+  backgrounds: ["background"],
+  feats: ["feat"],
+  species: ["race", "subrace"],
+  charOptions: ["charoption"],
+  optionalFeatures: ["optionalfeature"],
+  adventures: ["adventure", "adventureData"],
+  cults: ["cult", "boon"],
+  objects: ["object"],
+  traps: ["trap", "hazard"],
+  encounterGen: ["encounter"],
+  lootGen: ["individual", "hoard", "dragon"],
+  actions: ["action"],
+  bastions: ["facility"],
+  bestiary: ["monster"],
+  conditions: ["condition", "disease", "status"],
+  senses: ["sense"],
+  skills: ["skill"],
+  decks: ["deck", "card"],
+  deities: ["deity"],
+  items: ["item", "baseitem", "itemGroup", "magicvariant"],
+  languages: ["language"],
+  gifts: ["reward"],
+  psionics: ["psionic"],
+  spells: ["spell"],
+  vehicles: ["vehicle"],
+};
+
+const isRemoteRoot = (root) => root === "homebrew" || root === "prerelease";
+
+// A remote file's catalog property tells us what kind of entry it contains,
+// even when the user is browsing "All files".
+const categoryForProps = (props = []) => {
+  const prop = props[0];
+  const hit = Object.entries(CATALOG_PROPS).find(([, list]) => list.includes(prop));
+  return hit ? hit[0] : "";
+};
 
 const isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
 
@@ -60,9 +105,27 @@ const sourceOf = (entry) =>
 const imageFor = (entry, root, filePath) => {
   const raw = entry?.img || entry?.image || entry?.portrait || entry?.cover;
   if (!raw || typeof raw !== "string") return "";
-  if (/^(https?:|data:|\/images\/)/i.test(raw)) return raw;
-  const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+  if (/^(data:|\/images\/)/i.test(raw)) return raw;
+  if (isRemoteRoot(root)) {
+    const hb = raw.match(
+      /^https?:\/\/raw\.githubusercontent\.com\/TheGiddyLimit\/homebrew-img\/main\/(.+)$/i
+    );
+    if (hb) {
+      return `/api/5etools/brew-image?kind=homebrew&path=${encodeURIComponent(hb[1])}`;
+    }
+    const pre = raw.match(
+      /^https?:\/\/raw\.githubusercontent\.com\/5etools-mirror-3\/5etools-src\/main\/(.+)$/i
+    );
+    if (pre) {
+      return `/api/5etools/brew-image?kind=prerelease&path=${encodeURIComponent(pre[1])}`;
+    }
+    if (/^https?:/i.test(raw)) return raw;
+    const cleaned = raw.replace(/^\/+/, "");
+    return `/api/5etools/brew-image?kind=${root}&path=${encodeURIComponent(cleaned)}`;
+  }
+  if (/^https?:/i.test(raw)) return raw;
   const cleaned = raw.replace(/^\/+/, "");
+  const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
   const candidate = cleaned.startsWith(`${root}/`) || cleaned.startsWith("img/")
     ? cleaned
     : `${root}/${dir}/${cleaned}`.replace(/\/+/g, "/");
@@ -78,7 +141,11 @@ export function ReferenceIndexTab() {
   const [status, setStatus] = useState(null);
   const [root, setRoot] = useState("data");
   const [index, setIndex] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [fileQuery, setFileQuery] = useState("");
+  const [partneredOnly, setPartneredOnly] = useState(false);
   const [categoryId, setCategoryId] = useState("bestiary");
+  const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
   const [filePath, setFilePath] = useState("");
   const [raw, setRaw] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -92,11 +159,36 @@ export function ReferenceIndexTab() {
   const [updating, setUpdating] = useState(false);
   const [spellLookup, setSpellLookup] = useState(null);
 
-  const category = FIVE_CATEGORIES.find((c) => c.id === categoryId) || FIVE_CATEGORIES[0];
+  const isRemote = isRemoteRoot(root);
+  const category =
+    categoryId === "__all__"
+      ? { id: "__all__", label: "All files" }
+      : FIVE_CATEGORIES.find((c) => c.id === categoryId) || FIVE_CATEGORIES[0];
+  const activeCategory =
+    activeCategoryId === "__all__"
+      ? { id: "__all__", label: "All files" }
+      : FIVE_CATEGORIES.find((c) => c.id === activeCategoryId) || category;
   const files = useMemo(() => {
+    if (isRemote) {
+      let list = catalog;
+      if (categoryId !== "__all__") {
+        const props = CATALOG_PROPS[categoryId];
+        if (props) list = list.filter((f) => (f.props || []).some((p) => props.includes(p)));
+      }
+      if (root === "homebrew" && partneredOnly) list = list.filter((f) => f.partnered);
+      const q = fileQuery.trim().toLowerCase();
+      if (q) {
+        list = list.filter((f) =>
+          `${f.name} ${f.author} ${f.path}`.toLowerCase().includes(q)
+        );
+      }
+      return [...list].sort(
+        (a, b) => String(a.name || a.path).localeCompare(String(b.name || b.path))
+      );
+    }
     const list = root === "data" ? filesForCategory(category, index) : index.filter((f) => isSourceFile(f.path));
     return list.sort((a, b) => a.path.localeCompare(b.path));
-  }, [category, index, root]);
+  }, [category, categoryId, catalog, fileQuery, index, isRemote, partneredOnly, root]);
   const sourceOptions = useMemo(
     () => [...new Set(entries.map(sourceOf).filter(Boolean))].sort(),
     [entries]
@@ -109,19 +201,32 @@ export function ReferenceIndexTab() {
   });
   const imported = settings?.library?.fiveETools || {};
   const previewDetails = useMemo(
-    () => (preview ? entryDetails(category.id, preview, raw, { spellLookup }) : null),
-    [preview, category.id, raw, spellLookup]
+    () => (preview ? entryDetails(activeCategory.id, preview, raw, { spellLookup }) : null),
+    [preview, activeCategory.id, raw, spellLookup]
   );
 
   const refresh = async () => {
     try {
       const s = await fetch("/api/5etools/status").then((r) => r.json());
       setStatus(s);
-      const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) => r.json());
-      setIndex(Array.isArray(i.files) ? i.files : []);
+      if (isRemote) {
+        const c = await fetch(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`).then((r) =>
+          r.json()
+        );
+        setCatalog(Array.isArray(c.entries) ? c.entries : []);
+        setIndex([]);
+      } else {
+        const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) =>
+          r.json()
+        );
+        setIndex(Array.isArray(i.files) ? i.files : []);
+        setCatalog([]);
+      }
     } catch {
-      setStatus({ available: false, roots: {} });
+      if (!isRemote) setStatus({ available: false, roots: {} });
+      else toast.error("Could not load the remote 5eTools catalog. Check your connection.");
       setIndex([]);
+      setCatalog([]);
     }
   };
 
@@ -154,26 +259,36 @@ export function ReferenceIndexTab() {
 
   useEffect(() => {
     setFilePath(files[0]?.path || "");
+    setActiveCategoryId(categoryId);
     setEntries([]);
     setPreview(null);
     setSelected(new Set());
-  }, [categoryId, root, index.length]);
+  }, [categoryId, root, index.length, catalog.length, partneredOnly]);
 
   const loadFile = async (path) => {
     if (!path) return;
     setLoading(true);
     try {
       const data = await fetch(
-        `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
+        isRemote
+          ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
+          : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
       ).then((r) => r.json());
       cacheFiveEToolsSource(`${root}/${path}`, data);
-      const list = entriesFromRaw(data).map((e) => ({ ...e }));
+      const info = isRemote ? catalog.find((f) => f.path === path) : null;
+      const list = entriesFromRaw(data, info?.props?.[0]).map((e) => ({ ...e }));
       setRaw(data);
       setEntries(list);
       setPreview(list[0] || null);
       setSelected(new Set());
       setSourceFilter("__all__");
       setFilePath(path);
+      if (info) {
+        const inferred = categoryForProps(info.props || []);
+        setActiveCategoryId(inferred || categoryId);
+      } else {
+        setActiveCategoryId(categoryId);
+      }
       if (!list.length) toast("That file has no importable entries.");
     } catch {
       toast.error("Could not read that 5eTools file.");
@@ -322,7 +437,7 @@ export function ReferenceIndexTab() {
     }
     if (cat.kind === "monsters") {
       let value = entry;
-      const image = imageFor(entry, root, filePath);
+      const image = imageFor({ ...entry, img: entryImage(entry) }, root, filePath);
       if (image && !image.startsWith("/images/") && !image.startsWith("data:")) {
         try {
           value = { ...entry, image: await importImageFromUrl(image) };
@@ -378,7 +493,7 @@ export function ReferenceIndexTab() {
     // A class and the subclasses selected with it become one level-aligned
     // tab: base features in the main ladder, each subclass branching from the
     // level where it is gained.
-    if (category.kind === "classes") {
+    if (activeCategory.kind === "classes") {
       const bases = picked.filter((e) => !isSubclassEntry(e));
       const subs = picked.filter(isSubclassEntry);
       const bundles = bases.map((base) => ({ base, subs: [] }));
@@ -391,11 +506,11 @@ export function ReferenceIndexTab() {
           ) || bundles.find((b) => b.base.name === s.className);
         if (bundle) bundle.subs.push(s);
         else {
-          storeRaw(category.id, s);
-          const features = featuresForEntry(category.id, s, raw);
+          storeRaw(activeCategory.id, s);
+          const features = featuresForEntry(activeCategory.id, s, raw);
           if (features.length) {
             addImportedTab(`Subclass: ${entryName(s)}`, features, {
-              category: category.label,
+              category: activeCategory.label,
               layout: "class",
               className: s.className,
             });
@@ -404,12 +519,12 @@ export function ReferenceIndexTab() {
         }
       });
       for (const { base, subs: selectedSubs } of bundles) {
-        storeRaw(category.id, base);
-        selectedSubs.forEach((s) => storeRaw(category.id, s));
+        storeRaw(activeCategory.id, base);
+        selectedSubs.forEach((s) => storeRaw(activeCategory.id, s));
         const features = featuresForClassBundle(base, selectedSubs, raw);
         if (features.length) {
           addImportedTab(`Class: ${entryName(base)}`, features, {
-            category: category.label,
+            category: activeCategory.label,
             layout: "class",
             className: base.name,
           });
@@ -420,7 +535,7 @@ export function ReferenceIndexTab() {
       }
     } else {
       for (const entry of picked) {
-        await importEntry(category, entry);
+        await importEntry(activeCategory, entry);
         done += 1;
         setImporting(picked.length - done);
         await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
@@ -430,19 +545,19 @@ export function ReferenceIndexTab() {
     setImporting(0);
     setSelected(new Set());
     toast.success(
-      category.kind === "classes"
+      activeCategory.kind === "classes"
         ? `Imported ${done} class tab${done === 1 ? "" : "s"}.`
-        : `Imported ${done} ${category.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`
+        : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`
     );
   };
 
   const importPreview = async () => {
     if (!preview) return;
-    await importEntry(category, preview);
+    await importEntry(activeCategory, preview);
     toast.success(`Imported ${entryName(preview)}.`);
   };
 
-  if (status && !status.available) {
+  if (!isRemote && status && !status.available) {
     return (
       <div className="space-y-2 rounded-md border border-dashed p-4 text-xs">
         <p className="font-medium">5eTools data not found.</p>
@@ -460,7 +575,9 @@ export function ReferenceIndexTab() {
     );
   }
 
-  const previewImage = preview ? imageFor(preview, root, filePath) : "";
+  const previewImage = preview
+    ? imageFor({ ...preview, img: previewDetails?.image || preview?.img }, root, filePath)
+    : "";
 
   return (
     <div className="space-y-2">
@@ -468,11 +585,25 @@ export function ReferenceIndexTab() {
         <p className="text-xs font-medium">Reference Index</p>
         <div className="flex items-center gap-1">
           <Label className="text-[10px] text-muted-foreground">Source</Label>
-          <Select value={root} onValueChange={setRoot}>
+          <Select
+            value={root}
+            onValueChange={(v) => {
+              setRoot(v);
+              setCategoryId((cur) =>
+                isRemoteRoot(v) ? "__all__" : cur === "__all__" ? "bestiary" : cur
+              );
+              setFileQuery("");
+              setPartneredOnly(false);
+            }}
+          >
             <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {ROOTS.map(([id, label]) => (
-                <SelectItem key={id} value={id} disabled={!status?.roots?.[id]}>
+                <SelectItem
+                  key={id}
+                  value={id}
+                  disabled={id === "data" && !status?.roots?.data}
+                >
                   {label}
                 </SelectItem>
               ))}
@@ -480,29 +611,49 @@ export function ReferenceIndexTab() {
           </Select>
         </div>
         <span className="min-w-0 text-[10px] text-muted-foreground">
-          {status?.base ? `${status.base}\\${root}` : "Reading local 5eTools data…"}
-          {status?.version ? ` · ${status.version}` : ""}
-          {status?.managed ? " · downloaded" : status?.base ? " · local folder" : ""}
+          {isRemote
+            ? `${root === "homebrew" ? "TheGiddyLimit/homebrew" : "TheGiddyLimit/unearthed-arcana"} · ${catalog.length} files`
+            : status?.base
+              ? `${status.base}\\${root}`
+              : "Reading local 5eTools data…"}
+          {!isRemote && status?.version ? ` · ${status.version}` : ""}
+          {!isRemote && (status?.managed ? " · downloaded" : status?.base ? " · local folder" : "")}
         </span>
         <div className="ml-auto flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={updateData}
-            disabled={updating}
-            title="Download the newest 5eTools release from GitHub into this app's data folder"
-          >
-            {updating ? "Downloading…" : "Update from GitHub"}
-          </Button>
+          {!isRemote && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={updateData}
+              disabled={updating}
+              title="Download the newest 5eTools release from GitHub into this app's data folder"
+            >
+              {updating ? "Downloading…" : "Update from GitHub"}
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={refresh}>
-            Refresh index
+            {isRemote ? "Refresh catalog" : "Refresh index"}
           </Button>
         </div>
       </div>
 
       <div className="grid h-[64vh] min-h-[430px] grid-cols-[150px_200px_minmax(0,1fr)_minmax(260px,1.1fr)] gap-2">
         <aside className="overflow-y-auto rounded-md border p-1">
+          {isRemote && (
+            <button
+              type="button"
+              onClick={() => setCategoryId("__all__")}
+              className={`w-full truncate rounded px-2 py-1 text-left text-[11px] ${
+                categoryId === "__all__"
+                  ? "bg-primary/10 font-semibold text-foreground"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+              title="Show every file in this repository"
+            >
+              All files
+            </button>
+          )}
           {FIVE_CATEGORIES.map((c) => (
             <button
               key={c.id}
@@ -522,22 +673,51 @@ export function ReferenceIndexTab() {
           <div className="border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Files ({files.length})
           </div>
+          {isRemote && (
+            <div className="space-y-1 border-b p-1">
+              <Input
+                className="h-7 text-xs"
+                placeholder="Find a brew…"
+                value={fileQuery}
+                onChange={(e) => setFileQuery(e.target.value)}
+              />
+              {root === "homebrew" && (
+                <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Switch checked={partneredOnly} onCheckedChange={setPartneredOnly} />
+                  Partnered only
+                </label>
+              )}
+            </div>
+          )}
           <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {files.map((f) => (
               <button
                 key={f.path}
                 type="button"
                 onClick={() => loadFile(f.path)}
-                className={`w-full truncate rounded px-1.5 py-1 text-left text-[10px] ${
+                className={`w-full rounded px-1.5 py-1 text-left text-[10px] ${
                   f.path === filePath ? "bg-accent font-medium" : "hover:bg-accent/60"
                 }`}
-                title={f.path}
+                title={isRemote ? `${f.name} — ${f.author}\n${f.path}` : f.path}
               >
-                {f.path}
+                {isRemote ? (
+                  <>
+                    <span className="block truncate font-medium">{f.name || f.path}</span>
+                    <span className="block truncate text-muted-foreground">
+                      {[f.author, f.partnered ? "Partnered" : "", f.status !== "ready" ? f.status : ""]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </>
+                ) : (
+                  <span className="block truncate">{f.path}</span>
+                )}
               </button>
             ))}
             {files.length === 0 && (
-              <p className="p-2 text-[10px] text-muted-foreground">No files in this source/category.</p>
+              <p className="p-2 text-[10px] text-muted-foreground">
+                No files in this source/category.
+              </p>
             )}
           </div>
         </aside>
@@ -625,12 +805,12 @@ export function ReferenceIndexTab() {
               senses: "Senses import into the Senses library.",
               tables: "Tables import into Roll Tables.",
               vehicles: "Vehicles import into the Vehicles library.",
-            }[category.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."}
+            }[activeCategory.kind] || "Imported entries are kept in the 5eTools Imports tab of the Reference Library."}
           </p>
         </section>
 
         <aside className="flex min-h-0 flex-col rounded-md border">
-          <div className="border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <div className="border-b px-2 py-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Preview
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2 text-xs">

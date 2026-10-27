@@ -33,6 +33,93 @@ Start-Sleep -Milliseconds 500
 Set-Content -Path $pidFile -Value $PID
 $edgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 if (-not (Test-Path $edgePath)) { $edgePath = (Get-Command "msedge" -ErrorAction SilentlyContinue).Source }
+
+# --- 5eTools remote brew catalogs -----------------------------------------
+# Homebrew and prerelease content live in separate GitHub repositories. Their
+# _generated indexes are small, so they are cached locally and refreshed
+# periodically; individual brew files are downloaded only when previewed or
+# imported.
+$brewRoots = @{
+  homebrew = "https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/"
+  prerelease = "https://raw.githubusercontent.com/TheGiddyLimit/unearthed-arcana/master/"
+}
+$brewImageRoots = @{
+  homebrew = "https://raw.githubusercontent.com/TheGiddyLimit/homebrew-img/main/"
+  prerelease = "https://5e.tools/"
+}
+$brewCacheDir = Join-Path $PSScriptRoot "desktop\userdata\5etools-cache"
+New-Item -ItemType Directory -Force -Path $brewCacheDir | Out-Null
+$brewCatalogCache = @{}
+
+function Get-BrewCatalogData([string]$kind) {
+  if ($brewCatalogCache.ContainsKey($kind)) { return $brewCatalogCache[$kind] }
+  $cacheFile = Join-Path $brewCacheDir "catalog-$kind.json"
+  if (Test-Path $cacheFile -PathType Leaf) {
+    $age = [DateTime]::UtcNow - (Get-Item $cacheFile).LastWriteTimeUtc
+    if ($age.TotalHours -lt 6) {
+      try {
+        $cached = Get-Content $cacheFile -Raw | ConvertFrom-Json
+        $brewCatalogCache[$kind] = $cached
+        return $cached
+      } catch { }
+    }
+  }
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  $headers = @{ "User-Agent" = "TerrificTalentTree" }
+  $root = $brewRoots[$kind]
+  $meta = Invoke-RestMethod -Uri ($root + "_generated/index-meta.json") -Headers $headers
+  $props = Invoke-RestMethod -Uri ($root + "_generated/index-props.json") -Headers $headers
+  $times = Invoke-RestMethod -Uri ($root + "_generated/index-timestamps.json") -Headers $headers
+  $metaMap = @{}
+  foreach ($p in $meta.PSObject.Properties) { $metaMap[$p.Name] = $p.Value }
+  $timeMap = @{}
+  foreach ($p in $times.PSObject.Properties) { $timeMap[$p.Name] = $p.Value }
+  $entries = @()
+  $seen = @{}
+  foreach ($prop in $props.PSObject.Properties) {
+    $propName = [string]$prop.Name
+    foreach ($pathProp in $prop.Value.PSObject.Properties) {
+      $path = [string]$pathProp.Name
+      if ($seen.ContainsKey($path)) { continue }
+      $seen[$path] = $true
+      $base = Split-Path $path -Leaf
+      $m = $metaMap[$base]
+      if (-not $m) { continue }
+      $parts = ($base -replace '\.json$', '') -split ';'
+      # The filename convention is "Author; Title.json". The meta name/author
+      # fields are internal source labels, not the display title.
+      $name = if ($parts.Count -gt 1) { $parts[1].Trim() } elseif (@($m.n).Count -gt 0) { [string]@($m.n)[0] } else { $base }
+      $author = if ($parts.Count -gt 1) { $parts[0].Trim() } elseif (@($m.a).Count -gt 0) { [string]@($m.a)[0] } else { "" }
+      $t = if ($timeMap.ContainsKey($path)) { $timeMap[$path] } else { $timeMap[$base] }
+      $encoded = (($path -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+      $entries += [pscustomobject]@{
+        path = $path
+        name = $name
+        author = $author
+        props = @($propName)
+        partnered = ($m.p -eq 1)
+        status = if ($m.s) { [string]$m.s } else { "ready" }
+        edition = if ($m.e -ne $null) { [int]$m.e } else { 0 }
+        added = if ($t -and $t.a) { [long]$t.a } else { 0 }
+        modified = if ($t -and $t.m) { [long]$t.m } else { 0 }
+        download = ($root + $encoded)
+      }
+    }
+  }
+  $catalog = [pscustomobject]@{
+    kind = $kind
+    root = $root
+    count = $entries.Count
+    updated = [DateTime]::UtcNow.ToString("o")
+    entries = @($entries | Sort-Object name, author)
+  }
+  try {
+    ($catalog | ConvertTo-Json -Depth 5 -Compress) | Set-Content -Path $cacheFile -Encoding UTF8
+  } catch { }
+  $brewCatalogCache[$kind] = $catalog
+  return $catalog
+}
+
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("$url/")
 $listener.Start()
@@ -104,6 +191,62 @@ while ($listener.IsListening) {
       } | ConvertTo-Json -Compress -Depth 4))
       $res.ContentType = "application/json"
       $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/catalog") {
+      $kind = [string]$req.QueryString["kind"]
+      if ($kind -notin @("homebrew", "prerelease")) { throw "bad brew kind" }
+      $catalog = Get-BrewCatalogData $kind
+      $body = [Text.Encoding]::UTF8.GetBytes(($catalog | ConvertTo-Json -Depth 6 -Compress))
+      $res.ContentType = "application/json; charset=utf-8"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/remote") {
+      $kind = [string]$req.QueryString["kind"]
+      if ($kind -notin @("homebrew", "prerelease")) { throw "bad brew kind" }
+      $rel = [string]$req.QueryString["path"]
+      if (-not $rel) { throw "missing path" }
+      $rel = $rel.Replace('\','/')
+      if ($rel.StartsWith("/") -or $rel -match "(^|/)\.\." -or $rel -notmatch "\.json$") { throw "bad path" }
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+      $encoded = (($rel -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+      $r = Invoke-WebRequest -Uri ($brewRoots[$kind] + $encoded) -Headers @{ "User-Agent" = "TerrificTalentTree" } -UseBasicParsing
+      $bytes = [Text.Encoding]::UTF8.GetBytes([string]$r.Content)
+      $res.ContentType = "application/json; charset=utf-8"
+      $res.OutputStream.Write($bytes,0,$bytes.Length)
+      $res.Close()
+      continue
+    }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/brew-image") {
+      $kind = [string]$req.QueryString["kind"]
+      if ($kind -notin @("homebrew", "prerelease")) { throw "bad brew kind" }
+      $rel = [string]$req.QueryString["path"]
+      if (-not $rel) { throw "missing path" }
+      $rel = $rel.Replace('\','/')
+      if ($rel.StartsWith("/") -or $rel -match "(^|/)\.\.") { throw "bad path" }
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+      $encoded = (($rel -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+      $ext = [IO.Path]::GetExtension($rel).ToLower()
+      $ct = if ($mimes[$ext]) { $mimes[$ext] } else { "application/octet-stream" }
+      # Prefer a local image pack when one exists, then fall back to the
+      # repository/website image root.
+      $localImg = [IO.Path]::GetFullPath((Join-Path $fiveLegacy $rel))
+      $legacyFull = [IO.Path]::GetFullPath($fiveLegacy)
+      if ($localImg.StartsWith($legacyFull) -and (Test-Path $localImg -PathType Leaf)) {
+        $bytes = [IO.File]::ReadAllBytes($localImg)
+      } else {
+        $r = Invoke-WebRequest -Uri ($brewImageRoots[$kind] + $encoded) -Headers @{ "User-Agent" = "TerrificTalentTree" } -UseBasicParsing
+        $ms = New-Object IO.MemoryStream
+        $r.RawContentStream.CopyTo($ms)
+        $bytes = $ms.ToArray()
+        $ms.Dispose()
+        if ($r.Headers["Content-Type"]) { $ct = [string]$r.Headers["Content-Type"] }
+      }
+      $res.ContentType = $ct
+      $res.OutputStream.Write($bytes,0,$bytes.Length)
       $res.Close()
       continue
     }

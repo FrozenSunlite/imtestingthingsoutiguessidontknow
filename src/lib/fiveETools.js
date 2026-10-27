@@ -66,9 +66,53 @@ export function filesForCategory(category, files) {
   });
 }
 
-export function entriesFromRaw(raw) {
+const PROP_KEYS = {
+  class: ["class", "subclass"],
+  subclass: ["subclass"],
+  monster: ["monster"],
+  spell: ["spell"],
+  item: ["item", "baseitem", "itemGroup"],
+  baseitem: ["baseitem"],
+  magicvariant: ["magicvariant"],
+  feat: ["feat"],
+  race: ["race", "subrace"],
+  subrace: ["subrace"],
+  background: ["background"],
+  condition: ["condition", "disease", "status"],
+  status: ["status"],
+  action: ["action"],
+  language: ["language"],
+  table: ["table"],
+  vehicle: ["vehicle", "vehicleUpgrade"],
+  deity: ["deity"],
+  object: ["object"],
+  trap: ["trap", "hazard"],
+  hazard: ["hazard"],
+  reward: ["reward", "boon"],
+  charoption: ["charoption"],
+  optionalfeature: ["optionalfeature"],
+  classFeature: ["classFeature"],
+  subclassFeature: ["subclassFeature"],
+  adventure: ["adventure", "adventureData"],
+  book: ["book", "bookData"],
+  encounter: ["encounter"],
+  facility: ["facility"],
+  cult: ["cult", "boon"],
+  psionic: ["psionic"],
+  deck: ["deck", "card"],
+  individual: ["individual"],
+  hoard: ["hoard"],
+  dragon: ["dragon"],
+};
+
+export function entriesFromRaw(raw, preferredProp = "") {
   if (Array.isArray(raw)) return raw;
   if (!raw || typeof raw !== "object") return [];
+  if (preferredProp) {
+    const keys = PROP_KEYS[preferredProp] || [preferredProp];
+    const picked = keys.flatMap((k) => (Array.isArray(raw[k]) ? raw[k] : []));
+    if (picked.length) return picked;
+  }
   if (Array.isArray(raw.data)) return raw.data;
   // Items files carry both finished items and base items.
   if (Array.isArray(raw.item) || Array.isArray(raw.baseitem))

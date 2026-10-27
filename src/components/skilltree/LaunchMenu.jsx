@@ -152,7 +152,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
           {menuBtn(
             <Database className="h-5 w-5" />,
             "Reference Index",
-            "Browse and import local 5eTools data",
+            "Browse official, homebrew and prerelease 5eTools data",
             () => onReferenceIndex?.(),
             locked
           )}
