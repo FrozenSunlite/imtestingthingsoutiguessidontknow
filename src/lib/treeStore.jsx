@@ -405,6 +405,9 @@ const DEFAULT_SETTINGS = {
   placeholderImage: DEFAULT_PLACEHOLDER,
   placeholderFrame: "",
   cameraStartNode: "",
+  // True once a project has been started or loaded; keeps the launch menu's
+  // project-only tiles enabled even for an empty project.
+  projectStarted: false,
   autoSave: true,
   autoSaveInterval: 60,
   cacheRemoteImages: false,
@@ -2031,6 +2034,7 @@ export function TreeProvider({ children }) {
       pinnedNodeIds: [],
       pinPositions: {},
     }));
+    setSettings((s) => ({ ...s, projectStarted: true }));
     clearDirty();
     enterApp("edit");
   }, [enterApp, clearDirty]);
@@ -2063,6 +2067,7 @@ export function TreeProvider({ children }) {
         pinnedNodeIds: [],
         pinPositions: {},
       }));
+      setSettings((s) => ({ ...s, projectStarted: true }));
       clearDirty();
       enterApp(nextMode || "sheet");
     },

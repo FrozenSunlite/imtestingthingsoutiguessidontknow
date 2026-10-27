@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-37KnEVK1.js";
+import { n as Button, r as cn } from "./router-BYa_l8e3.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -4379,6 +4379,7 @@ var DEFAULT_SETTINGS = {
 	placeholderImage: DEFAULT_PLACEHOLDER,
 	placeholderFrame: "",
 	cameraStartNode: "",
+	projectStarted: false,
 	autoSave: true,
 	autoSaveInterval: 60,
 	cacheRemoteImages: false,
@@ -5815,6 +5816,10 @@ function TreeProvider({ children }) {
 			pinnedNodeIds: [],
 			pinPositions: {}
 		}));
+		setSettings((s) => ({
+			...s,
+			projectStarted: true
+		}));
 		clearDirty();
 		enterApp("edit");
 	}, [enterApp, clearDirty]);
@@ -5852,6 +5857,10 @@ function TreeProvider({ children }) {
 			selectedConnectionId: null,
 			pinnedNodeIds: [],
 			pinPositions: {}
+		}));
+		setSettings((s) => ({
+			...s,
+			projectStarted: true
 		}));
 		clearDirty();
 		enterApp(nextMode || "sheet");
@@ -30409,13 +30418,13 @@ function PinnedNodeCard() {
 //#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
 function LaunchMenu({ onHomebuilder, onDmScreen }) {
-	const { enterApp, startNewTree, tree, character } = useTree();
+	const { enterApp, startNewTree, tree, character, settings } = useTree();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [newConfirmOpen, setNewConfirmOpen] = useState(false);
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
-	const hasProject = !!(tree?.nodes?.length || character?.name);
+	const hasProject = !!(tree?.nodes?.length || character?.name || settings?.projectStarted);
 	const devMode = !!character?.devMode;
 	const locked = !hasProject && !devMode;
 	const exit = () => {
@@ -30485,7 +30494,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-3",
-							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true)), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true))]
+							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
 						}),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true }), locked),
 						menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked),

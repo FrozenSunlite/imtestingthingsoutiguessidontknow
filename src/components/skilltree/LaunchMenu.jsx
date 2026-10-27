@@ -29,14 +29,18 @@ import {
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
 export function LaunchMenu({ onHomebuilder, onDmScreen }) {
-  const { enterApp, startNewTree, tree, character } = useTree();
+  const { enterApp, startNewTree, tree, character, settings } = useTree();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
-  const hasProject = !!(tree?.nodes?.length || character?.name);
+  const hasProject = !!(
+    tree?.nodes?.length ||
+    character?.name ||
+    settings?.projectStarted
+  );
   const devMode = !!character?.devMode;
   const locked = !hasProject && !devMode;
 
@@ -131,13 +135,15 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
               <BookOpen className="h-5 w-5" />,
               "Rulebook",
               "Read and edit the rulebook",
-              () => setRulebookOpen(true)
+              () => setRulebookOpen(true),
+              locked
             )}
             {menuBtn(
               <Library className="h-5 w-5" />,
               "Reference Library",
               "Browse the reference library",
-              () => setLibraryOpen(true)
+              () => setLibraryOpen(true),
+              locked
             )}
           </div>
 
