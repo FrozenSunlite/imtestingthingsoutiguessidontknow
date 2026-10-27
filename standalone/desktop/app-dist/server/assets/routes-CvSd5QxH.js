@@ -1,4 +1,4 @@
-import { i as cn, n as base44, r as Button } from "./router-Dm2-gU6U.js";
+import { i as cn, n as base44, r as Button } from "./router-Xw8pzxy6.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment as Fragment$1, jsx, jsxs } from "react/jsx-runtime";
@@ -28586,6 +28586,7 @@ function StandaloneCopyDialog({ open, onClose }) {
 function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	const { enterApp, startNewTree, tree, character } = useTree();
 	const hasProject = !!(tree?.nodes?.length || character?.name);
+	const devMode = !!character?.devMode;
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [showNewConfirm, setShowNewConfirm] = useState(false);
 	const [loadOpen, setLoadOpen] = useState(false);
@@ -28596,7 +28597,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 	const menuBtn = (icon, title, sub, onClick) => /* @__PURE__ */ jsxs("button", {
 		onClick,
 		title: sub,
-		className: "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent",
+		className: "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" + (disabled ? " opacity-40 pointer-events-none" : ""),
 		children: [/* @__PURE__ */ jsx("span", {
 			className: "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
 			children: icon
@@ -28644,13 +28645,13 @@ function LaunchMenu({ onHomebuilder, onDmScreen }) {
 						}),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "Character Creator", "Build a character in the working sheet", () => {
 							if (hasProject) enterApp("sheet", { sheetOnly: true });
-						}),
+						}, !hasProject && !devMode),
 						menuBtn(/* @__PURE__ */ jsx(Home, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "Architect", "Design a home, business or bastion plot", () => {
 							if (hasProject) onHomebuilder?.();
-						}),
+						}, !hasProject && !devMode),
 						menuBtn(/* @__PURE__ */ jsx(Swords, { className: hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40" }), "DM Screen", "Quick rules and a dice roller for running the game", () => {
 							if (hasProject) onDmScreen?.();
-						}),
+						}, !hasProject && !devMode),
 						menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read the rulebook — quick start guide and chapters", () => setRulebookOpen(true)),
 						menuBtn(/* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" }), "Settings", "Hotkeys, grid, library and defaults", () => setSettingsOpen(true)),
 						false,

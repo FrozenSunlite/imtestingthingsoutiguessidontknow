@@ -27,6 +27,7 @@ import {
 export function LaunchMenu({ onHomebuilder, onDmScreen }) {
   const { enterApp, startNewTree, tree, character } = useTree();
   const hasProject = !!(tree?.nodes?.length || character?.name);
+  const devMode = !!character?.devMode;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showNewConfirm, setShowNewConfirm] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
@@ -39,7 +40,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     <button
       onClick={onClick}
       title={sub}
-      className="group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent"
+      className={"group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" + (disabled ? " opacity-40 pointer-events-none" : "")}
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
         {icon}
@@ -84,19 +85,19 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
             <Wand2 className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />,
             "Character Creator",
             "Build a character in the working sheet",
-            () => { if (hasProject) enterApp("sheet", { sheetOnly: true }); }
+            () => { if (hasProject) enterApp("sheet", { sheetOnly: true }); }, (!hasProject && !devMode)
           )}
           {menuBtn(
             <Home className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />,
             "Architect",
             "Design a home, business or bastion plot",
-            () => { if (hasProject) onHomebuilder?.(); }
+            () => { if (hasProject) onHomebuilder?.(); }, (!hasProject && !devMode)
           )}
           {menuBtn(
             <Swords className={hasProject ? "h-5 w-5" : "h-5 w-5 opacity-40"} />,
             "DM Screen",
             "Quick rules and a dice roller for running the game",
-            () => { if (hasProject) onDmScreen?.(); }
+            () => { if (hasProject) onDmScreen?.(); }, (!hasProject && !devMode)
           )}
           {menuBtn(
             <BookOpen className="h-5 w-5" />,
@@ -148,6 +149,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen }) {
     </div>
   );
 }
+
+
 
 
 
