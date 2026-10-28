@@ -25,5 +25,12 @@ export default defineConfig({
   resolve: { alias: { "@": srcDir } },
   optimizeDeps: { include: PREBUNDLE },
   environments: { ssr: { optimizeDeps: { include: PREBUNDLE } } },
+  // Project saves, backups and imported artwork are runtime files. Watching
+  // them makes the dev server crash when the local server holds a file open.
+  server: {
+    watch: {
+      ignored: ["**/standalone/desktop/userdata/**"],
+    },
+  },
   plugins: [tanstackStart({ srcDirectory: "src" }), react()],
 });

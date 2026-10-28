@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CHZ--SIJ.js";
+import { n as Button, r as cn } from "./router-CnQNTh7z.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6341,7 +6341,17 @@ var POOL_LABELS = {
 	__subtree: "Subtree"
 };
 function normalizeTree(data) {
-	const nodes = (data.Skills || data.skills || []).map((s, i) => {
+	if (!data || typeof data !== "object") throw new Error("That file is empty or does not contain a skill tree.");
+	const source = data.tree && typeof data.tree === "object" && !data.Skills && !data.skills ? data.tree : data;
+	if (!source.Skills && !source.skills && Array.isArray(source.nodes) && Array.isArray(source.connections)) return {
+		className: source.className || "Skill Tree",
+		name: source.name || source.className || "Skill Tree",
+		nodes: source.nodes,
+		connections: source.connections
+	};
+	const raw = source.Skills || source.skills || [];
+	if (!Array.isArray(raw)) throw new Error("That file does not contain a Skills list.");
+	const nodes = raw.map((s, i) => {
 		const pos = s["Skill Position Exact"] || {
 			x: 0,
 			y: 0
@@ -6440,7 +6450,7 @@ function normalizeTree(data) {
 			flipped: false,
 			flipV: false,
 			subtrees: (() => {
-				return (Array.isArray(data["Skill Subtrees"]) ? data["Skill Subtrees"] : data["Skill Subtree"] ? [data["Skill Subtree"]] : []).map((sub, j) => {
+				return (Array.isArray(source["Skill Subtrees"]) ? source["Skill Subtrees"] : source["Skill Subtree"] ? [source["Skill Subtree"]] : []).map((sub, j) => {
 					const inner = normalizeTree(sub);
 					return {
 						id: sub["Subtree Id"] || "st" + j + "-" + (s["Skill Id"] || i),
@@ -6485,7 +6495,7 @@ function normalizeTree(data) {
 		}
 		delete n.dependencyNames;
 	});
-	const exportedConns = Array.isArray(data["Skill Connectors"]) ? data["Skill Connectors"] : [];
+	const exportedConns = Array.isArray(source["Skill Connectors"]) ? source["Skill Connectors"] : [];
 	if (exportedConns.length) {
 		const ids = new Set(nodes.map((n) => n.id));
 		const seen = /* @__PURE__ */ new Set();
@@ -6510,8 +6520,8 @@ function normalizeTree(data) {
 		connections = out;
 	}
 	return {
-		className: data["Class Name"] || "Skill Tree",
-		name: data["Project Name"] || data.name || data["Class Name"] || "Skill Tree",
+		className: source["Class Name"] || "Skill Tree",
+		name: source["Project Name"] || source.name || source["Class Name"] || "Skill Tree",
 		nodes,
 		connections
 	};
@@ -23454,21 +23464,31 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	const onImport = (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
+		setImportData(null);
 		const reader = new FileReader();
 		reader.onload = async () => {
 			try {
 				const parsed = JSON.parse(reader.result);
-				setImportData(await rehydrateImages(parsed));
-			} catch {
-				alert("Invalid JSON file.");
+				if (!parsed || typeof parsed !== "object") throw new Error("That file is empty or not a skill-tree JSON.");
+				const hydrated = await rehydrateImages(parsed);
+				if (!hydrated) throw new Error("Could not read the skill tree in that file.");
+				setImportData(hydrated);
+			} catch (e) {
+				setImportData(null);
+				toast.error(e?.message || "Invalid JSON file.");
 			}
 		};
 		reader.readAsText(file);
 		e.target.value = "";
 	};
 	const runImport = (mode) => {
-		importTree(importData, mode);
-		setImportData(null);
+		try {
+			importTree(importData, mode);
+			setImportData(null);
+			toast.success("Skill tree imported.");
+		} catch (e) {
+			toast.error(e?.message || "Could not import that skill tree.");
+		}
 	};
 	const onExport = async () => {
 		const portable = await inlineImages({

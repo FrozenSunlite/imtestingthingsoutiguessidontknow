@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   useTree,
   useViewSet,
@@ -170,15 +171,24 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   const onImport = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportData(null);
     const reader = new FileReader();
     reader.onload = async () => {
       try {
         const parsed = JSON.parse(reader.result);
+        if (!parsed || typeof parsed !== "object") {
+          throw new Error("That file is empty or not a skill-tree JSON.");
+        }
         // Exports carry their artwork as embedded data URLs; move those back
         // into the project's image folder so the live tree stays small.
-        setImportData(await rehydrateImages(parsed));
-      } catch {
-        alert("Invalid JSON file.");
+        const hydrated = await rehydrateImages(parsed);
+        if (!hydrated) {
+          throw new Error("Could not read the skill tree in that file.");
+        }
+        setImportData(hydrated);
+      } catch (e) {
+        setImportData(null);
+        toast.error(e?.message || "Invalid JSON file.");
       }
     };
     reader.readAsText(file);
@@ -186,8 +196,13 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   };
 
   const runImport = (mode) => {
-    importTree(importData, mode);
-    setImportData(null);
+    try {
+      importTree(importData, mode);
+      setImportData(null);
+      toast.success("Skill tree imported.");
+    } catch (e) {
+      toast.error(e?.message || "Could not import that skill tree.");
+    }
   };
 
   const onExport = async () => {

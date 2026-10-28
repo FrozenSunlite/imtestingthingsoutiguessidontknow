@@ -19,7 +19,32 @@ export const NODE_TYPE_VALUES = NODE_TYPES.map((t) => t.value);
 export const POOL_LABELS = { talent: "Talent", heritage: "Heritage", attribute: "Attribute", __subtree: "Subtree" };
 
 export function normalizeTree(data) {
-  const raw = data.Skills || data.skills || [];
+  if (!data || typeof data !== "object") {
+    throw new Error("That file is empty or does not contain a skill tree.");
+  }
+  // Accept a full project file as well as a tree export. A project stores the
+  // already-normalized tree under `tree`; an export stores `Skills`.
+  const source =
+    data.tree && typeof data.tree === "object" && !data.Skills && !data.skills
+      ? data.tree
+      : data;
+  if (
+    !source.Skills &&
+    !source.skills &&
+    Array.isArray(source.nodes) &&
+    Array.isArray(source.connections)
+  ) {
+    return {
+      className: source.className || "Skill Tree",
+      name: source.name || source.className || "Skill Tree",
+      nodes: source.nodes,
+      connections: source.connections,
+    };
+  }
+  const raw = source.Skills || source.skills || [];
+  if (!Array.isArray(raw)) {
+    throw new Error("That file does not contain a Skills list.");
+  }
   const nodes = raw.map((s, i) => {
     const pos = s["Skill Position Exact"] || { x: 0, y: 0 };
     return {
@@ -118,10 +143,10 @@ export function normalizeTree(data) {
       flipV: false,
       // The node's own skill trees (see subtrees.js) — an empty list when none.
       subtrees: (() => {
-        const arr = Array.isArray(data["Skill Subtrees"])
-          ? data["Skill Subtrees"]
-          : data["Skill Subtree"]
-          ? [data["Skill Subtree"]]
+        const arr = Array.isArray(source["Skill Subtrees"])
+          ? source["Skill Subtrees"]
+          : source["Skill Subtree"]
+          ? [source["Skill Subtree"]]
           : [];
         return arr.map((sub, j) => {
           const inner = normalizeTree(sub);
@@ -175,7 +200,7 @@ export function normalizeTree(data) {
   // Connectors exported with the file carry their bends and styles; they win
   // over the prerequisite-derived set, which stays as the fallback for files
   // without exported connectors (or prerequisites added since the export).
-  const exportedConns = Array.isArray(data["Skill Connectors"]) ? data["Skill Connectors"] : [];
+  const exportedConns = Array.isArray(source["Skill Connectors"]) ? source["Skill Connectors"] : [];
   if (exportedConns.length) {
     const ids = new Set(nodes.map((n) => n.id));
     const seen = new Set();
@@ -196,8 +221,8 @@ export function normalizeTree(data) {
   }
 
   return {
-    className: data["Class Name"] || "Skill Tree",
-    name: data["Project Name"] || data.name || data["Class Name"] || "Skill Tree",
+    className: source["Class Name"] || "Skill Tree",
+    name: source["Project Name"] || source.name || source["Class Name"] || "Skill Tree",
     nodes,
     connections,
   };

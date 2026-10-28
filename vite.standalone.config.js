@@ -21,6 +21,11 @@ const PREBUNDLE = Object.keys(dependencies).filter((name) => !NOT_PREBUNDLED.has
 export default defineConfig({
   resolve: { alias: { "@": srcDir } },
   optimizeDeps: { include: PREBUNDLE },
+  server: {
+    watch: {
+      ignored: ["**/standalone/desktop/userdata/**"],
+    },
+  },
   build: {
     outDir: "standalone/desktop/app-dist",
     emptyOutDir: true,
