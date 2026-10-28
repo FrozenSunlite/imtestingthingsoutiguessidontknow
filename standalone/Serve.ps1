@@ -585,14 +585,35 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       $res.Close()
       continue
     }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/project/backups") {
+      $backupDir = Join-Path $projectRoot "backups"
+      $files = @(Get-ChildItem $backupDir -Filter "*.json" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        ForEach-Object {
+          @{
+            name = $_.BaseName
+            file = $_.Name
+            bytes = $_.Length
+            modified = $_.LastWriteTimeUtc.ToString("o")
+          }
+        })
+      $body = [Text.Encoding]::UTF8.GetBytes((@{ projects = $files } | ConvertTo-Json -Depth 4 -Compress))
+      $res.ContentType = "application/json; charset=utf-8"
+      $res.Headers["Cache-Control"] = "no-store"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/project/load") {
       $name = [string]$req.QueryString["name"]
       if (-not $name) { throw "missing project name" }
       if ($name -match "[\\/]" -or $name -match "\.\.") { throw "bad project name" }
       if (-not $name.EndsWith(".json")) { $name = "$name.json" }
-      $file = Join-Path $projectRoot $name
+      $backup = [string]$req.QueryString["backup"] -eq "1"
+      $baseDir = if ($backup) { Join-Path $projectRoot "backups" } else { $projectRoot }
+      $file = Join-Path $baseDir $name
       $full = [IO.Path]::GetFullPath($file)
-      $rootFull = [IO.Path]::GetFullPath($projectRoot)
+      $rootFull = [IO.Path]::GetFullPath($baseDir)
       if (-not $full.StartsWith($rootFull) -or -not (Test-Path $full -PathType Leaf)) { throw "missing project" }
       $bytes = [IO.File]::ReadAllBytes($full)
       $res.ContentType = "application/json; charset=utf-8"
@@ -605,9 +626,11 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       if (-not $name) { throw "missing project name" }
       if ($name -match "[\\/]" -or $name -match "\.\.") { throw "bad project name" }
       if (-not $name.EndsWith(".json")) { $name = "$name.json" }
-      $file = Join-Path $projectRoot $name
+      $backup = [string]$req.QueryString["backup"] -eq "1"
+      $baseDir = if ($backup) { Join-Path $projectRoot "backups" } else { $projectRoot }
+      $file = Join-Path $baseDir $name
       $full = [IO.Path]::GetFullPath($file)
-      $rootFull = [IO.Path]::GetFullPath($projectRoot)
+      $rootFull = [IO.Path]::GetFullPath($baseDir)
       if ($full.StartsWith($rootFull) -and (Test-Path $full -PathType Leaf)) { [IO.File]::Delete($full) }
       $body = [Text.Encoding]::UTF8.GetBytes('{"ok":true}')
       $res.ContentType = "application/json"

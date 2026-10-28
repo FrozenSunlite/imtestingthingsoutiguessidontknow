@@ -32,10 +32,23 @@ export async function listProjectFiles() {
   }
 }
 
-export async function loadProjectFile(file) {
+export async function listProjectBackups() {
+  try {
+    const res = await fetch("/api/project/backups", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.projects) ? data.projects : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function loadProjectFile(file, { backup = false } = {}) {
   if (!file) return null;
   try {
-    const res = await fetch(`/api/project/load?name=${encodeURIComponent(file)}`);
+    const params = new URLSearchParams({ name: file });
+    if (backup) params.set("backup", "1");
+    const res = await fetch(`/api/project/load?${params.toString()}`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -43,10 +56,12 @@ export async function loadProjectFile(file) {
   }
 }
 
-export async function deleteProjectFile(file) {
+export async function deleteProjectFile(file, { backup = false } = {}) {
   if (!file) return false;
   try {
-    const res = await fetch(`/api/project/delete?name=${encodeURIComponent(file)}`, {
+    const params = new URLSearchParams({ name: file });
+    if (backup) params.set("backup", "1");
+    const res = await fetch(`/api/project/delete?${params.toString()}`, {
       method: "POST",
     });
     return res.ok;

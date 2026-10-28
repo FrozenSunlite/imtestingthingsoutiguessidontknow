@@ -1,0 +1,1 @@
+import{g as e}from"./routes-deNDmdhI.js";export default e();

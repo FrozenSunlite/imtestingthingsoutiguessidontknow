@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BjpvOao9.js";
+import { n as Button, r as cn } from "./router-CHZ--SIJ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6262,20 +6262,34 @@ async function listProjectFiles() {
 		return [];
 	}
 }
-async function loadProjectFile(file) {
+async function listProjectBackups() {
+	try {
+		const res = await fetch("/api/project/backups", { cache: "no-store" });
+		if (!res.ok) return [];
+		const data = await res.json();
+		return Array.isArray(data.projects) ? data.projects : [];
+	} catch {
+		return [];
+	}
+}
+async function loadProjectFile(file, { backup = false } = {}) {
 	if (!file) return null;
 	try {
-		const res = await fetch(`/api/project/load?name=${encodeURIComponent(file)}`);
+		const params = new URLSearchParams({ name: file });
+		if (backup) params.set("backup", "1");
+		const res = await fetch(`/api/project/load?${params.toString()}`);
 		if (!res.ok) return null;
 		return await res.json();
 	} catch {
 		return null;
 	}
 }
-async function deleteProjectFile(file) {
+async function deleteProjectFile(file, { backup = false } = {}) {
 	if (!file) return false;
 	try {
-		return (await fetch(`/api/project/delete?name=${encodeURIComponent(file)}`, { method: "POST" })).ok;
+		const params = new URLSearchParams({ name: file });
+		if (backup) params.set("backup", "1");
+		return (await fetch(`/api/project/delete?${params.toString()}`, { method: "POST" })).ok;
 	} catch {
 		return false;
 	}
@@ -22599,12 +22613,14 @@ function SaveLoadMenu({ open, onClose }) {
 	const [busy, setBusy] = useState(false);
 	const [includeSources, setIncludeSources] = useState(false);
 	const [diskSaves, setDiskSaves] = useState([]);
+	const [backupSaves, setBackupSaves] = useState([]);
 	const fileRef = useRef(null);
 	useEffect(() => {
 		if (!open) return void 0;
 		let alive = true;
 		listCharacterSaves().then((rows) => alive && setSaves(rows)).catch(() => alive && setSaves([]));
 		listProjectFiles().then((rows) => alive && setDiskSaves(rows));
+		listProjectBackups().then((rows) => alive && setBackupSaves(rows));
 		setName(character?.name || "");
 		return () => {
 			alive = false;
@@ -22636,6 +22652,7 @@ function SaveLoadMenu({ open, onClose }) {
 			});
 			await refresh();
 			setDiskSaves(await listProjectFiles());
+			setBackupSaves(await listProjectBackups());
 			clearDirty?.();
 			toast.success(`Saved "${name || "Untitled character"}".`);
 		} catch (e) {
@@ -22658,10 +22675,11 @@ function SaveLoadMenu({ open, onClose }) {
 			manual: true
 		});
 		setDiskSaves(await listProjectFiles());
+		setBackupSaves(await listProjectBackups());
 		toast[result ? "success" : "error"](result ? `Saved to disk: ${result.path}` : "Could not write the project file.");
 	};
-	const loadDisk = async (file) => {
-		const data = await loadProjectFile(file);
+	const loadDisk = async (file, backup = false) => {
+		const data = await loadProjectFile(file, { backup });
 		if (!data) {
 			toast.error("Could not read that project file.");
 			return;
@@ -22669,10 +22687,11 @@ function SaveLoadMenu({ open, onClose }) {
 		applyLoadedSave(await rehydrateImages(data), "sheet");
 		onClose();
 	};
-	const removeDisk = async (file) => {
-		if (!window.confirm(`Delete ${file} from the projects folder?`)) return;
-		await deleteProjectFile(file);
-		setDiskSaves(await listProjectFiles());
+	const removeDisk = async (file, backup = false) => {
+		if (!window.confirm(`Delete ${file} from the ${backup ? "backups" : "projects"} folder?`)) return;
+		await deleteProjectFile(file, { backup });
+		if (backup) setBackupSaves(await listProjectBackups());
+		else setDiskSaves(await listProjectFiles());
 	};
 	const doLoad = (entry) => {
 		applyLoadedSave(entry, "sheet");
@@ -22816,7 +22835,7 @@ function SaveLoadMenu({ open, onClose }) {
 									className: "text-[9px] text-muted-foreground",
 									children: [
 										new Date(file.modified).toLocaleString(),
-										" · ",
+										" - ",
 										(file.bytes / 1024).toFixed(0),
 										" KB"
 									]
@@ -22839,6 +22858,56 @@ function SaveLoadMenu({ open, onClose }) {
 						]
 					}, file.file))]
 				}),
+				/* @__PURE__ */ jsxs("div", { children: [
+					/* @__PURE__ */ jsx("p", {
+						className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
+						children: "Automatic backups"
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "mb-1 text-[9px] text-muted-foreground",
+						children: "Kept before manual saves and before an unusually small autosave replaces a project."
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "max-h-40 space-y-1 overflow-y-auto rounded-md border p-1",
+						children: [backupSaves.length === 0 && /* @__PURE__ */ jsx("p", {
+							className: "p-2 text-[10px] text-muted-foreground",
+							children: "No backups yet. The first manual save will create one."
+						}), backupSaves.map((file) => /* @__PURE__ */ jsxs("div", {
+							className: "flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent",
+							children: [
+								/* @__PURE__ */ jsxs("div", {
+									className: "min-w-0 flex-1",
+									children: [/* @__PURE__ */ jsx("div", {
+										className: "truncate font-medium",
+										children: file.file
+									}), /* @__PURE__ */ jsxs("div", {
+										className: "text-[9px] text-muted-foreground",
+										children: [
+											new Date(file.modified).toLocaleString(),
+											" - ",
+											(file.bytes / 1024).toFixed(0),
+											" KB"
+										]
+									})]
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "ghost",
+									title: "Restore this backup",
+									onClick: () => loadDisk(file.file, true),
+									children: /* @__PURE__ */ jsx(FolderOpen, { className: "h-4 w-4" })
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "ghost",
+									title: "Delete this backup",
+									onClick: () => removeDisk(file.file, true),
+									children: /* @__PURE__ */ jsx(Trash2, { className: "h-4 w-4 text-destructive" })
+								})
+							]
+						}, file.file))]
+					})
+				] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "flex justify-between",
 					children: [

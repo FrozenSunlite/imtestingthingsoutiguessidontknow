@@ -22,6 +22,7 @@ import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 import { getFiveEToolsSources } from "@/lib/fiveEToolsCache";
 import {
   deleteProjectFile,
+  listProjectBackups,
   listProjectFiles,
   loadProjectFile,
   saveProjectToDisk,
@@ -38,6 +39,7 @@ export function SaveLoadMenu({ open, onClose }) {
   const [busy, setBusy] = useState(false);
   const [includeSources, setIncludeSources] = useState(false);
   const [diskSaves, setDiskSaves] = useState([]);
+  const [backupSaves, setBackupSaves] = useState([]);
   const fileRef = useRef(null);
 
   // Save slots live in IndexedDB, so listing them is asynchronous.
@@ -48,6 +50,7 @@ export function SaveLoadMenu({ open, onClose }) {
       .then((rows) => alive && setSaves(rows))
       .catch(() => alive && setSaves([]));
     listProjectFiles().then((rows) => alive && setDiskSaves(rows));
+    listProjectBackups().then((rows) => alive && setBackupSaves(rows));
     setName(character?.name || "");
     return () => {
       alive = false;
@@ -78,6 +81,7 @@ export function SaveLoadMenu({ open, onClose }) {
       await saveProjectToDisk(payload, { name: payload.name, manual: true });
       await refresh();
       setDiskSaves(await listProjectFiles());
+      setBackupSaves(await listProjectBackups());
       clearDirty?.();
       toast.success(`Saved "${name || "Untitled character"}".`);
     } catch (e) {
@@ -98,13 +102,14 @@ export function SaveLoadMenu({ open, onClose }) {
     };
     const result = await saveProjectToDisk(payload, { name: payload.name, manual: true });
     setDiskSaves(await listProjectFiles());
+    setBackupSaves(await listProjectBackups());
     toast[result ? "success" : "error"](
       result ? `Saved to disk: ${result.path}` : "Could not write the project file."
     );
   };
 
-  const loadDisk = async (file) => {
-    const data = await loadProjectFile(file);
+  const loadDisk = async (file, backup = false) => {
+    const data = await loadProjectFile(file, { backup });
     if (!data) {
       toast.error("Could not read that project file.");
       return;
@@ -113,10 +118,17 @@ export function SaveLoadMenu({ open, onClose }) {
     onClose();
   };
 
-  const removeDisk = async (file) => {
-    if (!window.confirm(`Delete ${file} from the projects folder?`)) return;
-    await deleteProjectFile(file);
-    setDiskSaves(await listProjectFiles());
+  const removeDisk = async (file, backup = false) => {
+    if (
+      !window.confirm(
+        `Delete ${file} from the ${backup ? "backups" : "projects"} folder?`
+      )
+    ) {
+      return;
+    }
+    await deleteProjectFile(file, { backup });
+    if (backup) setBackupSaves(await listProjectBackups());
+    else setDiskSaves(await listProjectFiles());
   };
 
   const doLoad = (entry) => {
@@ -281,7 +293,7 @@ export function SaveLoadMenu({ open, onClose }) {
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{file.file}</div>
                 <div className="text-[9px] text-muted-foreground">
-                  {new Date(file.modified).toLocaleString()} · {(file.bytes / 1024).toFixed(0)} KB
+                  {new Date(file.modified).toLocaleString()} - {(file.bytes / 1024).toFixed(0)} KB
                 </div>
               </div>
               <Button size="sm" variant="ghost" title="Load this file" onClick={() => loadDisk(file.file)}>
@@ -292,6 +304,48 @@ export function SaveLoadMenu({ open, onClose }) {
               </Button>
             </div>
           ))}
+        </div>
+
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Automatic backups
+          </p>
+          <p className="mb-1 text-[9px] text-muted-foreground">
+            Kept before manual saves and before an unusually small autosave replaces a project.
+          </p>
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-1">
+            {backupSaves.length === 0 && (
+              <p className="p-2 text-[10px] text-muted-foreground">
+                No backups yet. The first manual save will create one.
+              </p>
+            )}
+            {backupSaves.map((file) => (
+              <div key={file.file} className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{file.file}</div>
+                  <div className="text-[9px] text-muted-foreground">
+                    {new Date(file.modified).toLocaleString()} - {(file.bytes / 1024).toFixed(0)} KB
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title="Restore this backup"
+                  onClick={() => loadDisk(file.file, true)}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title="Delete this backup"
+                  onClick={() => removeDisk(file.file, true)}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="flex justify-between">
