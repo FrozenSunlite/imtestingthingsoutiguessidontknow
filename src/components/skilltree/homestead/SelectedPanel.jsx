@@ -8,8 +8,10 @@ import {
   FACILITY_TYPES, ATTACHMENTS, furnishingByName, WALL_TYPES, firstFitRoom, uid,
   bastionFacilityByName,
 } from "@/lib/homestead";
-import { Trash2 } from "lucide-react";
+import { Trash2, ImagePlus } from "lucide-react";
 import { deleteSelectionFromPlot } from "@/lib/homesteadEdit";
+import { importImage } from "@/lib/imageStore";
+import { FLOOR_TEXTURES, floorTexture } from "@/lib/worldAssets";
 
 // Details for the selected facility, furnishing or connection: rename, resize
 // (where allowed), "chosen at creation" options, per-facility Attic/Cellar
@@ -60,15 +62,63 @@ export default function SelectedPanel({ plot, selection, update }) {
         <Header
           title={f.name || f.type}
           sub={bf
-            ? `${f.type} · Level ${bf.level} special facility — claimed free, no gold or build time`
+            ? bf.seatOfPower
+              ? "Seat of Power · 4×4 · Bastion only · free · does not count against known facilities"
+              : `${f.type} · Level ${bf.level} special facility — claimed free, no gold or build time`
             : `${f.type} · ${area} spaces · ${gp.toLocaleString()} gp · ${weeks} wk`}
         />
         <Row label="Name">
           <Input className="h-8" value={f.name || ""} onChange={(e) => updFac(update, f.id, { name: e.target.value })} />
         </Row>
+        <Row label="Floor texture">
+          <select
+            className="h-8 w-full rounded border bg-background px-1 text-xs"
+            value={f.floorTexture || "stone"}
+            onChange={(e) =>
+              updFac(update, f.id, { floorTexture: e.target.value, floorImage: "" })
+            }
+          >
+            {f.floorTexture === "custom" && <option value="custom">Custom image</option>}
+            {FLOOR_TEXTURES.map((texture) => (
+              <option key={texture.id} value={texture.id}>{texture.label}</option>
+            ))}
+          </select>
+        </Row>
+        <div className="flex flex-wrap items-center gap-1">
+          <label className="flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[10px] hover:bg-accent">
+            <ImagePlus className="h-3.5 w-3.5" /> Import floor image
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                const url = await importImage(file, { maxEdge: 1024 });
+                updFac(update, f.id, { floorImage: url });
+              }}
+            />
+          </label>
+          {f.floorImage && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-1 text-[9px]"
+              onClick={() => updFac(update, f.id, { floorImage: "" })}
+            >
+              Clear image
+            </Button>
+          )}
+          <span className="text-[9px] text-muted-foreground">
+            {floorTexture(f.floorTexture).label}
+          </span>
+        </div>
         <p className="text-[11px] text-muted-foreground">
           {bf
-            ? `Level ${bf.level} special facility${bf.prereq ? ` — requires ${bf.prereq}` : ""}. ${bf.hirelings} hireling${bf.hirelings === 1 ? "" : "s"}. Can be swapped for another qualifying facility on a level-up.`
+            ? bf.seatOfPower
+              ? "Seat of Power. This 4×4 throne room is a Bastion-only special facility. It is free, and it does not count against your known Bastion facilities."
+              : `Level ${bf.level} special facility${bf.prereq ? ` — requires ${bf.prereq}` : ""}. ${bf.hirelings} hireling${bf.hirelings === 1 ? "" : "s"}. Can be swapped for another qualifying facility on a level-up.`
             : def.desc}
         </p>
         {def.resizable && (

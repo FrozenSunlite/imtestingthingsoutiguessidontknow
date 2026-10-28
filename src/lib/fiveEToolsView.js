@@ -749,6 +749,49 @@ export function entryDetails(categoryId, entry, raw, context = {}) {
   };
 }
 
+// Flatten an entryDetails() result into readable markdown. Used when an entry
+// is dropped onto the workspace: the node keeps the full source text instead of
+// just its name.
+export function entryDetailsMarkdown(details) {
+  if (!details) return "";
+  const out = [];
+  if (details.source) {
+    out.push(
+      `*Source: ${details.source}${details.page ? `, p.${details.page}` : ""}${
+        details.edition ? ` (${details.edition})` : ""
+      }*`
+    );
+  }
+  if (details.fields?.length) {
+    out.push(
+      details.fields.map(([label, value]) => `**${label}:** ${value}`).join("\n")
+    );
+  }
+  (details.sections || []).forEach((section) => {
+    if (section.title) out.push(`### ${section.title}`);
+    if (section.text) out.push(section.text);
+    if (section.list?.length) {
+      out.push(
+        section.list
+          .map((item) => `- ${[item.label, item.text].filter(Boolean).join(" — ")}`)
+          .join("\n")
+      );
+    }
+    if (section.columns?.length) {
+      out.push(
+        [
+          `| ${section.columns.join(" | ")} |`,
+          `| ${section.columns.map(() => "---").join(" | ")} |`,
+          ...(section.rows || []).map(
+            (row) => `| ${row.map((cell) => String(cell ?? "")).join(" | ")} |`
+          ),
+        ].join("\n")
+      );
+    }
+  });
+  return out.filter(Boolean).join("\n\n");
+}
+
 // Defensive coercion: preview values are occasionally objects (e.g. a 5eTools
 // description object); never let one reach JSX as a React child.
 function CleanField(value) {

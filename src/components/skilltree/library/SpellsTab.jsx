@@ -607,6 +607,22 @@ export function SpellsTab() {
                       </label>
                     </>
                   )}
+                  {sp.image && (
+                    <img
+                      src={sp.image}
+                      alt=""
+                      loading="lazy"
+                      className="col-span-2 max-h-40 rounded border bg-muted/20 object-contain"
+                    />
+                  )}
+                  <InfoTip label="Artwork imported with the spell. Saved with the project.">
+                    <Input
+                      className="col-span-2 h-8"
+                      placeholder="Image URL or /images/…"
+                      value={sp.image || ""}
+                      onChange={(e) => patch(i, { image: e.target.value })}
+                    />
+                  </InfoTip>
                   <InfoTip label="What the spell does — shown on the character sheet.">
                     <Textarea
                       className="col-span-2 min-h-16"

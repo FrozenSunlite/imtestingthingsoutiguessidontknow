@@ -1,11 +1,23 @@
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useTree } from "@/lib/treeStore";
+import { CURRENCY_OPTIONS, currencyOf } from "@/lib/currency";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { plotTotals, plotUpkeep, STATIONS, plotBoundary } from "@/lib/homestead";
 
 // Right-panel totals for the active plot: gold, build time, spaces and basic
 // facility counts against the comfort level's guideline, the expandable land
-// boundary (25 gp × the boundary's new size), plus monthly upkeep.
+// boundary (25 gp × the boundary's new size), plus monthly upkeep. Amounts use
+// the project's reward currency so the Architect and Dungeon Builder match.
 export default function HomesteadSummary({ plot, update }) {
+  const { settings, setSettings } = useTree();
+  const coin = currencyOf(settings);
   const t = plotTotals(plot);
   const up = plotUpkeep(plot);
   const st = STATIONS[plot.comfort] || STATIONS.modest;
@@ -64,20 +76,38 @@ export default function HomesteadSummary({ plot, update }) {
       landTiles: Math.max(0, (p.landTiles || 0) - 1),
       landGold: Math.max(0, (p.landGold ?? (p.landTiles || 0) * 25) - 25),
     }));
-    toast("Sold a land tile — 25 gp back.");
+    toast(`Sold a land tile — 25 ${coin} back.`);
   };
 
   return (
     <div className="space-y-1.5 rounded-lg border bg-accent/30 p-3 text-xs">
       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Property summary</p>
-      <Stat label="Construction cost" value={`${t.gp.toLocaleString()} gp`} />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] text-muted-foreground">Currency</span>
+        <Select
+          value={coin}
+          onValueChange={(value) => setSettings((s) => ({ ...s, rewardCurrency: value }))}
+        >
+          <SelectTrigger className="h-6 w-28 text-[10px]" title="Currency used by the Architect and Dungeon Builder">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRENCY_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Stat label="Construction cost" value={`${t.gp.toLocaleString()} ${coin}`} />
       <Stat label="Build time" value={`${t.weeks} week${t.weeks === 1 ? "" : "s"}`} />
       <Stat
         label={isLand ? "Spaces developed" : "Spaces used"}
         value={cap != null ? `${t.spaces.toLocaleString()} / ${land.spaces.toLocaleString()}` : `${t.spaces.toLocaleString()}`}
       />
       {tiles > 0 && (
-        <Stat label={`Land tiles (${tiles})`} value={`${landGold.toLocaleString()} gp spent`} />
+        <Stat label={`Land tiles (${tiles})`} value={`${landGold.toLocaleString()} ${coin} spent`} />
       )}
       {!isLand && (
         <div className="pt-0.5">
@@ -108,10 +138,10 @@ export default function HomesteadSummary({ plot, update }) {
       <Stat label="Owned land" value={`${boundary.w} × ${boundary.h} spaces`} />
       <div className="grid grid-cols-2 gap-1">
         <Button variant="outline" size="sm" className="h-6 px-1 text-[10px]" onClick={() => expand("w")}>
-          +1 wide · {expandCost("w")} gp
+          +1 wide · {expandCost("w")} {coin}
         </Button>
         <Button variant="outline" size="sm" className="h-6 px-1 text-[10px]" onClick={() => expand("h")}>
-          +1 tall · {expandCost("h")} gp
+          +1 tall · {expandCost("h")} {coin}
         </Button>
         <Button variant="outline" size="sm" className="h-6 px-1 text-[10px]" onClick={() => shrink("w")}>
           −1 wide (sell)
@@ -121,22 +151,22 @@ export default function HomesteadSummary({ plot, update }) {
         </Button>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        A new tile costs 25 gp × the boundary's new size in that direction — 2×2 → 3×2 is 75 gp, 3×2 → 4×2 is 100 gp, 4×2 → 4×3 is 125 gp, and so on. Shrinking sells a purchased tile back for 25 gp — nothing may sit outside the smaller boundary.
+        A new tile costs 25 {coin} × the boundary's new size in that direction — 2×2 → 3×2 is 75 {coin}, 3×2 → 4×2 is 100 {coin}, 4×2 → 4×3 is 125 {coin}, and so on. Shrinking sells a purchased tile back for 25 {coin} — nothing may sit outside the smaller boundary.
       </p>
       {wallSpaces > 0 && (
         <Stat label="Walls & fences" value={`${wallSpaces} space${wallSpaces === 1 ? "" : "s"}`} />
       )}
       <div className="mt-1 border-t pt-1.5" />
       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monthly upkeep</p>
-      <Stat label="Property value" value={`${up.value.toLocaleString()} gp`} />
-      <Stat label="Utilities (0.25%)" value={`${up.utilities.toLocaleString()} gp`} />
-      <Stat label="Taxes (1%)" value={`${up.taxes.toLocaleString()} gp`} />
-      {plot.staff > 0 && <Stat label={`Staff (${plot.staff})`} value={`${up.staff} gp`} />}
-      {up.privies > 0 && <Stat label="Privy cleaning" value={`${up.privies} gp`} />}
-      <Stat label="Total / month" value={`${upkeepTotal.toLocaleString()} gp`} font />
+      <Stat label="Property value" value={`${up.value.toLocaleString()} ${coin}`} />
+      <Stat label="Utilities (0.25%)" value={`${up.utilities.toLocaleString()} ${coin}`} />
+      <Stat label="Taxes (1%)" value={`${up.taxes.toLocaleString()} ${coin}`} />
+      {plot.staff > 0 && <Stat label={`Staff (${plot.staff})`} value={`${up.staff} ${coin}`} />}
+      {up.privies > 0 && <Stat label="Privy cleaning" value={`${up.privies} ${coin}`} />}
+      <Stat label="Total / month" value={`${upkeepTotal.toLocaleString()} ${coin}`} font />
       {plot.ownership === "mortgaged" && (
         <p className="mt-1 border-t pt-1.5 text-[11px] text-muted-foreground">
-          Mortgage: {plot.mortgagePaid || 0} / {plot.mortgageTotal || 0} gp paid — {(plot.mortgageTotal || 0) - (plot.mortgagePaid || 0)} gp remains.
+          Mortgage: {plot.mortgagePaid || 0} / {plot.mortgageTotal || 0} {coin} paid — {(plot.mortgageTotal || 0) - (plot.mortgagePaid || 0)} {coin} remains.
         </p>
       )}
     </div>

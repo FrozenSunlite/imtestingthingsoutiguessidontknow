@@ -32,6 +32,8 @@ import LaborPanel from "./LaborPanel";
 import PlotSetupDialog from "./PlotSetupDialog";
 import LivingStylePanel from "./LivingStylePanel";
 import LivingQualityPanel from "./LivingQualityPanel";
+import { useTree } from "@/lib/treeStore";
+import { currencyOf } from "@/lib/currency";
 
 const KIND_ICONS = { home: Home, business: Store, bastion: Castle };
 // One row of icons, one per base role the plot serves (hybrids show several).
@@ -52,8 +54,19 @@ const ordinal = (n) => `${n}${["th", "st", "nd", "rd"][n % 10 > 3 || Math.floor(
 // connections on a grid of 5 ft spaces; the right panel totals gold, build
 // time and upkeep from the Bastions & Property homebrew.
 export default function Homebuilder({ onExit }) {
+  const { settings } = useTree();
+  const coin = currencyOf(settings);
   const [plots, setPlots] = useState(loadPlots);
   const [activeId, setActiveId] = useState(null);
+  const [worldTarget, setWorldTarget] = useState(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("skilltree:worldBuildTarget");
+      if (raw) setWorldTarget(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [tool, setTool] = useState(null);
   const [selection, setSelection] = useState(null);
   const [floorId, setFloorId] = useState(null);
@@ -261,6 +274,26 @@ export default function Homebuilder({ onExit }) {
     toast("Plot deleted.");
   };
 
+  const createLinkedPlot = () => {
+    if (!worldTarget) return;
+    const plot = newPlot("home");
+    plot.name = worldTarget.buildingName || worldTarget.settlementName || plot.name;
+    plot.ownership = "land";
+    plot.notes = `Linked to ${worldTarget.settlementName || "world settlement"}${
+      worldTarget.nationName ? `, ${worldTarget.nationName}` : ""
+    }.${worldTarget.buildingName ? ` Original building: ${worldTarget.buildingName}.` : ""}`;
+    plot.linkedWorld = { ...worldTarget };
+    setPlots((ps) => [...ps, plot]);
+    setActiveId(plot.id);
+    setWorldTarget(null);
+    try {
+      localStorage.removeItem("skilltree:worldBuildTarget");
+    } catch {
+      /* ignore */
+    }
+    toast.success(`Created a plot linked to ${plot.name}.`);
+  };
+
   if (!plots.length) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-6 bg-background text-foreground">
@@ -424,7 +457,7 @@ export default function Homebuilder({ onExit }) {
               </SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground">
-              {totals.gp.toLocaleString()} gp · {totals.weeks} wk · {totals.spaces.toLocaleString()} spaces
+              {totals.gp.toLocaleString()} {coin} · {totals.weeks} wk · {totals.spaces.toLocaleString()} spaces
             </span>
             <Button
               size="sm" variant={devMode ? "secondary" : "outline"} className="h-8"
@@ -452,6 +485,34 @@ export default function Homebuilder({ onExit }) {
           </>
         )}
       </header>
+
+      {worldTarget && (
+        <div className="flex flex-wrap items-center gap-2 border-b bg-primary/10 px-3 py-1.5 text-xs">
+          <span>
+            World link: <strong>{worldTarget.settlementName}</strong>
+            {worldTarget.buildingName ? ` — ${worldTarget.buildingName}` : ""}
+            {worldTarget.nationName ? ` (${worldTarget.nationName})` : ""}
+          </span>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={createLinkedPlot}>
+            Create linked plot
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => {
+              setWorldTarget(null);
+              try {
+                localStorage.removeItem("skilltree:worldBuildTarget");
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       <PlotSetupDialog kind={setupKind} onClose={() => setSetupKind(null)} onCreate={createPlot} />
 

@@ -117,9 +117,19 @@ export function EmptyNote({ items, query }) {
 // One entry card with an optional, collapsible description box (collapsed by default).
 export function EntryCard({ entry, onPatch, onDelete, children }) {
   const [open, setOpen] = useState(false);
+  const image = typeof entry?.image === "string" ? entry.image : "";
   return (
     <div className="space-y-1.5 rounded-md border p-2">
       {children}
+      {image && (
+        <img
+          src={image}
+          alt=""
+          loading="lazy"
+          className="max-h-40 w-full rounded border bg-muted/20 object-contain"
+          style={{ imageRendering: "pixelated" }}
+        />
+      )}
       <div>
         <button
           type="button"
@@ -132,14 +142,24 @@ export function EntryCard({ entry, onPatch, onDelete, children }) {
           Description{entry.description ? "" : " (empty)"}
         </button>
         {open && (
-          <InfoTip label="Description shown in tooltips and on the character sheet.">
-            <Textarea
-              className="mt-1 min-h-16"
-              placeholder="Description…"
-              value={entry.description || ""}
-              onChange={(e) => onPatch({ description: e.target.value })}
-            />
-          </InfoTip>
+          <div className="mt-1 space-y-1">
+            <InfoTip label="Image shown on cards and the character sheet. Imported artwork is saved with the project automatically.">
+              <Input
+                className="h-8"
+                placeholder="Image URL or /images/…"
+                value={image}
+                onChange={(e) => onPatch({ image: e.target.value })}
+              />
+            </InfoTip>
+            <InfoTip label="Description shown in tooltips and on the character sheet.">
+              <Textarea
+                className="min-h-16"
+                placeholder="Description…"
+                value={entry.description || ""}
+                onChange={(e) => onPatch({ description: e.target.value })}
+              />
+            </InfoTip>
+          </div>
         )}
       </div>
       <div className="flex justify-end">

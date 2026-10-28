@@ -1,4 +1,12 @@
 import { analyzeDungeon } from "@/lib/dungeonAnalysis";
+import { CURRENCY_OPTIONS } from "@/lib/currency";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const DANGER_STYLE = {
   Trivial: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
@@ -8,11 +16,19 @@ const DANGER_STYLE = {
   Deadly: "bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
-// Compact danger/reward readout for the Dungeon Generator. It uses the dungeon
-// rank, the current party level, generated room spawns and loot hints.
-export function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = "E" }) {
+// Compact danger/reward readout for the Dungeon Builder. It uses the dungeon
+// rank, the current party level, generated room spawns and loot hints. The
+// reward currency is project-wide so the Architect pays out the same unit.
+export function DungeonDangerPanel({
+  dungeon,
+  partyLevel,
+  monsters = [],
+  rank = "E",
+  currency = "gp",
+  onCurrencyChange,
+}) {
   const source = dungeon || { rank, rooms: [] };
-  const analysis = analyzeDungeon(source, partyLevel, monsters);
+  const analysis = analyzeDungeon(source, partyLevel, monsters, currency);
   const { danger, loot, monsters: profile, payout } = analysis;
 
   return (
@@ -26,8 +42,8 @@ export function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = 
         </span>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Party level {danger.partyLevel} · rank {danger.rank} levels {danger.levelRange.min}–
-        {danger.levelRange.max} · boss CR {danger.crMin}–{danger.crMax}
+        Highest level {danger.partyLevel} · rank {danger.rank} levels {danger.levelRange.min}–
+        {danger.levelRange.max} · boss CR {dungeon?.encounterScale?.bossCR ?? `${danger.crMin}–${danger.crMax}`}
       </p>
       <p className="text-[10px] leading-snug">{danger.reason}</p>
       <div className="grid grid-cols-2 gap-1.5 text-[10px]">
@@ -44,7 +60,23 @@ export function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = 
           )}
         </div>
         <div className="rounded bg-muted/40 px-1.5 py-1">
-          <p className="font-semibold text-muted-foreground">Gold / downtime</p>
+          <div className="flex items-center justify-between gap-1">
+            <p className="font-semibold text-muted-foreground">Reward / downtime</p>
+            {onCurrencyChange && (
+              <Select value={currency || "gp"} onValueChange={onCurrencyChange}>
+                <SelectTrigger className="h-5 w-14 px-1 text-[9px]" title="Reward currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map((coin) => (
+                    <SelectItem key={coin.value} value={coin.value}>
+                      {coin.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <p className="leading-snug">{payout.text}</p>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ const BLANK = {
   ac: "", hp: "", speed: "", speeds: [], abilities: "", senses: "", languages: "",
   saves: "", skills: "", damageVulnerabilities: "", damageResistances: "", damageImmunities: "",
   conditionImmunities: "", initiative: "", proficiencyBonus: "", xp: "", gear: "", spellcasting: "",
+  unique: false, dungeonExempt: false,
   traits: [], actions: [], bonusActions: [], reactions: [], legendaryActions: [], lairActions: [], mythicActions: [],
   proficiencies: [], inventory: [], templates: [],
 };
@@ -249,6 +251,16 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
           {summary && `${summary} · `}
           {m.cr ? `CR ${m.cr}` : "CR —"}
         </span>
+        {m.unique && (
+          <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+            Unique
+          </span>
+        )}
+        {m.dungeonExempt && (
+          <span className="shrink-0 rounded bg-muted px-1 text-[9px] font-semibold text-muted-foreground">
+            Exempt
+          </span>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -387,6 +399,32 @@ function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
               list="monster-tags"
             />
             <Field label="Source" value={m.source} onChange={(v) => patch({ source: v })} placeholder="MM 2014 / MM 2024" />
+          </div>
+          <div className="grid gap-1.5 rounded border p-2 sm:grid-cols-2">
+            <label className="flex items-start justify-between gap-2 text-xs">
+              <span>
+                <span className="font-medium">Unique</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  Only one may exist, and only as an Elite (Mini Boss) or Boss.
+                </span>
+              </span>
+              <Switch
+                checked={!!m.unique}
+                onCheckedChange={(v) => patch({ unique: v })}
+              />
+            </label>
+            <label className="flex items-start justify-between gap-2 text-xs">
+              <span>
+                <span className="font-medium">Exempt</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  Blacklisted from automatic dungeon placement.
+                </span>
+              </span>
+              <Switch
+                checked={!!m.dungeonExempt}
+                onCheckedChange={(v) => patch({ dungeonExempt: v })}
+              />
+            </label>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             <Field label="Initiative" value={m.initiative} onChange={(v) => patch({ initiative: v })} placeholder="+2" />

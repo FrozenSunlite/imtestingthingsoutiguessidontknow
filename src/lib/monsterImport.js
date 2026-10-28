@@ -84,6 +84,8 @@ export function normalizeImportedMonster(raw) {
   return {
     name: textOf(raw.name) || "",
     image: typeof (raw.image || raw.img) === "string" ? raw.image || raw.img : "",
+    unique: !!raw.unique,
+    dungeonExempt: !!(raw.dungeonExempt ?? raw.exemptFromDungeon ?? raw.dungeonBlacklisted),
     size: sizeText,
     type: textOf(type),
     category: textOf(raw.category),

@@ -93,7 +93,22 @@ export const FACILITY_TYPES = {
 // basic facility types (Cramped 2×2, Roomy 4×4, Vast 6×6). "multi" marks the
 // four facilities the DMG allows in multiples; all others are unique.
 export const BASTION_LEVELS = [5, 9, 13, 17];
+
+// Number of known special facilities a Bastion can hold at each character
+// level (DMG'24: two at level 5, then one more at 9, 13 and 17).
+export const knownBastionFacilities = (level) => {
+  const value = Number(level) || 0;
+  if (value >= 17) return 5;
+  if (value >= 13) return 4;
+  if (value >= 9) return 3;
+  if (value >= 5) return 2;
+  return 0;
+};
+
 export const BASTION_FACILITIES = [
+  // The Seat of Power is special: Bastion only, free, and does not count
+  // against the known-facility limit.
+  { name: "Throne Room", level: 0, space: "Roomy", hirelings: 2, prereq: "", seatOfPower: true, countsAgainstKnown: false },
   // Level 5 — two are chosen when the Bastion is claimed
   { name: "Arcane Study", level: 5, space: "Roomy", hirelings: 1, prereq: "Ability to use an Arcane Focus or a tool as a Spellcasting Focus" },
   { name: "Armory", level: 5, space: "Roomy", hirelings: 1, prereq: "" },
@@ -171,6 +186,13 @@ export const BASTION_FACILITIES = [
 ];
 
 export const bastionFacilityByName = (name) => BASTION_FACILITIES.find((b) => b.name === name);
+
+export const countedBastionFacilities = (plot) =>
+  (plot?.facilities || []).filter(
+    (facility) =>
+      facility.bastion &&
+      !bastionFacilityByName(facility.bastion)?.seatOfPower
+  ).length;
 
 export const CONNECTION_TYPES = [
   { type: "Corridor", desc: "Hallway space — 25 gp, 1 week. May be built as unfurnishable empty space." },

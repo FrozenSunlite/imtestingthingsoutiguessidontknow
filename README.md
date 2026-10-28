@@ -15,8 +15,10 @@ The packaged copy is what most people use:
 
 - **Windows:** double-click the Terrific Talent Tree shortcut (or
   `standalone\Start Terrific Talent Tree.bat`). It starts a hidden PowerShell
-  static server on <http://localhost:4173> and opens the editor in Edge app mode.
-  No Node.js install is required.
+  static server on <http://localhost:4173> and opens Edge app mode (or Chrome,
+  then the default browser). No Node.js install is required.
+  The launcher is portable: all paths are relative to its own folder, and
+  `paths.json` controls the sticker-library and 5eTools locations.
 - **macOS / Linux:** run `standalone/Start Terrific Talent Tree.command` or
   `standalone/start.sh`, which use the same `Serve.ps1`/`serve.js` server.
 

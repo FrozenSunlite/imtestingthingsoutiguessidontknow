@@ -935,6 +935,39 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     if (wasEmpty) centreOnWorld(0, 0);
   };
 
+  // Drag an entry from Reference Library → 5eTools Imports onto the workspace.
+  // The entry's name, source, stats and body text become the new node's
+  // description, and its artwork becomes the node image when one was imported.
+  const onDragOver = (e) => {
+    if (!editable) return;
+    if (![...(e.dataTransfer.types || [])].includes("application/x-5etools-entry")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDrop = (e) => {
+    if (!editable) return;
+    const raw = e.dataTransfer.getData("application/x-5etools-entry");
+    if (!raw) return;
+    e.preventDefault();
+    try {
+      const payload = JSON.parse(raw);
+      const rect = containerRef.current.getBoundingClientRect();
+      const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      const p = snapPoint(w.x, w.y, grid);
+      const id = addNode(p.x, p.y);
+      updateNode(id, {
+        name: payload.name || "Imported Entry",
+        description: payload.description || "",
+        flavor: payload.flavor || "",
+        image: payload.image || "",
+      });
+      setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: null }));
+      toast.success(`“${payload.name || "Entry"}” added to the workspace.`);
+    } catch {
+      toast.error("Could not read the dropped entry.");
+    }
+  };
+
   // Point investment. Nodes with ability options (e.g. Fighting Style) open a
   // choice dialog for every take; refunding drops the most recent choice.
   const commitInvest = (n, delta, optionNames) => {
@@ -1126,6 +1159,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     <>
     <div
       ref={containerRef}
+      role="region"
+      aria-label="Skill tree workspace"
       className="relative h-full w-full touch-none select-none overflow-hidden bg-background"
       onPointerDown={onBackgroundPointerDown}
       onPointerMove={onPointerMove}
@@ -1133,6 +1168,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       onPointerCancel={onPointerUp}
       onWheel={onWheel}
       onDoubleClick={onDoubleClick}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       onContextMenu={(e) => {
         e.preventDefault();
         // Suppress the menu right after a right-drag pan.

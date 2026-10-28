@@ -13,10 +13,19 @@ import {
 import { rollDice } from "@/lib/homesteadTurns";
 import { laborNeeds, laborAssigned } from "@/lib/homesteadLabor";
 import { COMFORT_LEVELS, uid } from "@/lib/homestead";
+import { useTree } from "@/lib/treeStore";
+import { currencyOf } from "@/lib/currency";
 import { toast } from "sonner";
 
 const d20 = () => 1 + Math.floor(Math.random() * 20);
-const money = (n) => `${Math.round(n).toLocaleString()} gp`;
+const useMoney = () => {
+  const { settings } = useTree();
+  const coin = currencyOf(settings);
+  return {
+    coin,
+    money: (n) => `${Math.round(n).toLocaleString()} ${coin}`,
+  };
+};
 
 // The Business Turn (inline on the Actions tab): establish the business with
 // a 500 gp investment, then run the weekly flow — Harvest skill check into a
@@ -32,6 +41,7 @@ export default function BusinessTurnPanel({ plot, update, log }) {
 // First-time setup: pick a business type and its primary skill, then invest
 // the 500 gp of starting capital.
 function SetupCard({ plot, update, log }) {
+  const { money } = useMoney();
   const [skill, setSkill] = useState("");
   const [type, setType] = useState("");
   const [mod, setMod] = useState("0");
@@ -50,12 +60,12 @@ function SetupCard({ plot, update, log }) {
         funds: 500,
       },
     }));
-    log({ kind: "business", text: `Business established — ${type.trim() || s.urban} (${s.skill}, ${s.ability}). Invested 500 gp.` });
+    log({ kind: "business", text: `Business established — ${type.trim() || s.urban} (${s.skill}, ${s.ability}). Invested ${money(500)}.` });
   };
   return (
     <div className="space-y-2">
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Start a business: secure a suitable property, then invest <span className="font-semibold">500 gp</span> of
+        Start a business: secure a suitable property, then invest <span className="font-semibold">{money(500)}</span> of
         starting capital for stock, supplies and licenses. Choose the business' type and its primary skill
         (+2 to CON checks).
       </p>
@@ -86,13 +96,14 @@ function SetupCard({ plot, update, log }) {
         <Input type="number" className="h-8 w-20" value={mod} onChange={(e) => setMod(e.target.value)} />
       </div>
       <Button size="sm" className="h-8" disabled={!s} onClick={invest}>
-        Invest 500 gp & establish
+        Invest {money(500)} & establish
       </Button>
     </div>
   );
 }
 
 function TurnPanel({ plot, update, log, biz }) {
+  const { coin, money } = useMoney();
   const [notIdeal, setNotIdeal] = useState(false);
   const [noComp, setNoComp] = useState(false);
   const [harv, setHarv] = useState(null); // pending Sell / Stockpile choice
@@ -206,10 +217,10 @@ function TurnPanel({ plot, update, log, biz }) {
     log({ kind: "business", text: `Resupplied: 1d6 [${r.total}] +1 → ${weeks} weeks of supplies for ${money(cost)}.` });
   };
   const scrounge = () => {
-    if ((biz.funds || 0) < 12) return toast("Scrounging costs 12 gp — the business can't cover it.");
+    if ((biz.funds || 0) < 12) return toast(`Scrounging costs 12 ${coin} - the business can't cover it.`);
     gain(-12);
     setBiz({ supplies: supplies + 2 });
-    log({ kind: "business", text: "Scrounged local resources — 12 gp for 2 weeks of supplies." });
+    log({ kind: "business", text: `Scrounged local resources - 12 ${coin} for 2 weeks of supplies.` });
   };
 
   // 4. Specialized Application — one per week across businesses.
@@ -398,8 +409,8 @@ function TurnPanel({ plot, update, log, biz }) {
           <p className="mt-1.5 text-[11px] text-destructive">Assign a worker to the Ledger Room to Resupply (Labor panel).</p>
         ) : (
           <>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">No Ledger Room — scrounge local resources: 12 gp keeps you stocked for 2 weeks.</p>
-            <Button size="sm" variant="secondary" className="mt-1 h-6 text-[11px]" onClick={scrounge}>Scrounge (12 gp, 2 weeks)</Button>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">No Ledger Room - scrounge local resources: 12 {coin} keeps you stocked for 2 weeks.</p>
+            <Button size="sm" variant="secondary" className="mt-1 h-6 text-[11px]" onClick={scrounge}>Scrounge (12 {coin}, 2 weeks)</Button>
           </>
         )}
       </div>
@@ -503,7 +514,7 @@ function TurnPanel({ plot, update, log, biz }) {
         <div className="rounded-md border p-2">
           <p className="text-xs font-semibold">Business debt</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Unpaid losses accrue 25% interest monthly; harvest gains clear debt first. Above 500 gp the business fails.
+            Unpaid losses accrue 25% interest monthly; harvest gains clear debt first. Above 500 {coin} the business fails.
           </p>
           <div className="mt-1 flex items-center gap-1">
             <Input type="number" className="h-7 w-24" placeholder="Pay gp" value={payDebt} onChange={(e) => setPayDebt(e.target.value)} />

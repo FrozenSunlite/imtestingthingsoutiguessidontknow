@@ -12,7 +12,6 @@ export const FIVE_CATEGORIES = [
   { id: "charOptions", label: "Other Character Creation Options", files: ["charcreationoptions.json"], kind: "options" },
   { id: "optionalFeatures", label: "Other Options & Features", files: ["optionalfeatures.json"], kind: "options" },
   { id: "statGen", label: "Stat Generator", files: ["msbcr.json"] },
-  { id: "life", label: "This Is Your Life", files: ["life.json"] },
   { id: "names", label: "Names", files: ["names.json"] },
   { id: "adventures", label: "Adventures", files: ["adventures.json"], dirs: ["adventure"] },
   { id: "cults", label: "Cults & Supernatural Boons", files: ["cultsboons.json"] },
@@ -159,7 +158,10 @@ export const entrySource = (entry) =>
 
 export const entryMeta = (entry) => {
   const bits = [];
-  if (entry?.cr) bits.push(`CR ${entry.cr}`);
+  if (entry?.cr != null) {
+    const cr = typeof entry.cr === "object" ? entry.cr?.cr ?? entry.cr?.value ?? "" : entry.cr;
+    if (cr !== "") bits.push(`CR ${cr}`);
+  }
   if (entry?.level != null) bits.push(entry.level === 0 ? "Cantrip" : `Level ${entry.level}`);
   if (entry?.school) bits.push(String(entry.school).toUpperCase());
   if (entry?.type && typeof entry.type === "string") bits.push(entry.type);

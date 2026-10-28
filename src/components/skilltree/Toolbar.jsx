@@ -85,6 +85,11 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  useEffect(() => {
+    const openLibrary = () => setLibraryOpen(true);
+    window.addEventListener("skilltree:open-library", openLibrary);
+    return () => window.removeEventListener("skilltree:open-library", openLibrary);
+  }, []);
 
   // Center the canvas on a search pick and select it.
   const pickSearchNode = (n) => {

@@ -118,22 +118,24 @@ export function dungeonMonsterProfile(dungeon, monsters = []) {
     .sort((a, b) => b.count - a.count);
 }
 
-export function dungeonPayout(dungeon) {
+export function dungeonPayout(dungeon, currency = "gp") {
   const info = DUNGEON_RANKS[dungeon?.rank] || DUNGEON_RANKS.E;
   const [goldMin, goldMax] = info.gold || [0, 0];
+  const suffix = String(currency || "gp").trim() || "gp";
   return {
     goldMin,
     goldMax,
+    currency: suffix,
     downtime: info.downtime,
-    text: `${Number(goldMin).toLocaleString()}–${Number(goldMax).toLocaleString()} gp · ${info.downtime} downtime`,
+    text: `${Number(goldMin).toLocaleString()}–${Number(goldMax).toLocaleString()} ${suffix} · ${info.downtime} downtime`,
   };
 }
 
-export function analyzeDungeon(dungeon, partyLevel, monsters = []) {
+export function analyzeDungeon(dungeon, partyLevel, monsters = [], currency = "gp") {
   return {
     danger: dungeonDanger(dungeon, partyLevel),
     loot: dungeonLootProfile(dungeon),
     monsters: dungeonMonsterProfile(dungeon, monsters),
-    payout: dungeonPayout(dungeon),
+    payout: dungeonPayout(dungeon, currency),
   };
 }

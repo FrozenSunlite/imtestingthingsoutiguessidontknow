@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { FIVE_CATEGORIES, entryName, entrySource } from "@/lib/fiveETools";
-import { entryDetails } from "@/lib/fiveEToolsView";
+import { entryDetails, entryDetailsMarkdown } from "@/lib/fiveEToolsView";
 import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,19 @@ export function FiveEToolsCategoryTab({ categoryId }) {
     () => (preview ? entryDetails(categoryId, preview, null) : null),
     [categoryId, preview]
   );
+  const dragPayload = (entry) => {
+    const d = entryDetails(categoryId, entry, null);
+    const image =
+      typeof entry?.image === "string" && /^(data:|\/images\/|\/api\/|https?:)/i.test(entry.image)
+        ? entry.image
+        : "";
+    return JSON.stringify({
+      name: entryName(entry),
+      flavor: `${label} · ${entrySource(entry)}`.trim(),
+      description: entryDetailsMarkdown(d),
+      image,
+    });
+  };
 
   const remove = () => {
     if (!preview) return;
@@ -66,8 +79,14 @@ export function FiveEToolsCategoryTab({ categoryId }) {
               <button
                 key={`${entryName(entry)}-${i}`}
                 type="button"
+                draggable
+                onDragStart={(ev) => {
+                  ev.dataTransfer.setData("application/x-5etools-entry", dragPayload(entry));
+                  ev.dataTransfer.effectAllowed = "copy";
+                }}
                 onClick={() => setPreview(entry)}
-                className={`flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs ${
+                title="Click to read · drag onto the workspace to create a node"
+                className={`flex w-full cursor-grab items-center gap-2 rounded px-1.5 py-1 text-left text-xs active:cursor-grabbing ${
                   preview === entry ? "bg-accent" : "hover:bg-accent/50"
                 }`}
               >
@@ -84,7 +103,7 @@ export function FiveEToolsCategoryTab({ categoryId }) {
           <div className="max-h-[55vh] overflow-y-auto rounded-md border p-3">
             {details ? (
               <div className="space-y-2">
-                <ReferenceEntryPreview details={details} />
+                <ReferenceEntryPreview details={details} imageSrc={details.image} />
                 <Button size="sm" variant="ghost" onClick={remove}>
                   <X className="mr-1 h-3.5 w-3.5" /> Remove from project
                 </Button>

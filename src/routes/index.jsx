@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { TreeProvider, useTree } from "@/lib/treeStore";
 import { Toolbar } from "@/components/skilltree/Toolbar";
@@ -14,22 +14,60 @@ import { DMScreen } from "@/components/skilltree/DMScreen";
 import { ReferenceIndexPage } from "@/components/skilltree/ReferenceIndexPage";
 import Homebuilder from "@/components/skilltree/homestead/Homebuilder";
 import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
+import { WorldBuilder } from "@/components/skilltree/world/WorldBuilder";
 import { SideTreePanel } from "@/components/skilltree/SideTreePanel";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
 import { Loader2 } from "lucide-react";
+import { CommandPalette } from "@/components/skilltree/CommandPalette";
+import { OnboardingTour } from "@/components/skilltree/OnboardingTour";
 
 function Workspace() {
-  const { mode, loading, tree, ui, screen } = useTree();
+  const { mode, loading, tree, ui, screen, setScreen, enterApp } = useTree();
   const [ctx, setCtx] = useState(null); // {x, y, node}
   const [homebuilder, setHomebuilder] = useState(false);
   const [dmScreen, setDmScreen] = useState(false);
   const [dungeon, setDungeon] = useState(false);
+  const [worldbuilder, setWorldbuilder] = useState(false);
   const [referenceIndex, setReferenceIndex] = useState(false);
   const [sendRows, setSendRows] = useState(null); // "send to subtree" chooser
   const [exportOpen, setExportOpen] = useState(false);
   const [poolWins, setPoolWins] = useState([]);
+  useEffect(() => {
+    const openDungeon = () => {
+      setScreen("launch");
+      setDungeon(true);
+    };
+    const openArchitect = () => {
+      setScreen("launch");
+      setHomebuilder(true);
+    };
+    const openDm = () => {
+      setScreen("launch");
+      setDmScreen(true);
+    };
+    const openCharacter = () => enterApp("sheet", { sheetOnly: true });
+    const openWorld = () => {
+      setScreen("launch");
+      setWorldbuilder(true);
+    };
+    const openReference = () => setReferenceIndex(true);
+    window.addEventListener("skilltree:open-dungeon", openDungeon);
+    window.addEventListener("skilltree:open-worldbuilder", openWorld);
+    window.addEventListener("skilltree:open-architect", openArchitect);
+    window.addEventListener("skilltree:open-dm-screen", openDm);
+    window.addEventListener("skilltree:open-character", openCharacter);
+    window.addEventListener("skilltree:open-reference-index", openReference);
+    return () => {
+      window.removeEventListener("skilltree:open-dungeon", openDungeon);
+      window.removeEventListener("skilltree:open-worldbuilder", openWorld);
+      window.removeEventListener("skilltree:open-architect", openArchitect);
+      window.removeEventListener("skilltree:open-dm-screen", openDm);
+      window.removeEventListener("skilltree:open-character", openCharacter);
+      window.removeEventListener("skilltree:open-reference-index", openReference);
+    };
+  }, [enterApp, setScreen]);
   const addPoolWindow = () =>
     setPoolWins((ws) => [
       ...ws,
@@ -50,16 +88,24 @@ function Workspace() {
   if (screen === "launch" && dungeon)
     return <DungeonGenerator onExit={() => setDungeon(false)} />;
 
+  if (screen === "launch" && worldbuilder)
+    return <WorldBuilder onExit={() => setWorldbuilder(false)} />;
+
   if (screen === "launch" && dmScreen) return <DMScreen onExit={() => setDmScreen(false)} />;
 
   if (screen === "launch")
     return (
-      <LaunchMenu
-        onHomebuilder={() => setHomebuilder(true)}
-        onDmScreen={() => setDmScreen(true)}
-        onDungeon={() => setDungeon(true)}
-        onReferenceIndex={() => setReferenceIndex(true)}
-      />
+      <>
+        <LaunchMenu
+          onHomebuilder={() => setHomebuilder(true)}
+          onDmScreen={() => setDmScreen(true)}
+          onDungeon={() => setDungeon(true)}
+          onReferenceIndex={() => setReferenceIndex(true)}
+          onWorldbuilder={() => setWorldbuilder(true)}
+        />
+        <OnboardingTour />
+        <CommandPalette />
+      </>
     );
 
   if (loading || !tree) {
@@ -102,6 +148,8 @@ function Workspace() {
           (ui.selectedConnectionId ? <ConnectorEditorPanel /> : <NodeEditorPanel />)}
         <PoolWindows wins={poolWins} setWins={setPoolWins} />
         <PinnedNodeCard />
+        <CommandPalette />
+        <OnboardingTour />
         {mode === "sheet" && <ActivityLogPanel />}
       </div>
       {ctx && (

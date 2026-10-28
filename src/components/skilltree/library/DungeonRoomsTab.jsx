@@ -31,10 +31,10 @@ export function DungeonRoomsTab() {
           add({
             name: "",
             category: "Chamber",
-            minW: 4,
-            maxW: 6,
-            minH: 4,
-            maxH: 6,
+            minW: 9,
+            maxW: 16,
+            minH: 9,
+            maxH: 16,
             environment: "",
             elevation: "Flat",
             cover: "Open",
@@ -43,6 +43,9 @@ export function DungeonRoomsTab() {
             spawns: [],
             loot: [],
             harvest: [],
+            tags: [],
+            description: "",
+            environmentEffect: "",
             notes: "",
             enabled: true,
           })
@@ -53,7 +56,7 @@ export function DungeonRoomsTab() {
         searchPlaceholder="Search dungeon rooms…"
       />
       <p className="text-[10px] text-muted-foreground">
-        Rooms used by the Dungeon Generator. Toggle <strong>Enabled</strong> off to keep a room
+        Rooms used by the Dungeon Builder. Toggle <strong>Enabled</strong> off to keep a room
         in the library without letting it appear in generated dungeons. Sizes are in spaces;
         traps, spawns and loot are one entry per line.
       </p>
@@ -99,11 +102,11 @@ export function DungeonRoomsTab() {
                   <Input
                     className="h-8"
                     type="number"
-                    min={2}
-                    max={20}
+                    min={9}
+                    max={33}
                     value={e[key] ?? ""}
                     onChange={(ev) =>
-                      patch(i, { [key]: Math.max(2, Math.min(20, Number(ev.target.value) || 2)) })
+                      patch(i, { [key]: Math.max(9, Math.min(33, Number(ev.target.value) || 9)) })
                     }
                   />
                 </div>
@@ -160,6 +163,39 @@ export function DungeonRoomsTab() {
               </div>
             ))}
             <div className="mt-1.5">
+              <Label className="text-[10px] text-muted-foreground">Description / read-aloud</Label>
+              <Textarea
+                className="min-h-12 text-xs"
+                rows={2}
+                value={e.description || ""}
+                onChange={(ev) => patch(i, { description: ev.target.value })}
+              />
+            </div>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Environment effect</Label>
+                <Input
+                  className="h-8"
+                  placeholder="Unstable ground…"
+                  value={e.environmentEffect || ""}
+                  onChange={(ev) => patch(i, { environmentEffect: ev.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Tags (comma separated)</Label>
+                <Input
+                  className="h-8"
+                  placeholder="chokepoint, half cover"
+                  value={(e.tags || []).join(", ")}
+                  onChange={(ev) =>
+                    patch(i, {
+                      tags: split(ev.target.value.replace(/,/g, "\n")),
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <div className="mt-1.5">
               <Label className="text-[10px] text-muted-foreground">Notes / tactics</Label>
               <Textarea
                 className="min-h-12 text-xs"
@@ -168,6 +204,14 @@ export function DungeonRoomsTab() {
                 onChange={(ev) => patch(i, { notes: ev.target.value })}
               />
             </div>
+            {(e.cells?.length || e.water?.length || e.difficult?.length || e.heights?.length) ? (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Custom footprint: {e.cells?.length || 0} cells · {e.heights?.length || 0} height ·{" "}
+                {e.coverPoints?.length || 0} cover · {e.trapPoints?.length || 0} trap ·{" "}
+                {e.water?.length || 0} water · {e.difficult?.length || 0} difficult ·{" "}
+                {e.stairs?.length || 0} stairs. Edit it in the Dungeon Builder's Room Maker.
+              </p>
+            ) : null}
           </EntryCard>
         ))
       )}

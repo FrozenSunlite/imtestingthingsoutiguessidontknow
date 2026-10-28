@@ -1,6 +1,7 @@
 import { useTree } from "@/lib/treeStore";
 import { importImage } from "@/lib/imageStore";
-import { Upload, RotateCcw } from "lucide-react";
+import { Upload, RotateCcw, Trash2, Archive } from "lucide-react";
+import { removeImportFromLibrary } from "@/lib/importHistory";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import {
   Dialog,
@@ -54,13 +55,24 @@ const FIXED_SHORTCUTS = [
 ];
 
 export function SettingsMenu({ open, onClose }) {
-  const { settings, setSettings, tree, patchTab, character, setCharacter } = useTree();
+  const { settings, setSettings, tree, patchTab, character, setCharacter, backupProject, listBackups, restoreBackup, deleteTab } = useTree();
   const [theme, setTheme] = useTheme();
   const template = theme.template || "default";
   const customTheme = { ...DEFAULT_CUSTOM, ...(theme.custom || {}) };
   const setCustomTheme = (patch) =>
     setTheme({ ...theme, custom: { ...customTheme, ...patch } });
   const [devLogs, setDevLogs] = useState([]);
+  const [backups, setBackups] = useState([]);
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    listBackups?.().then((list) => {
+      if (alive) setBackups(list || []);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, listBackups]);
   useEffect(() => {
     if (!character?.devMode) return;
     const origLog = console.log;
@@ -119,6 +131,7 @@ export function SettingsMenu({ open, onClose }) {
             <TabsTrigger value="connector">Connectors</TabsTrigger>
             <TabsTrigger value="artwork">Node Artwork</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="project">Project</TabsTrigger>
             <TabsTrigger value="help">Help</TabsTrigger>
           </TabsList>
 
@@ -510,7 +523,168 @@ export function SettingsMenu({ open, onClose }) {
             )}
             </TabsContent>
 
+            <TabsContent value="project" className="mt-3 space-y-3">
+              <div className="space-y-1 rounded border p-2">
+                <p className="text-xs font-semibold">Automatic project files</p>
+                <p className="text-[10px] text-muted-foreground">
+                  The project is saved to the browser, and mirrored into{" "}
+                  <code>standalone\desktop\userdata\projects</code> on this PC.
+                </p>
+                <label className="flex items-center justify-between gap-2 text-xs">
+                  Auto-save to disk
+                  <Switch
+                    checked={settings.autoSaveToDisk !== false}
+                    onCheckedChange={(value) =>
+                      setSettings((s) => ({ ...s, autoSaveToDisk: value }))
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-1 rounded border p-2">
+                <p className="text-xs font-semibold">Project backups</p>
+                <p className="text-[10px] text-muted-foreground">
+                  A rotating snapshot is kept before New and before loading a save. Manual backups
+                  are kept in the browser's project storage.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await backupProject?.("Manual backup");
+                      setBackups((await listBackups?.()) || []);
+                      toast.success("Backup created.");
+                    }}
+                  >
+                    <Archive className="mr-1 h-3.5 w-3.5" /> Create backup
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => setBackups((await listBackups?.()) || [])}
+                  >
+                    Refresh list
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {backups.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground">No backups yet.</p>
+                  ) : (
+                    backups.map((entry) => (
+                      <div
+                        key={entry.key}
+                        className="flex flex-wrap items-center gap-1 rounded border px-1.5 py-1 text-[10px]"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                        <span className="text-muted-foreground">
+                          {entry.at ? new Date(entry.at).toLocaleString() : ""}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-1 text-[9px]"
+                          onClick={async () => {
+                            if (!window.confirm("Restore this backup over the current project?")) return;
+                            const ok = await restoreBackup?.(entry.key);
+                            toast[ok ? "success" : "error"](ok ? "Backup restored." : "Could not restore.");
+                          }}
+                        >
+                          Restore
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1 rounded border p-2">
+                <p className="text-xs font-semibold">Dungeon Builder draft</p>
+                <p className="text-[10px] text-muted-foreground">
+                  The last dungeon you were editing is kept so leaving the Builder does not reset
+                  it.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSettings((s) => ({
+                      ...s,
+                      library: { ...s.library, dungeonDraft: null },
+                    }));
+                    toast.success("Dungeon draft cleared.");
+                  }}
+                >
+                  Clear dungeon draft
+                </Button>
+              </div>
+
+              <div className="space-y-1 rounded border p-2">
+                <p className="text-xs font-semibold">Import provenance</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Remove every record tagged by a tracked import while keeping hand-made entries.
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      let library = settings.library;
+                      const tabIds = [];
+                      (settings.library.importHistory || []).forEach((record) => {
+                        library = removeImportFromLibrary(library, record.id).library;
+                        tabIds.push(...(record.tabIds || []));
+                      });
+                      setSettings((s) => ({ ...s, library }));
+                      tabIds.forEach((id) => deleteTab(id));
+                      toast.success("Tracked imports removed.");
+                    }}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove tracked imports
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSettings((s) => ({ ...s, library: { ...s.library, importHistory: [] } }));
+                      toast.success("Import history cleared.");
+                    }}
+                  >
+                    Clear history
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1 rounded border p-2">
+                <p className="text-xs font-semibold">Onboarding</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSettings((s) => ({ ...s, tourDone: false }));
+                    window.dispatchEvent(new CustomEvent("skilltree:start-tutorial"));
+                  }}
+                >
+                  Open the tutorial
+                </Button>
+              </div>
+            </TabsContent>
+
             <TabsContent value="help" className="mt-3">
+              <div className="mb-3 space-y-1 rounded-md border p-2">
+                <p className="text-xs font-semibold">New player tutorial</p>
+                <p className="text-[10px] text-muted-foreground">
+                  A guided walkthrough of every part of the program: the canvas, importing, the
+                  Reference Library, rulebook, dungeons, Architect, DM tools and saving.
+                </p>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial"))}
+                >
+                  Start tutorial
+                </Button>
+              </div>
               <HelpContent />
             </TabsContent>
           </div>

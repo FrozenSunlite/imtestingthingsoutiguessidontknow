@@ -5,6 +5,11 @@
 // only, their membership / renown prerequisites are cut for homebrew play).
 
 export const BASTION_ORDERS = {
+  "Throne Room": {
+    "order": "Empower",
+    "effect": "Seat of Power. This 4×4 throne room is the heart of the Bastion. It is Bastion-only, costs no gold or build time, and never counts against the number of Bastion facilities you know. When you issue the Empower order here, you hold court: choose one kingdom or faction you have met; until your next Bastion turn you have advantage on the next Charisma (Persuasion) check made with that group, and one retainer or defender may be reassigned without cost.",
+    "fixed": "Seat of Power"
+  },
   "Amethyst Dragon Den": {
     "order": "Empower",
     "effect": "When you issue the Empower order to this facility, latent draconic power fills the facility, allowing you to train in psionic combat. This training takes 8 hours per day for 7 days, after which you gain Resistance to Psychic damage. This benefit lasts for 7 days.",

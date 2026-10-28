@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { Button } from "@/components/ui/button";
 import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
@@ -26,17 +26,29 @@ import {
   Swords,
   Map,
   Database,
+  Globe2,
 } from "lucide-react";
 
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
-export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex }) {
+export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder }) {
   const { enterApp, startNewTree, tree, character, settings } = useTree();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+
+  useEffect(() => {
+    const openLibrary = () => setLibraryOpen(true);
+    const openRulebook = () => setRulebookOpen(true);
+    window.addEventListener("skilltree:open-library", openLibrary);
+    window.addEventListener("skilltree:open-rulebook", openRulebook);
+    return () => {
+      window.removeEventListener("skilltree:open-library", openLibrary);
+      window.removeEventListener("skilltree:open-rulebook", openRulebook);
+    };
+  }, []);
 
   const hasProject = !!(
     tree?.nodes?.length ||
@@ -174,10 +186,17 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             )}
             {menuBtn(
               <Map className="h-5 w-5" />,
-              "Dungeon Generator",
+              "Dungeon Builder",
               "Build or roll a dungeon or spire",
               () => onDungeon?.(),
               locked
+            )}
+            {menuBtn(
+              <Globe2 className="h-5 w-5" />,
+              "World Builder",
+              "Create a setting, kingdoms, settlements and people",
+              () => onWorldbuilder?.(),
+              false
             )}
           </div>
           {menuBtn(

@@ -87,7 +87,7 @@ export function DMScreen({ onExit }) {
             <TabsList>
               <TabsTrigger value="tracker">Combat Tracker</TabsTrigger>
               <TabsTrigger value="encounters">Encounters & Loot</TabsTrigger>
-              <TabsTrigger value="dungeon">Dungeon Generator</TabsTrigger>
+              <TabsTrigger value="dungeon">Dungeon Builder</TabsTrigger>
               <TabsTrigger value="reference">Quick Reference</TabsTrigger>
             </TabsList>
             <TabsContent value="tracker">

@@ -12,6 +12,10 @@ export function Homebrewery({ text = "", className = "" }) {
       {blocks.map((b, i) =>
         b.kind === "table" ? (
           <TableBlock key={i} rows={b.rows} />
+        ) : b.kind === "break" ? (
+          <div key={i} className="page-break my-6 border-t border-dashed border-primary/40 pt-2 text-[9px] uppercase tracking-widest text-muted-foreground">
+            page break
+          </div>
         ) : (
           <MarkdownBlock key={i} text={b.text} />
         )
@@ -19,6 +23,17 @@ export function Homebrewery({ text = "", className = "" }) {
     </div>
   );
 }
+
+const headingText = (children) =>
+  Array.isArray(children)
+    ? children.map((child) => (typeof child === "string" ? child : "")).join("")
+    : String(children || "");
+
+const headingId = (children) =>
+  headingText(children)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "section";
 
 function splitBlocks(text) {
   const lines = String(text || "").replace(/\\pagebreak/g, "---").split(/\r?\n/);
@@ -41,6 +56,10 @@ function splitBlocks(text) {
     if (/^\s*\|/.test(line)) {
       flushPara();
       table.push(line.trim());
+    } else if (/^\s*---+\s*$/.test(line)) {
+      flushPara();
+      flushTable();
+      blocks.push({ kind: "break" });
     } else {
       flushTable();
       para.push(line);
@@ -102,9 +121,21 @@ function MarkdownBlock({ text }) {
   return (
     <ReactMarkdown
       components={{
-        h1: (p) => <h1 className="mt-4 border-b pb-1 font-display text-2xl font-bold" {...p} />,
-        h2: (p) => <h2 className="mt-4 font-display text-xl font-bold" {...p} />,
-        h3: (p) => <h3 className="mt-3 font-semibold" {...p} />,
+        h1: ({ children, ...p }) => (
+          <h1 id={headingId(children)} className="mt-4 scroll-mt-4 border-b pb-1 font-display text-2xl font-bold" {...p}>
+            {children}
+          </h1>
+        ),
+        h2: ({ children, ...p }) => (
+          <h2 id={headingId(children)} className="mt-4 scroll-mt-4 font-display text-xl font-bold" {...p}>
+            {children}
+          </h2>
+        ),
+        h3: ({ children, ...p }) => (
+          <h3 id={headingId(children)} className="mt-3 scroll-mt-4 font-semibold" {...p}>
+            {children}
+          </h3>
+        ),
         p: (p) => <p className="leading-relaxed" {...p} />,
         ul: (p) => <ul className="list-disc pl-5" {...p} />,
         ol: (p) => <ol className="list-decimal pl-5" {...p} />,
@@ -115,6 +146,22 @@ function MarkdownBlock({ text }) {
           />
         ),
         code: (p) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs" {...p} />,
+        img: ({ alt, src, ...p }) => (
+          <figure className="my-3">
+            <img
+              src={src}
+              alt={alt || ""}
+              loading="lazy"
+              className="mx-auto max-h-96 max-w-full rounded border object-contain"
+              {...p}
+            />
+            {alt && (
+              <figcaption className="mt-1 text-center text-[10px] italic text-muted-foreground">
+                {alt}
+              </figcaption>
+            )}
+          </figure>
+        ),
         hr: (p) => <hr className="my-4 border-border" {...p} />,
         a: (p) => <a className="text-primary underline" {...p} />,
       }}

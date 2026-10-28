@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  DUNGEON_TRAP_TYPES,
   ROOM_SHAPES,
   cellsConnected,
+  findStairs,
   roomShapeCells,
   shapeCells,
 } from "@/lib/dungeonGen";
@@ -23,18 +25,72 @@ import {
 } from "@/components/ui/select";
 
 const TOOLS = [
-  ["floor", "Floor"],
-  ["spawn", "Monster spawn"],
-  ["ingress", "Player ingress"],
-  ["erase", "Erase"],
+  ["floor", "Floor", "Paint or remove floor cells"],
+  ["rect", "Rect fill", "Click a start corner, then an end corner"],
+  ["fill", "Flood fill", "Flood the connected floor or empty region"],
+  ["spawn", "Spawn", "Place a monster spawn point"],
+  ["ingress", "Ingress", "Place a player entry point"],
+  ["heightUp", "Raise +1", "Raise this cell by one space"],
+  ["heightDown", "Lower −1", "Lower this cell by one space"],
+  ["half", "Half cover", "Place half cover on this cell"],
+  ["threeQuarter", "¾ cover", "Place three-quarters cover on this cell"],
+  ["full", "Full cover", "Place full cover on this cell"],
+  ["trap", "Trap", "Place the selected trap type"],
+  ["water", "Water", "Mark a water cell (swimming / difficult)"],
+  ["difficult", "Difficult", "Mark difficult terrain"],
+  ["stairs", "Stairs", "Place stairs on an elevation edge"],
+  ["erase", "Erase", "Remove markers, surfaces, then floor"],
 ];
 
 const keyOf = (x, y) => `${x},${y}`;
+const pointKey = (p) => keyOf(Number(p?.x), Number(p?.y));
+const pointList = (arr) => {
+  if (!Array.isArray(arr) || !arr.length) return [];
+  return arr
+    .map((p) =>
+      Array.isArray(p)
+        ? {
+            x: Number(p[0]),
+            y: Number(p[1]),
+            value: p[2],
+            cover: p[3] ?? p[2],
+            type: p[3] ?? p[2],
+          }
+        : { ...p, x: Number(p?.x), y: Number(p?.y) }
+    )
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+};
 
-// Grid-based room builder: paint floor cells, place monster spawn points and
-// player ingress zones, import a Reference Library template, upload the result
+const coverLabel = (cover) =>
+  /full/i.test(String(cover || ""))
+    ? "F"
+    : /three|3\/4|3_4/i.test(String(cover || ""))
+      ? "¾"
+      : "½";
+
+const brushKeys = (x, y, size, w, h) => {
+  const radius = Math.floor((Math.max(1, Number(size) || 1) - 1) / 2);
+  const out = [];
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < w && ny < h) out.push(keyOf(nx, ny));
+    }
+  }
+  return out;
+};
+
+const mirrorOf = (key, w) => {
+  const [x, y] = key.split(",").map(Number);
+  return keyOf(w - 1 - x, y);
+};
+
+// Grid-based room builder: paint floor cells, place monster spawn points, player
+// ingress zones and battlefield surfaces (height, cover, traps, water, difficult
+// terrain and stairs), import a Reference Library template, upload the result
 // back to the library, or apply it to the selected dungeon room. Rendered
-// inline on the Dungeon Generator page, and still usable as a Dialog.
+// inline on the Dungeon Builder page, and still usable as a Dialog.
 export function RoomShapeBuilder({
   open = true,
   onOpenChange,
@@ -47,33 +103,69 @@ export function RoomShapeBuilder({
   onLoadTemplate,
   templateId = "",
 }) {
-  const w = Math.max(2, Math.min(20, Math.round(Number(room?.w) || 2)));
-  const h = Math.max(2, Math.min(20, Math.round(Number(room?.h) || 2)));
+  const w = Math.max(9, Math.min(33, Math.round(Number(room?.w) || 9)));
+  const h = Math.max(9, Math.min(33, Math.round(Number(room?.h) || 9)));
   const [preset, setPreset] = useState("Rectangle");
   const [tool, setTool] = useState("floor");
   const [cells, setCells] = useState(() => new Set());
   const [spawns, setSpawns] = useState(() => new Map());
   const [ingress, setIngress] = useState(() => new Map());
+  const [heights, setHeights] = useState(() => new Map());
+  const [covers, setCovers] = useState(() => new Map());
+  const [trapMaps, setTrapMaps] = useState(() => new Map());
+  const [water, setWater] = useState(() => new Set());
+  const [difficult, setDifficult] = useState(() => new Set());
+  const [stairs, setStairs] = useState(() => new Set());
+  const [trapType, setTrapType] = useState(DUNGEON_TRAP_TYPES[0]);
+  const [brush, setBrush] = useState(1);
+  const [mirror, setMirror] = useState(false);
+  const [rectStart, setRectStart] = useState(null);
+  const [terrainClip, setTerrainClip] = useState(null);
 
   useEffect(() => {
     if (!room) return;
     const initial = roomShapeCells({ ...room, w, h });
     const active = new Set(initial.map(([x, y]) => keyOf(x, y)));
+    const keep = (key) => active.has(key);
     setCells(active);
     setSpawns(
       new Map(
         (room.spawnPoints || [])
-          .map((p) => [keyOf(p.x, p.y), p.label || ""])
-          .filter(([key]) => active.has(key))
+          .map((p) => [pointKey(p), p.label || ""])
+          .filter(([key]) => keep(key))
       )
     );
     setIngress(
       new Map(
         (room.ingressPoints || [])
-          .map((p) => [keyOf(p.x, p.y), p.label || ""])
-          .filter(([key]) => active.has(key))
+          .map((p) => [pointKey(p), p.label || ""])
+          .filter(([key]) => keep(key))
       )
     );
+    setHeights(
+      new Map(
+        pointList(room.heights)
+          .map((p) => [pointKey(p), Number(p.height ?? p.h ?? p.value ?? 0)])
+          .filter(([key, value]) => keep(key) && value)
+      )
+    );
+    setCovers(
+      new Map(
+        pointList(room.coverPoints)
+          .map((p) => [pointKey(p), String(p.cover || "half")])
+          .filter(([key]) => keep(key))
+      )
+    );
+    setTrapMaps(
+      new Map(
+        pointList(room.trapPoints)
+          .map((p) => [pointKey(p), String(p.type || "Trap")])
+          .filter(([key]) => keep(key))
+      )
+    );
+    setWater(new Set(pointList(room.water).map(pointKey).filter(keep)));
+    setDifficult(new Set(pointList(room.difficult).map(pointKey).filter(keep)));
+    setStairs(new Set(pointList(room.stairs).map(pointKey).filter(keep)));
     setTool("floor");
     setPreset(room.shape || "Custom");
   }, [room, w, h]);
@@ -84,86 +176,259 @@ export function RoomShapeBuilder({
   );
   const connected = list.length > 0 && cellsConnected(list);
 
-  const applyCellClick = (x, y) => {
-    const key = keyOf(x, y);
-    if (tool === "spawn") {
-      const nextCells = new Set(cells).add(key);
-      const nextSpawns = new Map(spawns);
-      const nextIngress = new Map(ingress);
-      nextIngress.delete(key);
-      if (nextSpawns.has(key)) nextSpawns.delete(key);
-      else nextSpawns.set(key, `Spawn ${nextSpawns.size + 1}`);
-      setCells(nextCells);
-      setSpawns(nextSpawns);
-      setIngress(nextIngress);
-      setPreset("Custom");
-      return;
-    }
-    if (tool === "ingress") {
-      const nextCells = new Set(cells).add(key);
-      const nextSpawns = new Map(spawns);
-      const nextIngress = new Map(ingress);
-      nextSpawns.delete(key);
-      if (nextIngress.has(key)) nextIngress.delete(key);
-      else nextIngress.set(key, "Ingress");
-      setCells(nextCells);
-      setSpawns(nextSpawns);
-      setIngress(nextIngress);
-      setPreset("Custom");
-      return;
-    }
+  const hasAnnotation = (key, state) =>
+    state.spawns.has(key) ||
+    state.ingress.has(key) ||
+    state.heights.has(key) ||
+    state.covers.has(key) ||
+    state.trapMaps.has(key) ||
+    state.water.has(key) ||
+    state.difficult.has(key) ||
+    state.stairs.has(key);
+
+  const clearAnnotations = (key, state) => {
+    state.spawns.delete(key);
+    state.ingress.delete(key);
+    state.heights.delete(key);
+    state.covers.delete(key);
+    state.trapMaps.delete(key);
+    state.water.delete(key);
+    state.difficult.delete(key);
+    state.stairs.delete(key);
+  };
+
+  const applyOne = (key, state) => {
+    const active = state.cells.has(key);
+    if (tool !== "floor" && tool !== "erase" && !active) state.cells.add(key);
+
     if (tool === "erase") {
-      const nextSpawns = new Map(spawns);
-      const nextIngress = new Map(ingress);
-      if (nextSpawns.has(key) || nextIngress.has(key)) {
-        nextSpawns.delete(key);
-        nextIngress.delete(key);
-        setSpawns(nextSpawns);
-        setIngress(nextIngress);
+      if (hasAnnotation(key, state)) {
+        clearAnnotations(key, state);
         return;
       }
-      const next = new Set(cells);
-      next.delete(key);
-      setCells(next);
+      if (active) {
+        state.cells.delete(key);
+        clearAnnotations(key, state);
+      }
+      return;
+    }
+
+    if (tool === "spawn") {
+      state.ingress.delete(key);
+      if (state.spawns.has(key)) state.spawns.delete(key);
+      else state.spawns.set(key, `Spawn ${state.spawns.size + 1}`);
+      return;
+    }
+
+    if (tool === "ingress") {
+      state.spawns.delete(key);
+      if (state.ingress.has(key)) state.ingress.delete(key);
+      else state.ingress.set(key, "Ingress");
+      return;
+    }
+
+    if (tool === "heightUp" || tool === "heightDown") {
+      const current = Number(state.heights.get(key) || 0);
+      const next = tool === "heightUp" ? Math.min(4, current + 1) : Math.max(-4, current - 1);
+      if (next) state.heights.set(key, next);
+      else state.heights.delete(key);
+      return;
+    }
+
+    if (tool === "half" || tool === "threeQuarter" || tool === "full") {
+      const value =
+        tool === "half" ? "half" : tool === "threeQuarter" ? "three-quarters" : "full";
+      if (state.covers.get(key) === value) state.covers.delete(key);
+      else state.covers.set(key, value);
+      return;
+    }
+
+    if (tool === "trap") {
+      if (state.trapMaps.get(key) === trapType) state.trapMaps.delete(key);
+      else state.trapMaps.set(key, trapType);
+      return;
+    }
+
+    if (tool === "water") {
+      if (state.water.has(key)) state.water.delete(key);
+      else state.water.add(key);
+      return;
+    }
+
+    if (tool === "difficult") {
+      if (state.difficult.has(key)) state.difficult.delete(key);
+      else state.difficult.add(key);
+      return;
+    }
+
+    if (tool === "stairs") {
+      if (state.stairs.has(key)) state.stairs.delete(key);
+      else state.stairs.add(key);
+      return;
+    }
+
+    if (active) {
+      state.cells.delete(key);
+      clearAnnotations(key, state);
+    } else {
+      state.cells.add(key);
+    }
+  };
+
+  const applyCellClick = (x, y) => {
+    const state = {
+      cells: new Set(cells),
+      spawns: new Map(spawns),
+      ingress: new Map(ingress),
+      heights: new Map(heights),
+      covers: new Map(covers),
+      trapMaps: new Map(trapMaps),
+      water: new Set(water),
+      difficult: new Set(difficult),
+      stairs: new Set(stairs),
+    };
+
+    if (tool === "rect") {
+      if (!rectStart) {
+        setRectStart([x, y]);
+        return;
+      }
+      const [sx, sy] = rectStart;
+      for (let yy = Math.min(sy, y); yy <= Math.max(sy, y); yy += 1) {
+        for (let xx = Math.min(sx, x); xx <= Math.max(sx, x); xx += 1) {
+          state.cells.add(keyOf(xx, yy));
+        }
+      }
+      setCells(state.cells);
+      setRectStart(null);
       setPreset("Custom");
       return;
     }
-    const next = new Set(cells);
-    if (next.has(key)) {
-      next.delete(key);
-      const nextSpawns = new Map(spawns);
-      const nextIngress = new Map(ingress);
-      nextSpawns.delete(key);
-      nextIngress.delete(key);
-      setSpawns(nextSpawns);
-      setIngress(nextIngress);
+
+    if (tool === "fill") {
+      const active = state.cells.has(keyOf(x, y));
+      const seen = new Set();
+      const queue = [[x, y]];
+      while (queue.length && seen.size < 2000) {
+        const [cx, cy] = queue.pop();
+        const key = keyOf(cx, cy);
+        if (seen.has(key) || cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
+        if (state.cells.has(key) !== active) continue;
+        seen.add(key);
+        if (active) {
+          state.cells.delete(key);
+          clearAnnotations(key, state);
+        } else {
+          state.cells.add(key);
+        }
+        queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+      }
     } else {
-      next.add(key);
+      const keys = new Set(brushKeys(x, y, ["spawn", "ingress"].includes(tool) ? 1 : brush, w, h));
+      if (mirror) [...keys].forEach((key) => keys.add(mirrorOf(key, w)));
+      keys.forEach((key) => applyOne(key, state));
     }
-    setCells(next);
+
+    setCells(state.cells);
+    setSpawns(state.spawns);
+    setIngress(state.ingress);
+    setHeights(state.heights);
+    setCovers(state.covers);
+    setTrapMaps(state.trapMaps);
+    setWater(state.water);
+    setDifficult(state.difficult);
+    setStairs(state.stairs);
     setPreset("Custom");
   };
+
+  const filterTo = (next) => ({
+    spawns: new Map([...spawns].filter(([key]) => next.has(key))),
+    ingress: new Map([...ingress].filter(([key]) => next.has(key))),
+    heights: new Map([...heights].filter(([key]) => next.has(key))),
+    covers: new Map([...covers].filter(([key]) => next.has(key))),
+    trapMaps: new Map([...trapMaps].filter(([key]) => next.has(key))),
+    water: new Set([...water].filter((key) => next.has(key))),
+    difficult: new Set([...difficult].filter((key) => next.has(key))),
+    stairs: new Set([...stairs].filter((key) => next.has(key))),
+  });
 
   const applyPreset = (name) => {
     setPreset(name);
     const next = new Set(shapeCells(w, h, name).map(([x, y]) => keyOf(x, y)));
+    const filtered = filterTo(next);
     setCells(next);
-    setSpawns((prev) => new Map([...prev].filter(([key]) => next.has(key))));
-    setIngress((prev) => new Map([...prev].filter(([key]) => next.has(key))));
+    setSpawns(filtered.spawns);
+    setIngress(filtered.ingress);
+    setHeights(filtered.heights);
+    setCovers(filtered.covers);
+    setTrapMaps(filtered.trapMaps);
+    setWater(filtered.water);
+    setDifficult(filtered.difficult);
+    setStairs(filtered.stairs);
   };
 
-  const payload = () => ({
-    cells: list,
-    shape: preset === "Custom" ? "Custom" : preset,
-    spawnPoints: [...spawns].map(([key, label]) => {
+  const copyTerrain = () => {
+    setTerrainClip({
+      heights: new Map(heights),
+      covers: new Map(covers),
+      trapMaps: new Map(trapMaps),
+      water: new Set(water),
+      difficult: new Set(difficult),
+      stairs: new Set(stairs),
+    });
+  };
+
+  const pasteTerrain = () => {
+    if (!terrainClip) return;
+    const keep = (key) => cells.has(key);
+    setHeights(new Map([...terrainClip.heights].filter(([key]) => keep(key))));
+    setCovers(new Map([...terrainClip.covers].filter(([key]) => keep(key))));
+    setTrapMaps(new Map([...terrainClip.trapMaps].filter(([key]) => keep(key))));
+    setWater(new Set([...terrainClip.water].filter(keep)));
+    setDifficult(new Set([...terrainClip.difficult].filter(keep)));
+    setStairs(new Set([...terrainClip.stairs].filter(keep)));
+    setPreset("Custom");
+  };
+
+  const payload = () => {
+    const heightArr = [...heights].map(([key, value]) => {
       const [x, y] = key.split(",").map(Number);
-      return { x, y, label };
-    }),
-    ingressPoints: [...ingress].map(([key, label]) => {
+      return [x, y, value];
+    });
+    const stairList = [...stairs].map((key) => {
       const [x, y] = key.split(",").map(Number);
-      return { x, y, label };
-    }),
-  });
+      return { x, y };
+    });
+    // Elevation edges get stairs automatically; a manually placed stair always
+    // wins on the cell the DM painted.
+    const autoStairs = stairList.length ? stairList : findStairs(list, heightArr);
+    return {
+      cells: list,
+      shape: preset === "Custom" ? "Custom" : preset,
+      spawnPoints: [...spawns].map(([key, label]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, label };
+      }),
+      ingressPoints: [...ingress].map(([key, label]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, label };
+      }),
+      heights: heightArr,
+      stairs: autoStairs.map((p) => ({ x: p.x, y: p.y })),
+      coverPoints: [...covers].map(([key, cover]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, cover };
+      }),
+      trapPoints: [...trapMaps].map(([key, type]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, type };
+      }),
+      water: [...water].map((key) => key.split(",").map(Number)),
+      difficult: [...difficult].map((key) => key.split(",").map(Number)),
+      environmentEffect: room?.environmentEffect || "",
+      tags: [...(room?.tags || [])],
+    };
+  };
 
   const save = () => {
     if (!connected) return;
@@ -177,16 +442,16 @@ export function RoomShapeBuilder({
         <div>
           <h3 className="text-sm font-semibold">Room Maker — {room?.name || "Room"}</h3>
           <p className="text-[10px] text-muted-foreground">
-            Paint the floor, place spawns and ingress, then apply it to the selected room or
-            upload it to the Reference Library. Grid: {w} × {h}.
+            Paint the floor and battlefield: height, cover, traps, water, difficult terrain and
+            stairs. Grid: {w} × {h}. Enemies stay abstract — this is terrain, not a monster list.
           </p>
         </div>
       ) : (
         <DialogHeader>
           <DialogTitle>Room builder — {room?.name || "Room"}</DialogTitle>
           <DialogDescription>
-            Paint the floor cells, then place monster spawn points and player ingress zones. The
-            shape must stay connected. Grid: {w} × {h}.
+            Paint the floor cells, then place monster spawns, player ingress and battlefield
+            surfaces. The shape must stay connected. Grid: {w} × {h}.
           </DialogDescription>
         </DialogHeader>
       )}
@@ -242,6 +507,13 @@ export function RoomShapeBuilder({
               setCells(new Set());
               setSpawns(new Map());
               setIngress(new Map());
+              setHeights(new Map());
+              setCovers(new Map());
+              setTrapMaps(new Map());
+              setWater(new Set());
+              setDifficult(new Set());
+              setStairs(new Set());
+              setRectStart(null);
             }}
           >
             Clear
@@ -250,17 +522,83 @@ export function RoomShapeBuilder({
       </div>
 
       <div className="flex flex-wrap items-center gap-1">
-        {TOOLS.map(([id, label]) => (
+        {TOOLS.map(([id, label, title]) => (
           <Button
             key={id}
             size="sm"
             variant={tool === id ? "default" : "outline"}
             className="h-7 text-xs"
-            onClick={() => setTool(id)}
+            title={title}
+            onClick={() => {
+              setTool(id);
+              if (id !== "rect") setRectStart(null);
+            }}
           >
             {label}
           </Button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Label className="text-[10px] text-muted-foreground">Brush</Label>
+        <Select value={String(brush)} onValueChange={(v) => setBrush(Number(v) || 1)}>
+          <SelectTrigger className="h-7 w-16 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[1, 3, 5, 7].map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                {size}×{size}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          variant={mirror ? "default" : "outline"}
+          className="h-7 text-xs"
+          onClick={() => setMirror((v) => !v)}
+          title="Mirror every edit across the vertical centre line"
+        >
+          Mirror X
+        </Button>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={copyTerrain}>
+          Copy terrain
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={pasteTerrain}
+          disabled={!terrainClip}
+        >
+          Paste terrain
+        </Button>
+        {rectStart && (
+          <span className="text-[10px] text-muted-foreground">
+            Rect start {rectStart[0]},{rectStart[1]} — click the opposite corner
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {tool === "trap" && (
+          <>
+            <Label className="text-[10px] text-muted-foreground">Trap type</Label>
+            <Select value={trapType} onValueChange={setTrapType}>
+              <SelectTrigger className="h-7 w-44 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DUNGEON_TRAP_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -273,7 +611,9 @@ export function RoomShapeBuilder({
           Clear markers
         </Button>
         <span className="ml-auto text-[10px] text-muted-foreground">
-          {spawns.size} spawn{spawns.size === 1 ? "" : "s"} · {ingress.size} ingress
+          {spawns.size} spawn{spawns.size === 1 ? "" : "s"} · {ingress.size} ingress ·{" "}
+          {heights.size} height · {covers.size} cover · {trapMaps.size} trap · {water.size} water ·{" "}
+          {difficult.size} difficult · {stairs.size} stair
         </span>
       </div>
 
@@ -288,23 +628,65 @@ export function RoomShapeBuilder({
               const active = cells.has(key);
               const isSpawn = spawns.has(key);
               const isIngress = ingress.has(key);
+              const height = heights.get(key) || 0;
+              const cover = covers.get(key);
+              const trap = trapMaps.get(key);
+              const isWater = water.has(key);
+              const isDifficult = difficult.has(key);
+              const isStairs = stairs.has(key);
+              const badges = [
+                trap ? "T" : "",
+                isWater ? "≈" : "",
+                isDifficult ? "▨" : "",
+                isStairs ? "↕" : "",
+                cover ? coverLabel(cover) : "",
+                height ? `${height > 0 ? "+" : ""}${height}` : "",
+              ].filter(Boolean);
+              const center = isSpawn
+                ? "S"
+                : isIngress
+                  ? "IN"
+                  : isWater
+                    ? "≈"
+                    : isDifficult
+                      ? "▨"
+                      : active
+                        ? "·"
+                        : "";
               return (
                 <button
                   key={key}
                   type="button"
-                  title={`${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}`}
+                  title={`${x}, ${y}${
+                    isSpawn ? " · monster spawn" : ""
+                  }${isIngress ? " · player ingress" : ""}${
+                    height ? ` · height ${height}` : ""
+                  }${cover ? ` · ${cover} cover` : ""}${trap ? ` · trap: ${trap}` : ""}${
+                    isWater ? " · water" : ""
+                  }${isDifficult ? " · difficult terrain" : ""}${
+                    isStairs ? " · stairs" : ""
+                  }`}
                   onClick={() => applyCellClick(x, y)}
-                  className={`h-8 w-8 rounded-sm border text-[10px] font-semibold transition-colors ${
+                  className={`relative h-8 w-8 overflow-hidden rounded-sm border text-[10px] font-semibold transition-colors ${
                     isSpawn
                       ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300"
                       : isIngress
                         ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-                        : active
-                          ? "border-primary bg-primary/35 text-foreground"
-                          : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"
+                        : isWater
+                          ? "border-sky-500 bg-sky-500/30 text-sky-700 dark:text-sky-300"
+                          : isDifficult
+                            ? "border-amber-600 bg-amber-500/25 text-amber-800 dark:text-amber-300"
+                            : active
+                              ? "border-primary bg-primary/35 text-foreground"
+                              : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"
                   }`}
                 >
-                  {isSpawn ? "S" : isIngress ? "IN" : active ? "·" : ""}
+                  {center}
+                  {badges.length > 0 && (
+                    <span className="pointer-events-none absolute right-0.5 top-0 flex max-w-full flex-wrap justify-end gap-0.5 text-[7px] leading-none opacity-90">
+                      {badges.join(" ")}
+                    </span>
+                  )}
                 </button>
               );
             })
@@ -314,8 +696,11 @@ export function RoomShapeBuilder({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" /> monster spawn</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" /> player ingress</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" /> spawn</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" /> ingress</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" /> water</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" /> difficult</span>
+          <span>T trap · ↕ stairs · ½/¾/F cover · +1/−1 elevation</span>
         </div>
         <div className="flex flex-wrap justify-end gap-1">
           <Button size="sm" variant="outline" onClick={() => onOpenChange?.(false)}>

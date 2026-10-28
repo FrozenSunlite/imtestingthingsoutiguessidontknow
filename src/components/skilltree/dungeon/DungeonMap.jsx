@@ -23,11 +23,17 @@ export function DungeonMap({
   onContextMenu,
   highlightIds = [],
   highlightConnectionIds = [],
+  sessionMode = false,
+  visitedIds = [],
+  currentRoomId = "",
 }) {
   const rooms = dungeon?.rooms || [];
   const connections = dungeon?.connections || [];
   const routeRooms = new Set(highlightIds);
   const routeConnections = new Set(highlightConnectionIds);
+  const visited = new Set(["__none__", ...visitedIds]);
+  const isVisited = (room) =>
+    !sessionMode || visited.has(room.id) || room.category === "Start";
   const b = useMemo(() => dungeonBounds(dungeon), [dungeon]);
   const [zoom, setZoom] = useState(1);
   const [drag, setDrag] = useState(null);
@@ -62,14 +68,14 @@ export function DungeonMap({
       if (drag.kind === "move") {
         setDrag((d) => ({
           ...d,
-          x: Math.max(0, Math.round(drag.ox + (w.x - drag.sx))),
-          y: Math.max(0, Math.round(drag.oy + (w.y - drag.sy))),
+          x: Math.round(drag.ox + (w.x - drag.sx)),
+          y: Math.round(drag.oy + (w.y - drag.sy)),
         }));
       } else {
         setDrag((d) => ({
           ...d,
-          w: Math.max(2, Math.round(drag.ow + (w.x - drag.sx))),
-          h: Math.max(2, Math.round(drag.oh + (w.y - drag.sy))),
+          w: Math.max(9, Math.min(33, Math.round(drag.ow + (w.x - drag.sx)))),
+          h: Math.max(9, Math.min(33, Math.round(drag.oh + (w.y - drag.sy)))),
         }));
       }
       e.preventDefault();
@@ -239,6 +245,7 @@ export function DungeonMap({
             const from = rooms.find((r) => r.id === c.from);
             const to = rooms.find((r) => r.id === c.to);
             if (!from || !to) return null;
+            if (sessionMode && !isVisited(from) && !isVisited(to)) return null;
             const x1 = toX(from.x + from.w / 2);
             const y1 = toY(from.y + from.h / 2);
             const x2 = toX(to.x + to.w / 2);
@@ -279,12 +286,15 @@ export function DungeonMap({
             const h = preview.h * px;
             const selected = selectedId === room.id;
             const onRoute = routeRooms.has(room.id);
+            const visible = isVisited(room);
+            const current = currentRoomId === room.id;
             const color = categoryColor(room.category);
             const cells = roomShapeCells(preview);
             const fillPath = cellsFillPath(cells, px, x, y);
             const outlinePath = cellsOutlinePath(cells, px, x, y);
             const badges = [
               room.bonfire ? "♨" : "",
+              room.hall ? "═" : "",
               room.side ? "H" : "",
               room.traps?.length ? "T" : "",
               room.spawns?.length || room.spawnPoints?.length ? "S" : "",
@@ -292,10 +302,13 @@ export function DungeonMap({
               room.loot?.length ? "L" : "",
               room.elevation && room.elevation !== "Flat" ? "E" : "",
               room.cover && room.cover !== "Open" ? "C" : "",
+              room.water?.length ? "W" : "",
+              room.difficult?.length ? "D" : "",
             ].filter(Boolean);
             return (
               <g
                 key={room.id}
+                opacity={visible ? 1 : 0.14}
                 onPointerDown={(e) => startMove(e, room)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -311,7 +324,7 @@ export function DungeonMap({
                 style={{ cursor: "grab" }}
               >
                 <title>
-                  {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.side ? "\nSide room — non-combat / harvesting" : ""}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}${room.harvest?.length ? `\nHarvest: ${room.harvest.join("; ")}` : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
+                  {`${room.name} — ${room.category} · ${room.w}×${room.h} spaces\n${room.environment}\n${room.elevation} · ${room.cover}${room.hall ? "\nHall — no monster encounters" : ""}${room.side ? "\nSide room — non-combat / harvesting" : ""}${room.bonfire ? "\nBonfire safe zone — short rest" : ""}${room.harvest?.length ? `\nHarvest: ${room.harvest.join("; ")}` : ""}${room.tags?.length ? `\nTags: ${room.tags.join(", ")}` : ""}${room.environmentEffect ? `\nEffect: ${room.environmentEffect}` : ""}${room.water?.length ? `\nWater: ${room.water.length} cells` : ""}${room.difficult?.length ? `\nDifficult terrain: ${room.difficult.length} cells` : ""}${room.heights?.length ? `\nElevation cells: ${room.heights.length}` : ""}${room.stairs?.length ? `\nStairs: ${room.stairs.length}` : ""}\n${room.traps?.length ? `Trap: ${room.traps.join("; ")}\n` : ""}${room.spawns?.length ? `Spawns: ${room.spawns.join("; ")}\n` : ""}${room.loot?.length ? `Loot: ${room.loot.join("; ")}` : ""}`}
                 </title>
                 <path
                   d={fillPath}
@@ -321,21 +334,79 @@ export function DungeonMap({
                 <path
                   d={outlinePath}
                   fill="none"
-                  stroke={selected || onRoute ? "hsl(var(--primary))" : color}
-                  strokeWidth={selected ? 2.5 : onRoute ? 1.9 : 1.2}
+                  stroke={current ? "hsl(24 95% 55%)" : selected || onRoute ? "hsl(var(--primary))" : color}
+                  strokeWidth={current ? 3.2 : selected ? 2.5 : onRoute ? 1.9 : 1.2}
                   strokeLinecap="square"
                   strokeDasharray={room.side ? "3 2" : undefined}
                 />
-                <text x={x + 4} y={y + 12} fontSize="9" fontWeight="600" fill="hsl(var(--foreground))">
-                  {String(room.name || room.category).slice(0, 26)}
-                </text>
-                <text x={x + 4} y={y + 21} fontSize="7" fill="hsl(var(--muted-foreground))">
-                  {room.category} · {preview.w}×{preview.h}
-                  {room.bonfire ? " · short rest" : ""}
-                </text>
-                {badges.length > 0 && (
+                {/* Surface overlays at map scale: water, difficult terrain and heights. */}
+                {(room.water || []).map((cell, i) => {
+                  const wx = Array.isArray(cell) ? cell[0] : cell?.x;
+                  const wy = Array.isArray(cell) ? cell[1] : cell?.y;
+                  if (!Number.isFinite(Number(wx)) || !Number.isFinite(Number(wy))) return null;
+                  return (
+                    <rect
+                      key={`w${i}`}
+                      x={x + Number(wx) * px}
+                      y={y + Number(wy) * px}
+                      width={px}
+                      height={px}
+                      fill="hsl(199 89% 48%)"
+                      fillOpacity="0.3"
+                    />
+                  );
+                })}
+                {(room.difficult || []).map((cell, i) => {
+                  const dx = Array.isArray(cell) ? cell[0] : cell?.x;
+                  const dy = Array.isArray(cell) ? cell[1] : cell?.y;
+                  if (!Number.isFinite(Number(dx)) || !Number.isFinite(Number(dy))) return null;
+                  return (
+                    <rect
+                      key={`d${i}`}
+                      x={x + Number(dx) * px}
+                      y={y + Number(dy) * px}
+                      width={px}
+                      height={px}
+                      fill="hsl(38 74% 45%)"
+                      fillOpacity="0.24"
+                    />
+                  );
+                })}
+                {(room.heights || []).map((cell, i) => {
+                  const hx = Array.isArray(cell) ? cell[0] : cell?.x;
+                  const hy = Array.isArray(cell) ? cell[1] : cell?.y;
+                  if (!Number.isFinite(Number(hx)) || !Number.isFinite(Number(hy))) return null;
+                  return (
+                    <rect
+                      key={`h${i}`}
+                      x={x + Number(hx) * px}
+                      y={y + Number(hy) * px}
+                      width={px}
+                      height={px}
+                      fill="hsl(var(--primary))"
+                      fillOpacity="0.16"
+                    />
+                  );
+                })}
+                {visible && (
+                  <text x={x + 4} y={y + 12} fontSize="9" fontWeight="600" fill="hsl(var(--foreground))">
+                    {String(room.name || room.category).slice(0, 26)}
+                  </text>
+                )}
+                {visible && (
+                  <text x={x + 4} y={y + 21} fontSize="7" fill="hsl(var(--muted-foreground))">
+                    {room.category} · {preview.w}×{preview.h}
+                    {room.bonfire ? " · short rest" : ""}
+                  </text>
+                )}
+                {visible && badges.length > 0 && (
                   <text x={x + 4} y={y + h - 5} fontSize="7" fontWeight="600" fill={color}>
                     {badges.join(" ")}
+                  </text>
+                )}
+                {sessionMode && current && (
+                  <text x={x + 4} y={y + h - 5} fontSize="7" fontWeight="700" fill="hsl(24 95% 45%)">
+                    CURRENT ROOM
                   </text>
                 )}
                 {selected && (

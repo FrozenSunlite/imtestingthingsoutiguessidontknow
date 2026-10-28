@@ -23,6 +23,7 @@ import {
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
 import { DEFAULT_DUNGEON_ROOMS } from "@/lib/dungeonGen";
+import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
 import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";
 import { featureMechanics } from "@/lib/fiveETools";
 import { optionAtPath } from "@/lib/optionTree";
@@ -46,6 +47,8 @@ import {
   migrateLegacyStorage,
 } from "@/lib/projectStore";
 import { toast } from "sonner";
+import { saveProjectToDisk } from "@/lib/projectFiles";
+import { loadPlots } from "@/lib/homesteadStore";
 
 export const TIME_PERIODS = ["Medieval", "Renaissance", "Modern", "Futuristic"];
 
@@ -190,13 +193,18 @@ export const DEFAULT_LIBRARY = {
   siege: [],
   vehicles: [],
   // Procedural dungeon room templates and saved generated dungeons.
-  dungeonRooms: DEFAULT_DUNGEON_ROOMS.map((r) => ({
+  dungeonRooms: STARTER_DUNGEON_ROOMS.map((r) => ({
     ...r,
     traps: [...(r.traps || [])],
     spawns: [...(r.spawns || [])],
     loot: [...(r.loot || [])],
+    harvest: [...(r.harvest || [])],
   })),
+  dungeonRoomsSeeded: true,
+  dungeonDraft: null,
   dungeons: [],
+  // Generated setting/world for the World Builder.
+  world: null,
   // Entries imported from the local 5eTools Reference Index that do not map to
   // an existing library list are kept here by category.
   fiveETools: {},
@@ -427,8 +435,12 @@ const DEFAULT_SETTINGS = {
   // project-only tiles enabled even for an empty project.
   projectStarted: false,
   autoSave: true,
+  autoSaveToDisk: true,
   autoSaveInterval: 60,
   cacheRemoteImages: false,
+  // Currency suffix used by dungeon rewards and Architect payouts.
+  rewardCurrency: "gp",
+  tourDone: false,
   // Per-level defaults used when a level has no row in the Reference Library.
   levelRules: { talentPoints: 1, heritagePoints: 0, attributePoints: 0 },
   library: DEFAULT_LIBRARY,
@@ -555,13 +567,28 @@ function mergeLibrary(lib) {
     monsterTemplates: lib?.monsterTemplates || [],
     lootPools: lib?.lootPools || [],
     encounterTables: lib?.encounterTables || [],
-    dungeonRooms: (lib?.dungeonRooms?.length ? lib.dungeonRooms : d.dungeonRooms).map((r) => ({
-      ...r,
-      traps: [...(r.traps || [])],
-      spawns: [...(r.spawns || [])],
-      loot: [...(r.loot || [])],
-    })),
+    dungeonRooms: (() => {
+      const existing = Array.isArray(lib?.dungeonRooms) ? lib.dungeonRooms : [];
+      const seeded = !!lib?.dungeonRoomsSeeded;
+      const ids = new Set(existing.map((r) => r.id));
+      const rooms = seeded
+        ? existing
+        : [
+            ...existing,
+            ...STARTER_DUNGEON_ROOMS.filter((r) => !ids.has(r.id)),
+          ];
+      return rooms.map((r) => ({
+        ...r,
+        traps: [...(r.traps || [])],
+        spawns: [...(r.spawns || [])],
+        loot: [...(r.loot || [])],
+        harvest: [...(r.harvest || [])],
+      }));
+    })(),
+    dungeonRoomsSeeded: true,
+    dungeonDraft: lib?.dungeonDraft && typeof lib.dungeonDraft === "object" ? lib.dungeonDraft : null,
     dungeons: Array.isArray(lib?.dungeons) ? lib.dungeons : [],
+    world: lib?.world && typeof lib.world === "object" ? lib.world : null,
     fiveETools: lib?.fiveETools && typeof lib.fiveETools === "object" ? lib.fiveETools : {},
     fiveEToolsBooks: Array.isArray(lib?.fiveEToolsBooks) ? lib.fiveEToolsBooks : [],
   };
@@ -1331,6 +1358,11 @@ export function TreeProvider({ children }) {
             ? ""
             : storedSettings.placeholderFrame || "",
           cameraStartNode: storedSettings.cameraStartNode || "",
+          rewardCurrency: storedSettings.rewardCurrency || "gp",
+          tourDone: !!storedSettings.tourDone,
+          autoSave: storedSettings.autoSave !== false,
+          autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
+          autoSaveInterval: storedSettings.autoSaveInterval || 60,
           levelRules: { ...DEFAULT_SETTINGS.levelRules, ...(storedSettings.levelRules || {}) },
           library: mergeLibrary(storedSettings.library),
         });
@@ -1401,6 +1433,41 @@ export function TreeProvider({ children }) {
     }, 400);
     return () => clearTimeout(t);
   }, [character]);
+
+  // Mirror the working project into a real file on the PC. The browser copy is
+  // still the live save; this is the automatic system-level backup.
+  useEffect(() => {
+    if (!hydratedRef.current || !tree || !dirty || settings.autoSaveToDisk === false) return undefined;
+    // Never mirror a completely empty launch over an existing project on disk.
+    // A fresh browser profile sees an empty IndexedDB; without this guard its
+    // first autosave would replace the real project file with a blank one.
+    const treeHasContent =
+      (tree.nodes || []).length > 0 ||
+      (tree.tabs || []).some((tab) => (tab.nodes || []).length > 0);
+    const worldHasContent = !!settings.library?.world;
+    const characterHasContent = !!character?.name;
+    if (!treeHasContent && !worldHasContent && !characterHasContent) {
+      return undefined;
+    }
+    const t = setTimeout(() => {
+      const payload = {
+        name: tree.name || character?.name || "Terrific Talent Tree Project",
+        savedAt: new Date().toISOString(),
+        tree,
+        character,
+        pools,
+        library: settings.library,
+        settings: {
+          rewardCurrency: settings.rewardCurrency,
+          autoSaveToDisk: settings.autoSaveToDisk,
+          levelRules: settings.levelRules,
+        },
+        plots: loadPlots(),
+      };
+      saveProjectToDisk(payload, { name: payload.name }).catch(() => {});
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [tree, character, pools, settings.library, settings.rewardCurrency, settings.autoSaveToDisk, settings.levelRules, dirty]);
 
   // Warn before the program closes only while edits are unsaved. Leaving the
   // workspace for the main menu deliberately does not ask.
@@ -2241,7 +2308,75 @@ export function TreeProvider({ children }) {
 
   // "New" on the launch menu: a fresh blank project. The LaunchMenu asks for
   // confirmation itself, so no second prompt here.
+  const BACKUP_KEYS = ["backup-1", "backup-2", "backup-3", "backup-4", "backup-5"];
+  const backupProject = useCallback(
+    async (label = "Manual backup") => {
+      const entry = {
+        at: new Date().toISOString(),
+        label,
+        tree,
+        settings,
+        character,
+      };
+      const existing = await Promise.all(
+        BACKUP_KEYS.map((key) => readProjectValue(key).catch(() => null))
+      );
+      for (let i = BACKUP_KEYS.length - 1; i > 0; i -= 1) {
+        if (existing[i - 1]) await writeProjectValue(BACKUP_KEYS[i], existing[i - 1]);
+      }
+      await writeProjectValue(BACKUP_KEYS[0], entry);
+      return entry;
+    },
+    [tree, settings, character]
+  );
+
+  const listBackups = useCallback(async () => {
+    const entries = await Promise.all(
+      BACKUP_KEYS.map(async (key) => {
+        const value = await readProjectValue(key).catch(() => null);
+        return value ? { key, at: value.at || "", label: value.label || "Backup" } : null;
+      })
+    );
+    return entries.filter(Boolean);
+  }, []);
+
+  const restoreBackup = useCallback(
+    async (key) => {
+      const entry = await readProjectValue(key).catch(() => null);
+      if (!entry) return false;
+      if (entry.tree) setTreeRaw(seedCameraStart(ensureTabs(migrateTree(entry.tree))));
+      if (entry.character) {
+        setCharacter({
+          ...DEFAULT_CHARACTER,
+          ...entry.character,
+          stats: { ...DEFAULT_CHARACTER.stats, ...(entry.character.stats || {}) },
+          abilityChoices: entry.character.abilityChoices || {},
+          appearance: { ...DEFAULT_CHARACTER.appearance, ...(entry.character.appearance || {}) },
+        });
+      }
+      if (entry.settings) {
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...entry.settings,
+          library: mergeLibrary(entry.settings.library),
+          projectStarted: true,
+        });
+      }
+      setUi((u) => ({
+        ...u,
+        selectedNodeId: null,
+        editingNodeId: null,
+        selectedNodeIds: [],
+        selectedConnectionId: null,
+      }));
+      clearDirty();
+      return true;
+    },
+    [clearDirty]
+  );
+
   const startNewTree = useCallback(() => {
+    backupProject("Before New").catch(() => {});
     setTreeRaw({
       name: "New Skill Tree",
       nodes: [],
@@ -2259,15 +2394,20 @@ export function TreeProvider({ children }) {
       pinnedNodeIds: [],
       pinPositions: {},
     }));
-    setSettings((s) => ({ ...s, projectStarted: true }));
+    setSettings((s) => ({
+      ...s,
+      projectStarted: true,
+      library: { ...s.library, dungeonDraft: null },
+    }));
     clearDirty();
     enterApp("edit");
-  }, [enterApp, clearDirty]);
+  }, [enterApp, clearDirty, backupProject]);
 
   // Load a saved character bundle (tree + character + pools + library).
   const applyLoadedSave = useCallback(
     (entry, nextMode) => {
       if (!entry) return;
+      backupProject("Before load").catch(() => {});
       if (entry.tree) setTreeRaw(seedCameraStart(ensureTabs(migrateTree(entry.tree))));
       if (entry.character)
         setCharacter({
@@ -2297,7 +2437,7 @@ export function TreeProvider({ children }) {
       clearDirty();
       enterApp(nextMode || "sheet");
     },
-    [enterApp, clearDirty]
+    [enterApp, clearDirty, backupProject]
   );
 
   // Edits made from the interface mark the project dirty. Loading, New and the
@@ -2398,6 +2538,9 @@ export function TreeProvider({ children }) {
     enterApp,
     startNewTree,
     applyLoadedSave,
+    backupProject,
+    listBackups,
+    restoreBackup,
   };
 
   return (

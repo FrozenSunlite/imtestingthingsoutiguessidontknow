@@ -89,19 +89,66 @@ export async function importImage(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
   }
 }
 
+// Read an image's bytes from a direct URL, falling back to the local server
+// proxy when the remote host blocks cross-origin reads.
+async function fetchImageBlob(url) {
+  try {
+    const res = await fetch(url, { cache: "no-cache" });
+    if (res.ok) return await res.blob();
+  } catch {
+    /* try the proxy below */
+  }
+  if (/^https?:/i.test(url)) {
+    const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(url)}`);
+    if (res.ok) return await res.blob();
+  }
+  throw new Error("image fetch failed");
+}
+
 // Import an image referenced by a URL (local 5eTools image, remote artwork)
 // into the project's image folder. Falls back to the original URL.
 export async function importImageFromUrl(url) {
   if (!url || isDataUrl(url) || isProjectImage(url)) return url;
   try {
-    const res = await fetch(url, { cache: "no-cache" });
-    if (!res.ok) throw new Error("image fetch failed");
-    const blob = await res.blob();
+    const blob = await fetchImageBlob(url);
     const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
     try {
       return await uploadBlob(blob, `5etools.${ext}`);
     } catch {
       return await blobToDataUrl(blob);
+    }
+  } catch {
+    return url;
+  }
+}
+
+// Re-encode an image at a smaller edge/quality and store the result as a new
+// project image. Returns the new `/images/...` URL (or the original when the
+// browser/server cannot process it).
+export async function optimizeImageUrl(url, { maxEdge = 1280, quality = 0.82 } = {}) {
+  if (!url) return url;
+  try {
+    const blob = await fetchImageBlob(url);
+    if (!String(blob.type || "").startsWith("image/")) return url;
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const out = await new Promise((resolve) =>
+      canvas.toBlob((result) => resolve(result), "image/webp", quality)
+    );
+    if (!out) return url;
+    try {
+      return await uploadBlob(out, "optimized.webp");
+    } catch {
+      return await blobToDataUrl(out);
     }
   } catch {
     return url;
@@ -136,6 +183,14 @@ async function mapMarkdownImages(text, resolve) {
     if (next !== url) out = out.replace(match[0], match[1] + next + match[3]);
   }
   return out;
+}
+
+// Import every markdown image inside a chapter into the project image folder
+// (or leave the URL untouched when it cannot be read). Used by 5eTools book
+// imports so illustrations render even when the source data is gone.
+export async function importImagesInText(text, resolve = importImageFromUrl) {
+  if (typeof text !== "string" || !text.includes("![")) return text;
+  return mapMarkdownImages(text, resolve);
 }
 
 async function embedUrl(url) {

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import {
   FACILITY_TYPES, CONNECTION_TYPES, FURNISHINGS, FURNISH_CATS, STATIONS,
   WALL_TYPES, plotHasKind, BASTION_FACILITIES, BASTION_LEVELS,
+  knownBastionFacilities, countedBastionFacilities,
 } from "@/lib/homestead";
 import { MousePointer2, Hammer, Ban, Search, ChevronDown, ChevronRight } from "lucide-react";
 
@@ -35,6 +36,10 @@ export default function HomesteadPalette({ plot, tool, setTool }) {
   const biz = plotHasKind(plot, "business");
   const st = STATIONS[plot.comfort] || STATIONS.modest;
   const level = plot.charLevel || 5;
+  const bastion = plotHasKind(plot, "bastion");
+  const knownBastion = knownBastionFacilities(level);
+  const usedBastion = countedBastionFacilities(plot);
+  const bastionFull = knownBastion > 0 && usedBastion >= knownBastion;
 
   const toolBtn = (t, sub, disabled, note) => {
     if (q && !`${t.type} ${sub || ""}`.toLowerCase().includes(q)) return null;
@@ -98,14 +103,17 @@ export default function HomesteadPalette({ plot, tool, setTool }) {
             .map((b) => {
               const size = FACILITY_TYPES[b.space];
               const locked = level < b.level;
+              const full = bastionFull;
               const base = `${b.space} (${size.w}×${size.h}) · ${b.hirelings} hireling${b.hirelings === 1 ? "" : "s"} · free — no gold or build time`;
               return toolBtn(
                 { kind: "bastion", type: b.name },
-                locked ? `Level ${b.level} · locked` : base,
-                locked,
+                locked ? `Level ${b.level} · locked` : full ? "Known facilities full" : base,
+                locked || full,
                 locked
                   ? `Requires character level ${b.level}${b.prereq ? ` · ${b.prereq}` : ""}`
-                  : `${b.prereq ? `${b.prereq} · ` : ""}${base}${b.multi ? "" : " · one only"}`
+                  : full
+                    ? `Your Bastion knows ${usedBastion}/${knownBastion} special facilities at level ${level}. The Seat of Power does not count.`
+                    : `${b.prereq ? `${b.prereq} · ` : ""}${base}${b.multi ? "" : " · one only"}`
               );
             })
             .filter(Boolean);
@@ -118,6 +126,21 @@ export default function HomesteadPalette({ plot, tool, setTool }) {
           );
         })
       )}
+
+      {section("Bastion — Seat of Power",
+        toolBtn(
+          { kind: "bastion", type: "Throne Room" },
+          "4×4 Living · free · does not count against known facilities",
+          !bastion,
+          !bastion
+            ? "Seat of Power can only be placed in a Bastion"
+            : "Throne Room — 4×4 Seat of Power. Bastion only, free, and it does not count against your known Bastion facilities."
+        )
+      )}
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        Known Bastion facilities: {usedBastion}/{knownBastion}
+        {knownBastion ? " · the Seat of Power is always extra." : " · claim a Bastion at level 5."}
+      </p>
 
       {section("Attachments",
         ["Courtyard", "Porch", "Balcony", "Tower"].map((type) =>

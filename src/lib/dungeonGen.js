@@ -1,5 +1,7 @@
 // Procedural dungeon generation: room templates, rank tables, seeded layouts
 // for a single dungeon or a branching "spire" run.
+import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
+import { rollEncounter } from "@/lib/dmLoot";
 
 // crMin/crMax is the challenge band for bosses (and elite mini-bosses).
 // Ordinary non-boss NPCs sit one or two CR below crMin.
@@ -97,6 +99,16 @@ export function generateDungeonName(seed, mode = "single", rank = "E") {
   ];
   return rng.pick(patterns)();
 }
+
+export const DUNGEON_TRAP_TYPES = [
+  "Pressure plate",
+  "Falling ceiling",
+  "Spike pit",
+  "Alarm rune",
+  "Collapsing bridge",
+  "Flame jet",
+  "Poison mist",
+];
 
 const TRAP_POOL = [
   "Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
@@ -395,21 +407,35 @@ const uid = (prefix = "d") =>
 function templateFor(category, templates, rng) {
   const pool = templates.filter((r) => r.category === category);
   if (pool.length) return rng.pick(pool);
-  return templates.length ? rng.pick(templates) : DEFAULT_DUNGEON_ROOMS[0];
+  return templates.length ? rng.pick(templates) : STARTER_DUNGEON_ROOMS[0];
 }
 
-function instantiate(template, category, rng, rank, { monsters, lootPools }) {
-  const w = rng.int(template.minW || 3, template.maxW || template.minW || 5);
-  const h = rng.int(template.minH || 3, template.maxH || template.minH || 5);
+function instantiate(template, category, rng, rank, { monsters, lootPools, players = 4 }) {
+  const sizeScale = Math.max(0.85, Math.min(1.35, 1 + (Math.max(1, Number(players) || 4) - 4) * 0.06));
+  const w = Math.max(
+    9,
+    Math.min(
+      33,
+      Math.round(
+        rng.int(template.minW || 9, Math.max(template.minW || 9, template.maxW || template.minW || 9)) *
+          sizeScale
+      )
+    )
+  );
+  const h = Math.max(
+    9,
+    Math.min(
+      33,
+      Math.round(
+        rng.int(template.minH || 9, Math.max(template.minH || 9, template.maxH || template.minH || 9)) *
+          sizeScale
+      )
+    )
+  );
   const traps = [...(template.traps || [])];
   if (!traps.length && (category === "Trap" || rng.chance(0.18)))
     traps.push(rng.pick(TRAP_POOL));
   const spawns = [...(template.spawns || [])];
-  if (!spawns.length && ["Chamber", "Corridor", "Elite", "Boss"].includes(category)) {
-    const names = (monsters || []).map((m) => m.name).filter(Boolean);
-    if (names.length) spawns.push(`${rng.int(1, 3)}× ${rng.pick(names)}`);
-    else spawns.push(`${rng.int(1, 3)} rank ${rank} minions`);
-  }
   const loot = [...(template.loot || [])];
   if (!loot.length && (category === "Loot" || rng.chance(0.22))) {
     const pools = (lootPools || []).map((p) => p.name).filter(Boolean);
@@ -417,10 +443,20 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
   }
   const shape = template.cells?.length
     ? template.shape || "Custom"
-    : template.shape || pickRoomShape(category, rng);
+    : template.shape && template.shape !== "Rectangle"
+      ? template.shape
+      : pickRoomShape(category, rng);
   const cells = template.cells?.length
     ? template.cells.map(([cx, cy]) => [cx, cy])
     : shapeCells(w, h, shape);
+  const environment = template.environment || rng.pick(DUNGEON_ENVIRONMENTS);
+  const elevation = template.elevation || rng.pick(ELEVATIONS);
+  const cover = template.cover || rng.pick(COVERS);
+  const surface = roomSurfaceFeatures(
+    { ...template, environment, elevation, cover, traps },
+    cells,
+    rng
+  );
   return {
     id: uid("room"),
     templateId: template.id,
@@ -430,12 +466,21 @@ function instantiate(template, category, rng, rank, { monsters, lootPools }) {
     y: 0,
     w,
     h,
-    environment: template.environment || rng.pick(DUNGEON_ENVIRONMENTS),
-    elevation: template.elevation || rng.pick(ELEVATIONS),
-    cover: template.cover || rng.pick(COVERS),
+    environment,
+    elevation,
+    cover,
     connector: template.connector || "Doorway",
     shape,
     cells,
+    heights: surface.heights,
+    stairs: surface.stairs,
+    coverPoints: surface.coverPoints,
+    trapPoints: surface.trapPoints,
+    water: surface.water,
+    difficult: surface.difficult,
+    environmentEffect: template.environmentEffect || "",
+    tags: [...(template.tags || [])],
+    description: template.description || "",
     ingressPoints: template.ingressPoints?.length
       ? template.ingressPoints.map((p) => ({ ...p }))
       : defaultIngress(cells),
@@ -551,18 +596,143 @@ function insertBonfires(spine, rng) {
 
 function positionSingle(rooms, rng) {
   const spine = rooms.filter((r) => !r.branch);
-  spine.forEach((room, i) => {
-    room.x = i * 18;
-    room.y = (i % 2 ? 9 : 0) + rng.int(-2, 2);
+  let cursor = 0;
+  spine.forEach((room) => {
+    room.x = cursor;
+    room.y = rng.int(-1, 1);
+    cursor += Math.max(12, room.w) + 34;
   });
-  rooms.filter((r) => r.branch).forEach((room) => {
+  rooms.filter((r) => r.branch).forEach((room, index) => {
     const parent = rooms.find((r) => r.id === room.parentId) || spine[0];
-    room.x = (parent?.x || 0) + 6;
-    room.y = (parent?.y || 0) + 20;
+    room.x =
+      (parent?.x || 0) +
+      Math.max(0, ((parent?.w || room.w || 9) - (room.w || 9)) / 2);
+    room.y =
+      (parent?.y || 0) +
+      Math.max(12, parent?.h || 12) +
+      26 +
+      index * (Math.max(12, room.h || 12) + 22);
   });
 }
 
-function buildRoutes(rooms, connections) {
+export const HALL_TYPES = [
+  { name: "Hallway", elevation: "Flat", environment: "Damp stone" },
+  { name: "Stairwell", elevation: "Tiered steps (+2)", environment: "Ancient ruins" },
+  { name: "Elevator Shaft", elevation: "Raised dais (+1)", environment: "Mine shafts" },
+  { name: "Bridge", elevation: "Chasm edge (−2)", environment: "Collapsed bridge" },
+  { name: "Collapsed Passage", elevation: "Sunken floor (−1)", environment: "Collapsed gallery" },
+];
+
+function makeHall(rng, dx, dy) {
+  const kind = rng.pick(HALL_TYPES);
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
+  const w = horizontal
+    ? Math.max(9, Math.min(16, Math.round(Math.abs(dx) / 2)))
+    : Math.max(3, Math.min(9, Math.round(Math.abs(dx) / 2) + 1));
+  const h = horizontal
+    ? 3
+    : Math.max(9, Math.min(16, Math.round(Math.abs(dy) / 2)));
+  let cells = rectCells(w, h);
+  if (!horizontal && w > 3) {
+    // Add a short horizontal arm at one end so the hall bends toward the room.
+    for (let x = 3; x < w; x += 1) {
+      for (let y = h - 3; y < h; y += 1) cells.push([x, y]);
+    }
+  }
+  const traps = rng.chance(0.25) ? [rng.pick(TRAP_POOL)] : [];
+  const stairs =
+    kind.name === "Stairwell" || kind.name === "Elevator Shaft"
+      ? [
+          { x: 0, y: Math.max(0, Math.floor(h / 2)) },
+          { x: Math.max(0, w - 1), y: Math.max(0, Math.floor(h / 2)) },
+        ]
+      : [];
+  return {
+    id: uid("hall"),
+    templateId: `hall-${kind.name.toLowerCase().replace(/\s+/g, "-")}`,
+    name: kind.name,
+    category: "Corridor",
+    hall: true,
+    combat: false,
+    side: false,
+    branch: false,
+    x: 0,
+    y: 0,
+    w,
+    h,
+    shape: horizontal ? "Rectangle" : "L-Shape",
+    cells,
+    environment: kind.environment,
+    elevation: kind.elevation,
+    cover: "Open",
+    connector: kind.name,
+    tags: ["hall", kind.name.toLowerCase()],
+    description: `${kind.name} connecting two chambers. Monsters do not lair here, but the passage can be trapped or blocked.`,
+    traps,
+    spawns: [],
+    spawnPoints: [],
+    loot: [],
+    harvest: [],
+    stairs,
+    ingressPoints: defaultIngress(cells),
+    environmentEffect: "",
+    notes: `${kind.name}: free of monster encounters; traps and hazards are possible.`,
+  };
+}
+
+// Insert corridor / stair / elevator rooms between chambers. Spire runs keep
+// their existing floor layout; this is the single-dungeon connective tissue.
+function insertHalls(rooms, connections, rng) {
+  const halls = [];
+  const next = [];
+  (connections || []).forEach((connection) => {
+    const from = rooms.find((r) => r.id === connection.from);
+    const to = rooms.find((r) => r.id === connection.to);
+    if (!from || !to) {
+      next.push(connection);
+      return;
+    }
+    if (
+      from.side ||
+      to.side ||
+      from.hall ||
+      to.hall ||
+      from.bonfire ||
+      to.bonfire ||
+      from.category === "Boss" ||
+      to.category === "Boss" ||
+      from.category === "Start" ||
+      to.category === "Start"
+    ) {
+      next.push(connection);
+      return;
+    }
+    const dx = to.x + to.w / 2 - (from.x + from.w / 2);
+    const dy = to.y + to.h / 2 - (from.y + from.h / 2);
+    if (Math.abs(dx) + Math.abs(dy) < 18) {
+      next.push(connection);
+      return;
+    }
+    // Diagonal gaps need a bent connector; leave those as direct links so a
+    // rectangular hall is never dropped across a room.
+    if (Math.abs(dx) > 14 && Math.abs(dy) > 14) {
+      next.push(connection);
+      return;
+    }
+    const hall = makeHall(rng, dx, dy);
+    hall.x = from.x + from.w / 2 + dx / 2 - hall.w / 2;
+    hall.y = from.y + from.h / 2 + dy / 2 - hall.h / 2;
+    // Snap the hall to the shared axis so the connection line runs through it.
+    if (Math.abs(dx) >= Math.abs(dy)) hall.y = (from.y + from.h / 2 + to.y + to.h / 2) / 2 - hall.h / 2;
+    else hall.x = (from.x + from.w / 2 + to.x + to.w / 2) / 2 - hall.w / 2;
+    halls.push(hall);
+    next.push(link(from.id, hall.id, hall.connector));
+    next.push(link(hall.id, to.id, connection.type || "Doorway"));
+  });
+  return { halls, connections: next };
+}
+
+export function buildRoutes(rooms, connections) {
   const start = rooms.find((r) => r.category === "Start") || rooms[0];
   const bosses = rooms.filter((r) => r.category === "Boss");
   if (!start || !bosses.length) return [];
@@ -609,25 +779,40 @@ export function generateDungeon({
   mode = "single",
   rank = "E",
   seed = randomSeed(),
-  templates = DEFAULT_DUNGEON_ROOMS,
+  templates = STARTER_DUNGEON_ROOMS,
   monsters = [],
   lootPools = [],
   name = "",
+  players = 4,
+  requiredTags = [],
+  avoidCategories = [],
 } = {}) {
   const rng = makeRng(`${mode}:${rank}:${seed}`);
   const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
   const rankIndex = Math.max(0, Object.keys(DUNGEON_RANKS).indexOf(rank));
-  const source = (templates || []).length ? templates : DEFAULT_DUNGEON_ROOMS;
+  const baseTemplates = (templates || []).length ? templates : STARTER_DUNGEON_ROOMS;
+  const wantedTags = (requiredTags || []).map((t) => String(t).toLowerCase().trim()).filter(Boolean);
+  const avoided = new Set((avoidCategories || []).map((c) => String(c).toLowerCase()));
+  let source = baseTemplates.filter((template) => {
+    if (avoided.has(String(template.category || "").toLowerCase())) return false;
+    if (!wantedTags.length) return true;
+    const haystack = `${template.name || ""} ${template.category || ""} ${(template.tags || []).join(" ")} ${template.environment || ""}`.toLowerCase();
+    return wantedTags.some((tag) => haystack.includes(tag));
+  });
+  if (!source.length) source = baseTemplates;
   const rooms = [];
   const connections = [];
-  const total = Math.max(3, Math.min(24, info.rooms));
-  const opts = { monsters, lootPools };
+  const total = Math.max(
+    3,
+    Math.min(48, info.rooms * (mode === "single" ? 2 : 1))
+  );
+  const opts = { monsters, lootPools, players };
   let title = name || generateDungeonName(seed, mode, rank);
 
   if (mode === "spire") {
     const floors = 15;
     const start = makeMissionStart();
-    start.x = -22;
+    start.x = -40;
     start.y = 0;
     rooms.push(start);
     let previous = [start];
@@ -646,8 +831,8 @@ export function generateDungeon({
         else if (rng.chance(0.16)) category = rng.pick(["Trap", "Puzzle", "Loot"]);
         let room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
         if (last) room = themedBoss(room, lane);
-        room.x = f * 22;
-        room.y = (lane - (count - 1) / 2) * 14 + (last ? 0 : rng.int(-2, 2));
+        room.x = f * 52;
+        room.y = (lane - (count - 1) / 2) * 42 + (last ? 0 : rng.int(-2, 2));
         current.push(room);
         rooms.push(room);
       }
@@ -682,7 +867,7 @@ export function generateDungeon({
         !current.some((r) => r.category === "Boss")
       ) {
         const camp = makeBonfire(rng);
-        camp.x = f * 22 + 11;
+        camp.x = f * 52 + 36;
         camp.y = 0;
         rooms.push(camp);
         current.forEach((room) => connections.push(link(room.id, camp.id, room.connector)));
@@ -746,22 +931,52 @@ export function generateDungeon({
       rooms.length = 0;
       rooms.push(...expandedSpine, ...branchRooms);
     }
-    // Higher ranks expose alternate final bosses as route choices.
+    // Higher ranks expose alternate final bosses as route choices. Each
+    // alternate branch gets its own pre-boss safe camp so no route shares the
+    // main camp; the fork happens one node before the main camp.
     const altCount = rankIndex >= 4 ? 2 : rankIndex >= 2 ? 1 : 0;
-    const bossParent = expandedSpine[expandedSpine.length - 2];
-    if (altCount && bossParent) {
+    const mainBoss = expandedSpine[expandedSpine.length - 1];
+    const mainCamp = expandedSpine[expandedSpine.length - 2];
+    const forkPoint = mainCamp?.bonfire
+      ? expandedSpine[expandedSpine.length - 3] || mainCamp
+      : mainCamp;
+    const alternateRoutes = [];
+    if (altCount && forkPoint && mainBoss) {
       for (let i = 0; i < altCount; i += 1) {
+        const camp = makeBonfire(rng);
+        camp.name = `Bonfire Safe Zone ${i + 2}`;
+        camp.branch = true;
+        camp.parentId = forkPoint.id;
         const alt = themedBoss(
           instantiate(templateFor("Boss", source, rng), "Boss", rng, rank, opts),
           i + 1
         );
         alt.branch = true;
-        alt.parentId = bossParent.id;
-        rooms.push(alt);
-        connections.push(link(bossParent.id, alt.id, bossParent.connector));
+        alt.parentId = camp.id;
+        rooms.push(camp, alt);
+        connections.push(link(forkPoint.id, camp.id, forkPoint.connector));
+        connections.push(link(camp.id, alt.id, camp.connector));
+        alternateRoutes.push({ camp, boss: alt });
       }
     }
     positionSingle(rooms, rng);
+    // Fan the alternate boss routes out below the fork so they read as
+    // separate paths rather than stacked rooms.
+    alternateRoutes.forEach(({ camp, boss }, i) => {
+      const maxX = Math.max(0, ...rooms.map((room) => room.x + room.w));
+      boss.x = maxX + 30 + i * (Math.max(boss.w, 14) + 18);
+      boss.y = 0;
+      camp.x = boss.x;
+      camp.y = boss.y - Math.max(10, camp.h) - 12;
+    });
+    // A single dungeon is a chain of chambers joined by halls, stairs,
+    // elevators and bridges. Spire runs keep their existing floor plan.
+    const hallResult = insertHalls(rooms, connections, rng);
+    if (hallResult.halls.length) {
+      rooms.push(...hallResult.halls);
+      connections.length = 0;
+      connections.push(...hallResult.connections);
+    }
   }
 
   // Branching non-combat side rooms. These are extra to the rank's encounter
@@ -769,7 +984,7 @@ export function generateDungeon({
   // harvesting, lore and exploration rather than fights.
   let harvestPool = source.filter((t) => t.category === "Harvest" && t.enabled !== false);
   if (!harvestPool.length) {
-    harvestPool = DEFAULT_DUNGEON_ROOMS.filter((t) => t.category === "Harvest");
+    harvestPool = STARTER_DUNGEON_ROOMS.filter((t) => t.category === "Harvest");
   }
   const sideParents = rooms.filter(
     (r) => !r.branch && !["Start", "Boss"].includes(r.category)
@@ -782,6 +997,7 @@ export function generateDungeon({
       const room = instantiate(template, "Harvest", rng, rank, {
         monsters: [],
         lootPools,
+        players,
       });
       room.name = template.name || "Harvesting Site";
       room.side = true;
@@ -791,8 +1007,10 @@ export function generateDungeon({
       room.traps = [];
       room.spawns = [];
       room.spawnPoints = [];
-      room.x = parent.x + 8 + (i % 2) * 6;
-      room.y = parent.y + parent.h + 4 + Math.floor(i / 2) * 6;
+      const maxX = Math.max(0, ...rooms.map((r) => r.x + r.w));
+      const maxY = Math.max(0, ...rooms.map((r) => r.y + r.h));
+      room.x = maxX + 20 + (i % 3) * (room.w + 12);
+      room.y = maxY + 20 + Math.floor(i / 3) * (room.h + 12);
       rooms.push(room);
       connections.push(link(parent.id, room.id, "Side passage"));
     }
@@ -809,7 +1027,7 @@ export function generateDungeon({
     connections,
     routes,
     chosenRouteId: routes[0]?.id || "",
-    notes: `${info.nickname} · ${info.downtime} downtime · ${info.rooms} encounters`,
+    notes: `${info.nickname} · ${info.downtime} downtime · ${rooms.filter((r) => !r.hall && !r.side).length} rooms`,
     createdAt: new Date().toISOString(),
   };
 }
@@ -889,7 +1107,7 @@ export function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
 
 export const ROOM_SHAPES = [
   "Rectangle", "Diamond", "Circle", "L-Shape", "T-Shape", "U-Shape",
-  "Cross", "Octagon", "Irregular",
+  "Cross", "Octagon", "Hexagon", "Hourglass", "Rounded", "Cavern", "Irregular",
 ];
 
 const irregularCells = (w, h) => {
@@ -921,8 +1139,8 @@ const irregularCells = (w, h) => {
 };
 
 export function shapeCells(width, height, shape) {
-  const w = Math.max(2, Math.round(Number(width) || 2));
-  const h = Math.max(2, Math.round(Number(height) || 2));
+  const w = Math.max(9, Math.min(33, Math.round(Number(width) || 9)));
+  const h = Math.max(9, Math.min(33, Math.round(Number(height) || 9)));
   const keep = (predicate) => {
     const out = [];
     for (let y = 0; y < h; y++) {
@@ -961,6 +1179,27 @@ export function shapeCells(width, height, shape) {
         const cutY = Math.floor(h * 0.25);
         return !((x < cutX && y < cutY) || (x >= w - cutX && y < cutY) || (x < cutX && y >= h - cutY) || (x >= w - cutX && y >= h - cutY));
       });
+    case "Hexagon":
+      return keep((x, y) => {
+        const cutX = Math.floor(w * 0.2);
+        const cutY = Math.floor(h * 0.25);
+        return !((x < cutX && (y < cutY || y >= h - cutY)) || (x >= w - cutX && (y < cutY || y >= h - cutY)));
+      });
+    case "Hourglass":
+      return keep((x, y) => {
+        const t = Math.abs(y - cy) / Math.max(1, h / 2);
+        const limit = 0.18 + 0.82 * t;
+        return Math.abs(x - cx) / Math.max(1, w / 2) <= limit;
+      });
+    case "Rounded":
+      return keep((x, y) => {
+        const corner = Math.min(w, h) * 0.18;
+        const nearX = x < corner || x >= w - corner;
+        const nearY = y < corner || y >= h - corner;
+        return !(nearX && nearY);
+      });
+    case "Cavern":
+      return irregularCells(w, h);
     case "Irregular":
       return irregularCells(w, h);
     default:
@@ -976,14 +1215,18 @@ export function pickRoomShape(category, rng) {
     return rng.chance(0.08) ? "L-Shape" : "Rectangle";
   }
   const roll = rng.rand();
-  if (roll < 0.04) return "Irregular";
-  if (roll < 0.07) return "Circle";
-  if (roll < 0.13) return "Diamond";
-  if (roll < 0.21) return "L-Shape";
-  if (roll < 0.28) return "T-Shape";
-  if (roll < 0.34) return "Cross";
-  if (roll < 0.39) return "Octagon";
-  if (roll < 0.45) return "U-Shape";
+  if (roll < 0.035) return "Irregular";
+  if (roll < 0.06) return "Circle";
+  if (roll < 0.085) return "Diamond";
+  if (roll < 0.12) return "Hexagon";
+  if (roll < 0.15) return "Hourglass";
+  if (roll < 0.18) return "Rounded";
+  if (roll < 0.2) return "Cavern";
+  if (roll < 0.27) return "L-Shape";
+  if (roll < 0.33) return "T-Shape";
+  if (roll < 0.39) return "Cross";
+  if (roll < 0.44) return "Octagon";
+  if (roll < 0.5) return "U-Shape";
   return "Rectangle";
 }
 
@@ -1016,14 +1259,212 @@ function defaultSpawns(cells, count) {
   return picked;
 }
 
+const coverType = (cover) => {
+  const text = String(cover || "").toLowerCase();
+  if (/full/.test(text)) return "full";
+  if (/three|3\/4|three-quarters/.test(text)) return "three-quarters";
+  if (/half|pillar|crate|wall|fog/.test(text)) return "half";
+  return "";
+};
+
+export function elevationHeightCells(cells, elevation) {
+  const text = String(elevation || "").toLowerCase();
+  if (!cells?.length || !text || text.includes("flat")) return [];
+  const xs = cells.map(([x]) => x);
+  const ys = cells.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const rx = Math.max(1, (maxX - minX) / 2);
+  const ry = Math.max(1, (maxY - minY) / 2);
+  const out = [];
+  cells.forEach(([x, y]) => {
+    const nx = Math.abs((x - cx) / rx);
+    const ny = Math.abs((y - cy) / ry);
+    let h = 0;
+    if (/tiered|steps/.test(text)) h = nx < 0.3 && ny < 0.3 ? 2 : nx < 0.62 && ny < 0.62 ? 1 : 0;
+    else if (/raised|dais|above|high/.test(text)) h = nx < 0.38 && ny < 0.38 ? 1 : 0;
+    else if (/sunken|pit|below|chasm/.test(text)) h = nx < 0.38 && ny < 0.38 ? -1 : 0;
+    if (h) out.push([x, y, h]);
+  });
+  return out;
+}
+
+export function findStairs(cells, heightCells) {
+  const map = new Map((heightCells || []).map(([x, y, h]) => [`${x},${y}`, h]));
+  const candidates = [];
+  (cells || []).forEach(([x, y]) => {
+    const h = map.get(`${x},${y}`) || 0;
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!cells.some(([cx, cy]) => cx === nx && cy === ny)) return;
+      const nh = map.get(`${nx},${ny}`) || 0;
+      if (nh === h) return;
+      const low = h < nh ? [x, y] : [nx, ny];
+      if (!candidates.some(([cx, cy]) => cx === low[0] && cy === low[1])) {
+        candidates.push(low);
+      }
+    });
+  });
+  if (!candidates.length) return [];
+  if (candidates.length === 1) return candidates.map(([x, y]) => ({ x, y }));
+  return [candidates[0], candidates[Math.floor(candidates.length / 2)]].map(([x, y]) => ({ x, y }));
+}
+
+const spreadCells = (cells, count) => {
+  if (!cells.length || !count) return [];
+  const out = [];
+  for (let i = 0; i < count; i += 1) {
+    const cell = cells[Math.floor((i + 0.5) * (cells.length / count)) % cells.length];
+    if (cell && !out.some(([x, y]) => x === cell[0] && y === cell[1])) out.push(cell);
+  }
+  return out;
+};
+
+export function coverPointsFor(cells, cover) {
+  const type = coverType(cover);
+  if (!type || !cells?.length) return [];
+  const edge = edgeCells(cells);
+  const pool = edge.length ? edge : cells;
+  return spreadCells(pool, Math.min(6, Math.max(2, Math.round(pool.length / 8)))).map(
+    ([x, y]) => ({ x, y, cover: type })
+  );
+}
+
+export function trapPointsFor(cells, traps, rng) {
+  if (!cells?.length || !traps?.length) return [];
+  const list = [...traps].slice(0, 4);
+  return list.map((trap, i) => {
+    const index = Math.floor((rng ? rng.rand() : (i + 0.5) / list.length) * cells.length);
+    const [x, y] = cells[Math.min(cells.length - 1, index)];
+    return { x, y, type: String(trap).split(":")[0].trim() };
+  });
+}
+
+export function waterCellsFor(cells, environment) {
+  const text = String(environment || "").toLowerCase();
+  if (!/flood|cistern|water|spring|river|lake|sea|marsh/.test(text)) return [];
+  return spreadCells(cells, Math.max(2, Math.round(cells.length * 0.28)));
+}
+
+export function difficultCellsFor(cells, environment, effect = "") {
+  const text = `${environment || ""} ${effect || ""}`.toLowerCase();
+  if (!/rubble|overgrown|fungal|mine|frozen|ice|unstable|difficult/.test(text)) return [];
+  return spreadCells(cells, Math.max(2, Math.round(cells.length * 0.24)));
+}
+
+const pointXY = (p) =>
+  Array.isArray(p)
+    ? { x: Number(p[0]), y: Number(p[1]) }
+    : { x: Number(p?.x), y: Number(p?.y) };
+
+export function roomSurfaceFeatures(room, cells, rng) {
+  const heights = Array.isArray(room?.heights) && room.heights.length
+    ? room.heights
+        .map((p) =>
+          Array.isArray(p)
+            ? [Number(p[0]), Number(p[1]), Number(p[2]) || 0]
+            : [Number(p?.x), Number(p?.y), Number(p?.height ?? p?.h ?? 0) || 0]
+        )
+        .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))
+    : elevationHeightCells(cells, room?.elevation);
+  const stairs = Array.isArray(room?.stairs) && room.stairs.length
+    ? room.stairs.map(pointXY).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+    : findStairs(cells, heights);
+  return {
+    heights,
+    stairs,
+    coverPoints: Array.isArray(room?.coverPoints) && room.coverPoints.length
+      ? room.coverPoints.map((p) => ({
+          ...pointXY(p),
+          cover: Array.isArray(p) ? p[2] || p[3] || "half" : p?.cover || "half",
+        }))
+      : coverPointsFor(cells, room?.cover),
+    trapPoints: Array.isArray(room?.trapPoints) && room.trapPoints.length
+      ? room.trapPoints.map((p) => ({
+          ...pointXY(p),
+          type: Array.isArray(p) ? p[2] || p[3] || "Trap" : p?.type || "Trap",
+        }))
+      : trapPointsFor(cells, room?.traps, rng),
+    water: Array.isArray(room?.water) && room.water.length
+      ? room.water.map((p) => {
+          const { x, y } = pointXY(p);
+          return [x, y];
+        })
+      : waterCellsFor(cells, room?.environment),
+    difficult: Array.isArray(room?.difficult) && room.difficult.length
+      ? room.difficult.map((p) => {
+          const { x, y } = pointXY(p);
+          return [x, y];
+        })
+      : difficultCellsFor(cells, room?.environment, room?.environmentEffect),
+  };
+}
+
+// Decorative tactical landmarks derived from a room's tags/name/environment.
+// These are rendered on the battle map and cost nothing to persist because they
+// follow the room description.
+export function roomFeaturePoints(room) {
+  const cells = roomShapeCells(room);
+  if (!cells?.length) return [];
+  const text = `${room.name || ""} ${room.category || ""} ${(room.tags || []).join(" ")} ${
+    room.environment || ""
+  } ${room.description || ""}`.toLowerCase();
+  const edges = edgeCells(cells);
+  const out = [];
+  const add = (cell, type) => {
+    if (!cell) return;
+    const [x, y] = cell;
+    if (out.some((f) => f.x === x && f.y === y && f.type === type)) return;
+    out.push({ x, y, type });
+  };
+  const pick = (list, fraction) =>
+    list[Math.max(0, Math.min(list.length - 1, Math.floor(list.length * fraction)))];
+  const center = pick(cells, 0.5);
+
+  if (/pillar|colonnade|pillared|hall/.test(text)) {
+    [0.15, 0.35, 0.65, 0.85].forEach((fraction) => add(pick(edges, fraction), "pillar"));
+  }
+  if (/dais|throne|altar|boss|sanctum|shrine|ritual/.test(text)) {
+    add(center, "dais");
+  }
+  if (/pit|chasm|sunken|sinkhole|chasm edge/.test(text)) {
+    add(center, "pit");
+  }
+  if (/rubble|collapsed|broken|overgrown|cavern|fungal/.test(text)) {
+    [0.2, 0.45, 0.7].forEach((fraction) => add(pick(cells, fraction), "rubble"));
+  }
+  if (/forge|flame|volcanic|brazier|ember/.test(text)) {
+    add(pick(edges, 0.08), "brazier");
+    add(pick(edges, 0.92), "brazier");
+  }
+  if (/crystal|grotto|arcane|mana|resonance/.test(text)) {
+    add(pick(edges, 0.25), "crystal");
+    add(pick(edges, 0.75), "crystal");
+  }
+  return out;
+}
+
 export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
-  const t = template || DEFAULT_DUNGEON_ROOMS[0];
-  const w = Math.max(t.minW || 4, Math.round(((t.minW || 4) + (t.maxW || t.minW || 6)) / 2));
-  const h = Math.max(t.minH || 4, Math.round(((t.minH || 4) + (t.maxH || t.minH || 6)) / 2));
+  const t = template || STARTER_DUNGEON_ROOMS[0];
+  const w = Math.max(9, Math.min(33, Math.round(((t.minW || 9) + (t.maxW || t.minW || 9)) / 2)));
+  const h = Math.max(9, Math.min(33, Math.round(((t.minH || 9) + (t.maxH || t.minH || 9)) / 2)));
   const shape = t.cells?.length ? t.shape || "Custom" : t.shape || "Rectangle";
   const cells = t.cells?.length
     ? t.cells.map(([cx, cy]) => [cx, cy])
     : shapeCells(w, h, shape);
+  const environment = t.environment || "";
+  const elevation = t.elevation || "Flat";
+  const cover = t.cover || "Open";
+  const traps = [...(t.traps || [])];
+  const surface = roomSurfaceFeatures(
+    { ...t, environment, elevation, cover, traps },
+    cells
+  );
   return {
     id: uid("room"),
     templateId: t.id,
@@ -1035,22 +1476,31 @@ export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
     h,
     shape,
     cells,
+    heights: surface.heights,
+    stairs: surface.stairs,
+    coverPoints: surface.coverPoints,
+    trapPoints: surface.trapPoints,
+    water: surface.water,
+    difficult: surface.difficult,
+    environmentEffect: t.environmentEffect || "",
+    tags: [...(t.tags || [])],
     ingressPoints: t.ingressPoints?.length
       ? t.ingressPoints.map((p) => ({ ...p }))
       : defaultIngress(cells),
     spawnPoints: t.spawnPoints?.length
       ? t.spawnPoints.map((p) => ({ ...p }))
       : defaultSpawns(cells, (t.spawns || []).length),
-    environment: t.environment || "",
-    elevation: t.elevation || "Flat",
-    cover: t.cover || "Open",
+    environment,
+    elevation,
+    cover,
     connector: t.connector || "Doorway",
-    traps: [...(t.traps || [])],
+    traps,
     spawns: [...(t.spawns || [])],
     loot: [...(t.loot || [])],
     harvest: [...(t.harvest || [])],
     side: false,
     notes: t.notes || "",
+    description: t.description || "",
     cr0Only: !!t.cr0Only,
     bonfire: !!t.bonfire,
   };
@@ -1071,6 +1521,15 @@ export function crValue(cr) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// A missing CR is not CR 0. Imported records often omit the field; treating
+// them as 0 made level-1 dungeons spawn dracoliches and other unrated monsters.
+export function hasCr(cr) {
+  const s = String(cr ?? "").trim();
+  if (!s) return false;
+  if (s === "1/8" || s === "1/4" || s === "1/2") return true;
+  return Number.isFinite(Number(s));
+}
+
 export function crTargets(level) {
   const lv = Math.max(1, Math.round(Number(level) || 1));
   let maxIdx = CR_STEPS.findIndex((s) => crValue(s) >= lv);
@@ -1085,56 +1544,133 @@ export function crTargets(level) {
 // never above it. CR0-only rooms (animal dens) draw from CR 0 creatures.
 export function scaleEncounters(
   dungeon,
-  { players = 4, partyLevel = 1, monsters = [], rank = dungeon?.rank } = {}
+  {
+    players = 4,
+    partyLevel = 1,
+    monsters = [],
+    rank = dungeon?.rank,
+    encounterTable = null,
+    countMultiplier = 1,
+    bossCR = null,
+  } = {}
 ) {
   const party = Math.max(1, Math.round(Number(players) || 1));
   const level = Math.max(1, Math.round(Number(partyLevel) || 1));
+  const multiplier = Math.max(1, Math.round(Number(countMultiplier) || 1));
+  const bossTarget = Math.max(0.125, Number(bossCR ?? partyLevel) || level);
   const band = rankChallenge(rank);
-  const pool = (monsters || []).filter((m) => m?.name);
+  const allPool = (monsters || []).filter((m) => m?.name);
+  // Missing CR is not CR 0. Exempted creatures never enter the automatic pool.
+  const pool = allPool.filter((m) => hasCr(m.cr) && !m.dungeonExempt);
+  const byName = new Map(allPool.map((m) => [String(m.name).toLowerCase(), m]));
+  const uniqueUsed = new Set();
+  const generic = (room) => {
+    const bossRoom = room.category === "Boss";
+    const eliteRoom = room.category === "Elite";
+    const target = bossRoom ? bossTarget : eliteRoom ? band.maxCR : band.minionMax;
+    if (bossRoom) return `${Math.max(1, multiplier)}× CR ${target} boss`;
+    if (eliteRoom) return `${Math.max(1, multiplier + 1)}× CR ${target} elite`;
+    return `${Math.max(1, party * 2 * multiplier)}× rank ${rank} minion threat (CR ${band.minionMin}–${band.minionMax})`;
+  };
   return {
     ...dungeon,
     rooms: (dungeon.rooms || []).map((room) => {
       if (
         room.bonfire ||
         room.side ||
-        ["Rest", "Shop", "Entrance", "Start", "Harvest"].includes(room.category)
+        room.hall ||
+        ["Rest", "Shop", "Entrance", "Start", "Harvest", "Corridor"].includes(room.category)
       ) {
-        return room;
+        // Halls can still carry traps, puzzles and set dressing, but never a
+        // monster encounter. Halls are the safe connective tissue.
+        return { ...room, spawns: [] };
       }
-      const miniBoss = room.category === "Boss" || room.category === "Elite";
-      const lo = miniBoss ? band.minCR : band.minionMin;
-      const hi = miniBoss ? band.maxCR : band.minionMax;
-      if (!pool.length) {
+      const bossRoom = room.category === "Boss";
+      const miniBoss = bossRoom || room.category === "Elite";
+      const lo = bossRoom ? bossTarget : miniBoss ? band.minCR : band.minionMin;
+      const hi = bossRoom ? bossTarget : miniBoss ? band.maxCR : band.minionMax;
+
+      if (encounterTable) {
+        const rolled = rollEncounter(encounterTable, pool);
+        const limit =
+          (room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2) *
+          multiplier;
+        let remaining = limit;
+        const spawns = [];
+        for (const row of rolled) {
+          if (remaining <= 0) break;
+          const monster = byName.get(String(row.monster).toLowerCase());
+          if (monster?.dungeonExempt) continue;
+          if (monster?.unique && (!miniBoss || uniqueUsed.has(monster.name))) continue;
+          let take = Math.min(remaining, Math.max(1, Number(row.count) || 1));
+          if (monster?.unique) take = 1;
+          if (take <= 0) continue;
+          spawns.push(`${take}× ${row.monster}`);
+          remaining -= take;
+          if (monster?.unique) uniqueUsed.add(monster.name);
+        }
         return {
           ...room,
-          spawns: [
-            `${Math.max(1, party * 2)}× rank ${rank} ${miniBoss ? "boss" : "minion"} threat (CR ${lo}–${hi})`,
-          ],
+          spawns: spawns.length ? spawns : [generic(room)],
+          encounterTable: encounterTable.name || "",
         };
+      }
+
+      if (!pool.length) {
+        return { ...room, spawns: [generic(room)] };
       }
       // Animal dens may use CR 0 only when the allowed band includes 0.
       const cr0 = !!room.cr0Only && lo === 0;
-      const candidates = pool.filter((m) => {
-        const v = crValue(m.cr);
-        return cr0 ? v === 0 : v >= lo && v <= hi;
-      });
-      if (!candidates.length) {
-        return {
-          ...room,
-          spawns: [
-            `${Math.max(1, party * 2)}× rank ${rank} ${miniBoss ? "boss" : "minion"} threat (CR ${lo}–${hi})`,
-          ],
-        };
+      const baseCandidates = pool.filter(
+        (m) => !(m.unique && (!miniBoss || uniqueUsed.has(m.name)))
+      );
+      let candidates;
+      if (bossRoom) {
+        // Final bosses are always the highest party member's level/CR.
+        const exact = baseCandidates.filter(
+          (m) => Math.abs(crValue(m.cr) - bossTarget) <= 0.3
+        );
+        candidates = exact.length
+          ? exact
+          : [...baseCandidates]
+              .sort(
+                (a, b) =>
+                  Math.abs(crValue(a.cr) - bossTarget) -
+                  Math.abs(crValue(b.cr) - bossTarget)
+              )
+              .slice(0, Math.max(1, Math.min(4, baseCandidates.length)));
+      } else {
+        candidates = baseCandidates.filter((m) => {
+          const v = crValue(m.cr);
+          return cr0 ? v === 0 : v >= lo && v <= hi;
+        });
       }
+      if (!candidates.length) {
+        return { ...room, spawns: [generic(room)] };
+      }
+      const uniqueCandidates = candidates.filter((m) => m.unique);
+      const bossPrefersUnique = miniBoss && room.category === "Boss" && uniqueCandidates.length > 0;
+      const pickFrom = bossPrefersUnique ? uniqueCandidates : candidates;
       const groups =
-        room.category === "Boss" ? 2 : room.category === "Elite" ? 2 : Math.min(2, candidates.length);
+        room.category === "Boss" || room.category === "Elite"
+          ? 1
+          : Math.min(2, pickFrom.length);
       const total =
-        room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2;
+        room.category === "Boss"
+          ? multiplier
+          : room.category === "Elite"
+            ? multiplier + 1
+            : party * 2 * multiplier;
       const picked = [];
-      for (let i = 0; i < groups; i++) {
-        const m = candidates[Math.floor(Math.random() * candidates.length)];
-        const count = Math.max(1, Math.round(total / groups));
+      for (let i = 0; i < groups; i += 1) {
+        const m = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+        const count = m.unique ? 1 : Math.max(1, Math.round(total / groups));
         picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
+        if (m.unique) {
+          uniqueUsed.add(m.name);
+          // A unique creature cannot also fill the second boss group.
+          break;
+        }
       }
       return { ...room, spawns: picked };
     }),
@@ -1143,11 +1679,14 @@ export function scaleEncounters(
       partyLevel: level,
       rank,
       rankCR: band.rankCR,
+      bossCR: bossTarget,
+      countMultiplier: multiplier,
       minCR: band.minCR,
       maxCR: band.maxCR,
       minionMin: band.minionMin,
       minionMax: band.minionMax,
       targetCR: band.maxCR,
+      encounterTable: encounterTable?.name || "",
     },
   };
 }

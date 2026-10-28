@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -97,11 +97,18 @@ export default function Rulebook({ className = "" }) {
       if (id) selectBook(id);
     };
     const onCredits = () => setRb(loadRulebook());
+    const onFocus = (event) => {
+      const detail = event?.detail || {};
+      if (detail.bookId) setBookId(detail.bookId);
+      if (detail.chapterId) setChapterId(detail.chapterId);
+    };
     window.addEventListener("skilltree:rulebook-import", onImport);
     window.addEventListener("skilltree:rulebook-credits", onCredits);
+    window.addEventListener("skilltree:rulebook-focus", onFocus);
     return () => {
       window.removeEventListener("skilltree:rulebook-import", onImport);
       window.removeEventListener("skilltree:rulebook-credits", onCredits);
+      window.removeEventListener("skilltree:rulebook-focus", onFocus);
     };
   }, []);
 
@@ -217,6 +224,55 @@ export default function Rulebook({ className = "" }) {
     setRenamingId(null);
   };
 
+  const insertPageBreak = () => {
+    const el = areaRef.current;
+    const marker = "\n\n\\pagebreak\n\n";
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    setDraft((d) => d.slice(0, start) + marker + d.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const pos = start + marker.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const exportMarkdown = () => {
+    const body = (chapters || [])
+      .map((chapter) => `# ${chapter.title}\n\n${chapter.content || ""}`)
+      .join("\n\n");
+    const blob = new Blob([`# ${book.title}\n\n${body}`], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${String(book.title || "rulebook").replace(/[^\w-]+/g, "_")}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const printBook = () => {
+    window.print();
+  };
+
+  const headings = useMemo(() => {
+    const text = active?.content || "";
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.match(/^(#{1,3})\s+(.+)$/))
+      .filter(Boolean)
+      .map((match) => ({
+        level: match[1].length,
+        label: match[2].replace(/[*_`]/g, "").trim(),
+        id: match[2]
+          .replace(/[*_`]/g, "")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, ""),
+      }));
+  }, [active?.content]);
+
   // Insert the picked image as markdown at the caret so it lands where the
   // author is writing rather than always at the end of the document.
   const insertImage = async (e) => {
@@ -295,6 +351,14 @@ export default function Rulebook({ className = "" }) {
               <Trash2 className="h-3 w-3" />
             </Button>
           </div>
+          {book.cover && /^(data:|\/images\/|\/api\/|https?:)/i.test(book.cover) && (
+            <img
+              src={book.cover}
+              alt={`${book.title} cover`}
+              loading="lazy"
+              className="mt-1 max-h-28 w-full rounded border object-contain"
+            />
+          )}
         </div>
 
         <p className="border-b px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -381,6 +445,12 @@ export default function Rulebook({ className = "" }) {
             </p>
           </div>
           <div className="flex shrink-0 gap-1">
+            <Button size="sm" variant="ghost" className="h-7 px-1 text-[10px]" onClick={exportMarkdown} title="Download this book as Markdown">
+              .md
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 px-1 text-[10px]" onClick={printBook} title="Print or save this book as PDF">
+              Print / PDF
+            </Button>
             {isImported ? null : isCredits ? null : editing ? (
               <>
                 <Button size="sm" onClick={saveEdit} title="Save this chapter">
@@ -454,6 +524,30 @@ export default function Rulebook({ className = "" }) {
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm">
+            {headings.length > 0 && (
+              <details className="mb-3 rounded border bg-muted/20 p-2 text-xs">
+                <summary className="cursor-pointer font-semibold text-muted-foreground">
+                  Contents ({headings.length})
+                </summary>
+                <ul className="mt-1 space-y-0.5">
+                  {headings.map((heading, i) => (
+                    <li key={`${heading.id}-${i}`} style={{ paddingLeft: (heading.level - 1) * 10 }}>
+                      <button
+                        type="button"
+                        className="text-left text-primary hover:underline"
+                        onClick={() =>
+                          document
+                            .getElementById(heading.id)
+                            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                        }
+                      >
+                        {heading.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             <Homebrewery text={active?.content || ""} />
           </div>
         )}
@@ -463,6 +557,9 @@ export default function Rulebook({ className = "" }) {
             <>
               <Button size="sm" variant="outline" title="Insert an image at the cursor" onClick={() => fileRef.current?.click()}>
                 <ImagePlus className="mr-1 h-3.5 w-3.5" /> Image
+              </Button>
+              <Button size="sm" variant="outline" title="Insert a page break for printing/PDF" onClick={insertPageBreak}>
+                Page break
               </Button>
               <input
                 ref={fileRef}
@@ -483,6 +580,40 @@ export default function Rulebook({ className = "" }) {
                   : "Written in Homebrewery markdown — paste from your homebrew and it renders. Double-click a chapter to rename."}
           </p>
         </div>
+      </div>
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #rulebook-print, #rulebook-print * { visibility: visible !important; }
+          #rulebook-print {
+            display: block !important;
+            position: fixed;
+            inset: 0;
+            padding: 24px;
+            overflow: visible !important;
+            background: white;
+            color: black;
+            z-index: 9999;
+          }
+          #rulebook-print .page-break {
+            break-after: page;
+            page-break-after: always;
+            border: 0;
+            height: 0;
+            margin: 0;
+            color: transparent;
+          }
+          #rulebook-print img { max-width: 100%; }
+        }
+      `}</style>
+      <div id="rulebook-print" className="hidden">
+        <h1>{book.title}</h1>
+        {chapters.map((chapter) => (
+          <section key={chapter.id}>
+            <h2>{chapter.title}</h2>
+            <Homebrewery text={chapter.content || ""} />
+          </section>
+        ))}
       </div>
     </div>
   );

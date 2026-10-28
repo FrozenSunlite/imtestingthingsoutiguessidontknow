@@ -20,6 +20,12 @@ import { toast } from "sonner";
 import { Download, FolderOpen, Save, Trash2, Upload } from "lucide-react";
 import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 import { getFiveEToolsSources } from "@/lib/fiveEToolsCache";
+import {
+  deleteProjectFile,
+  listProjectFiles,
+  loadProjectFile,
+  saveProjectToDisk,
+} from "@/lib/projectFiles";
 
 // Save & load characters: named slots in the browser plus .json export/import.
 // A save bundles the skill tree, the character, the point pools and the
@@ -31,6 +37,7 @@ export function SaveLoadMenu({ open, onClose }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [includeSources, setIncludeSources] = useState(false);
+  const [diskSaves, setDiskSaves] = useState([]);
   const fileRef = useRef(null);
 
   // Save slots live in IndexedDB, so listing them is asynchronous.
@@ -40,6 +47,7 @@ export function SaveLoadMenu({ open, onClose }) {
     listCharacterSaves()
       .then((rows) => alive && setSaves(rows))
       .catch(() => alive && setSaves([]));
+    listProjectFiles().then((rows) => alive && setDiskSaves(rows));
     setName(character?.name || "");
     return () => {
       alive = false;
@@ -57,15 +65,19 @@ export function SaveLoadMenu({ open, onClose }) {
   const doSave = async () => {
     setBusy(true);
     try {
-      await writeCharacterSave(name, {
+      const payload = {
+        name: name || character?.name || "Terrific Talent Tree Project",
         tree,
         character,
         pools,
         library: settings?.library,
         plots: loadPlots(),
         ...(includeSources ? { referenceSources: getFiveEToolsSources() } : {}),
-      });
+      };
+      await writeCharacterSave(name, payload);
+      await saveProjectToDisk(payload, { name: payload.name, manual: true });
       await refresh();
+      setDiskSaves(await listProjectFiles());
       clearDirty?.();
       toast.success(`Saved "${name || "Untitled character"}".`);
     } catch (e) {
@@ -73,6 +85,38 @@ export function SaveLoadMenu({ open, onClose }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const saveDiskNow = async () => {
+    const payload = {
+      name: name || character?.name || "Terrific Talent Tree Project",
+      tree,
+      character,
+      pools,
+      library: settings?.library,
+      plots: loadPlots(),
+    };
+    const result = await saveProjectToDisk(payload, { name: payload.name, manual: true });
+    setDiskSaves(await listProjectFiles());
+    toast[result ? "success" : "error"](
+      result ? `Saved to disk: ${result.path}` : "Could not write the project file."
+    );
+  };
+
+  const loadDisk = async (file) => {
+    const data = await loadProjectFile(file);
+    if (!data) {
+      toast.error("Could not read that project file.");
+      return;
+    }
+    applyLoadedSave(await rehydrateImages(data), "sheet");
+    onClose();
+  };
+
+  const removeDisk = async (file) => {
+    if (!window.confirm(`Delete ${file} from the projects folder?`)) return;
+    await deleteProjectFile(file);
+    setDiskSaves(await listProjectFiles());
   };
 
   const doLoad = (entry) => {
@@ -154,11 +198,12 @@ export function SaveLoadMenu({ open, onClose }) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Save / Load Project</DialogTitle>
           <DialogDescription>
             A save bundles the skill tree, character, pools, library and Homebuilder properties — images included.
+            Saves are also mirrored to a project file on this PC.
           </DialogDescription>
         </DialogHeader>
 
@@ -211,6 +256,38 @@ export function SaveLoadMenu({ open, onClose }) {
                 <Download className="h-4 w-4" />
               </Button>
               <Button size="sm" variant="ghost" title="Delete" onClick={() => doDelete(s.id)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Files on this PC
+          </p>
+          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={saveDiskNow} disabled={!tree}>
+            Save now to disk
+          </Button>
+        </div>
+        <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-1">
+          {diskSaves.length === 0 && (
+            <p className="p-2 text-[10px] text-muted-foreground">
+              No project files yet. Saves are written to <code>desktop\userdata\projects</code>.
+            </p>
+          )}
+          {diskSaves.map((file) => (
+            <div key={file.file} className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{file.file}</div>
+                <div className="text-[9px] text-muted-foreground">
+                  {new Date(file.modified).toLocaleString()} · {(file.bytes / 1024).toFixed(0)} KB
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" title="Load this file" onClick={() => loadDisk(file.file)}>
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" title="Delete this file" onClick={() => removeDisk(file.file)}>
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>

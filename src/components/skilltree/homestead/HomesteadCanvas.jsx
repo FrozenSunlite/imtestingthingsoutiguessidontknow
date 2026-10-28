@@ -19,10 +19,13 @@ import {
   ordinal,
   firstFitRoom,
   bastionFacilityByName,
+  knownBastionFacilities,
+  countedBastionFacilities,
   doorHostSpans,
   doorFits,
 } from "@/lib/homestead";
 import HomesteadContextMenu from "./HomesteadContextMenu";
+import { floorTexture } from "@/lib/worldAssets";
 import { BASTION_ORDERS } from "@/lib/homesteadBastionOrders";
 import { wallLineInBounds } from "@/lib/homesteadEdit";
 
@@ -245,14 +248,27 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
   const placeAt = (cell) => {
     if (tool.kind === "bastion") {
       const b = bastionFacilityByName(tool.type);
+      if (!b) return;
+      if (b.seatOfPower && !plotHasKind(plot, "bastion"))
+        return toast("The Seat of Power can only be placed in a Bastion.");
       if ((plot.charLevel || 5) < b.level)
         return toast(`${b.name} requires character level ${b.level}.`);
+      if (!b.seatOfPower) {
+        const known = knownBastionFacilities(plot.charLevel || 5);
+        const used = countedBastionFacilities(plot);
+        if (known > 0 && used >= known)
+          return toast(
+            `Your Bastion knows ${used}/${known} special facilities at level ${plot.charLevel || 5}. The Seat of Power is free and does not count.`
+          );
+      }
       if (!b.multi && (plot.facilities || []).some((f) => f.bastion === b.name))
         return toast(`Your Bastion already has a ${b.name} — one only.`);
       const { w, h } = ghostDims(tool);
       placeFacility({
         id: uid(), floorId: floor.id, type: b.space, bastion: b.name, level: b.level,
         name: b.name, x: cell.x, y: cell.y, w, h,
+        seatOfPower: !!b.seatOfPower,
+        countsAgainstKnown: b.countsAgainstKnown !== false,
       });
       return;
     }
@@ -987,6 +1003,29 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
                 onPointerMove={(e) => showInfo(e, facilityInfoLines(f))}
                 onPointerLeave={() => setInfo(null)}
               />
+              {raw.floorImage ? (
+                <image
+                  href={raw.floorImage}
+                  x={f.x * CELL + 2}
+                  y={f.y * CELL + 2}
+                  width={Math.max(1, f.w * CELL - 4)}
+                  height={Math.max(1, f.h * CELL - 4)}
+                  preserveAspectRatio="xMidYMid slice"
+                  opacity="0.62"
+                  pointerEvents="none"
+                />
+              ) : (
+                <rect
+                  x={f.x * CELL + 2}
+                  y={f.y * CELL + 2}
+                  width={Math.max(1, f.w * CELL - 4)}
+                  height={Math.max(1, f.h * CELL - 4)}
+                  fill={floorTexture(raw.floorTexture).color}
+                  fillOpacity="0.28"
+                  rx="2"
+                  pointerEvents="none"
+                />
+              )}
               {f.w * CELL > 60 && f.h * CELL > 22 && (
                 <text x={f.x * CELL + 5} y={f.y * CELL + 14} className="fill-current text-[11px] font-semibold text-foreground/50" pointerEvents="none">
                   {f.name || f.type}
@@ -1268,8 +1307,14 @@ function facilityInfoLines(f) {
   if (f.bastion) {
     const o = BASTION_ORDERS[f.bastion];
     return o
-      ? [`Level ${f.level} special facility · ${o.order} order`, `Hirelings: ${f.hirelings ?? "?"}`, o.effect]
-      : [`Level ${f.level} special facility`];
+      ? [
+          f.seatOfPower
+            ? "Seat of Power - 4x4 Bastion facility (free, does not count against known facilities)"
+            : `Level ${f.level} special facility - ${o.order} order`,
+          `Hirelings: ${f.hirelings ?? "?"}`,
+          o.effect,
+        ]
+      : [f.seatOfPower ? "Seat of Power - 4x4 Bastion facility" : `Level ${f.level} special facility`];
   }
   const def = FACILITY_TYPES[f.type];
   return def ? [def.desc] : [f.type];

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { matchesQuery } from "@/lib/textSearch";
 import { AbilityList } from "@/components/skilltree/library/shared";
@@ -53,6 +53,7 @@ import { ResourcesTab } from "./library/ResourcesTab";
 import { DieScalingTab } from "./library/DieScalingTab";
 import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
 import { FiveEToolsImportsTab } from "./library/FiveEToolsImportsTab";
+import { MediaTab } from "./library/MediaTab";
 import { FiveEToolsCategoryTab } from "./library/FiveEToolsCategoryTab";
 import { EncounterXpCalculator } from "./library/EncounterXpCalculator";
 import { ActionsTab } from "./library/ActionsTab";
@@ -98,6 +99,7 @@ const TAB_GROUPS = [
   ]],
   ["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
   ["Imported", [["fiveETools", "5eTools Imports"]]],
+  ["Project", [["media", "Project Media"]]],
 ];
 
 // Every searchable library list, as [category label, tab value, entries].
@@ -161,6 +163,14 @@ export function LibraryMenu({ open, onClose }) {
   const [armorSub, setArmorSub] = useState("__all__");
   const [tab, setTab] = useState("weapons");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    const onTab = (event) => {
+      const next = event?.detail?.tab;
+      if (next) setTab(next);
+    };
+    window.addEventListener("skilltree:open-library-tab", onTab);
+    return () => window.removeEventListener("skilltree:open-library-tab", onTab);
+  }, []);
   if (!settings) return null;
   const lib = settings.library;
   const setLib = (patch) => setSettings((s) => ({ ...s, library: { ...s.library, ...patch } }));
@@ -181,8 +191,12 @@ export function LibraryMenu({ open, onClose }) {
     : [];
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl">
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()} modal={false}>
+      <DialogContent
+        hideOverlay
+        className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Reference Library</DialogTitle>
           <DialogDescription>
@@ -288,6 +302,9 @@ export function LibraryMenu({ open, onClose }) {
             </TabsContent>
             <TabsContent value="fiveETools" className="mt-0">
               <FiveEToolsImportsTab />
+            </TabsContent>
+            <TabsContent value="media" className="mt-0">
+              <MediaTab />
             </TabsContent>
             <TabsContent value="encounterCalc" className="mt-0">
               <EncounterXpCalculator />

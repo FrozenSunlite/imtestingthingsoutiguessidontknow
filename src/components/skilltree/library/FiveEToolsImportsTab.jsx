@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { FIVE_CATEGORIES, entryName, entrySource } from "@/lib/fiveETools";
-import { entryDetails } from "@/lib/fiveEToolsView";
+import { entryDetails, entryDetailsMarkdown } from "@/lib/fiveEToolsView";
 import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,11 @@ export function FiveEToolsImportsTab() {
   const { settings, setSettings } = useTree();
   const data = settings?.library?.fiveETools || {};
   const dedicated = new Set(["backgrounds", "species", "deities", "objects", "traps", "books"]);
+  // "This Is Your Life" tables are not importable, so don't surface a dead
+  // category if an older project still carries one.
+  const retired = new Set(["life"]);
   const categories = Object.keys(data).filter(
-    (k) => !dedicated.has(k) && Array.isArray(data[k]) && data[k].length
+    (k) => !dedicated.has(k) && !retired.has(k) && Array.isArray(data[k]) && data[k].length
   );
   const labelFor = (id) => FIVE_CATEGORIES.find((c) => c.id === id)?.label || id;
   const [category, setCategory] = useState(categories[0] || "");
@@ -34,6 +37,22 @@ export function FiveEToolsImportsTab() {
     () => (preview ? entryDetails(active, preview, null) : null),
     [active, preview]
   );
+
+  // Payload for dragging an entry onto the workspace canvas. The full preview
+  // text (fields, sections and tables) becomes the new node's description.
+  const dragPayload = (entry) => {
+    const d = entryDetails(active, entry, null);
+    const image =
+      typeof entry?.image === "string" && /^(data:|\/images\/|\/api\/|https?:)/i.test(entry.image)
+        ? entry.image
+        : "";
+    return JSON.stringify({
+      name: entryName(entry),
+      flavor: `${labelFor(active)} · ${entrySource(entry)}`.trim(),
+      description: entryDetailsMarkdown(d),
+      image,
+    });
+  };
 
   if (!categories.length) {
     return (
@@ -80,14 +99,24 @@ export function FiveEToolsImportsTab() {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
+      <p className="text-[10px] text-muted-foreground">
+        Drag an entry onto the workspace to create a node with its full stat block and text in the
+        description.
+      </p>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(260px,1.1fr)] gap-2">
         <div className="max-h-[55vh] overflow-y-auto rounded-md border p-1">
           {shown.map((e, i) => (
             <button
               key={`${entryName(e)}-${i}`}
               type="button"
+              draggable
+              onDragStart={(ev) => {
+                ev.dataTransfer.setData("application/x-5etools-entry", dragPayload(e));
+                ev.dataTransfer.effectAllowed = "copy";
+              }}
               onClick={() => setPreview(e)}
-              className={`flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] ${
+              title="Click to preview · drag onto the workspace to create a node"
+              className={`flex w-full cursor-grab items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] active:cursor-grabbing ${
                 preview === e ? "bg-accent" : "hover:bg-accent/50"
               }`}
             >

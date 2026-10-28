@@ -21,15 +21,22 @@ import {
   vehicleToLibrary,
 } from "@/lib/fiveETools";
 import { entryDetails, entryImage } from "@/lib/fiveEToolsView";
-import { BulkLibrary, importBrewIntoDraft } from "@/lib/fiveEToolsBulk";
+import { BulkLibrary, importBrewIntoDraft, localizeBulkImages } from "@/lib/fiveEToolsBulk";
 import { bookToRulebook } from "@/lib/fiveEToolsRulebook";
 import { authorsFromBrew } from "@/lib/fiveEToolsCredits";
 import { addCreditNames, setRulebookActiveBookId } from "@/lib/rulebookStore";
+import {
+  newImportId,
+  recordImport,
+  removeImportFromLibrary,
+  tagImported,
+} from "@/lib/importHistory";
 import { loadSpellLookup } from "@/lib/fiveEToolsLookup";
 import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
+import { VirtualList } from "./VirtualList";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
-import { cacheFiveEToolsSource } from "@/lib/fiveEToolsCache";
-import { importImageFromUrl } from "@/lib/imageStore";
+import { cacheFiveEToolsSource, cachedFiveEToolsSource } from "@/lib/fiveEToolsCache";
+import { importImageFromUrl, importImagesInText } from "@/lib/imageStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,6 +93,28 @@ const CATALOG_PROPS = {
 
 const isRemoteRoot = (root) => root === "homebrew" || root === "prerelease";
 
+// Index and brew catalogs change only when the user downloads an update, so a
+// short session cache keeps category switches instant and survives tab changes.
+const INDEX_CACHE_TTL = 30 * 60 * 1000;
+const readIndexCache = (key) => {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || Date.now() - parsed.at > INDEX_CACHE_TTL) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+const writeIndexCache = (key, data) => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* storage full or unavailable: caching is optional */
+  }
+};
+
 // A remote file's catalog property tells us what kind of entry it contains,
 // even when the user is browsing "All files".
 const categoryForProps = (props = []) => {
@@ -141,7 +170,7 @@ const imageFor = (entry, root, filePath) => {
 // at a chosen rate. Imported data becomes part of the project library; raw
 // source files stay in the on-disk 5eTools folder.
 export function ReferenceIndexTab() {
-  const { tree, settings, setSettings, addImportedTab, addImportedTabs } = useTree();
+  const { tree, settings, setSettings, addImportedTab, addImportedTabs, deleteTab } = useTree();
   const [status, setStatus] = useState(null);
   const [root, setRoot] = useState("data");
   const [index, setIndex] = useState([]);
@@ -152,6 +181,13 @@ export function ReferenceIndexTab() {
   const [bulk, setBulk] = useState(null);
   const [bulkMakeTabs, setBulkMakeTabs] = useState(true);
   const bulkCancelRef = useRef(false);
+  const [allMode, setAllMode] = useState(false);
+  const [allProgress, setAllProgress] = useState(null);
+  const allCancelRef = useRef(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const activeImportRef = useRef("");
+  const importTabIdsRef = useRef([]);
+  const rawByPath = useRef(new Map());
   const [categoryId, setCategoryId] = useState("bestiary");
   const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
   const [filePath, setFilePath] = useState("");
@@ -208,26 +244,43 @@ export function ReferenceIndexTab() {
     return true;
   });
   const imported = settings?.library?.fiveETools || {};
+  const rawForEntry = (entry) =>
+    (entry?.__filePath && rawByPath.current.get(entry.__filePath)) || raw;
   const previewDetails = useMemo(
-    () => (preview ? entryDetails(activeCategory.id, preview, raw, { spellLookup }) : null),
+    () =>
+      preview
+        ? entryDetails(activeCategory.id, preview, rawForEntry(preview), { spellLookup })
+        : null,
     [preview, activeCategory.id, raw, spellLookup]
   );
 
-  const refresh = async () => {
+  const refresh = async (force = false) => {
     try {
       const s = await fetch("/api/5etools/status").then((r) => r.json());
       setStatus(s);
       if (isRemote) {
-        const c = await fetch(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`).then((r) =>
-          r.json()
-        );
-        setCatalog(Array.isArray(c.entries) ? c.entries : []);
+        const key = `5e-catalog:${root}`;
+        let cached = force ? null : readIndexCache(key);
+        if (!cached) {
+          const c = await fetch(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`).then((r) =>
+            r.json()
+          );
+          cached = Array.isArray(c.entries) ? c.entries : [];
+          writeIndexCache(key, cached);
+        }
+        setCatalog(cached);
         setIndex([]);
       } else {
-        const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) =>
-          r.json()
-        );
-        setIndex(Array.isArray(i.files) ? i.files : []);
+        const key = `5e-index:${root}`;
+        let cached = force ? null : readIndexCache(key);
+        if (!cached) {
+          const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) =>
+            r.json()
+          );
+          cached = Array.isArray(i.files) ? i.files : [];
+          writeIndexCache(key, cached);
+        }
+        setIndex(cached);
         setCatalog([]);
       }
     } catch {
@@ -248,7 +301,7 @@ export function ReferenceIndexTab() {
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Update failed");
       toast.success(`5eTools ${data.version || "data"} downloaded.`);
       setRoot("data");
-      await refresh();
+      await refresh(true);
     } catch (err) {
       toast.error(`Could not update 5eTools data: ${err.message || err}`);
     } finally {
@@ -272,18 +325,44 @@ export function ReferenceIndexTab() {
     setPreview(null);
     setSelected(new Set());
     setCatalogSelected(new Set());
+    setAllMode(false);
+    setAllProgress(null);
+    allCancelRef.current = false;
+    // Load the first source file so the entry list and preview are populated
+    // immediately; later file clicks replace it.
+    if (files[0]) loadFile(files[0].path);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId, root, index.length, catalog.length, partneredOnly]);
+
+  const fetchFiveFile = async (path, { force = false } = {}) => {
+    const key = `${root}/${path}`;
+    if (!isRemote && !force) {
+      const cached = cachedFiveEToolsSource(key);
+      if (cached) return cached;
+    }
+    const data = await fetch(
+      isRemote
+        ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
+        : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
+    ).then((r) => {
+      if (!r.ok) throw new Error("Could not read file");
+      return r.json();
+    });
+    if (!isRemote) cacheFiveEToolsSource(key, data);
+    return data;
+  };
 
   const loadFile = async (path) => {
     if (!path) return;
     setLoading(true);
+    setAllMode(false);
+    setAllProgress(null);
     try {
-      const data = await fetch(
-        isRemote
-          ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
-          : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
-      ).then((r) => r.json());
+      const data = await fetchFiveFile(path);
       cacheFiveEToolsSource(`${root}/${path}`, data);
+      if (path && (activeCategory.id === "classes" || category.kind === "classes")) {
+        rawByPath.current.set(path, data);
+      }
       const info = isRemote ? catalog.find((f) => f.path === path) : null;
       const list = entriesFromRaw(data, info?.props?.[0]).map((e) => ({ ...e }));
       setRaw(data);
@@ -306,6 +385,74 @@ export function ReferenceIndexTab() {
     }
   };
 
+  const loadAllFiles = async () => {
+    if (!files.length || allProgress) return;
+    const targets = [...files];
+    if (
+      targets.length > 50 &&
+      !window.confirm(
+        `Display all ${targets.length} files at once? This can take a while and may produce a very large entry list.`
+      )
+    ) {
+      return;
+    }
+    allCancelRef.current = false;
+    setAllMode(true);
+    setAllProgress({ done: 0, total: targets.length });
+    setLoading(true);
+    const combined = [];
+    const seen = new Set();
+    try {
+      const batchSize = 6;
+      for (let start = 0; start < targets.length; start += batchSize) {
+        if (allCancelRef.current) break;
+        const batch = targets.slice(start, start + batchSize);
+        const results = await Promise.all(
+          batch.map(async (file) => {
+            try {
+              return { file, data: await fetchFiveFile(file.path) };
+            } catch {
+              return null;
+            }
+          })
+        );
+        results.filter(Boolean).forEach(({ file, data }) => {
+          const info = isRemote ? catalog.find((f) => f.path === file.path) : null;
+          const inferredId = categoryForProps(info?.props || []);
+          const rawCategory = inferredId || (categoryId !== "__all__" ? categoryId : "");
+          if (
+            rawCategory === "classes" ||
+            rawCategory === "books" ||
+            /(^|\/)class\//.test(file.path) ||
+            /(^|\/)book\//.test(file.path)
+          ) {
+            rawByPath.current.set(file.path, data);
+          }
+          const list = entriesFromRaw(data, info?.props?.[0]);
+          list.forEach((entry) => {
+            const key = `${rawCategory}|${entryName(entry)}|${sourceOf(entry)}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            combined.push({ ...entry, __filePath: file.path });
+          });
+        });
+        setAllProgress({ done: Math.min(targets.length, start + batch.length), total: targets.length });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      setEntries(combined);
+      setPreview(combined[0] || null);
+      setSelected(new Set());
+      setSourceFilter("__all__");
+      setFilePath("__all__");
+      toast.success(`Displaying ${combined.length} entries from ${targets.length} files.`);
+    } catch {
+      toast.error("Could not display all files.");
+    } finally {
+      setLoading(false);
+      setAllProgress(null);
+    }
+  };
+
   const toggle = (i) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -315,12 +462,17 @@ export function ReferenceIndexTab() {
     });
   };
 
-  const allShownSelected = shown.length > 0 && shown.every((e) => selected.has(entries.indexOf(e)));
+  const entryIndex = useMemo(
+    () => new Map(entries.map((entry, index) => [entry, index])),
+    [entries]
+  );
+  const allShownSelected =
+    shown.length > 0 && shown.every((e) => selected.has(entryIndex.get(e)));
   const toggleAll = () => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allShownSelected) shown.forEach((e) => next.delete(entries.indexOf(e)));
-      else shown.forEach((e) => next.add(entries.indexOf(e)));
+      if (allShownSelected) shown.forEach((e) => next.delete(entryIndex.get(e)));
+      else shown.forEach((e) => next.add(entryIndex.get(e)));
       return next;
     });
   };
@@ -338,9 +490,8 @@ export function ReferenceIndexTab() {
     return true;
   };
 
-  const mergeSpell = (entry) => {
-    const sp = spellToLibrary(entry);
-    if (!sp.name) return false;
+  const mergeSpell = (sp) => {
+    if (!sp?.name) return false;
     setSettings((s) => {
       const list = Array.isArray(s.library.spells) ? [...s.library.spells] : [];
       const i = list.findIndex((x) => String(x.name || "").toLowerCase() === sp.name.toLowerCase());
@@ -401,7 +552,9 @@ export function ReferenceIndexTab() {
     return true;
   };
 
-  const storeRaw = (catId, entry) => {
+  const storeRaw = (catId, rawEntry) => {
+    const entry = { ...rawEntry };
+    delete entry.__filePath;
     setSettings((s) => {
       const map = { ...(s.library.fiveETools || {}) };
       const list = Array.isArray(map[catId]) ? [...map[catId]] : [];
@@ -412,6 +565,32 @@ export function ReferenceIndexTab() {
       map[catId] = list;
       return { ...s, library: { ...s.library, fiveETools: map } };
     });
+  };
+
+  const tagForImport = (value) => {
+    const importId = activeImportRef.current;
+    return importId
+      ? tagImported(value, importId, {
+          label: `${root} · ${activeCategory.label}`,
+          root,
+        })
+      : value;
+  };
+
+  const recordSession = (id, { count = 0, tabIds = [], label = "" } = {}) => {
+    if (!id) return;
+    setSettings((s) => ({
+      ...s,
+      library: recordImport(s.library, {
+        id,
+        label: label || `${root} · ${activeCategory.label}`,
+        root,
+        category: activeCategory.id,
+        count,
+        tabIds,
+        tabs: tabIds.map((tabId) => (tree?.tabs || []).find((t) => t.id === tabId)?.name || ""),
+      }),
+    }));
   };
 
   const addImportedRulebook = (book) => {
@@ -436,65 +615,117 @@ export function ReferenceIndexTab() {
     return true;
   };
 
+  // Save one entry's artwork into the project's image folder. Returns the
+  // stored `/images/...` reference (or the original data/project URL).
+  const importEntryImage = async (entry) => {
+    const url = imageFor(
+      { ...entry, img: entryImage(entry) },
+      root,
+      entry?.__filePath || filePath
+    );
+    if (!url) return "";
+    if (/^(data:|\/images\/)/i.test(url)) return url;
+    try {
+      return await importImageFromUrl(url);
+    } catch {
+      return "";
+    }
+  };
+
+  // Rewrite the markdown images inside an imported book so every illustration
+  // is stored with the project, not left pointing at 5eTools or a brew repo.
+  const localizeBookImages = async (book, entry, cover) => {
+    const cache = new Map();
+    const resolve = async (url) => {
+      if (!url || /^(data:|\/images\/)/i.test(url)) return url;
+      if (cache.has(url)) return cache.get(url);
+      let next = url;
+      try {
+        if (/^https?:/i.test(url) || url.startsWith("/api/")) {
+          next = await importImageFromUrl(url);
+        } else {
+          next = await importImageFromUrl(
+            imageFor({ img: url, cover: url }, root, entry?.__filePath || filePath)
+          );
+        }
+      } catch {
+        /* keep the original reference */
+      }
+      cache.set(url, next);
+      return next;
+    };
+    const chapters = [];
+    for (const chapter of book.chapters || []) {
+      chapters.push({
+        ...chapter,
+        content: await importImagesInText(chapter.content, resolve),
+      });
+    }
+    return { ...book, cover: cover || book.cover || "", chapters };
+  };
+
   const importEntry = async (cat, entry) => {
+    const image = await importEntryImage(entry);
+    const withImage = (value) => {
+      if (!value || typeof value === "string") return value;
+      const next = image && !value.image ? { ...value, image } : value;
+      return tagForImport(next);
+    };
+    const tag = (value) => tagForImport(value);
+
     if (cat.id === "books") {
-      const remoteInfo = isRemote ? catalog.find((f) => f.path === filePath) : null;
-      const fallbackTitle = raw?.book?.[0]?.name || remoteInfo?.name || "";
+      const entryRaw = rawForEntry(entry);
+      const remoteInfo = isRemote
+        ? catalog.find((f) => f.path === (entry.__filePath || filePath))
+        : null;
+      const fallbackTitle = entryRaw?.book?.[0]?.name || remoteInfo?.name || "";
       const book = bookToRulebook(entry, fallbackTitle);
       if (book) {
-        addImportedRulebook(book);
-        toast.success(`“${book.title}” added to the Rulebook.`);
+        const localized = await localizeBookImages(book, entry, image);
+        addImportedRulebook(tag(localized));
+        toast.success(`“${localized.title}” added to the Rulebook.`);
         return true;
       }
     }
     if (cat.kind === "items") {
       const mapped = itemToLibrary(entry);
-      return mapped ? mergeNamed(mapped.key, mapped.value) : false;
+      return mapped ? mergeNamed(mapped.key, withImage(mapped.value)) : false;
     }
     if (cat.kind === "conditions") {
       const status = conditionToStatus(entry);
-      return status ? mergeNamed("statusEffects", status) : false;
+      return status ? mergeNamed("statusEffects", withImage(status)) : false;
     }
     if (cat.kind === "actions") {
       const action = actionToLibrary(entry);
-      return action ? mergeNamed("actions", action) : false;
+      return action ? mergeNamed("actions", withImage(action)) : false;
     }
     if (cat.kind === "languages") return addLanguage(languageToLibrary(entry));
     if (cat.kind === "skills") {
       const skill = skillToLibrary(entry);
-      return skill ? mergeNamedList("skills", skill) : false;
+      return skill ? mergeNamedList("skills", withImage(skill)) : false;
     }
     if (cat.kind === "senses") {
       const sense = senseToLibrary(entry);
-      return sense ? mergeNamed("senses", sense) : false;
+      return sense ? mergeNamed("senses", withImage(sense)) : false;
     }
     if (cat.kind === "tables") {
       const table = tableToRollTable(entry);
-      return table ? mergeNamed("rollTables", table) : false;
+      return table ? mergeNamed("rollTables", withImage(table)) : false;
     }
     if (cat.kind === "vehicles") {
       const vehicle = vehicleToLibrary(entry);
-      return vehicle ? mergeNamed("vehicles", vehicle) : false;
+      return vehicle ? mergeNamed("vehicles", withImage(vehicle)) : false;
     }
     if (cat.kind === "monsters") {
-      let value = entry;
-      const image = imageFor({ ...entry, img: entryImage(entry) }, root, filePath);
-      if (image && !image.startsWith("/images/") && !image.startsWith("data:")) {
-        try {
-          value = { ...entry, image: await importImageFromUrl(image) };
-        } catch {
-          /* keep the original reference */
-        }
-      }
-      return mergeMonster(value);
+      return mergeMonster(tag(image ? { ...entry, image } : entry));
     }
-    if (cat.kind === "spells") return mergeSpell(entry);
+    if (cat.kind === "spells") return mergeSpell(withImage(spellToLibrary(entry)));
     if (cat.kind === "classes") {
-      storeRaw(cat.id, entry);
-      const features = featuresForEntry(cat.id, entry, raw);
+      storeRaw(cat.id, tag({ ...entry, image: image || entry.image || "" }));
+      const features = featuresForEntry(cat.id, entry, rawForEntry(entry));
       if (features.length) {
         const subclass = !!entry.shortName || !!entry.subclassShortName;
-        addImportedTab(
+        const tabId = addImportedTab(
           `${subclass ? "Subclass" : "Class"}: ${entryName(entry)}`,
           features,
           {
@@ -503,22 +734,24 @@ export function ReferenceIndexTab() {
             className: subclass ? entry.className : entry.name,
           }
         );
+        if (tabId) importTabIdsRef.current.push(tabId);
       }
       return true;
     }
     if (cat.kind === "feats" || cat.kind === "options") {
-      storeRaw(cat.id, entry);
-      const features = featuresForEntry(cat.id, entry, raw);
+      storeRaw(cat.id, tag({ ...entry, image: image || entry.image || "" }));
+      const features = featuresForEntry(cat.id, entry, rawForEntry(entry));
       if (features.length) {
-        addImportedTab(
+        const tabId = addImportedTab(
           `${cat.label.replace(/^Other /, "")}: ${entryName(entry)}`,
           features,
           { category: cat.label }
         );
+        if (tabId) importTabIdsRef.current.push(tabId);
       }
       return true;
     }
-    storeRaw(cat.id, entry);
+    storeRaw(cat.id, tag({ ...entry, image: image || entry.image || "" }));
     return true;
   };
 
@@ -531,14 +764,36 @@ export function ReferenceIndexTab() {
     return addCreditNames([...names]);
   };
 
-  const importSelected = async () => {
-    const picked = [...selected].map((i) => entries[i]).filter(Boolean);
+  // Match a local source file to the Reference Index category that owns it.
+  // Used by "Import all data", where each file may belong to a different tab.
+  const categoryForLocalFile = (path) => {
+    const file = { path, name: path.split("/").pop() };
+    return (
+      FIVE_CATEGORIES.find(
+        (cat) => cat.id !== "life" && filesForCategory(cat, [file]).length > 0
+      ) || null
+    );
+  };
+
+  const importSelected = async () => {    const picked = [...selected].map((i) => entries[i]).filter(Boolean);
     if (!picked.length) {
       toast("Select one or more entries first.");
       return;
     }
+    const importId = newImportId();
+    activeImportRef.current = importId;
+    importTabIdsRef.current = [];
     setImporting(picked.length);
     let done = 0;
+
+    // Class bundles bypass importEntry(), so save their artwork first and
+    // attach it when each base/subclass is stored.
+    const classImages = new Map();
+    if (activeCategory.kind === "classes") {
+      for (const entry of picked) {
+        classImages.set(entry, await importEntryImage(entry));
+      }
+    }
 
     // A class and the subclasses selected with it become one level-aligned
     // tab: base features in the main ladder, each subclass branching from the
@@ -556,28 +811,45 @@ export function ReferenceIndexTab() {
           ) || bundles.find((b) => b.base.name === s.className);
         if (bundle) bundle.subs.push(s);
         else {
-          storeRaw(activeCategory.id, s);
-          const features = featuresForEntry(activeCategory.id, s, raw);
+          storeRaw(activeCategory.id, tagForImport({
+            ...s,
+            image: classImages.get(s) || s.image || "",
+          }));
+          const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
           if (features.length) {
-            addImportedTab(`Subclass: ${entryName(s)}`, features, {
+            const tabId = addImportedTab(`Subclass: ${entryName(s)}`, features, {
               category: activeCategory.label,
               layout: "class",
               className: s.className,
             });
+            if (tabId) importTabIdsRef.current.push(tabId);
             done += 1;
           }
         }
       });
       for (const { base, subs: selectedSubs } of bundles) {
-        storeRaw(activeCategory.id, base);
-        selectedSubs.forEach((s) => storeRaw(activeCategory.id, s));
-        const features = featuresForClassBundle(base, selectedSubs, raw);
+        storeRaw(activeCategory.id, tagForImport({
+          ...base,
+          image: classImages.get(base) || base.image || "",
+        }));
+        selectedSubs.forEach((s) =>
+          storeRaw(activeCategory.id, tagForImport({
+            ...s,
+            image: classImages.get(s) || s.image || "",
+          }))
+        );
+        const features = featuresForClassBundle(
+          base,
+          selectedSubs,
+          rawForEntry(base) || rawForEntry(selectedSubs[0])
+        );
         if (features.length) {
-          addImportedTab(`Class: ${entryName(base)}`, features, {
+          const tabId = addImportedTab(`Class: ${entryName(base)}`, features, {
             category: activeCategory.label,
             layout: "class",
             className: base.name,
           });
+          if (tabId) importTabIdsRef.current.push(tabId);
           done += 1;
         }
         setImporting(Math.max(0, picked.length - done));
@@ -595,6 +867,8 @@ export function ReferenceIndexTab() {
     setImporting(0);
     setSelected(new Set());
     creditAuthorsFor(picked);
+    recordSession(importId, { count: done, tabIds: importTabIdsRef.current });
+    activeImportRef.current = "";
     toast.success(
       activeCategory.kind === "classes"
         ? `Imported ${done} class tab${done === 1 ? "" : "s"}.`
@@ -604,7 +878,12 @@ export function ReferenceIndexTab() {
 
   const importPreview = async () => {
     if (!preview) return;
+    const importId = newImportId();
+    activeImportRef.current = importId;
+    importTabIdsRef.current = [];
     await importEntry(activeCategory, preview);
+    recordSession(importId, { count: 1, tabIds: importTabIdsRef.current });
+    activeImportRef.current = "";
     creditAuthorsFor([preview]);
     toast.success(`Imported ${entryName(preview)}.`);
   };
@@ -639,21 +918,30 @@ export function ReferenceIndexTab() {
     });
   };
 
-  // Batch import of whole brew files. Files are fetched a few at a time and
+  // Batch import of whole source files. Files are fetched a few at a time and
   // applied to one working library draft per batch, so importing hundreds of
-  // brews does not trigger a state update per entity.
-  const importCatalogFiles = async (paths) => {
+  // files does not trigger a state update per entity. `local` imports the
+  // current category from the on-disk 5eTools data; otherwise it imports the
+  // selected remote brew files.
+  const importCatalogFiles = async (paths, { local = false, category = null } = {}) => {
     if (bulk) return;
     const chosen = (Array.isArray(paths) ? paths : []).filter(Boolean);
     if (!chosen.length) {
-      toast("Select one or more brew files first.");
+      toast("Select one or more files first.");
       return;
     }
-    const warning =
-      `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\n` +
-      `This downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` +
-      (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
+    const effectiveCategory = local ? category || activeCategory : null;
+    const warning = local
+      ? `Import all ${chosen.length} files in “${effectiveCategory?.label || categoryId}”?\n\n` +
+        `This reads every file in that category and can create a very large project.` +
+        (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "")
+      : `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\n` +
+        `This downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` +
+        (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
     if (!window.confirm(warning)) return;
+    const importId = newImportId();
+    activeImportRef.current = importId;
+    importTabIdsRef.current = [];
     bulkCancelRef.current = false;
     const bulkLib = new BulkLibrary(settings.library);
     const tabNames = new Set((tree?.tabs || []).map((t) => t.name));
@@ -671,6 +959,19 @@ export function ReferenceIndexTab() {
         const batch = chosen.slice(start, start + batchSize);
         const results = await Promise.all(
           batch.map(async (path) => {
+            if (local) {
+              try {
+                const data = await fetchFiveFile(path);
+                return {
+                  path,
+                  info: { name: path.split("/").pop(), props: [] },
+                  data,
+                  category: categoryForLocalFile(path) || effectiveCategory,
+                };
+              } catch {
+                return { path, info: null, error: true };
+              }
+            }
             const info = catalog.find((f) => f.path === path);
             if (!info) return { path, error: true };
             try {
@@ -696,7 +997,8 @@ export function ReferenceIndexTab() {
             authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
             const applied = importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
               makeTabs: bulkMakeTabs,
-              kind: root,
+              kind: local ? "data" : root,
+              importId,
             });
             entryTotal += applied.entries;
             applied.tabs.forEach((tab) => {
@@ -709,7 +1011,10 @@ export function ReferenceIndexTab() {
             errors += 1;
           }
         });
-        if (newTabs.length) addImportedTabs(newTabs, { activate: false });
+        if (newTabs.length) {
+          const ids = addImportedTabs(newTabs, { activate: false });
+          importTabIdsRef.current.push(...(ids || []));
+        }
         setSettings((s) => ({ ...s, library: bulkLib.library }));
         setBulk({
           total,
@@ -722,22 +1027,82 @@ export function ReferenceIndexTab() {
         // Yield so progress/cancel stay responsive between batches.
         await new Promise((r) => setTimeout(r, 0));
       }
+      setBulk((b) => (b ? { ...b, current: "Saving artwork…" } : b));
+      const images = await localizeBulkImages(bulkLib.library, local ? "data" : root, {
+        limit: 400,
+      });
+      setSettings((s) => ({ ...s, library: bulkLib.library }));
+      recordSession(importId, {
+        count: entryTotal,
+        tabIds: importTabIdsRef.current,
+        label: local
+          ? `${effectiveCategory?.label || categoryId} · local data`
+          : `${root} · brew files`,
+      });
       if (creditNames.size) addCreditNames([...creditNames]);
       if (bulkCancelRef.current) {
         toast(`Stopped after ${done} of ${total} files. Imported data is kept.`);
       } else {
         toast.success(
           `Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${
-            errors ? ` · ${errors} failed` : ""
-          }.`
+            images.saved ? ` · saved ${images.saved} pictures` : ""
+          }${errors ? ` · ${errors} failed` : ""}.`
         );
+        if (images.skipped) {
+          toast(
+            `${images.skipped} extra pictures still use the source link. Re-import that file to save them, or import individual entries.`
+          );
+        }
       }
     } catch (err) {
       toast.error(`Bulk import stopped: ${err.message || err}`);
     } finally {
+      activeImportRef.current = "";
       setBulk(null);
       bulkCancelRef.current = false;
     }
+  };
+
+  const importAllFiles = (everything = false) => {
+    if (bulk) return;
+    const source = everything
+      ? isRemote
+        ? catalog
+        : index.filter((f) => isSourceFile(f.path))
+      : files;
+    const paths = source.map((f) => f.path);
+    if (!paths.length) {
+      toast("No files to import.");
+      return;
+    }
+    importCatalogFiles(paths, {
+      local: !isRemote,
+      category: everything ? { id: "__all__", label: "All categories" } : activeCategory,
+    });
+  };
+
+  const undoImport = (record) => {
+    if (!record) return;
+    if (activeImportRef.current === record.id) {
+      toast("Wait for this import to finish first.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Remove ${record.count || ""} entries and ${record.tabIds?.length || 0} tab(s) from “${
+          record.label || "this import"
+        }”?`
+      )
+    ) {
+      return;
+    }
+    const result = removeImportFromLibrary(settings.library, record.id);
+    setSettings((s) => ({
+      ...s,
+      library: removeImportFromLibrary(s.library, record.id).library,
+    }));
+    (record.tabIds || result.tabIds || []).forEach((id) => deleteTab(id));
+    toast.success(`Removed “${record.label || "import"}”.`);
   };
 
   if (!isRemote && status && !status.available) {
@@ -752,14 +1117,18 @@ export function ReferenceIndexTab() {
           <Button size="sm" onClick={updateData} disabled={updating}>
             {updating ? "Downloading…" : "Download 5eTools"}
           </Button>
-          <Button size="sm" variant="outline" onClick={refresh}>Retry</Button>
+          <Button size="sm" variant="outline" onClick={() => refresh(true)}>Retry</Button>
         </div>
       </div>
     );
   }
 
   const previewImage = preview
-    ? imageFor({ ...preview, img: previewDetails?.image || preview?.img }, root, filePath)
+    ? imageFor(
+        { ...preview, img: previewDetails?.image || preview?.img },
+        root,
+        preview.__filePath || filePath
+      )
     : "";
 
   return (
@@ -815,7 +1184,20 @@ export function ReferenceIndexTab() {
               {updating ? "Downloading…" : "Update from GitHub"}
             </Button>
           )}
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={refresh}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => importAllFiles(true)}
+            disabled={
+              !!bulk ||
+              (isRemote ? catalog.length === 0 : index.filter((f) => isSourceFile(f.path)).length === 0)
+            }
+            title="Import every source file in this data set (all categories)"
+          >
+            Import all data
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => refresh(true)}>
             {isRemote ? "Refresh catalog" : "Refresh index"}
           </Button>
         </div>
@@ -884,9 +1266,69 @@ export function ReferenceIndexTab() {
         </aside>
 
         <aside className="flex min-h-0 flex-col rounded-md border">
-          <div className="border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Files ({files.length})
+          <div className="flex items-center justify-between gap-1 border-b px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <span>Files ({files.length})</span>
+            <div className="flex items-center gap-1">
+              {allMode ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-1 text-[9px]"
+                  onClick={() => {
+                    setAllMode(false);
+                    if (files[0]) loadFile(files[0].path);
+                  }}
+                >
+                  Single file
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-1 text-[9px]"
+                  onClick={loadAllFiles}
+                  disabled={!files.length || !!loading}
+                  title="Load entries from every file in this category/source"
+                >
+                  Display all
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 px-1 text-[9px]"
+                onClick={() => importAllFiles(false)}
+                disabled={!files.length || !!bulk}
+                title="Import every file currently listed in this category"
+              >
+                Import all
+              </Button>
+            </div>
           </div>
+          {allProgress && (
+            <div className="space-y-1 border-b px-2 py-1">
+              <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                <span>
+                  Loading all files · {allProgress.done}/{allProgress.total}
+                </span>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    allCancelRef.current = true;
+                  }}
+                >
+                  Stop
+                </button>
+              </div>
+              <div className="h-1 rounded bg-muted">
+                <div
+                  className="h-full rounded bg-primary"
+                  style={{ width: `${(allProgress.done / allProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
           {isRemote && (
             <div className="space-y-1 border-b p-1">
               <Input
@@ -1014,36 +1456,41 @@ export function ReferenceIndexTab() {
               </Button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-1">
+          <div className="flex min-h-0 flex-1 flex-col p-1">
             {loading && <p className="p-2 text-xs text-muted-foreground">Reading file…</p>}
             {!loading && entries.length === 0 && (
               <p className="p-2 text-xs text-muted-foreground">Choose a file to browse its entries.</p>
             )}
-            {shown.map((e) => {
-              const i = entries.indexOf(e);
-              return (
-                <label
-                  key={`${entryName(e)}-${i}`}
-                  onClick={() => setPreview(e)}
-                  className={`flex cursor-pointer items-start gap-1.5 rounded px-1.5 py-1 text-[10px] ${
-                    preview === e ? "bg-accent" : "hover:bg-accent/50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={selected.has(i)}
-                    onClick={(ev) => ev.stopPropagation()}
-                    onChange={() => toggle(i)}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{String(entryName(e))}</span>
-                    <span className="block truncate text-muted-foreground">{String(entryMeta(e))}</span>
-                    <span className="line-clamp-1 text-muted-foreground/80">{String(entryPreview(e))}</span>
-                  </span>
-                </label>
-              );
-            })}
+            <VirtualList
+              items={shown}
+              rowHeight={46}
+              getKey={(e, idx) => `${entryName(e)}-${entryIndex.get(e) ?? idx}`}
+              className="min-h-0 flex-1"
+              render={(e) => {
+                const i = entryIndex.get(e);
+                return (
+                  <label
+                    onClick={() => setPreview(e)}
+                    className={`flex h-full cursor-pointer items-start gap-1.5 overflow-hidden rounded px-1.5 py-1 text-[10px] ${
+                      preview === e ? "bg-accent" : "hover:bg-accent/50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={selected.has(i)}
+                      onClick={(ev) => ev.stopPropagation()}
+                      onChange={() => toggle(i)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{String(entryName(e))}</span>
+                      <span className="block truncate text-muted-foreground">{String(entryMeta(e))}</span>
+                      <span className="line-clamp-1 text-muted-foreground/80">{String(entryPreview(e))}</span>
+                    </span>
+                  </label>
+                );
+              }}
+            />
           </div>
           <p className="border-t px-2 py-1 text-[10px] text-muted-foreground">
             {{
@@ -1084,6 +1531,51 @@ export function ReferenceIndexTab() {
             />
           </div>
         </aside>
+      </div>
+
+      <div className="rounded-md border">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
+          onClick={() => setHistoryOpen((v) => !v)}
+        >
+          <span>Import history ({(settings?.library?.importHistory || []).length})</span>
+          <span>{historyOpen ? "Hide" : "Show"}</span>
+        </button>
+        {historyOpen && (
+          <div className="space-y-1 border-t p-2">
+            {(settings?.library?.importHistory || []).length === 0 ? (
+              <p className="text-[10px] text-muted-foreground">
+                No tagged imports yet. Every new import gets a rollback record here.
+              </p>
+            ) : (
+              (settings.library.importHistory || []).map((record) => (
+                <div
+                  key={record.id}
+                  className="flex flex-wrap items-center gap-1 rounded border px-1.5 py-1 text-[10px]"
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {record.label || "Import"}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {record.count || 0} entries{record.tabIds?.length ? ` · ${record.tabIds.length} tabs` : ""}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {record.at ? new Date(record.at).toLocaleString() : ""}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-1 text-[9px]"
+                    onClick={() => undoImport(record)}
+                  >
+                    Undo import
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <p className="text-[10px] text-muted-foreground">

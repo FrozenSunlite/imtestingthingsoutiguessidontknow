@@ -88,7 +88,7 @@ export function EncounterXpCalculator() {
           <Label className="text-[10px] text-muted-foreground">Load an encounter table</Label>
           <Select value={tableId} onValueChange={loadTable}>
             <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Choose a tableâ€¦" />
+              <SelectValue placeholder="Choose a table…" />
             </SelectTrigger>
             <SelectContent>
               {tables.map((table, i) => (
@@ -122,7 +122,7 @@ export function EncounterXpCalculator() {
               <div key={i} className="flex items-center gap-1.5 rounded border p-1.5">
                 <Select value={row.monster || ""} onValueChange={(v) => patchRow(i, { monster: v })}>
                   <SelectTrigger className="h-8 min-w-40 flex-1 text-xs">
-                    <SelectValue placeholder="Monsterâ€¦" />
+                    <SelectValue placeholder="Monster…" />
                   </SelectTrigger>
                   <SelectContent>
                     {monsters.map((m) => (
@@ -140,7 +140,7 @@ export function EncounterXpCalculator() {
                   title="Count"
                 />
                 <span className="w-24 shrink-0 text-right text-[10px] text-muted-foreground">
-                  {item ? `${fmt(item.xp)} XP each` : "â€”"}
+                  {item ? `${fmt(item.xp)} XP each` : "—"}
                 </span>
                 <Button size="sm" variant="ghost" className="h-8 px-1" onClick={() => removeRow(i)}>
                   <Trash2 className="h-3.5 w-3.5" />
@@ -179,11 +179,11 @@ export function EncounterXpCalculator() {
             <div className="rounded-md border p-2 text-xs">
               <p className="font-medium">At CR level {result.level}</p>
               <p className="text-muted-foreground">
-                Highest CR: {result.highestCR || "0"} Â· party of 4
+                Highest CR: {result.highestCR || "0"} · party of 4
               </p>
               <p className="mt-1">
-                Base XP <span className="font-mono font-semibold">{fmt(result.baseXp)}</span> Â·
-                Ã—{result.multiplier} multiplier Â·{" "}
+                Base XP <span className="font-mono font-semibold">{fmt(result.baseXp)}</span> ·
+                ×{result.multiplier} multiplier ·{" "}
                 <span className="font-mono font-semibold">{fmt(result.adjustedXp)}</span> adjusted
               </p>
               <p className="mt-1">
@@ -197,8 +197,8 @@ export function EncounterXpCalculator() {
                 {result.totalCount} monster{result.totalCount === 1 ? "" : "s"} total
               </p>
               <p className="mt-1">
-                Easy {fmt(result.lowerThresholds[0])} Â· Medium{" "}
-                {fmt(result.lowerThresholds[1])} Â· Hard {fmt(result.lowerThresholds[2])} Â·
+                Easy {fmt(result.lowerThresholds[0])} · Medium{" "}
+                {fmt(result.lowerThresholds[1])} · Hard {fmt(result.lowerThresholds[2])} ·
                 Deadly {fmt(result.lowerThresholds[3])}
               </p>
               <p className="mt-1">
