@@ -93,12 +93,44 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   const transformRef = useRef(null);
   const pendingViewRef = useRef(null);
   const commitTimer = useRef(null);
+  const transformRaf = useRef(0);
 
   const applyTransform = () => {
     const pv = pendingViewRef.current;
-    if (pv && transformRef.current)
-      transformRef.current.style.transform = `translate(${pv.panX}px, ${pv.panY}px) scale(${pv.zoom})`;
+    const layer = transformRef.current;
+    if (!pv || !layer) return;
+    // One composited layer for the whole world. During the gesture we disable
+    // expensive node shadows/transitions (see index.css) so zooming stays
+    // smooth even with hundreds of nodes.
+    layer.dataset.navigating = "true";
+    layer.style.transform = `translate3d(${pv.panX}px, ${pv.panY}px, 0) scale(${pv.zoom})`;
   };
+
+  // Wheel/trackpad input can arrive several times per frame. Coalesce the
+  // expensive DOM write so the browser composites only once per frame.
+  const scheduleTransform = () => {
+    if (transformRaf.current) return;
+    transformRaf.current = requestAnimationFrame(() => {
+      transformRaf.current = 0;
+      applyTransform();
+    });
+  };
+
+  const endNavigation = () => {
+    if (transformRaf.current) {
+      cancelAnimationFrame(transformRaf.current);
+      transformRaf.current = 0;
+    }
+    if (transformRef.current) transformRef.current.dataset.navigating = "false";
+  };
+
+  useEffect(
+    () => () => {
+      if (transformRaf.current) cancelAnimationFrame(transformRaf.current);
+      clearTimeout(commitTimer.current);
+    },
+    []
+  );
 
   const containerRef = useRef(null);
   const [vp, setVp] = useState({ w: 800, h: 600 });
@@ -789,7 +821,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         panX: d.startPan.x + dx,
         panY: d.startPan.y + dy,
       };
-      applyTransform();
+      scheduleTransform();
     } else if (d.type === "node") {
       // Dragging the node out of the canvas — over a tab header or the
       // Subtrees section of the editor panel — turns the move into a carry.
@@ -873,6 +905,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       pendingViewRef.current = null;
       setView(pv);
     }
+    endNavigation();
     if (d?.type === "bend" && !d.moved && d.wasSelected) {
       addBend(d.connId, d.world.x, d.world.y, d.segIndex);
     }
@@ -929,7 +962,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     const wx = (sx - base.panX) / (base.zoom || 0.1);
     const wy = (sy - base.panY) / (base.zoom || 0.1);
     pendingViewRef.current = { zoom: z, panX: sx - wx * z, panY: sy - wy * z };
-    applyTransform();
+    scheduleTransform();
     clearTimeout(commitTimer.current);
     commitTimer.current = setTimeout(() => {
       const pv = pendingViewRef.current;
@@ -937,7 +970,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         pendingViewRef.current = null;
         setView(pv);
       }
-    }, 200);
+      endNavigation();
+    }, 180);
   };
 
   const onDoubleClick = (e) => {
@@ -1233,7 +1267,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
           position: "absolute",
           left: 0,
           top: 0,
-          transform: `translate(${shown.panX}px, ${shown.panY}px) scale(${shown.zoom})`,
+          transform: `translate3d(${shown.panX}px, ${shown.panY}px, 0) scale(${shown.zoom})`,
           transformOrigin: "0 0",
           willChange: "transform",
         }}

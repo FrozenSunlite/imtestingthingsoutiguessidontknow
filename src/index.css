@@ -244,3 +244,14 @@
     blue-fire-flicker 2.2s ease-in-out infinite reverse,
     blue-fire-sway 5.5s ease-in-out infinite;
 }
+
+/* While panning or wheel-zooming, skip expensive per-node paint work. The
+   world layer already has one composited transform; shadows, filters and
+   transitions are restored as soon as the camera settles. */
+[data-navigating="true"] [data-node-id] * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  transition: none !important;
+}

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Fjf4oYDb.js";
+import { n as Button, r as cn } from "./router-BiIYDf7V.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -24534,7 +24534,6 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 			width: size,
 			height: size,
 			cursor: editable ? "grab" : "pointer",
-			willChange: "transform",
 			textRendering: "geometricPrecision"
 		},
 		className: `group ${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
@@ -24751,40 +24750,43 @@ function GridLayer({ bounds, grid, zoom }) {
 	}, [g]);
 	useEffect(() => {
 		const canvas = ref.current;
-		if (!canvas || !drawn || empty) return;
+		if (!canvas || !drawn || empty) return void 0;
 		const z = Math.min(3, Math.max(.25, zoom || 1));
 		const prev = state.current;
 		const zoomChanged = Math.abs(z - prev.z) / (prev.z || 1) >= .1;
-		if (prev.sig === gridSig && !zoomChanged) return;
-		prev.sig = gridSig;
-		prev.z = z;
-		const w = bounds.maxX - bounds.minX;
-		const h = bounds.maxY - bounds.minY;
-		const r = Math.min(z, Math.sqrt(MAX_PIXELS / (w * h)));
-		canvas.width = Math.round(w * r);
-		canvas.height = Math.round(h * r);
-		const ctx = canvas.getContext("2d");
-		if (!ctx) return;
-		const color = getComputedStyle(canvas).color || "hsl(0 0% 50%)";
-		ctx.setTransform(r, 0, 0, r, -bounds.minX * r, -bounds.minY * r);
-		ctx.clearRect(0, 0, w, h);
-		ctx.strokeStyle = color;
-		ctx.fillStyle = color;
-		ctx.lineWidth = 1 / r;
-		ctx.globalAlpha = grid.opacity ?? 1;
-		if (g.paths.length) ctx.stroke(combined);
-		ctx.globalAlpha = Math.min(1, (grid.opacity ?? 1) * 2.2);
-		for (const p of g.dots) {
-			ctx.beginPath();
-			ctx.arc(p.x, p.y, 2 / r, 0, Math.PI * 2);
-			ctx.fill();
-		}
-		ctx.globalAlpha = Math.min(.45, (grid.opacity ?? 1) * 1.2);
-		for (const p of g.subDots) {
-			ctx.beginPath();
-			ctx.arc(p.x, p.y, 1.1 / r, 0, Math.PI * 2);
-			ctx.fill();
-		}
+		if (prev.sig === gridSig && !zoomChanged) return void 0;
+		const timer = setTimeout(() => {
+			prev.sig = gridSig;
+			prev.z = z;
+			const w = bounds.maxX - bounds.minX;
+			const h = bounds.maxY - bounds.minY;
+			const r = Math.min(z, Math.sqrt(MAX_PIXELS / (w * h)));
+			canvas.width = Math.round(w * r);
+			canvas.height = Math.round(h * r);
+			const ctx = canvas.getContext("2d");
+			if (!ctx) return;
+			const color = getComputedStyle(canvas).color || "hsl(0 0% 50%)";
+			ctx.setTransform(r, 0, 0, r, -bounds.minX * r, -bounds.minY * r);
+			ctx.clearRect(0, 0, w, h);
+			ctx.strokeStyle = color;
+			ctx.fillStyle = color;
+			ctx.lineWidth = 1 / r;
+			ctx.globalAlpha = grid.opacity ?? 1;
+			if (g.paths.length) ctx.stroke(combined);
+			ctx.globalAlpha = Math.min(1, (grid.opacity ?? 1) * 2.2);
+			for (const p of g.dots) {
+				ctx.beginPath();
+				ctx.arc(p.x, p.y, 2 / r, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			ctx.globalAlpha = Math.min(.45, (grid.opacity ?? 1) * 1.2);
+			for (const p of g.subDots) {
+				ctx.beginPath();
+				ctx.arc(p.x, p.y, 1.1 / r, 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}, 70);
+		return () => clearTimeout(timer);
 	}, [
 		g,
 		combined,
@@ -25249,10 +25251,32 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	const transformRef = useRef(null);
 	const pendingViewRef = useRef(null);
 	const commitTimer = useRef(null);
+	const transformRaf = useRef(0);
 	const applyTransform = () => {
 		const pv = pendingViewRef.current;
-		if (pv && transformRef.current) transformRef.current.style.transform = `translate(${pv.panX}px, ${pv.panY}px) scale(${pv.zoom})`;
+		const layer = transformRef.current;
+		if (!pv || !layer) return;
+		layer.dataset.navigating = "true";
+		layer.style.transform = `translate3d(${pv.panX}px, ${pv.panY}px, 0) scale(${pv.zoom})`;
 	};
+	const scheduleTransform = () => {
+		if (transformRaf.current) return;
+		transformRaf.current = requestAnimationFrame(() => {
+			transformRaf.current = 0;
+			applyTransform();
+		});
+	};
+	const endNavigation = () => {
+		if (transformRaf.current) {
+			cancelAnimationFrame(transformRaf.current);
+			transformRaf.current = 0;
+		}
+		if (transformRef.current) transformRef.current.dataset.navigating = "false";
+	};
+	useEffect(() => () => {
+		if (transformRaf.current) cancelAnimationFrame(transformRaf.current);
+		clearTimeout(commitTimer.current);
+	}, []);
 	const containerRef = useRef(null);
 	const [vp, setVp] = useState({
 		w: 800,
@@ -25922,7 +25946,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				panX: d.startPan.x + dx,
 				panY: d.startPan.y + dy
 			};
-			applyTransform();
+			scheduleTransform();
 		} else if (d.type === "node") {
 			const bounds = containerRef.current.getBoundingClientRect();
 			if (e.clientX <= bounds.left || e.clientX >= bounds.right || e.clientY <= bounds.top || e.clientY >= bounds.bottom) {
@@ -25986,6 +26010,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			pendingViewRef.current = null;
 			setView(pv);
 		}
+		endNavigation();
 		if (d?.type === "bend" && !d.moved && d.wasSelected) addBend(d.connId, d.world.x, d.world.y, d.segIndex);
 		if (d?.type === "node" && d.positions) {
 			moveNodes(d.positions.map(({ id, x, y }) => ({
@@ -26041,7 +26066,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			panX: sx - wx * z,
 			panY: sy - wy * z
 		};
-		applyTransform();
+		scheduleTransform();
 		clearTimeout(commitTimer.current);
 		commitTimer.current = setTimeout(() => {
 			const pv = pendingViewRef.current;
@@ -26049,7 +26074,8 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				pendingViewRef.current = null;
 				setView(pv);
 			}
-		}, 200);
+			endNavigation();
+		}, 180);
 	};
 	const onDoubleClick = (e) => {
 		if (!editable) return;
@@ -26285,7 +26311,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 						position: "absolute",
 						left: 0,
 						top: 0,
-						transform: `translate(${shown.panX}px, ${shown.panY}px) scale(${shown.zoom})`,
+						transform: `translate3d(${shown.panX}px, ${shown.panY}px, 0) scale(${shown.zoom})`,
 						transformOrigin: "0 0",
 						willChange: "transform"
 					},
@@ -44826,10 +44852,10 @@ function ReferenceIndexTab() {
 	}, [entries]);
 	const shown = entries.filter((e) => {
 		const q = query.trim().toLowerCase();
-		if (q && !`${entryName$1(e)} ${entryMeta(e)}`.toLowerCase().includes(q)) return false;
+		if (q && !`${entryName$1(e)} ${entryMeta(e)} ${sourceOf(e)}`.toLowerCase().includes(q)) return false;
 		if (sourceFilter !== "__all__" && sourceOf(e) !== sourceFilter) return false;
 		return true;
-	});
+	}).sort((a, b) => sourceOf(a).localeCompare(sourceOf(b)) || String(entryName$1(a)).localeCompare(String(entryName$1(b))));
 	const imported = settings?.library?.fiveETools || {};
 	const rawForEntry = (entry) => entry?.__filePath && rawByPath.current.get(entry.__filePath) || raw;
 	const previewDetails = useMemo(() => preview ? entryDetails(activeCategory.id, preview, rawForEntry(preview), { spellLookup }) : null, [
@@ -46099,9 +46125,15 @@ function ReferenceIndexTab() {
 												}), /* @__PURE__ */ jsxs("span", {
 													className: "min-w-0 flex-1",
 													children: [
-														/* @__PURE__ */ jsx("span", {
-															className: "block truncate font-medium",
-															children: String(entryName$1(e))
+														/* @__PURE__ */ jsxs("span", {
+															className: "flex items-center justify-between gap-1",
+															children: [/* @__PURE__ */ jsx("span", {
+																className: "min-w-0 truncate font-medium",
+																children: String(entryName$1(e))
+															}), /* @__PURE__ */ jsx("span", {
+																className: "shrink-0 rounded bg-muted px-1 py-0.5 text-[8px] uppercase tracking-wide text-muted-foreground",
+																children: sourceOf(e) || "—"
+															})]
 														}),
 														/* @__PURE__ */ jsx("span", {
 															className: "block truncate text-muted-foreground",

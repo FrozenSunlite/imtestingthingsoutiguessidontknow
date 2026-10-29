@@ -34,43 +34,47 @@ export function GridLayer({ bounds, grid, zoom }) {
 
   useEffect(() => {
     const canvas = ref.current;
-    if (!canvas || !drawn || empty) return;
+    if (!canvas || !drawn || empty) return undefined;
     const z = Math.min(3, Math.max(0.25, zoom || 1));
     const prev = state.current;
     const zoomChanged = Math.abs(z - prev.z) / (prev.z || 1) >= 0.1;
-    if (prev.sig === gridSig && !zoomChanged) return;
-    prev.sig = gridSig;
-    prev.z = z;
-
-    const w = bounds.maxX - bounds.minX;
-    const h = bounds.maxY - bounds.minY;
-    // Cap the bitmap so huge trees can't blow up GPU memory; beyond the cap
-    // the grid just renders softer when zoomed in.
-    const r = Math.min(z, Math.sqrt(MAX_PIXELS / (w * h)));
-    canvas.width = Math.round(w * r);
-    canvas.height = Math.round(h * r);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const color = getComputedStyle(canvas).color || "hsl(0 0% 50%)";
-    ctx.setTransform(r, 0, 0, r, -bounds.minX * r, -bounds.minY * r);
-    ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 1 / r;
-    ctx.globalAlpha = grid.opacity ?? 1;
-    if (g.paths.length) ctx.stroke(combined);
-    ctx.globalAlpha = Math.min(1, (grid.opacity ?? 1) * 2.2);
-    for (const p of g.dots) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 2 / r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = Math.min(0.45, (grid.opacity ?? 1) * 1.2);
-    for (const p of g.subDots) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 1.1 / r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    if (prev.sig === gridSig && !zoomChanged) return undefined;
+    // Let the camera transform land first; redrawing a large grid canvas
+    // synchronously during the commit frame is what makes zoom feel sticky.
+    const timer = setTimeout(() => {
+      prev.sig = gridSig;
+      prev.z = z;
+      const w = bounds.maxX - bounds.minX;
+      const h = bounds.maxY - bounds.minY;
+      // Cap the bitmap so huge trees can't blow up GPU memory; beyond the cap
+      // the grid just renders softer when zoomed in.
+      const r = Math.min(z, Math.sqrt(MAX_PIXELS / (w * h)));
+      canvas.width = Math.round(w * r);
+      canvas.height = Math.round(h * r);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const color = getComputedStyle(canvas).color || "hsl(0 0% 50%)";
+      ctx.setTransform(r, 0, 0, r, -bounds.minX * r, -bounds.minY * r);
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 1 / r;
+      ctx.globalAlpha = grid.opacity ?? 1;
+      if (g.paths.length) ctx.stroke(combined);
+      ctx.globalAlpha = Math.min(1, (grid.opacity ?? 1) * 2.2);
+      for (const p of g.dots) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2 / r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = Math.min(0.45, (grid.opacity ?? 1) * 1.2);
+      for (const p of g.subDots) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.1 / r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }, 70);
+    return () => clearTimeout(timer);
   }, [g, combined, gridSig, zoom, drawn, empty, bounds, grid]);
 
   if (!drawn || empty) return null;

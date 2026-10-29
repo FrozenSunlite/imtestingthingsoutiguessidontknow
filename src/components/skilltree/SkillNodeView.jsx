@@ -71,7 +71,6 @@ export const SkillNodeView = memo(function SkillNodeView({
         width: size,
         height: size,
         cursor: editable ? "grab" : "pointer",
-        willChange: "transform",
         textRendering: "geometricPrecision",
       }}
       className={`group ${

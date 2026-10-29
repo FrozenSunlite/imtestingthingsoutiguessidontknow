@@ -245,12 +245,20 @@ export function ReferenceIndexTab() {
     });
     return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [entries]);
-  const shown = entries.filter((e) => {
-    const q = query.trim().toLowerCase();
-    if (q && !`${entryName(e)} ${entryMeta(e)}`.toLowerCase().includes(q)) return false;
-    if (sourceFilter !== "__all__" && sourceOf(e) !== sourceFilter) return false;
-    return true;
-  });
+  const shown = entries
+    .filter((e) => {
+      const q = query.trim().toLowerCase();
+      if (q && !`${entryName(e)} ${entryMeta(e)} ${sourceOf(e)}`.toLowerCase().includes(q)) {
+        return false;
+      }
+      if (sourceFilter !== "__all__" && sourceOf(e) !== sourceFilter) return false;
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        sourceOf(a).localeCompare(sourceOf(b)) ||
+        String(entryName(a)).localeCompare(String(entryName(b)))
+    );
   const imported = settings?.library?.fiveETools || {};
   const rawForEntry = (entry) =>
     (entry?.__filePath && rawByPath.current.get(entry.__filePath)) || raw;
@@ -1524,7 +1532,12 @@ export function ReferenceIndexTab() {
                       onChange={() => toggle(i)}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{String(entryName(e))}</span>
+                      <span className="flex items-center justify-between gap-1">
+                        <span className="min-w-0 truncate font-medium">{String(entryName(e))}</span>
+                        <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[8px] uppercase tracking-wide text-muted-foreground">
+                          {sourceOf(e) || "—"}
+                        </span>
+                      </span>
                       <span className="block truncate text-muted-foreground">{String(entryMeta(e))}</span>
                       <span className="line-clamp-1 text-muted-foreground/80">{String(entryPreview(e))}</span>
                     </span>
