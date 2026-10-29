@@ -12,7 +12,7 @@ export function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KE
 
   useEffect(() => {
     const w = Number(localStorage.getItem(key));
-    if (w >= min && w <= max) setWidth(w);
+    if (Number.isFinite(w) && w > 0) setWidth(Math.min(max, Math.max(min, w)));
     const sync = (e) => {
       if (key !== KEY) return;
       if (e.detail >= min && e.detail <= max) setWidth(e.detail);

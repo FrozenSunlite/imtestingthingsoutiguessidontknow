@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CMf5EFPQ.js";
+import { n as Button, r as cn } from "./router-ru0lSoN4.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -27075,7 +27075,7 @@ function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KEY$1) {
 	const [width, setWidth] = useState(defaultWidth);
 	useEffect(() => {
 		const w = Number(localStorage.getItem(key));
-		if (w >= min && w <= max) setWidth(w);
+		if (Number.isFinite(w) && w > 0) setWidth(Math.min(max, Math.max(min, w)));
 		const sync = (e) => {
 			if (key !== KEY$1) return;
 			if (e.detail >= min && e.detail <= max) setWidth(e.detail);
@@ -27096,7 +27096,7 @@ function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KEY$1) {
 }
 //#endregion
 //#region src/components/skilltree/PanelResizer.jsx
-function PanelResizer({ width, onResize, edge = "left" }) {
+function PanelResizer({ width, onResize, edge = "left", min = 260, max = 720 }) {
 	const [globalWidth, setGlobal] = usePanelWidth();
 	const w = width ?? globalWidth;
 	const apply = onResize ?? setGlobal;
@@ -27108,7 +27108,7 @@ function PanelResizer({ width, onResize, edge = "left" }) {
 			e.preventDefault();
 			const startX = e.clientX;
 			const startW = w;
-			const move = (ev) => apply(Math.min(720, Math.max(260, startW + sign * (ev.clientX - startX))));
+			const move = (ev) => apply(Math.min(max, Math.max(min, startW + sign * (ev.clientX - startX))));
 			const up = () => {
 				window.removeEventListener("pointermove", move);
 				window.removeEventListener("pointerup", up);
@@ -40008,12 +40008,22 @@ function StackSplitter({ value = .5, onChange, min = .18 }) {
 var SPLIT_KEY = "skilltree:sideSplit";
 function ViewTreeColumn() {
 	const { sideTrees } = useTree();
-	const [width, setWidth] = usePanelWidth(460, 260, 900, "skilltree:sideWidth:stack");
+	const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1920 : window.innerWidth);
+	const maxWidth = Math.max(520, Math.round(viewportWidth * .6));
+	const [width, setWidth] = usePanelWidth(460, 260, maxWidth, "skilltree:sideWidth:stack");
 	const [split, setSplit] = useState(.5);
+	useEffect(() => {
+		const onResize = () => setViewportWidth(window.innerWidth);
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, []);
 	useEffect(() => {
 		const saved = Number(localStorage.getItem(SPLIT_KEY));
 		if (saved >= .18 && saved <= .82) setSplit(saved);
 	}, []);
+	useEffect(() => {
+		if (width > maxWidth) setWidth(maxWidth);
+	}, [maxWidth, width]);
 	const left = !!sideTrees?.left && !sideTrees.left.closed;
 	const right = !!sideTrees?.right && !sideTrees.right.closed;
 	if (!left && !right) return null;
@@ -40030,7 +40040,9 @@ function ViewTreeColumn() {
 			/* @__PURE__ */ jsx(PanelResizer, {
 				width,
 				onResize: setWidth,
-				edge: "right"
+				edge: "right",
+				min: 260,
+				max: maxWidth
 			}),
 			left && /* @__PURE__ */ jsx("div", {
 				className: "flex min-h-0 min-w-0 flex-col",

@@ -13,13 +13,30 @@ const SPLIT_KEY = "skilltree:sideSplit";
 // divided between them.
 export function ViewTreeColumn() {
   const { sideTrees } = useTree();
-  const [width, setWidth] = usePanelWidth(460, 260, 900, "skilltree:sideWidth:stack");
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1920 : window.innerWidth
+  );
+  // Let the player widen the tree column until it covers about 60% of the
+  // screen; the sheet keeps the remaining 40%.
+  const maxWidth = Math.max(520, Math.round(viewportWidth * 0.6));
+  const [width, setWidth] = usePanelWidth(460, 260, maxWidth, "skilltree:sideWidth:stack");
   const [split, setSplit] = useState(0.5);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const saved = Number(localStorage.getItem(SPLIT_KEY));
     if (saved >= 0.18 && saved <= 0.82) setSplit(saved);
   }, []);
+
+  useEffect(() => {
+    if (width > maxWidth) setWidth(maxWidth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxWidth, width]);
 
   const left = !!sideTrees?.left && !sideTrees.left.closed;
   const right = !!sideTrees?.right && !sideTrees.right.closed;
@@ -39,7 +56,13 @@ export function ViewTreeColumn() {
       className="relative flex min-h-0 shrink-0 flex-col border-r bg-card"
       style={{ width }}
     >
-      <PanelResizer width={width} onResize={setWidth} edge="right" />
+      <PanelResizer
+        width={width}
+        onResize={setWidth}
+        edge="right"
+        min={260}
+        max={maxWidth}
+      />
       {left && (
         <div
           className="flex min-h-0 min-w-0 flex-col"

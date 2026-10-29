@@ -4,7 +4,7 @@ import { usePanelWidth } from "@/hooks/use-panel-width";
 // (Edit Node, Edit Connector, Character Sheet); pass `width`/`onResize` for an
 // independent one, and `edge` ("left" | "right") for which side of the panel
 // the handle sits on.
-export function PanelResizer({ width, onResize, edge = "left" }) {
+export function PanelResizer({ width, onResize, edge = "left", min = 260, max = 720 }) {
   const [globalWidth, setGlobal] = usePanelWidth();
   const w = width ?? globalWidth;
   const apply = onResize ?? setGlobal;
@@ -18,7 +18,7 @@ export function PanelResizer({ width, onResize, edge = "left" }) {
         const startX = e.clientX;
         const startW = w;
         const move = (ev) =>
-          apply(Math.min(720, Math.max(260, startW + sign * (ev.clientX - startX))));
+          apply(Math.min(max, Math.max(min, startW + sign * (ev.clientX - startX))));
         const up = () => {
           window.removeEventListener("pointermove", move);
           window.removeEventListener("pointerup", up);
