@@ -125,6 +125,19 @@ const categoryForProps = (props = []) => {
 
 const isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
 
+// Which Reference Index category owns a data file. Used when browsing "All
+// files", where the catalog property is not available for local files.
+const categoryIdForPath = (path) => {
+  const p = String(path || "");
+  if (!p) return "";
+  const match = FIVE_CATEGORIES.find((c) => {
+    const names = new Set(c.files || []);
+    if (names.has(p) || names.has(p.slice(p.lastIndexOf("/") + 1))) return true;
+    return (c.dirs || []).some((d) => p === d || p.startsWith(`${d}/`));
+  });
+  return match?.id || "";
+};
+
 const sourceOf = (entry) =>
   String(
     entry?.source ||
@@ -202,6 +215,7 @@ export function ReferenceIndexTab() {
   const [importing, setImporting] = useState(0);
   const [updating, setUpdating] = useState(false);
   const [spellLookup, setSpellLookup] = useState(null);
+  const [bookTitles, setBookTitles] = useState(() => new Map());
 
   const isRemote = isRemoteRoot(root);
   const category =
@@ -230,8 +244,17 @@ export function ReferenceIndexTab() {
         (a, b) => String(a.name || a.path).localeCompare(String(b.name || b.path))
       );
     }
-    const list = root === "data" ? filesForCategory(category, index) : index.filter((f) => isSourceFile(f.path));
-    return list.sort((a, b) => a.path.localeCompare(b.path));
+    const list =
+      root === "data"
+        ? category.id === "__all__"
+          ? index.filter((f) => isSourceFile(f.path))
+          : filesForCategory(category, index)
+        : index.filter((f) => isSourceFile(f.path));
+    const q = fileQuery.trim().toLowerCase();
+    const filtered = q
+      ? list.filter((f) => `${f.path} ${f.name || ""}`.toLowerCase().includes(q))
+      : list;
+    return [...filtered].sort((a, b) => a.path.localeCompare(b.path));
   }, [category, categoryId, catalog, fileQuery, index, isRemote, partneredOnly, root]);
   const sourceOptions = useMemo(
     () => [...new Set(entries.map(sourceOf).filter(Boolean))].sort(),
@@ -262,12 +285,19 @@ export function ReferenceIndexTab() {
   const imported = settings?.library?.fiveETools || {};
   const rawForEntry = (entry) =>
     (entry?.__filePath && rawByPath.current.get(entry.__filePath)) || raw;
+  const previewCategoryId = useMemo(() => {
+    const path = preview?.__filePath || (filePath && filePath !== "__all__" ? filePath : "");
+    return (path && categoryIdForPath(path)) || activeCategory.id;
+  }, [preview, filePath, activeCategory.id]);
   const previewDetails = useMemo(
     () =>
       preview
-        ? entryDetails(activeCategory.id, preview, rawForEntry(preview), { spellLookup })
+        ? entryDetails(previewCategoryId, preview, rawForEntry(preview), {
+            spellLookup,
+            bookTitles,
+          })
         : null,
-    [preview, activeCategory.id, raw, spellLookup]
+    [preview, previewCategoryId, raw, spellLookup, bookTitles]
   );
 
   const refresh = async (force = false) => {
@@ -376,6 +406,31 @@ export function ReferenceIndexTab() {
     return data;
   };
 
+  // Book and adventure files only carry an id (PHB, AAG…). Load the matching
+  // catalog once so the preview can show the human-readable title.
+  useEffect(() => {
+    if (isRemote) return;
+    if (activeCategoryId !== "books" && activeCategoryId !== "adventures") return;
+    let cancelled = false;
+    const metaFile = activeCategoryId === "books" ? "books.json" : "adventures.json";
+    fetchFiveFile(metaFile)
+      .then((data) => {
+        if (cancelled) return;
+        const list =
+          activeCategoryId === "books" ? data?.book : data?.adventure;
+        const map = new Map();
+        (Array.isArray(list) ? list : []).forEach((item) => {
+          if (item?.id) map.set(item.id, item.name || item.id);
+        });
+        setBookTitles(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategoryId, root, isRemote]);
+
   const loadFile = async (path) => {
     if (!path) return;
     setLoading(true);
@@ -397,9 +452,9 @@ export function ReferenceIndexTab() {
       setFilePath(path);
       if (info) {
         const inferred = categoryForProps(info.props || []);
-        setActiveCategoryId(inferred || categoryId);
+        setActiveCategoryId(inferred || categoryIdForPath(path) || categoryId);
       } else {
-        setActiveCategoryId(categoryId);
+        setActiveCategoryId(categoryIdForPath(path) || categoryId);
       }
       if (!list.length) toast("That file has no importable entries.");
     } catch {
@@ -412,10 +467,13 @@ export function ReferenceIndexTab() {
   const loadAllFiles = async () => {
     if (!files.length || allProgress) return;
     const targets = [...files];
+    const totalBytes = targets.reduce((n, f) => n + (Number(f.size) || 0), 0);
+    const sizeText =
+      totalBytes > 1024 * 1024 ? ` (~${Math.round(totalBytes / (1024 * 1024))} MB)` : "";
     if (
       targets.length > 50 &&
       !window.confirm(
-        `Display all ${targets.length} files at once? This can take a while and may produce a very large entry list.`
+        `Display all ${targets.length} files${sizeText} at once? This can take a while and may produce a very large entry list.`
       )
     ) {
       return;
@@ -1265,20 +1323,18 @@ export function ReferenceIndexTab() {
 
       <div className="grid h-[64vh] min-h-[430px] grid-cols-[150px_200px_minmax(0,1fr)_minmax(260px,1.1fr)] gap-2">
         <aside className="overflow-y-auto rounded-md border p-1">
-          {isRemote && (
-            <button
-              type="button"
-              onClick={() => setCategoryId("__all__")}
-              className={`w-full truncate rounded px-2 py-1 text-left text-[11px] ${
-                categoryId === "__all__"
-                  ? "bg-primary/10 font-semibold text-foreground"
-                  : "text-muted-foreground hover:bg-accent"
-              }`}
-              title="Show every file in this repository"
-            >
-              All files
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setCategoryId("__all__")}
+            className={`w-full truncate rounded px-2 py-1 text-left text-[11px] ${
+              categoryId === "__all__"
+                ? "bg-primary/10 font-semibold text-foreground"
+                : "text-muted-foreground hover:bg-accent"
+            }`}
+            title="Show every file in this 5eTools repository"
+          >
+            All files
+          </button>
           {FIVE_CATEGORIES.map((c) => (
             <button
               key={c.id}
@@ -1391,54 +1447,56 @@ export function ReferenceIndexTab() {
               </div>
             </div>
           )}
-          {isRemote && (
-            <div className="space-y-1 border-b p-1">
-              <Input
-                className="h-7 text-xs"
-                placeholder="Find a brew…"
-                value={fileQuery}
-                onChange={(e) => setFileQuery(e.target.value)}
-              />
-              {root === "homebrew" && (
+          <div className="space-y-1 border-b p-1">
+            <Input
+              className="h-7 text-xs"
+              placeholder={isRemote ? "Find a brew…" : "Find a file…"}
+              value={fileQuery}
+              onChange={(e) => setFileQuery(e.target.value)}
+            />
+            {isRemote && (
+              <>
+                {root === "homebrew" && (
+                  <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Switch checked={partneredOnly} onCheckedChange={setPartneredOnly} />
+                    Partnered only
+                  </label>
+                )}
                 <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <Switch checked={partneredOnly} onCheckedChange={setPartneredOnly} />
-                  Partnered only
+                  <Switch checked={bulkMakeTabs} onCheckedChange={setBulkMakeTabs} />
+                  Create feature tabs
                 </label>
-              )}
-              <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <Switch checked={bulkMakeTabs} onCheckedChange={setBulkMakeTabs} />
-                Create feature tabs
-              </label>
-              <div className="flex flex-wrap gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-1 text-[10px]"
-                  onClick={selectAllCatalog}
-                >
-                  {allCatalogSelected ? "Clear files" : "Select all files"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 px-1 text-[10px]"
-                  disabled={!catalogSelected.size || !!bulk}
-                  onClick={() => importCatalogFiles([...catalogSelected])}
-                >
-                  Import files ({catalogSelected.size})
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 px-1 text-[10px]"
-                  disabled={!files.length || !!bulk}
-                  onClick={() => importCatalogFiles(files.map((f) => f.path))}
-                >
-                  Import all shown ({files.length})
-                </Button>
-              </div>
-            </div>
-          )}
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-1 text-[10px]"
+                    onClick={selectAllCatalog}
+                  >
+                    {allCatalogSelected ? "Clear files" : "Select all files"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-1 text-[10px]"
+                    disabled={!catalogSelected.size || !!bulk}
+                    onClick={() => importCatalogFiles([...catalogSelected])}
+                  >
+                    Import files ({catalogSelected.size})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-1 text-[10px]"
+                    disabled={!files.length || !!bulk}
+                    onClick={() => importCatalogFiles(files.map((f) => f.path))}
+                  >
+                    Import all shown ({files.length})
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-1">
             {files.map((f) => (
               <div key={f.path} className="flex items-start gap-1 rounded px-0.5 hover:bg-accent/40">

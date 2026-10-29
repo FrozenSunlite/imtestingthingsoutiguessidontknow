@@ -21,6 +21,11 @@ const NOT_PREBUNDLED = new Set([
 const { dependencies } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const PREBUNDLE = Object.keys(dependencies).filter((name) => !NOT_PREBUNDLED.has(name));
 
+// The dev server only serves the UI; the PowerShell server owns /api and
+// /images. Point the proxy elsewhere with TTT_API_TARGET when the local server
+// runs on another host or port (for example a LAN machine).
+const apiTarget = process.env.TTT_API_TARGET || "http://localhost:4173";
+
 export default defineConfig({
   resolve: { alias: { "@": srcDir } },
   optimizeDeps: { include: PREBUNDLE },
@@ -36,11 +41,11 @@ export default defineConfig({
     // imported images work while developing at localhost:5173 too.
     proxy: {
       "/api": {
-        target: "http://localhost:4173",
+        target: apiTarget,
         changeOrigin: true,
       },
       "/images": {
-        target: "http://localhost:4173",
+        target: apiTarget,
         changeOrigin: true,
       },
     },

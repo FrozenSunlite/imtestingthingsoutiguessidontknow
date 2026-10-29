@@ -1,4 +1,38 @@
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Homebrewery } from "@/components/rulebook/Homebrewery";
+import { bookChapterMarkdown } from "@/lib/fiveEToolsRulebook";
+
+// Read a 5eTools book inside the Preview panel: pick a chapter, then read its
+// rendered text without leaving the Reference Index.
+function BookReader({ book }) {
+  const [index, setIndex] = useState(0);
+  const safeIndex = Math.min(index, Math.max(0, book.chapters.length - 1));
+  const chapter = book.chapters[safeIndex];
+  const markdown = useMemo(() => bookChapterMarkdown(chapter), [chapter]);
+  return (
+    <section className="space-y-1 border-t pt-2">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Read the book ({book.chapters.length} chapters)
+      </h3>
+      <select
+        className="w-full rounded border bg-background px-1 py-1 text-[11px]"
+        value={safeIndex}
+        onChange={(e) => setIndex(Number(e.target.value))}
+        title={`Choose a chapter of ${book.title}`}
+      >
+        {book.chapters.map((c, i) => (
+          <option key={c.id} value={i}>
+            {i + 1}. {c.title}
+          </option>
+        ))}
+      </select>
+      <div className="rounded border bg-muted/10 p-2 text-[11px] [&_h1]:mt-2 [&_h1]:text-base [&_h2]:mt-2 [&_h2]:text-sm [&_h3]:mt-2 [&_h3]:text-xs [&_h4]:text-[11px] [&_p]:leading-relaxed">
+        <Homebrewery text={markdown} />
+      </div>
+    </section>
+  );
+}
 
 // Renders the category-aware preview for one 5eTools entry. The parent builds
 // `details` with entryDetails(), so this component only lays out text, lists,
@@ -93,6 +127,10 @@ export function ReferenceEntryPreview({ details, imageSrc, onImport, importingLa
           )}
         </section>
       ))}
+
+      {details.book?.chapters?.length > 0 && (
+        <BookReader book={details.book} />
+      )}
 
       {onImport && (
         <Button size="sm" variant="outline" onClick={onImport} disabled={!!importingLabel}>

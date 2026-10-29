@@ -949,7 +949,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   );
 
   const onWheel = (e) => {
-    e.preventDefault();
+    // React attaches wheel listeners passively, so preventDefault() only logs a
+    // console warning; the workspace is overflow-hidden and cannot scroll.
     // Wheel pressed/tilted on its sides (deltaX only) must not affect zoom.
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     const rect = containerRef.current.getBoundingClientRect();

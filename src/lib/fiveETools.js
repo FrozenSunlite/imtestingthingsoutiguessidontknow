@@ -273,13 +273,23 @@ export function fiveText(value) {
     if (value.type === "inset" || value.type === "insetReadaloud") {
       return [value.name, ...(value.entries || [])].map(fiveText).filter(Boolean).join("\n");
     }
+    if (value.type === "item" && (value.name || value.entry || value.entries)) {
+      const label = value.name ? String(value.name).replace(/:\s*$/, "") : "";
+      const body = fiveText(value.entry ?? value.entries);
+      return [label, body].filter(Boolean).join(" ");
+    }
     if (value.type === "quote") {
       return [value.byline ? `“${value.byline}”` : "", ...(value.entries || [])]
         .map(fiveText)
         .filter(Boolean)
         .join("\n");
     }
-    if (value.entries) return fiveText(value.entries);
+    if (value.entries) {
+      const body = fiveText(value.entries);
+      if (value.name && body) return `${value.name}\n${body}`;
+      if (value.name) return String(value.name);
+      return body;
+    }
     if (value.items) return Object.values(value.items).map(fiveText).filter(Boolean).join("\n");
     if (value.name && value.description) return `${value.name}: ${fiveText(value.description)}`;
     if (value.name) return String(value.name);

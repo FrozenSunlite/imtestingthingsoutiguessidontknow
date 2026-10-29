@@ -14,6 +14,7 @@ import {
   statVars,
 } from "@/lib/treeStore";
 import { abilityReqStatus } from "@/lib/skills";
+import { tierGate, nodeMaxPoints } from "@/lib/nodeTiers";
 import { isAvailable, isExclusiveBlocked, collectUnlockedNames } from "@/lib/geometry";
 import { SkillNodeView } from "@/components/skilltree/SkillNodeView";
 import { ConnectionLayer } from "@/components/skilltree/ConnectionLayer";
@@ -393,8 +394,7 @@ export function SideTreePanel({ slot, floating = false }) {
       }
     }
     if (delta > 0) {
-      const rawMax = Number(n.maxPoints);
-      const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+      const max = nodeMaxPoints(n);
       const cur = Number(n.currentPoints) || 0;
       if (cur >= max) {
         // A talent with its own skill trees: reopening the chooser lets the
@@ -404,6 +404,13 @@ export function SideTreePanel({ slot, floating = false }) {
           return;
         }
         toast.error("Already at max points.");
+        return;
+      }
+      // Tiered nodes gate each later tier behind its own character level, just
+      // like the main canvas.
+      const gate = tierGate(n, character.level || 1);
+      if (!gate.ok) {
+        toast.error(gate.reason);
         return;
       }
       if (isSub && st.exclusive && cur === 0) {

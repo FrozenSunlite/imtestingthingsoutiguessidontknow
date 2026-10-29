@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BiIYDf7V.js";
+import { n as Button, r as cn } from "./router-Bc8RleBS.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -11,11 +11,11 @@ import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import ReactMarkdown from "react-markdown";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import * as ProgressPrimitive from "@radix-ui/react-progress";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import ReactMarkdown from "react-markdown";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
@@ -5354,8 +5354,14 @@ function fiveText(value) {
 		if (value.type === "list") return (value.items || []).map((it) => `• ${fiveText(it)}`).join("\n");
 		if (value.type === "options") return [value.name, ...value.entries || []].map(fiveText).filter(Boolean).join("\n");
 		if (value.type === "inset" || value.type === "insetReadaloud") return [value.name, ...value.entries || []].map(fiveText).filter(Boolean).join("\n");
+		if (value.type === "item" && (value.name || value.entry || value.entries)) return [value.name ? String(value.name).replace(/:\s*$/, "") : "", fiveText(value.entry ?? value.entries)].filter(Boolean).join(" ");
 		if (value.type === "quote") return [value.byline ? `“${value.byline}”` : "", ...value.entries || []].map(fiveText).filter(Boolean).join("\n");
-		if (value.entries) return fiveText(value.entries);
+		if (value.entries) {
+			const body = fiveText(value.entries);
+			if (value.name && body) return `${value.name}\n${body}`;
+			if (value.name) return String(value.name);
+			return body;
+		}
 		if (value.items) return Object.values(value.items).map(fiveText).filter(Boolean).join("\n");
 		if (value.name && value.description) return `${value.name}: ${fiveText(value.description)}`;
 		if (value.name) return String(value.name);
@@ -15728,6 +15734,130 @@ function DungeonRoomsTab() {
 	});
 }
 //#endregion
+//#region src/lib/fiveEToolsRulebook.js
+var clean$1 = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
+var cell = (value) => clean$1(value).replace(/\|/g, "\\|");
+var tableMarkdown = (table) => {
+	const columns = (table.colLabels || []).map(cell);
+	const rows = (table.rows || []).map((row) => {
+		return (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
+			if (value && typeof value === "object") {
+				if (value.roll) return value.roll.exact != null ? String(value.roll.exact) : `${value.roll.min ?? ""}${value.roll.max != null ? `–${value.roll.max}` : ""}`;
+				return cell(value.entry ?? value.entries ?? value.name ?? "");
+			}
+			return cell(value);
+		});
+	});
+	if (!rows.length) return "";
+	if (!columns.length) return rows.map((r) => `- ${r.filter(Boolean).join(" — ")}`).join("\n");
+	return [
+		`| ${columns.join(" | ")} |`,
+		`| ${columns.map(() => "---").join(" | ")} |`,
+		...rows.map((r) => `| ${r.join(" | ")} |`)
+	].join("\n");
+};
+var imageMarkdown = (node) => {
+	const href = node?.href;
+	if (typeof href === "string") return `![${clean$1(node.name) || "Illustration"}](${href})`;
+	if (href?.url) return `![${clean$1(node.name) || "Illustration"}](${href.url})`;
+	if (href?.path) return `![${clean$1(node.name) || "Illustration"}](${href.path})`;
+	if (href?.paths?.length) return href.paths.map((path) => `![${clean$1(node.name) || "Illustration"}](${path})`).join("\n\n");
+	return "";
+};
+var refLabel = (node) => clean$1(node?.name || node?.spell || node?.item || node?.creature || node?.condition || node?.optionalfeature || node?.classFeature || node?.subclassFeature || node?.table || node?.book || node?.adventure || "");
+function renderEntries(value, depth = 0) {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean$1(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map((v) => renderEntries(v, depth)).filter(Boolean).join("\n\n");
+	if (typeof value !== "object") return clean$1(value);
+	switch (value.type) {
+		case "table": {
+			const table = tableMarkdown(value);
+			return [value.name ? `**${clean$1(value.name)}**` : "", table].filter(Boolean).join("\n\n");
+		}
+		case "list": return (value.items || []).map((item) => `- ${clean$1(item).replace(/\n/g, "\n  ")}`).join("\n");
+		case "options": return [value.name ? `**${clean$1(value.name)}**` : "", ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
+		case "inset":
+		case "insetReadaloud": {
+			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+			return [value.name ? `> **${clean$1(value.name)}**\n>` : "", body].filter(Boolean).join("\n");
+		}
+		case "quote": {
+			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+			return [value.byline ? `> — ${clean$1(value.byline)}\n>` : "", body].filter(Boolean).join("\n");
+		}
+		case "image":
+		case "gallery": return imageMarkdown(value);
+		case "hr": return "---";
+		case "abilityDc":
+		case "abilityAttackMod": {
+			const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
+			return `**${clean$1(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
+		}
+		case "statblock":
+		case "statblockInline": return [value.name ? `**${clean$1(value.name)}**` : "", renderEntries(value.entries, depth + 1)].filter(Boolean).join("\n\n");
+	}
+	if (value.type?.startsWith("ref")) {
+		const label = refLabel(value);
+		return label ? `*${label}*` : "";
+	}
+	return [value.name && Array.isArray(value.entries) ? `${"#".repeat(Math.min(6, depth + 2))} ${clean$1(value.name)}` : value.name ? `**${clean$1(value.name)}**` : "", value.entries ? renderEntries(value.entries, depth + 1) : value.items ? renderEntries(value.items, depth + 1) : ""].filter(Boolean).join("\n\n");
+}
+var slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "book";
+function bookChapters(entry) {
+	if (!entry) return null;
+	const data = Array.isArray(entry.data) ? entry.data : [];
+	if (!data.length) return null;
+	return {
+		title: clean$1(entry.name || entry.title || entry.id || "Book"),
+		chapters: data.map((chapter, i) => ({
+			id: chapter.id || `ch${i + 1}`,
+			title: clean$1(chapter.name) || `Chapter ${i + 1}`,
+			entries: chapter.entries
+		})).filter((chapter) => chapter.entries != null)
+	};
+}
+function bookChapterMarkdown(chapter) {
+	return renderEntries(chapter?.entries, 1);
+}
+function bookToRulebook(entry, fallbackTitle = "") {
+	if (!entry) return null;
+	const data = Array.isArray(entry.data) ? entry.data : Array.isArray(entry.contents) ? [] : [];
+	const title = clean$1(entry.name || entry.title || fallbackTitle || entry.id) || "Imported Book";
+	const source = clean$1(entry.source || entry.id || "");
+	const id = `rb5e-${slug(source)}-${slug(title)}`;
+	let chapters = data.map((chapter, i) => {
+		const chapterTitle = clean$1(chapter.name) || `Chapter ${i + 1}`;
+		const body = renderEntries(chapter.entries, 1);
+		return {
+			id: `${id}-ch${i + 1}`,
+			title: chapterTitle,
+			content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n")
+		};
+	}).filter((chapter) => chapter.content.trim());
+	if (!chapters.length) {
+		const outline = (entry.contents || []).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean$1(name)}`).join("\n");
+		const body = renderEntries(entry.entries, 1);
+		chapters = [{
+			id: `${id}-ch1`,
+			title,
+			content: [
+				`# ${title}`,
+				outline,
+				body
+			].filter(Boolean).join("\n\n")
+		}];
+	}
+	return {
+		id,
+		title,
+		source,
+		imported: true,
+		chapters
+	};
+}
+//#endregion
 //#region src/lib/fiveEToolsLookup.js
 var cache = null;
 var pending = null;
@@ -15938,12 +16068,12 @@ function importMonsterPayload(data) {
 }
 //#endregion
 //#region src/lib/fiveEToolsView.js
-var clean$1 = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
+var clean = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
 var titleCase = (s) => String(s || "").split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 var join = (value, sep = ", ") => {
 	if (value == null || value === "") return "";
-	if (Array.isArray(value)) return value.map((v) => clean$1(v)).filter(Boolean).join(sep);
-	return clean$1(value);
+	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(sep);
+	return clean(value);
 };
 var yesNo = (v) => v ? "Yes" : "";
 var SIZE_LABEL = {
@@ -15952,12 +16082,13 @@ var SIZE_LABEL = {
 	M: "Medium",
 	L: "Large",
 	H: "Huge",
-	G: "Gargantuan"
+	G: "Gargantuan",
+	V: "Varies"
 };
 var sizeText = (value) => {
 	if (value == null) return "";
-	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean$1(s)).join(", ");
-	return SIZE_LABEL[value] || clean$1(value);
+	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
+	return SIZE_LABEL[value] || clean(value);
 };
 var feet = (n) => {
 	const v = Math.round(Number(n) / 5 * 10) / 10;
@@ -15965,7 +16096,7 @@ var feet = (n) => {
 };
 var speedText = (speed) => {
 	if (speed == null) return "";
-	if (typeof speed === "string") return clean$1(speed);
+	if (typeof speed === "string") return clean(speed);
 	if (typeof speed === "number") return feet(speed);
 	if (Array.isArray(speed)) return speed.map(speedText).filter(Boolean).join(", ");
 	return Object.entries(speed).filter(([, v]) => v != null && v !== false).map(([k, v]) => {
@@ -15977,35 +16108,167 @@ var speedText = (speed) => {
 		return `${k[0].toUpperCase() + k.slice(1)}`;
 	}).join(", ");
 };
-var proficiencyText = (value) => {
-	if (!value) return "";
-	if (typeof value === "string") return clean$1(value);
-	if (Array.isArray(value)) return value.map(proficiencyText).filter(Boolean).join("; ");
-	if (typeof value !== "object") return clean$1(value);
-	if (value.choose) {
-		const from = value.choose.from || [];
-		return `Choose ${value.choose.count || 1} from ${from.map((v) => titleCase(v)).join(", ")}`;
+var ANY_PROFICIENCY = {
+	anyStandard: ["standard language", "standard languages"],
+	anyLanguage: ["language", "languages"],
+	anyGamingSet: ["gaming set", "gaming sets"],
+	anyArtisansTool: ["artisan's tool", "artisan's tools"],
+	anyMusicalInstrument: ["musical instrument", "musical instruments"],
+	anyTool: ["tool", "tools"],
+	anySkill: ["skill", "skills"],
+	anyWeapon: ["weapon", "weapons"],
+	anyArmor: ["armor", "armors"],
+	anyShield: ["shield", "shields"],
+	anySavingThrow: ["saving throw", "saving throws"],
+	anyAbility: ["ability", "abilities"]
+};
+var ABILITY_LABEL = {
+	str: "Strength",
+	dex: "Dexterity",
+	con: "Constitution",
+	int: "Intelligence",
+	wis: "Wisdom",
+	cha: "Charisma"
+};
+var abilityLabel = (key) => ABILITY_LABEL[String(key).toLowerCase()] || titleCase(key);
+var chooseText = (choose) => {
+	if (!choose || typeof choose !== "object") return "";
+	const from = (choose.from || []).map((v) => clean(typeof v === "object" ? v.name || v.ability || v : v)).filter(Boolean);
+	const count = Number(choose.count || choose.amount || 1) || 1;
+	if (from.length) {
+		const label = from.map((v) => abilityLabel(v) || titleCase(v)).join(", ");
+		return `Choose ${count > 1 ? `${count} ` : ""}from ${label}`;
 	}
-	if (value.any) return `Any ${value.any}`;
-	return clean$1(value);
+	if (choose.any) return `Any ${clean(choose.any)}`;
+	return "";
+};
+var proficiencyText = (value) => {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map(proficiencyText).filter(Boolean).join("; ");
+	if (typeof value !== "object") return clean(value);
+	if (value.choose) return chooseText(value.choose);
+	const parts = [];
+	Object.entries(value).forEach(([key, val]) => {
+		if (val == null || val === false) return;
+		if (key === "choose") return;
+		if (key.startsWith("any") && typeof val === "number") {
+			const [one, many] = ANY_PROFICIENCY[key] || [key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase(), `${key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase()}s`];
+			parts.push(`Any ${val > 1 ? `${val} ` : ""}${val > 1 ? many : one}`);
+			return;
+		}
+		if (typeof val === "number") {
+			parts.push(`${abilityLabel(key)} ${val > 0 ? `+${val}` : val}`);
+			return;
+		}
+		if (typeof val === "string") {
+			parts.push(`${titleCase(key)} (${clean(val)})`);
+			return;
+		}
+		if (val) parts.push(titleCase(key));
+	});
+	return parts.join(", ");
+};
+var abilityText = (value) => {
+	if (value == null || value === "") return "Any";
+	const list = Array.isArray(value) ? value : [value];
+	const choices = [];
+	const plain = [];
+	list.forEach((item) => {
+		if (item == null || item === false) return;
+		if (typeof item === "string") {
+			plain.push(abilityLabel(item));
+			return;
+		}
+		if (typeof item !== "object") return;
+		if (item.choose) {
+			const weighted = item.choose.weighted;
+			const from = (weighted?.from || item.choose.from || []).map(abilityLabel).filter(Boolean);
+			if (!from.length) return;
+			const weights = weighted?.weights || [];
+			const text = weights.length && Math.max(...weights) > 1 ? `Any of ${from.join(", ")} (+2 to one, +1 to another)` : chooseText(item.choose);
+			if (text) choices.push(text);
+			return;
+		}
+		Object.entries(item).filter(([key, v]) => ABILITY_LABEL[key.toLowerCase()] && typeof v === "number").forEach(([key, v]) => plain.push(`${abilityLabel(key)} ${v > 0 ? `+${v}` : v}`));
+	});
+	if (plain.length) return plain.join(", ");
+	if (choices.length) {
+		const first = choices[0];
+		return choices.every((c) => c === first) ? first : choices.join("; ");
+	}
+	return "Any";
+};
+var featLabel = (key) => {
+	const [namePart] = String(key || "").split("|");
+	const [name, variant] = namePart.split(";").map((v) => v.trim());
+	return [titleCase(name), variant ? `(${titleCase(variant)})` : ""].filter(Boolean).join(" ");
+};
+var featsText = (value) => {
+	if (!value) return "";
+	if (typeof value === "string") return featLabel(value);
+	if (Array.isArray(value)) return value.map(featsText).filter(Boolean).join(", ");
+	if (typeof value !== "object") return clean(value);
+	if (value.name) return featLabel(value.name);
+	return Object.entries(value).filter(([, v]) => v).map(([key]) => featLabel(key)).filter(Boolean).join(", ");
+};
+var equipmentItemText = (item) => {
+	if (item == null || item === "") return "";
+	if (typeof item === "string") return clean(item.split("|")[0]).replace(/^./, (c) => c.toUpperCase());
+	if (typeof item !== "object") return clean(item);
+	if (item.value != null) {
+		const gp = Math.round(Number(item.value) / 100 * 100) / 100;
+		return Number.isFinite(gp) ? `${gp} GP` : "";
+	}
+	const rawName = clean(item.displayName || item.item || item.special || item.name || "");
+	const name = item.displayName ? rawName : rawName.replace(/\|[^|]+$/, "").replace(/^./, (c) => c.toUpperCase());
+	const quantity = Number(item.quantity) || 0;
+	const bits = [];
+	if (name) bits.push(name);
+	if (quantity > 1) bits.push(`×${quantity}`);
+	if (item.containsValue != null) {
+		const gp = Math.round(Number(item.containsValue) / 100 * 100) / 100;
+		if (Number.isFinite(gp)) bits.push(`(${gp} GP inside)`);
+	}
+	return bits.join(" ");
+};
+var equipmentGroupText = (value) => (Array.isArray(value) ? value : [value]).map(equipmentItemText).filter(Boolean).join(", ");
+var startingEquipmentText = (value) => {
+	if (!value) return "";
+	if (typeof value === "string") return clean(value);
+	const groups = Array.isArray(value) ? value : [value];
+	const lines = [];
+	groups.forEach((group) => {
+		if (!group || typeof group !== "object") return;
+		const parts = Object.entries(group).filter(([key, list]) => key !== "type" && list).map(([key, list]) => {
+			const text = equipmentGroupText(list);
+			if (!text) return "";
+			if (key === "_") return text;
+			if (/^[a-z]$/i.test(key)) return `${key.toUpperCase()}) ${text}`;
+			return `${titleCase(key)}: ${text}`;
+		}).filter(Boolean);
+		if (parts.length) lines.push(parts.join("  •  "));
+	});
+	return lines.join("\n");
 };
 var prerequisite = (value) => {
 	if (!value) return "";
-	if (typeof value === "string") return clean$1(value);
+	if (typeof value === "string") return clean(value);
 	if (Array.isArray(value)) return value.map(prerequisite).filter(Boolean).join(", ");
-	if (typeof value !== "object") return clean$1(value);
+	if (typeof value !== "object") return clean(value);
 	const bits = [];
 	if (value.level != null) {
 		const l = value.level;
-		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean$1(l.class)})` : ""}` : `Level ${l}`);
+		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean(l.class)})` : ""}` : `Level ${l}`);
 	}
-	if (value.race?.length) bits.push(value.race.map((r) => clean$1(r.name || r)).join(" or "));
-	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean$1(r.name || r)).join(" or ")}`);
-	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean$1(r.name || r)).join(" or ")}`);
-	if (value.spell) bits.push(`Spell: ${clean$1(value.spell)}`);
-	if (value.other) bits.push(clean$1(value.other));
-	if (value.ability?.length) bits.push(value.ability.map((a) => clean$1(a)).join(", "));
-	if (!bits.length) return clean$1(value);
+	if (value.race?.length) bits.push(value.race.map((r) => clean(r.name || r)).join(" or "));
+	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean(r.name || r)).join(" or ")}`);
+	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean(r.name || r)).join(" or ")}`);
+	if (value.spell) bits.push(`Spell: ${clean(value.spell)}`);
+	if (value.other) bits.push(clean(value.other));
+	if (value.ability?.length) bits.push(value.ability.map((a) => clean(a)).join(", "));
+	if (!bits.length) return clean(value);
 	return bits.join(", ");
 };
 var componentText = (components) => {
@@ -16014,7 +16277,7 @@ var componentText = (components) => {
 	if (components.v) parts.push("V");
 	if (components.s) parts.push("S");
 	if (components.m) {
-		const mat = typeof components.m === "string" ? components.m : clean$1(components.m);
+		const mat = typeof components.m === "string" ? components.m : clean(components.m);
 		parts.push(mat ? `M (${mat})` : "M");
 	}
 	return parts.join(", ");
@@ -16025,7 +16288,7 @@ var classNames = (classes) => {
 		["fromClassList", ""],
 		["fromClassListVariant", " (variant)"],
 		["fromSubclass", ""]
-	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean$1(c.name || c.className)}${c.subclassName ? ` (${clean$1(c.subclassName)})` : ""}${suffix}`)).join(", ");
+	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean(c.name || c.className)}${c.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`)).join(", ");
 };
 function featureFromRef(ref, list, subclass) {
 	if (!ref) return null;
@@ -16048,8 +16311,8 @@ function featuresFrom(raw, entry, subclass) {
 	const list = subclass ? raw.subclassFeature || [] : raw.classFeature || [];
 	return (subclass ? entry.subclassFeatures || [] : entry.classFeatures || []).map((ref) => featureFromRef(ref, list, subclass)).filter(Boolean).map((f) => ({
 		level: Number(f.level) || 0,
-		name: clean$1(f.name || entryName$1(f)),
-		text: clean$1(f.entries)
+		name: clean(f.name || entryName$1(f)),
+		text: clean(f.entries)
 	})).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
 var featureSection = (features, label = "Features") => {
@@ -16063,7 +16326,7 @@ var featureSection = (features, label = "Features") => {
 	};
 };
 var textSection = (title, value) => {
-	const text = clean$1(value);
+	const text = clean(value);
 	return text ? {
 		title,
 		text
@@ -16073,17 +16336,17 @@ var rowText = (row) => {
 	return (Array.isArray(row) ? row : row?.row || [row]).map((cell) => {
 		if (cell && typeof cell === "object") {
 			if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
-			if (cell.type === "cell") return clean$1(cell.entry ?? cell.entries ?? "");
+			if (cell.type === "cell") return clean(cell.entry ?? cell.entries ?? "");
 		}
-		return clean$1(cell);
+		return clean(cell);
 	});
 };
 var tableBlock = (table) => {
 	if (!table) return null;
-	const columns = (table.colLabels || []).map(clean$1);
+	const columns = (table.colLabels || []).map(clean);
 	const rows = (table.rows || []).slice(0, 100).map(rowText);
 	return {
-		title: clean$1(table.name || table.caption || "Table"),
+		title: clean(table.name || table.caption || "Table"),
 		columns,
 		rows
 	};
@@ -16120,13 +16383,23 @@ function entryImage(entry) {
 var contentsList = (contents, depth = 0) => (contents || []).flatMap((c) => {
 	if (!c) return [];
 	if (typeof c === "string") return [{
-		label: c,
+		label: `${"  ".repeat(depth)}${clean(c)}`,
 		text: ""
 	}];
-	if (c.name) return [{
-		label: `${"  ".repeat(depth)}${clean$1(c.name)}`,
-		text: clean$1(c.entries).slice(0, 160)
-	}, ...contentsList(c.contents, depth + 1)];
+	if (c.name) {
+		const headers = (c.headers || []).map((h) => typeof h === "string" ? h : h?.header).filter(Boolean).map((h) => ({
+			label: `${"  ".repeat(depth + 1)}${clean(h)}`,
+			text: ""
+		}));
+		return [
+			{
+				label: `${"  ".repeat(depth)}${clean(c.name)}`,
+				text: clean(c.entries).slice(0, 160)
+			},
+			...headers,
+			...contentsList(c.contents, depth + 1)
+		];
+	}
 	return contentsList(c.contents, depth);
 });
 var actionEntries = (entry, keys) => {
@@ -16137,8 +16410,8 @@ var actionEntries = (entry, keys) => {
 		sections.push({
 			title,
 			text: list.map((a) => {
-				const name = clean$1(a?.name);
-				const text = clean$1(a?.entries ?? a?.text);
+				const name = clean(a?.name);
+				const text = clean(a?.entries ?? a?.text);
 				return [name && `${name}.`, text].filter(Boolean).join(" ");
 			}).filter(Boolean).join("\n\n")
 		});
@@ -16209,18 +16482,18 @@ var classDetails = (entry, raw, subclass) => {
 	const sp = entry.startingProficiencies || {};
 	return {
 		fields: subclass ? [
-			["Class", clean$1(entry.className)],
-			["Source", clean$1(entry.classSource)],
+			["Class", clean(entry.className)],
+			["Source", clean(entry.classSource)],
 			["Features", String(features.length || "")]
 		] : [
-			["Hit Die", entry.hd ? `d${entry.hd.faces} per ${clean$1(entry.hd.number) === "1" ? "level" : "level"}` : ""],
+			["Hit Die", entry.hd ? `d${entry.hd.faces} per ${clean(entry.hd.number) === "1" ? "level" : "level"}` : ""],
 			["Saving Throws", join(entry.proficiency, ", ").toUpperCase()],
 			["Armor", proficiencyText(sp.armor)],
 			["Weapons", proficiencyText(sp.weapons)],
 			["Tools", proficiencyText(sp.tools)],
 			["Skills", proficiencyText(sp.skills)],
-			["Subclass", clean$1(entry.subclassTitle)],
-			["Source", clean$1(entry.source)]
+			["Subclass", clean(entry.subclassTitle)],
+			["Source", clean(entry.source)]
 		],
 		sections: [
 			featureSection(features),
@@ -16229,42 +16502,107 @@ var classDetails = (entry, raw, subclass) => {
 		].filter(Boolean)
 	};
 };
+var entriesSections = (nodes, { skipLists = false } = {}) => {
+	const sections = [];
+	const addText = (title, value) => {
+		const text = clean(value);
+		if (!text) return;
+		const found = sections.find((s) => s.title === title && s.text != null);
+		if (found) found.text = `${found.text}\n\n${text}`;
+		else sections.push({
+			title,
+			text
+		});
+	};
+	const walk = (value, title) => {
+		if (value == null || value === "") return;
+		if (Array.isArray(value)) {
+			value.forEach((item) => walk(item, title));
+			return;
+		}
+		if (typeof value === "string" || typeof value === "number") {
+			addText(title, value);
+			return;
+		}
+		if (typeof value !== "object") return;
+		if (value.type === "table" || value.type === "tableGroup") {
+			const block = tableBlock(value);
+			if (block) sections.push({
+				...block,
+				title: title || block.title
+			});
+			return;
+		}
+		if (value.type === "list" || String(value.style || "").startsWith("list")) {
+			if (!skipLists) (value.items || []).forEach((item) => walk(item, title));
+			return;
+		}
+		if (value.name && Array.isArray(value.entries)) {
+			walk(value.entries, clean(value.name));
+			return;
+		}
+		if (Array.isArray(value.entries)) {
+			walk(value.entries, title);
+			return;
+		}
+		if (Array.isArray(value.items)) {
+			walk(value.items, title);
+			return;
+		}
+		const text = fiveText(value);
+		if (text) addText(title, text);
+	};
+	walk(nodes, "");
+	return sections;
+};
+var timeText = (value) => {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map(timeText).filter(Boolean).join(", ");
+	if (typeof value === "object") {
+		if (value.number != null || value.unit) return `${value.number || 1} ${value.unit || "action"}`;
+		return fiveText(value);
+	}
+	return clean(value);
+};
 var featDetails = (entry) => ({
 	fields: [
-		["Category", clean$1(entry.category)],
+		["Category", clean(entry.category)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
 		["Repeatable", yesNo(entry.repeatable)],
-		["Source", clean$1(entry.source)]
+		["Ability Scores", entry.ability ? abilityText(entry.ability) : ""],
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
 });
 var backgroundDetails = (entry) => ({
 	fields: [
-		["Ability Scores", join(entry.ability, ", ")],
-		["Feat", join(entry.feats)],
+		["Ability Scores", abilityText(entry.ability)],
+		["Feat", featsText(entry.feats)],
 		["Skills", proficiencyText(entry.skillProficiencies)],
 		["Tools", proficiencyText(entry.toolProficiencies)],
 		["Languages", proficiencyText(entry.languageProficiencies)],
-		["Equipment", clean$1(entry.startingEquipment)],
-		["Source", clean$1(entry.source)]
+		["Equipment", startingEquipmentText(entry.startingEquipment)],
+		["Source", clean(entry.source)]
 	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
+	sections: entriesSections(entry.entries, { skipLists: true })
 });
 var speciesDetails = (entry) => ({
 	fields: [
 		["Size", sizeText(entry.size)],
 		["Speed", speedText(entry.speed)],
-		["Ability Scores", join(entry.ability)],
+		["Ability Scores", abilityText(entry.ability)],
 		["Languages", proficiencyText(entry.languageProficiencies)],
-		["Source", clean$1(entry.source)]
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), ...actionEntries(entry, [["trait", "Traits"], ["traitTags", "Tags"]])].filter(Boolean)
 });
 var optionDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.featureType || entry.optionType)],
+		["Type", clean(entry.featureType || entry.optionType)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Source", clean$1(entry.source)]
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
@@ -16309,82 +16647,92 @@ var itemDetails = (entry) => {
 	const rarity = String(entry.rarity || "").toLowerCase();
 	return {
 		fields: [
-			["Type", mapped?.key === "wondrousItems" && value.itemType ? value.itemType : ITEM_TYPE_LABEL[code] || clean$1(entry.type)],
+			["Type", mapped?.key === "wondrousItems" && value.itemType ? value.itemType : ITEM_TYPE_LABEL[code] || clean(entry.type)],
 			["Rarity", rarity && rarity !== "none" ? titleCase(rarity) : ""],
-			["Attunement", entry.reqAttune ? clean$1(entry.reqAttune) : entry.reqAttuneTags ? "Required" : ""],
+			["Attunement", entry.reqAttune ? clean(entry.reqAttune) : entry.reqAttuneTags ? "Required" : ""],
 			["Weight", entry.weight != null ? `${entry.weight} lb.` : ""],
 			["Value", value.cost || (entry.value != null ? `${Number((Number(entry.value) / 100).toFixed(2))} gp` : "")],
 			["Properties", value.properties?.length ? join(value.properties) : join(entry.property)],
 			["Mastery", join(entry.mastery)],
-			["Damage", value.diceCount ? `${value.diceCount}${value.dieSize}${value.damageType ? ` ${value.damageType}` : ""}` : clean$1(entry.dmg1 || entry.dmg2)],
-			["Armor Class", value.acFlat != null ? String(value.acFlat) : clean$1(entry.ac)],
-			["Source", clean$1(entry.source)]
+			["Damage", value.diceCount ? `${value.diceCount}${value.dieSize}${value.damageType ? ` ${value.damageType}` : ""}` : clean(entry.dmg1 || entry.dmg2)],
+			["Armor Class", value.acFlat != null ? String(value.acFlat) : clean(entry.ac)],
+			["Source", clean(entry.source)]
 		],
 		sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
 	};
 };
 var conditionDetails = (entry, kind) => ({
-	fields: [["Type", kind], ["Source", clean$1(entry.source)]],
+	fields: [["Type", kind], ["Source", clean(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var tableDetails = (entry) => {
 	const block = tableBlock(entry);
 	return {
 		fields: [
-			["Caption", clean$1(entry.caption)],
+			["Caption", clean(entry.caption)],
 			["Rows", String((entry.rows || []).length)],
-			["Source", clean$1(entry.source)]
+			["Source", clean(entry.source)]
 		],
 		sections: block ? [block] : []
 	};
 };
-var bookDetails = (entry, adventure) => ({
-	fields: [
-		["Author", join(entry.author)],
-		["Published", clean$1(entry.published)],
-		["Group", clean$1(entry.group)],
-		...adventure ? [["Storyline", clean$1(entry.storyline)], ["Level", clean$1(entry.level)]] : [],
-		["Source", clean$1(entry.source || entry.id)]
-	],
-	sections: [{
-		title: "Contents",
-		list: contentsList(entry.data?.map((chapter) => ({ name: chapter.name })) || entry.contents)
-	}, textSection("Description", entry.entries)].filter((s) => s && (s.list?.length || s.text))
-});
+var bookDetails = (entry, adventure, context = {}) => {
+	const title = clean(context.bookTitles?.get(entry.id) || entry.name || entry.title || entry.id || "Book");
+	const book = bookChapters(entry);
+	return {
+		name: title,
+		fields: [
+			["Author", join(entry.author)],
+			["Published", clean(entry.published)],
+			["Group", clean(entry.group)],
+			...adventure ? [["Storyline", clean(entry.storyline)], ["Level", clean(entry.level)]] : [],
+			...book ? [["Chapters", String(book.chapters.length)]] : [],
+			["Source", clean(entry.source || entry.id)]
+		],
+		sections: [...book ? [] : [{
+			title: "Contents",
+			list: contentsList(entry.contents)
+		}], textSection("Description", entry.entries)].filter((s) => s && (s.list?.length || s.text)),
+		book: book ? {
+			...book,
+			title
+		} : null
+	};
+};
 var deityDetails = (entry) => ({
 	fields: [
-		["Pantheon", clean$1(entry.pantheon)],
-		["Alignment", clean$1(entry.alignment)],
-		["Category", clean$1(entry.category)],
+		["Pantheon", clean(entry.pantheon)],
+		["Alignment", clean(entry.alignment)],
+		["Category", clean(entry.category)],
 		["Domains", join(entry.domains)],
-		["Province", clean$1(entry.province)],
-		["Symbol", clean$1(entry.symbol)],
-		["Source", clean$1(entry.source)]
+		["Province", clean(entry.province)],
+		["Symbol", clean(entry.symbol)],
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var vehicleDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.vehicleType)],
+		["Type", clean(entry.vehicleType)],
 		["Size", sizeText(entry.size)],
-		["Terrain", clean$1(entry.terrain)],
+		["Terrain", clean(entry.terrain)],
 		["Crew", entry.capCrew != null ? String(entry.capCrew) : ""],
 		["Passengers", entry.capPassenger != null ? String(entry.capPassenger) : ""],
 		["Cargo", entry.capCargo != null ? `${entry.capCargo} tons` : ""],
-		["Armor Class", clean$1(entry.ac)],
-		["Hit Points", clean$1(entry.hp)],
+		["Armor Class", clean(entry.ac)],
+		["Hit Points", clean(entry.hp)],
 		["Speed", speedText(entry.speed)],
 		["Immunities", join(entry.immune)],
-		["Source", clean$1(entry.source)]
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var objectDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.objectType)],
+		["Type", clean(entry.objectType)],
 		["Size", sizeText(entry.size)],
-		["Armor Class", clean$1(entry.ac)],
-		["Hit Points", clean$1(entry.hp)],
+		["Armor Class", clean(entry.ac)],
+		["Hit Points", clean(entry.hp)],
 		["Speed", speedText(entry.speed)],
 		["Ability Scores", [
 			"str",
@@ -16396,103 +16744,103 @@ var objectDetails = (entry) => ({
 		].filter((k) => entry[k] != null).map((k) => `${k.toUpperCase()} ${entry[k]}`).join(", ")],
 		["Senses", join(entry.senses)],
 		["Immunities", join(entry.immune)],
-		["Source", clean$1(entry.source)]
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), textSection("Actions", entry.actionEntries)].filter(Boolean)
 });
 var trapDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.trapHazType)],
-		["Rating", clean$1(entry.rating)],
-		["Source", clean$1(entry.source)]
+		["Type", clean(entry.trapHazType)],
+		["Rating", clean(entry.rating)],
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var rewardDetails = (entry) => ({
-	fields: [["Type", clean$1(entry.type)], ["Source", clean$1(entry.source)]],
+	fields: [["Type", clean(entry.type)], ["Source", clean(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var psionicDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.type)],
-		["Order", clean$1(entry.order)],
-		["Focus", clean$1(entry.focus)],
-		["Source", clean$1(entry.source)]
+		["Type", clean(entry.type)],
+		["Order", clean(entry.order)],
+		["Focus", clean(entry.focus)],
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries), {
 		title: "Modes",
-		text: (entry.modes || []).map((m) => `${clean$1(m.name)}${m.entries ? `: ${clean$1(m.entries)}` : ""}`).join("\n\n")
+		text: (entry.modes || []).map((m) => `${clean(m.name)}${m.entries ? `: ${clean(m.entries)}` : ""}`).join("\n\n")
 	}].filter((s) => s && s.text)
 });
 var deckDetails = (entry) => ({
-	fields: [["Cards", String((entry.cards || []).length)], ["Source", clean$1(entry.source)]],
+	fields: [["Cards", String((entry.cards || []).length)], ["Source", clean(entry.source)]],
 	sections: [textSection("Description", entry.entries), {
 		title: "Cards",
 		list: (entry.cards || []).map((c) => ({
-			label: clean$1(c.name),
+			label: clean(c.name),
 			text: ""
 		}))
 	}].filter((s) => s && (s.text || s.list?.length))
 });
 var actionDetails = (entry) => ({
-	fields: [["Time", clean$1(entry.time)], ["Source", clean$1(entry.source)]],
+	fields: [["Time", timeText(entry.time)], ["Source", clean(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var languageDetails = (entry) => ({
 	fields: [
 		["Typical Speakers", join(entry.typicalSpeakers)],
-		["Script", clean$1(entry.script)],
-		["Source", clean$1(entry.source)]
+		["Script", clean(entry.script)],
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var bastionDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.facilityType)],
-		["Level", clean$1(entry.level)],
+		["Type", clean(entry.facilityType)],
+		["Level", clean(entry.level)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Space", clean$1(entry.space)],
-		["Hirelings", clean$1(entry.hirelings)],
+		["Space", clean(entry.space)],
+		["Hirelings", clean(entry.hirelings)],
 		["Orders", join(entry.orders)],
-		["Source", clean$1(entry.source)]
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var encounterDetails = (entry) => ({
-	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean$1(entry.source)]],
+	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean(entry.source)]],
 	sections: [...(entry.tables || []).map((t) => tableBlock(t)).filter(Boolean), textSection("Description", entry.entries)].filter(Boolean)
 });
 var lootDetails = (entry) => ({
 	fields: [
 		["CR Range", [entry.crMin, entry.crMax].filter((v) => v != null).join(" – ")],
-		["Coins", clean$1(entry.coins)],
-		["Source", clean$1(entry.source)]
+		["Coins", clean(entry.coins)],
+		["Source", clean(entry.source)]
 	],
 	sections: [tableBlock(entry.table), textSection("Description", entry.entries)].filter(Boolean)
 });
 var ruleDetails = (entry) => ({
-	fields: [["Type", clean$1(entry.ruleType)], ["Source", clean$1(entry.source)]],
+	fields: [["Type", clean(entry.ruleType)], ["Source", clean(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var skillDetails = (entry) => ({
-	fields: [["Ability", clean$1(entry.ability)], ["Source", clean$1(entry.source)]],
+	fields: [["Ability", clean(entry.ability)], ["Source", clean(entry.source)]],
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var magicVariantDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.type)],
-		["Requires", clean$1(entry.requires)],
-		["Inherits", clean$1(entry.inherits)],
-		["Source", clean$1(entry.source)]
+		["Type", clean(entry.type)],
+		["Requires", clean(entry.requires)],
+		["Inherits", clean(entry.inherits)],
+		["Source", clean(entry.source)]
 	],
 	sections: []
 });
 var genericDetails = (entry) => ({
 	fields: [
-		["Type", clean$1(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
-		["Rarity", clean$1(entry.rarity)],
+		["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
+		["Rarity", clean(entry.rarity)],
 		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Source", clean$1(entry.source)]
+		["Source", clean(entry.source)]
 	],
 	sections: [textSection("Description", entry.entries || entry.description || entry.text), textSection("Additional", entry.additionalEntries)].filter(Boolean)
 });
@@ -16533,20 +16881,21 @@ var DETAILERS = {
 };
 function entryDetails(categoryId, entry, raw, context = {}) {
 	if (!entry) return null;
-	const detailer = categoryId === "classes" ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName) : DETAILERS[categoryId] || genericDetails;
+	const detailer = categoryId === "classes" ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName) : categoryId === "books" ? (e) => bookDetails(e, false, context) : categoryId === "adventures" ? (e) => bookDetails(e, true, context) : DETAILERS[categoryId] || genericDetails;
 	const body = (categoryId === "spells" ? spellDetails(entry, context) : detailer(entry)) || {
 		fields: [],
 		sections: []
 	};
 	const image = entryImage(entry);
 	return {
-		name: entryName$1(entry),
-		source: clean$1(entry.source || entry.classSource || entry.id),
+		name: body.name || entryName$1(entry),
+		source: clean(entry.source || entry.classSource || entry.id),
 		page: entry.page,
-		edition: clean$1(entry.edition),
+		edition: clean(entry.edition),
 		image,
+		book: body.book || null,
 		fields: (body.fields || []).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
-		sections: (body.sections || []).filter((s) => s.text && clean$1(s.text) || s.list?.length || s.columns?.length)
+		sections: (body.sections || []).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
 	};
 }
 function entryDetailsMarkdown(details) {
@@ -16568,19 +16917,196 @@ function entryDetailsMarkdown(details) {
 }
 function CleanField(value) {
 	if (value == null) return "";
-	if (typeof value === "string") return clean$1(value);
+	if (typeof value === "string") return clean(value);
 	if (typeof value === "number" || typeof value === "boolean") return String(value);
-	if (Array.isArray(value)) return value.map((v) => clean$1(v)).filter(Boolean).join(", ");
+	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(", ");
 	if (typeof value === "object") {
-		if (value.name && value.description) return `${clean$1(value.name)}: ${clean$1(value.description)}`;
-		if (value.name) return clean$1(value.name);
-		if (value.description) return clean$1(value.description);
-		return clean$1(value);
+		if (value.name && value.description) return `${clean(value.name)}: ${clean(value.description)}`;
+		if (value.name) return clean(value.name);
+		if (value.description) return clean(value.description);
+		return clean(value);
 	}
 	return String(value);
 }
 //#endregion
+//#region src/components/rulebook/Homebrewery.jsx
+function Homebrewery({ text = "", className = "" }) {
+	const blocks = useMemo(() => splitBlocks(text), [text]);
+	return /* @__PURE__ */ jsx("div", {
+		className: `space-y-3 ${className}`,
+		children: blocks.map((b, i) => b.kind === "table" ? /* @__PURE__ */ jsx(TableBlock, { rows: b.rows }, i) : b.kind === "break" ? /* @__PURE__ */ jsx("div", {
+			className: "page-break my-6 border-t border-dashed border-primary/40 pt-2 text-[9px] uppercase tracking-widest text-muted-foreground",
+			children: "page break"
+		}, i) : /* @__PURE__ */ jsx(MarkdownBlock, { text: b.text }, i))
+	});
+}
+var headingText = (children) => Array.isArray(children) ? children.map((child) => typeof child === "string" ? child : "").join("") : String(children || "");
+var headingId = (children) => headingText(children).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+function splitBlocks(text) {
+	const lines = String(text || "").replace(/\\pagebreak/g, "---").split(/\r?\n/);
+	const blocks = [];
+	let para = [];
+	let table = [];
+	const flushPara = () => {
+		if (para.length) {
+			blocks.push({
+				kind: "md",
+				text: para.join("\n")
+			});
+			para = [];
+		}
+	};
+	const flushTable = () => {
+		if (table.length) {
+			blocks.push({
+				kind: "table",
+				rows: table
+			});
+			table = [];
+		}
+	};
+	for (const line of lines) if (/^\s*\|/.test(line)) {
+		flushPara();
+		table.push(line.trim());
+	} else if (/^\s*---+\s*$/.test(line)) {
+		flushPara();
+		flushTable();
+		blocks.push({ kind: "break" });
+	} else {
+		flushTable();
+		para.push(line);
+	}
+	flushPara();
+	flushTable();
+	return blocks;
+}
+function Fmt({ text }) {
+	const parts = String(text || "").split(/\*\*([^*]+)\*\*/);
+	return /* @__PURE__ */ jsx(Fragment, { children: parts.map((p, i) => i % 2 ? /* @__PURE__ */ jsx("strong", { children: p }, i) : p) });
+}
+function TableBlock({ rows }) {
+	const parse = (row) => row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+	const cells = rows.map(parse);
+	const body = cells.filter((r, i) => i !== 0 && !(i === 1 && r.every((c) => /^:?-{2,}:?$/.test(c))));
+	return /* @__PURE__ */ jsxs("table", {
+		className: "my-2 w-full border-collapse overflow-hidden rounded-md text-xs",
+		children: [/* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { children: cells[0].map((c, i) => /* @__PURE__ */ jsx("th", {
+			className: "border px-2 py-1 text-left",
+			children: /* @__PURE__ */ jsx(Fmt, { text: c })
+		}, i)) }) }), /* @__PURE__ */ jsx("tbody", { children: body.map((r, i) => /* @__PURE__ */ jsx("tr", {
+			className: i % 2 ? "bg-muted/40" : "",
+			children: r.map((c, j) => /* @__PURE__ */ jsx("td", {
+				className: "border px-2 py-1 align-top",
+				children: /* @__PURE__ */ jsx(Fmt, { text: c })
+			}, j))
+		}, i)) })]
+	});
+}
+function MarkdownBlock({ text }) {
+	return /* @__PURE__ */ jsx(ReactMarkdown, {
+		components: {
+			h1: ({ children, ...p }) => /* @__PURE__ */ jsx("h1", {
+				id: headingId(children),
+				className: "mt-4 scroll-mt-4 border-b pb-1 font-display text-2xl font-bold",
+				...p,
+				children
+			}),
+			h2: ({ children, ...p }) => /* @__PURE__ */ jsx("h2", {
+				id: headingId(children),
+				className: "mt-4 scroll-mt-4 font-display text-xl font-bold",
+				...p,
+				children
+			}),
+			h3: ({ children, ...p }) => /* @__PURE__ */ jsx("h3", {
+				id: headingId(children),
+				className: "mt-3 scroll-mt-4 font-semibold",
+				...p,
+				children
+			}),
+			p: (p) => /* @__PURE__ */ jsx("p", {
+				className: "leading-relaxed",
+				...p
+			}),
+			ul: (p) => /* @__PURE__ */ jsx("ul", {
+				className: "list-disc pl-5",
+				...p
+			}),
+			ol: (p) => /* @__PURE__ */ jsx("ol", {
+				className: "list-decimal pl-5",
+				...p
+			}),
+			blockquote: (p) => /* @__PURE__ */ jsx("blockquote", {
+				className: "border-l-4 border-primary/60 bg-muted/40 px-3 py-2 text-muted-foreground",
+				...p
+			}),
+			code: (p) => /* @__PURE__ */ jsx("code", {
+				className: "rounded bg-muted px-1 py-0.5 font-mono text-xs",
+				...p
+			}),
+			img: ({ alt, src, ...p }) => /* @__PURE__ */ jsxs("figure", {
+				className: "my-3",
+				children: [/* @__PURE__ */ jsx("img", {
+					src,
+					alt: alt || "",
+					loading: "lazy",
+					className: "mx-auto max-h-96 max-w-full rounded border object-contain",
+					...p
+				}), alt && /* @__PURE__ */ jsx("figcaption", {
+					className: "mt-1 text-center text-[10px] italic text-muted-foreground",
+					children: alt
+				})]
+			}),
+			hr: (p) => /* @__PURE__ */ jsx("hr", {
+				className: "my-4 border-border",
+				...p
+			}),
+			a: (p) => /* @__PURE__ */ jsx("a", {
+				className: "text-primary underline",
+				...p
+			})
+		},
+		children: text
+	});
+}
+//#endregion
 //#region src/components/skilltree/library/ReferenceEntryPreview.jsx
+function BookReader({ book }) {
+	const [index, setIndex] = useState(0);
+	const safeIndex = Math.min(index, Math.max(0, book.chapters.length - 1));
+	const chapter = book.chapters[safeIndex];
+	const markdown = useMemo(() => bookChapterMarkdown(chapter), [chapter]);
+	return /* @__PURE__ */ jsxs("section", {
+		className: "space-y-1 border-t pt-2",
+		children: [
+			/* @__PURE__ */ jsxs("h3", {
+				className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+				children: [
+					"Read the book (",
+					book.chapters.length,
+					" chapters)"
+				]
+			}),
+			/* @__PURE__ */ jsx("select", {
+				className: "w-full rounded border bg-background px-1 py-1 text-[11px]",
+				value: safeIndex,
+				onChange: (e) => setIndex(Number(e.target.value)),
+				title: `Choose a chapter of ${book.title}`,
+				children: book.chapters.map((c, i) => /* @__PURE__ */ jsxs("option", {
+					value: i,
+					children: [
+						i + 1,
+						". ",
+						c.title
+					]
+				}, c.id))
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "rounded border bg-muted/10 p-2 text-[11px] [&_h1]:mt-2 [&_h1]:text-base [&_h2]:mt-2 [&_h2]:text-sm [&_h3]:mt-2 [&_h3]:text-xs [&_h4]:text-[11px] [&_p]:leading-relaxed",
+				children: /* @__PURE__ */ jsx(Homebrewery, { text: markdown })
+			})
+		]
+	});
+}
 function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) {
 	if (!details) return /* @__PURE__ */ jsx("p", {
 		className: "text-muted-foreground",
@@ -16664,6 +17190,7 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 					})
 				]
 			}, `${section.title}-${i}`)),
+			details.book?.chapters?.length > 0 && /* @__PURE__ */ jsx(BookReader, { book: details.book }),
 			onImport && /* @__PURE__ */ jsx(Button, {
 				size: "sm",
 				variant: "outline",
@@ -26051,7 +26578,6 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		}));
 	}, [editable, setUi]);
 	const onWheel = (e) => {
-		e.preventDefault();
 		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
 		const rect = containerRef.current.getBoundingClientRect();
 		const sx = e.clientX - rect.left;
@@ -37622,146 +38148,6 @@ function DiceRoller({ open, onClose }) {
 	});
 }
 //#endregion
-//#region src/components/rulebook/Homebrewery.jsx
-function Homebrewery({ text = "", className = "" }) {
-	const blocks = useMemo(() => splitBlocks(text), [text]);
-	return /* @__PURE__ */ jsx("div", {
-		className: `space-y-3 ${className}`,
-		children: blocks.map((b, i) => b.kind === "table" ? /* @__PURE__ */ jsx(TableBlock, { rows: b.rows }, i) : b.kind === "break" ? /* @__PURE__ */ jsx("div", {
-			className: "page-break my-6 border-t border-dashed border-primary/40 pt-2 text-[9px] uppercase tracking-widest text-muted-foreground",
-			children: "page break"
-		}, i) : /* @__PURE__ */ jsx(MarkdownBlock, { text: b.text }, i))
-	});
-}
-var headingText = (children) => Array.isArray(children) ? children.map((child) => typeof child === "string" ? child : "").join("") : String(children || "");
-var headingId = (children) => headingText(children).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "section";
-function splitBlocks(text) {
-	const lines = String(text || "").replace(/\\pagebreak/g, "---").split(/\r?\n/);
-	const blocks = [];
-	let para = [];
-	let table = [];
-	const flushPara = () => {
-		if (para.length) {
-			blocks.push({
-				kind: "md",
-				text: para.join("\n")
-			});
-			para = [];
-		}
-	};
-	const flushTable = () => {
-		if (table.length) {
-			blocks.push({
-				kind: "table",
-				rows: table
-			});
-			table = [];
-		}
-	};
-	for (const line of lines) if (/^\s*\|/.test(line)) {
-		flushPara();
-		table.push(line.trim());
-	} else if (/^\s*---+\s*$/.test(line)) {
-		flushPara();
-		flushTable();
-		blocks.push({ kind: "break" });
-	} else {
-		flushTable();
-		para.push(line);
-	}
-	flushPara();
-	flushTable();
-	return blocks;
-}
-function Fmt({ text }) {
-	const parts = String(text || "").split(/\*\*([^*]+)\*\*/);
-	return /* @__PURE__ */ jsx(Fragment, { children: parts.map((p, i) => i % 2 ? /* @__PURE__ */ jsx("strong", { children: p }, i) : p) });
-}
-function TableBlock({ rows }) {
-	const parse = (row) => row.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
-	const cells = rows.map(parse);
-	const body = cells.filter((r, i) => i !== 0 && !(i === 1 && r.every((c) => /^:?-{2,}:?$/.test(c))));
-	return /* @__PURE__ */ jsxs("table", {
-		className: "my-2 w-full border-collapse overflow-hidden rounded-md text-xs",
-		children: [/* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { children: cells[0].map((c, i) => /* @__PURE__ */ jsx("th", {
-			className: "border px-2 py-1 text-left",
-			children: /* @__PURE__ */ jsx(Fmt, { text: c })
-		}, i)) }) }), /* @__PURE__ */ jsx("tbody", { children: body.map((r, i) => /* @__PURE__ */ jsx("tr", {
-			className: i % 2 ? "bg-muted/40" : "",
-			children: r.map((c, j) => /* @__PURE__ */ jsx("td", {
-				className: "border px-2 py-1 align-top",
-				children: /* @__PURE__ */ jsx(Fmt, { text: c })
-			}, j))
-		}, i)) })]
-	});
-}
-function MarkdownBlock({ text }) {
-	return /* @__PURE__ */ jsx(ReactMarkdown, {
-		components: {
-			h1: ({ children, ...p }) => /* @__PURE__ */ jsx("h1", {
-				id: headingId(children),
-				className: "mt-4 scroll-mt-4 border-b pb-1 font-display text-2xl font-bold",
-				...p,
-				children
-			}),
-			h2: ({ children, ...p }) => /* @__PURE__ */ jsx("h2", {
-				id: headingId(children),
-				className: "mt-4 scroll-mt-4 font-display text-xl font-bold",
-				...p,
-				children
-			}),
-			h3: ({ children, ...p }) => /* @__PURE__ */ jsx("h3", {
-				id: headingId(children),
-				className: "mt-3 scroll-mt-4 font-semibold",
-				...p,
-				children
-			}),
-			p: (p) => /* @__PURE__ */ jsx("p", {
-				className: "leading-relaxed",
-				...p
-			}),
-			ul: (p) => /* @__PURE__ */ jsx("ul", {
-				className: "list-disc pl-5",
-				...p
-			}),
-			ol: (p) => /* @__PURE__ */ jsx("ol", {
-				className: "list-decimal pl-5",
-				...p
-			}),
-			blockquote: (p) => /* @__PURE__ */ jsx("blockquote", {
-				className: "border-l-4 border-primary/60 bg-muted/40 px-3 py-2 text-muted-foreground",
-				...p
-			}),
-			code: (p) => /* @__PURE__ */ jsx("code", {
-				className: "rounded bg-muted px-1 py-0.5 font-mono text-xs",
-				...p
-			}),
-			img: ({ alt, src, ...p }) => /* @__PURE__ */ jsxs("figure", {
-				className: "my-3",
-				children: [/* @__PURE__ */ jsx("img", {
-					src,
-					alt: alt || "",
-					loading: "lazy",
-					className: "mx-auto max-h-96 max-w-full rounded border object-contain",
-					...p
-				}), alt && /* @__PURE__ */ jsx("figcaption", {
-					className: "mt-1 text-center text-[10px] italic text-muted-foreground",
-					children: alt
-				})]
-			}),
-			hr: (p) => /* @__PURE__ */ jsx("hr", {
-				className: "my-4 border-border",
-				...p
-			}),
-			a: (p) => /* @__PURE__ */ jsx("a", {
-				className: "text-primary underline",
-				...p
-			})
-		},
-		children: text
-	});
-}
-//#endregion
 //#region src/lib/rulebookStore.js
 var KEY = "skilltree:rulebook";
 var newChapterId = () => "ch" + Date.now() + "-" + Math.floor(Math.random() * 1e3);
@@ -44171,114 +44557,6 @@ function DMScreen({ onExit }) {
 	});
 }
 //#endregion
-//#region src/lib/fiveEToolsRulebook.js
-var clean = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
-var cell = (value) => clean(value).replace(/\|/g, "\\|");
-var tableMarkdown = (table) => {
-	const columns = (table.colLabels || []).map(cell);
-	const rows = (table.rows || []).map((row) => {
-		return (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
-			if (value && typeof value === "object") {
-				if (value.roll) return value.roll.exact != null ? String(value.roll.exact) : `${value.roll.min ?? ""}${value.roll.max != null ? `–${value.roll.max}` : ""}`;
-				return cell(value.entry ?? value.entries ?? value.name ?? "");
-			}
-			return cell(value);
-		});
-	});
-	if (!rows.length) return "";
-	if (!columns.length) return rows.map((r) => `- ${r.filter(Boolean).join(" — ")}`).join("\n");
-	return [
-		`| ${columns.join(" | ")} |`,
-		`| ${columns.map(() => "---").join(" | ")} |`,
-		...rows.map((r) => `| ${r.join(" | ")} |`)
-	].join("\n");
-};
-var imageMarkdown = (node) => {
-	const href = node?.href;
-	if (typeof href === "string") return `![${clean(node.name) || "Illustration"}](${href})`;
-	if (href?.url) return `![${clean(node.name) || "Illustration"}](${href.url})`;
-	if (href?.path) return `![${clean(node.name) || "Illustration"}](${href.path})`;
-	if (href?.paths?.length) return href.paths.map((path) => `![${clean(node.name) || "Illustration"}](${path})`).join("\n\n");
-	return "";
-};
-var refLabel = (node) => clean(node?.name || node?.spell || node?.item || node?.creature || node?.condition || node?.optionalfeature || node?.classFeature || node?.subclassFeature || node?.table || node?.book || node?.adventure || "");
-function renderEntries(value, depth = 0) {
-	if (value == null || value === "") return "";
-	if (typeof value === "string") return clean(value);
-	if (typeof value === "number") return String(value);
-	if (Array.isArray(value)) return value.map((v) => renderEntries(v, depth)).filter(Boolean).join("\n\n");
-	if (typeof value !== "object") return clean(value);
-	switch (value.type) {
-		case "table": {
-			const table = tableMarkdown(value);
-			return [value.name ? `**${clean(value.name)}**` : "", table].filter(Boolean).join("\n\n");
-		}
-		case "list": return (value.items || []).map((item) => `- ${clean(item).replace(/\n/g, "\n  ")}`).join("\n");
-		case "options": return [value.name ? `**${clean(value.name)}**` : "", ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
-		case "inset":
-		case "insetReadaloud": {
-			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
-			return [value.name ? `> **${clean(value.name)}**\n>` : "", body].filter(Boolean).join("\n");
-		}
-		case "quote": {
-			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
-			return [value.byline ? `> — ${clean(value.byline)}\n>` : "", body].filter(Boolean).join("\n");
-		}
-		case "image":
-		case "gallery": return imageMarkdown(value);
-		case "hr": return "---";
-		case "abilityDc":
-		case "abilityAttackMod": {
-			const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
-			return `**${clean(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
-		}
-		case "statblock":
-		case "statblockInline": return [value.name ? `**${clean(value.name)}**` : "", renderEntries(value.entries, depth + 1)].filter(Boolean).join("\n\n");
-	}
-	if (value.type?.startsWith("ref")) {
-		const label = refLabel(value);
-		return label ? `*${label}*` : "";
-	}
-	return [value.name && Array.isArray(value.entries) ? `${"#".repeat(Math.min(6, depth + 2))} ${clean(value.name)}` : value.name ? `**${clean(value.name)}**` : "", value.entries ? renderEntries(value.entries, depth + 1) : value.items ? renderEntries(value.items, depth + 1) : ""].filter(Boolean).join("\n\n");
-}
-var slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "book";
-function bookToRulebook(entry, fallbackTitle = "") {
-	if (!entry) return null;
-	const data = Array.isArray(entry.data) ? entry.data : Array.isArray(entry.contents) ? [] : [];
-	const title = clean(entry.name || entry.title || fallbackTitle || entry.id) || "Imported Book";
-	const source = clean(entry.source || entry.id || "");
-	const id = `rb5e-${slug(source)}-${slug(title)}`;
-	let chapters = data.map((chapter, i) => {
-		const chapterTitle = clean(chapter.name) || `Chapter ${i + 1}`;
-		const body = renderEntries(chapter.entries, 1);
-		return {
-			id: `${id}-ch${i + 1}`,
-			title: chapterTitle,
-			content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n")
-		};
-	}).filter((chapter) => chapter.content.trim());
-	if (!chapters.length) {
-		const outline = (entry.contents || []).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean(name)}`).join("\n");
-		const body = renderEntries(entry.entries, 1);
-		chapters = [{
-			id: `${id}-ch1`,
-			title,
-			content: [
-				`# ${title}`,
-				outline,
-				body
-			].filter(Boolean).join("\n\n")
-		}];
-	}
-	return {
-		id,
-		title,
-		source,
-		imported: true,
-		chapters
-	};
-}
-//#endregion
 //#region src/lib/fiveEToolsBulk.js
 var nameKey = (value) => String(typeof value === "string" ? value : value?.name || "").toLowerCase();
 var sourceOf$1 = (entry) => String(entry?.source || entry?.classSource || entry?.subclassSource || entry?.bookSource || entry?.monster?.source || "");
@@ -44756,6 +45034,15 @@ var categoryForProps = (props = []) => {
 	return hit ? hit[0] : "";
 };
 var isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
+var categoryIdForPath = (path) => {
+	const p = String(path || "");
+	if (!p) return "";
+	return FIVE_CATEGORIES.find((c) => {
+		const names = new Set(c.files || []);
+		if (names.has(p) || names.has(p.slice(p.lastIndexOf("/") + 1))) return true;
+		return (c.dirs || []).some((d) => p === d || p.startsWith(`${d}/`));
+	})?.id || "";
+};
 var sourceOf = (entry) => String(entry?.source || entry?.classSource || entry?.subclassSource || entry?.bookSource || entry?.monster?.source || "");
 var imageFor = (entry, root, filePath) => {
 	const raw = entry?.img || entry?.image || entry?.portrait || entry?.cover;
@@ -44809,6 +45096,7 @@ function ReferenceIndexTab() {
 	const [importing, setImporting] = useState(0);
 	const [updating, setUpdating] = useState(false);
 	const [spellLookup, setSpellLookup] = useState(null);
+	const [bookTitles, setBookTitles] = useState(() => /* @__PURE__ */ new Map());
 	const isRemote = isRemoteRoot(root);
 	const category = categoryId === "__all__" ? {
 		id: "__all__",
@@ -44830,7 +45118,9 @@ function ReferenceIndexTab() {
 			if (q) list = list.filter((f) => `${f.name} ${f.author} ${f.path}`.toLowerCase().includes(q));
 			return [...list].sort((a, b) => String(a.name || a.path).localeCompare(String(b.name || b.path)));
 		}
-		return (root === "data" ? filesForCategory(category, index) : index.filter((f) => isSourceFile(f.path))).sort((a, b) => a.path.localeCompare(b.path));
+		const list = root === "data" ? category.id === "__all__" ? index.filter((f) => isSourceFile(f.path)) : filesForCategory(category, index) : index.filter((f) => isSourceFile(f.path));
+		const q = fileQuery.trim().toLowerCase();
+		return [...q ? list.filter((f) => `${f.path} ${f.name || ""}`.toLowerCase().includes(q)) : list].sort((a, b) => a.path.localeCompare(b.path));
 	}, [
 		category,
 		categoryId,
@@ -44858,11 +45148,23 @@ function ReferenceIndexTab() {
 	}).sort((a, b) => sourceOf(a).localeCompare(sourceOf(b)) || String(entryName$1(a)).localeCompare(String(entryName$1(b))));
 	const imported = settings?.library?.fiveETools || {};
 	const rawForEntry = (entry) => entry?.__filePath && rawByPath.current.get(entry.__filePath) || raw;
-	const previewDetails = useMemo(() => preview ? entryDetails(activeCategory.id, preview, rawForEntry(preview), { spellLookup }) : null, [
+	const previewCategoryId = useMemo(() => {
+		const path = preview?.__filePath || (filePath && filePath !== "__all__" ? filePath : "");
+		return path && categoryIdForPath(path) || activeCategory.id;
+	}, [
 		preview,
-		activeCategory.id,
+		filePath,
+		activeCategory.id
+	]);
+	const previewDetails = useMemo(() => preview ? entryDetails(previewCategoryId, preview, rawForEntry(preview), {
+		spellLookup,
+		bookTitles
+	}) : null, [
+		preview,
+		previewCategoryId,
 		raw,
-		spellLookup
+		spellLookup,
+		bookTitles
 	]);
 	const refresh = async (force = false) => {
 		try {
@@ -44892,7 +45194,9 @@ function ReferenceIndexTab() {
 		} catch {
 			if (!isRemote) setStatus({
 				available: false,
-				roots: {}
+				roots: {},
+				apiError: true,
+				error: "The local API did not respond."
 			});
 			else toast.error("Could not load the remote 5eTools catalog. Check your connection.");
 			setIndex([]);
@@ -44953,6 +45257,27 @@ function ReferenceIndexTab() {
 		if (!isRemote) cacheFiveEToolsSource(key, data);
 		return data;
 	};
+	useEffect(() => {
+		if (isRemote) return;
+		if (activeCategoryId !== "books" && activeCategoryId !== "adventures") return;
+		let cancelled = false;
+		fetchFiveFile(activeCategoryId === "books" ? "books.json" : "adventures.json").then((data) => {
+			if (cancelled) return;
+			const list = activeCategoryId === "books" ? data?.book : data?.adventure;
+			const map = /* @__PURE__ */ new Map();
+			(Array.isArray(list) ? list : []).forEach((item) => {
+				if (item?.id) map.set(item.id, item.name || item.id);
+			});
+			setBookTitles(map);
+		}).catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		activeCategoryId,
+		root,
+		isRemote
+	]);
 	const loadFile = async (path) => {
 		if (!path) return;
 		setLoading(true);
@@ -44972,8 +45297,8 @@ function ReferenceIndexTab() {
 			setFilePath(path);
 			if (info) {
 				const inferred = categoryForProps(info.props || []);
-				setActiveCategoryId(inferred || categoryId);
-			} else setActiveCategoryId(categoryId);
+				setActiveCategoryId(inferred || categoryIdForPath(path) || categoryId);
+			} else setActiveCategoryId(categoryIdForPath(path) || categoryId);
 			if (!list.length) toast("That file has no importable entries.");
 		} catch {
 			toast.error("Could not read that 5eTools file.");
@@ -44984,7 +45309,9 @@ function ReferenceIndexTab() {
 	const loadAllFiles = async () => {
 		if (!files.length || allProgress) return;
 		const targets = [...files];
-		if (targets.length > 50 && !window.confirm(`Display all ${targets.length} files at once? This can take a while and may produce a very large entry list.`)) return;
+		const totalBytes = targets.reduce((n, f) => n + (Number(f.size) || 0), 0);
+		const sizeText = totalBytes > 1048576 ? ` (~${Math.round(totalBytes / 1048576)} MB)` : "";
+		if (targets.length > 50 && !window.confirm(`Display all ${targets.length} files${sizeText} at once? This can take a while and may produce a very large entry list.`)) return;
 		allCancelRef.current = false;
 		setAllMode(true);
 		setAllProgress({
@@ -45667,38 +45994,37 @@ function ReferenceIndexTab() {
 		(record.tabIds || result.tabIds || []).forEach((id) => deleteTab(id));
 		toast.success(`Removed “${record.label || "import"}”.`);
 	};
-	if (!isRemote && status && !status.available) return /* @__PURE__ */ jsxs("div", {
-		className: "space-y-2 rounded-md border border-dashed p-4 text-xs",
-		children: [
-			/* @__PURE__ */ jsx("p", {
-				className: "font-medium",
-				children: "5eTools data not found."
-			}),
-			/* @__PURE__ */ jsxs("p", {
-				className: "text-muted-foreground",
-				children: [
-					"Download the latest 5eTools release, or place a 5eTools folder at",
-					" ",
-					/* @__PURE__ */ jsx("code", { children: "E:\\5etools" }),
-					". Downloaded data stays in the app's own user data folder."
-				]
-			}),
-			/* @__PURE__ */ jsxs("div", {
-				className: "flex gap-2",
-				children: [/* @__PURE__ */ jsx(Button, {
-					size: "sm",
-					onClick: updateData,
-					disabled: updating,
-					children: updating ? "Downloading…" : "Download 5eTools"
-				}), /* @__PURE__ */ jsx(Button, {
-					size: "sm",
-					variant: "outline",
-					onClick: () => refresh(true),
-					children: "Retry"
-				})]
-			})
-		]
-	});
+	if (!isRemote && status && !status.available) {
+		const devPort = typeof window !== "undefined" ? window.location.port : "";
+		const apiMissing = status.apiError && devPort && devPort !== "4173";
+		return /* @__PURE__ */ jsxs("div", {
+			className: "space-y-2 rounded-md border border-dashed p-4 text-xs",
+			children: [
+				/* @__PURE__ */ jsx("p", {
+					className: "font-medium",
+					children: apiMissing ? "Local server API not reachable." : "5eTools data not found."
+				}),
+				/* @__PURE__ */ jsx("p", {
+					className: "text-muted-foreground",
+					children: apiMissing ? `This page is running on the Vite dev server (port ${devPort}), which does not host the PowerShell API. Use the launcher at http://localhost:4173, or restart the dev server so its /api proxy can reach the local server.` : "Download the latest 5eTools release, or place a 5eTools folder at E:\\5etools. Downloaded data stays in the app's own user data folder."
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex gap-2",
+					children: [/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						onClick: updateData,
+						disabled: updating,
+						children: updating ? "Downloading…" : "Download 5eTools"
+					}), /* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: () => refresh(true),
+						children: "Retry"
+					})]
+				})
+			]
+		});
+	}
 	const previewImage = preview ? imageFor({
 		...preview,
 		img: previewDetails?.image || preview?.img
@@ -45823,11 +46149,11 @@ function ReferenceIndexTab() {
 					/* @__PURE__ */ jsxs("aside", {
 						className: "overflow-y-auto rounded-md border p-1",
 						children: [
-							isRemote && /* @__PURE__ */ jsx("button", {
+							/* @__PURE__ */ jsx("button", {
 								type: "button",
 								onClick: () => setCategoryId("__all__"),
 								className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${categoryId === "__all__" ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
-								title: "Show every file in this repository",
+								title: "Show every file in this 5eTools repository",
 								children: "All files"
 							}),
 							FIVE_CATEGORIES.map((c) => /* @__PURE__ */ jsx("button", {
@@ -45934,15 +46260,14 @@ function ReferenceIndexTab() {
 									})
 								})]
 							}),
-							isRemote && /* @__PURE__ */ jsxs("div", {
+							/* @__PURE__ */ jsxs("div", {
 								className: "space-y-1 border-b p-1",
-								children: [
-									/* @__PURE__ */ jsx(Input, {
-										className: "h-7 text-xs",
-										placeholder: "Find a brew…",
-										value: fileQuery,
-										onChange: (e) => setFileQuery(e.target.value)
-									}),
+								children: [/* @__PURE__ */ jsx(Input, {
+									className: "h-7 text-xs",
+									placeholder: isRemote ? "Find a brew…" : "Find a file…",
+									value: fileQuery,
+									onChange: (e) => setFileQuery(e.target.value)
+								}), isRemote && /* @__PURE__ */ jsxs(Fragment, { children: [
 									root === "homebrew" && /* @__PURE__ */ jsxs("label", {
 										className: "flex items-center gap-1.5 text-[10px] text-muted-foreground",
 										children: [/* @__PURE__ */ jsx(Switch, {
@@ -45993,7 +46318,7 @@ function ReferenceIndexTab() {
 											})
 										]
 									})
-								]
+								] })]
 							}),
 							/* @__PURE__ */ jsxs("div", {
 								className: "min-h-0 flex-1 overflow-y-auto p-1",
@@ -74156,8 +74481,7 @@ function SideTreePanel({ slot, floating = false }) {
 			}
 		}
 		if (delta > 0) {
-			const rawMax = Number(n.maxPoints);
-			const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+			const max = nodeMaxPoints(n);
 			const cur = Number(n.currentPoints) || 0;
 			if (cur >= max) {
 				if (!isSub && (n.subtrees || []).length) {
@@ -74165,6 +74489,11 @@ function SideTreePanel({ slot, floating = false }) {
 					return;
 				}
 				toast.error("Already at max points.");
+				return;
+			}
+			const gate = tierGate(n, character.level || 1);
+			if (!gate.ok) {
+				toast.error(gate.reason);
 				return;
 			}
 			if (isSub && st.exclusive && cur === 0) {

@@ -148,6 +148,28 @@ const slug = (value) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "book";
 
+// Raw chapters for the Reference Index preview. Contents are rendered on
+// demand so previewing a large book never builds every chapter at once.
+export function bookChapters(entry) {
+  if (!entry) return null;
+  const data = Array.isArray(entry.data) ? entry.data : [];
+  if (!data.length) return null;
+  return {
+    title: clean(entry.name || entry.title || entry.id || "Book"),
+    chapters: data
+      .map((chapter, i) => ({
+        id: chapter.id || `ch${i + 1}`,
+        title: clean(chapter.name) || `Chapter ${i + 1}`,
+        entries: chapter.entries,
+      }))
+      .filter((chapter) => chapter.entries != null),
+  };
+}
+
+export function bookChapterMarkdown(chapter) {
+  return renderEntries(chapter?.entries, 1);
+}
+
 // Build a read-only Rulebook book from a 5eTools book or bookData entry.
 export function bookToRulebook(entry, fallbackTitle = "") {
   if (!entry) return null;

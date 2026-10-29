@@ -3,6 +3,7 @@
 // ladders, tables, books), so the preview shows the fields that matter for the
 // selected category instead of only the generic description text.
 import { fiveText, entryName, itemToLibrary, spellToLibrary } from "@/lib/fiveETools";
+import { bookChapters } from "@/lib/fiveEToolsRulebook";
 import { spellClassNames } from "@/lib/fiveEToolsLookup";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
 
@@ -20,7 +21,7 @@ const join = (value, sep = ", ") => {
 };
 const yesNo = (v) => (v ? "Yes" : "");
 const SIZE_LABEL = {
-  T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan",
+  T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan", V: "Varies",
 };
 const sizeText = (value) => {
   if (value == null) return "";
@@ -51,19 +52,188 @@ const speedText = (speed) => {
     .join(", ");
 };
 
-// Starting proficiencies are often "choose N from [list]" objects rather than
-// plain strings; flatten them into readable text.
+// 5eTools stores proficiencies as arrays of "name: true" maps, with special
+// keys such as anyStandard/anyArtisansTool. Flatten all of those into text.
+const ANY_PROFICIENCY = {
+  anyStandard: ["standard language", "standard languages"],
+  anyLanguage: ["language", "languages"],
+  anyGamingSet: ["gaming set", "gaming sets"],
+  anyArtisansTool: ["artisan's tool", "artisan's tools"],
+  anyMusicalInstrument: ["musical instrument", "musical instruments"],
+  anyTool: ["tool", "tools"],
+  anySkill: ["skill", "skills"],
+  anyWeapon: ["weapon", "weapons"],
+  anyArmor: ["armor", "armors"],
+  anyShield: ["shield", "shields"],
+  anySavingThrow: ["saving throw", "saving throws"],
+  anyAbility: ["ability", "abilities"],
+};
+
+const ABILITY_LABEL = {
+  str: "Strength",
+  dex: "Dexterity",
+  con: "Constitution",
+  int: "Intelligence",
+  wis: "Wisdom",
+  cha: "Charisma",
+};
+const abilityLabel = (key) => ABILITY_LABEL[String(key).toLowerCase()] || titleCase(key);
+
+const chooseText = (choose) => {
+  if (!choose || typeof choose !== "object") return "";
+  const from = (choose.from || [])
+    .map((v) => clean(typeof v === "object" ? v.name || v.ability || v : v))
+    .filter(Boolean);
+  const count = Number(choose.count || choose.amount || 1) || 1;
+  if (from.length) {
+    const label = from.map((v) => abilityLabel(v) || titleCase(v)).join(", ");
+    return `Choose ${count > 1 ? `${count} ` : ""}from ${label}`;
+  }
+  if (choose.any) return `Any ${clean(choose.any)}`;
+  return "";
+};
+
 const proficiencyText = (value) => {
-  if (!value) return "";
+  if (value == null || value === "") return "";
   if (typeof value === "string") return clean(value);
+  if (typeof value === "number") return String(value);
   if (Array.isArray(value)) return value.map(proficiencyText).filter(Boolean).join("; ");
   if (typeof value !== "object") return clean(value);
-  if (value.choose) {
-    const from = value.choose.from || [];
-    return `Choose ${value.choose.count || 1} from ${from.map((v) => titleCase(v)).join(", ")}`;
+  if (value.choose) return chooseText(value.choose);
+  const parts = [];
+  Object.entries(value).forEach(([key, val]) => {
+    if (val == null || val === false) return;
+    if (key === "choose") return;
+    if (key.startsWith("any") && typeof val === "number") {
+      const [one, many] = ANY_PROFICIENCY[key] || [
+        key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase(),
+        `${key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase()}s`,
+      ];
+      parts.push(`Any ${val > 1 ? `${val} ` : ""}${val > 1 ? many : one}`);
+      return;
+    }
+    if (typeof val === "number") {
+      parts.push(`${abilityLabel(key)} ${val > 0 ? `+${val}` : val}`);
+      return;
+    }
+    if (typeof val === "string") {
+      parts.push(`${titleCase(key)} (${clean(val)})`);
+      return;
+    }
+    if (val) parts.push(titleCase(key));
+  });
+  return parts.join(", ");
+};
+
+// Background/feat ability choices: ["int", "wis"] or [{choose: {from, amount}}]
+// or weighted 2024 choices (+2 to one, +1 to another). Missing means "Any".
+const abilityText = (value) => {
+  if (value == null || value === "") return "Any";
+  const list = Array.isArray(value) ? value : [value];
+  const choices = [];
+  const plain = [];
+  list.forEach((item) => {
+    if (item == null || item === false) return;
+    if (typeof item === "string") {
+      plain.push(abilityLabel(item));
+      return;
+    }
+    if (typeof item !== "object") return;
+    if (item.choose) {
+      const weighted = item.choose.weighted;
+      const from = (weighted?.from || item.choose.from || []).map(abilityLabel).filter(Boolean);
+      if (!from.length) return;
+      const weights = weighted?.weights || [];
+      const text =
+        weights.length && Math.max(...weights) > 1
+          ? `Any of ${from.join(", ")} (+2 to one, +1 to another)`
+          : chooseText(item.choose);
+      if (text) choices.push(text);
+      return;
+    }
+    const scores = Object.entries(item).filter(
+      ([key, v]) => ABILITY_LABEL[key.toLowerCase()] && typeof v === "number"
+    );
+    scores.forEach(([key, v]) => plain.push(`${abilityLabel(key)} ${v > 0 ? `+${v}` : v}`));
+  });
+  if (plain.length) return plain.join(", ");
+  if (choices.length) {
+    const first = choices[0];
+    return choices.every((c) => c === first) ? first : choices.join("; ");
   }
-  if (value.any) return `Any ${value.any}`;
-  return clean(value);
+  return "Any";
+};
+
+// Background feats: [{ "magic initiate; cleric|xphb": true }]
+const featLabel = (key) => {
+  const [namePart] = String(key || "").split("|");
+  const [name, variant] = namePart.split(";").map((v) => v.trim());
+  return [titleCase(name), variant ? `(${titleCase(variant)})` : ""].filter(Boolean).join(" ");
+};
+const featsText = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return featLabel(value);
+  if (Array.isArray(value)) return value.map(featsText).filter(Boolean).join(", ");
+  if (typeof value !== "object") return clean(value);
+  if (value.name) return featLabel(value.name);
+  return Object.entries(value)
+    .filter(([, v]) => v)
+    .map(([key]) => featLabel(key))
+    .filter(Boolean)
+    .join(", ");
+};
+
+// Starting equipment is a set of lettered groups (A/B) plus a mandatory "_"
+// group; values are in copper pieces and items may carry quantities.
+const equipmentItemText = (item) => {
+  if (item == null || item === "") return "";
+  if (typeof item === "string") {
+    return clean(item.split("|")[0]).replace(/^./, (c) => c.toUpperCase());
+  }
+  if (typeof item !== "object") return clean(item);
+  if (item.value != null) {
+    const gp = Math.round((Number(item.value) / 100) * 100) / 100;
+    return Number.isFinite(gp) ? `${gp} GP` : "";
+  }
+  const rawName = clean(item.displayName || item.item || item.special || item.name || "");
+  const name = item.displayName
+    ? rawName
+    : rawName.replace(/\|[^|]+$/, "").replace(/^./, (c) => c.toUpperCase());
+  const quantity = Number(item.quantity) || 0;
+  const bits = [];
+  if (name) bits.push(name);
+  if (quantity > 1) bits.push(`×${quantity}`);
+  if (item.containsValue != null) {
+    const gp = Math.round((Number(item.containsValue) / 100) * 100) / 100;
+    if (Number.isFinite(gp)) bits.push(`(${gp} GP inside)`);
+  }
+  return bits.join(" ");
+};
+const equipmentGroupText = (value) =>
+  (Array.isArray(value) ? value : [value])
+    .map(equipmentItemText)
+    .filter(Boolean)
+    .join(", ");
+const startingEquipmentText = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return clean(value);
+  const groups = Array.isArray(value) ? value : [value];
+  const lines = [];
+  groups.forEach((group) => {
+    if (!group || typeof group !== "object") return;
+    const parts = Object.entries(group)
+      .filter(([key, list]) => key !== "type" && list)
+      .map(([key, list]) => {
+        const text = equipmentGroupText(list);
+        if (!text) return "";
+        if (key === "_") return text;
+        if (/^[a-z]$/i.test(key)) return `${key.toUpperCase()}) ${text}`;
+        return `${titleCase(key)}: ${text}`;
+      })
+      .filter(Boolean);
+    if (parts.length) lines.push(parts.join("  •  "));
+  });
+  return lines.join("\n");
 };
 
 const prerequisite = (value) => {
@@ -234,10 +404,15 @@ export function entryImage(entry) {
 const contentsList = (contents, depth = 0) =>
   (contents || []).flatMap((c) => {
     if (!c) return [];
-    if (typeof c === "string") return [{ label: c, text: "" }];
+    if (typeof c === "string") return [{ label: `${"  ".repeat(depth)}${clean(c)}`, text: "" }];
     if (c.name) {
+      const headers = (c.headers || [])
+        .map((h) => (typeof h === "string" ? h : h?.header))
+        .filter(Boolean)
+        .map((h) => ({ label: `${"  ".repeat(depth + 1)}${clean(h)}`, text: "" }));
       return [
         { label: `${"  ".repeat(depth)}${clean(c.name)}`, text: clean(c.entries).slice(0, 160) },
+        ...headers,
         ...contentsList(c.contents, depth + 1),
       ];
     }
@@ -349,11 +524,77 @@ const classDetails = (entry, raw, subclass) => {
   return { fields, sections };
 };
 
+// Turn a 5eTools entries tree into preview sections. Named subsections become
+// their own heading, tables stay tables, and plain text accumulates under the
+// current heading. Lists can be skipped when the same data is shown as fields.
+const entriesSections = (nodes, { skipLists = false } = {}) => {
+  const sections = [];
+  const addText = (title, value) => {
+    const text = clean(value);
+    if (!text) return;
+    const found = sections.find((s) => s.title === title && s.text != null);
+    if (found) found.text = `${found.text}\n\n${text}`;
+    else sections.push({ title, text });
+  };
+  const walk = (value, title) => {
+    if (value == null || value === "") return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => walk(item, title));
+      return;
+    }
+    if (typeof value === "string" || typeof value === "number") {
+      addText(title, value);
+      return;
+    }
+    if (typeof value !== "object") return;
+    if (value.type === "table" || value.type === "tableGroup") {
+      const block = tableBlock(value);
+      if (block) sections.push({ ...block, title: title || block.title });
+      return;
+    }
+    if (value.type === "list" || String(value.style || "").startsWith("list")) {
+      if (!skipLists) (value.items || []).forEach((item) => walk(item, title));
+      return;
+    }
+    if (value.name && Array.isArray(value.entries)) {
+      walk(value.entries, clean(value.name));
+      return;
+    }
+    if (Array.isArray(value.entries)) {
+      walk(value.entries, title);
+      return;
+    }
+    if (Array.isArray(value.items)) {
+      walk(value.items, title);
+      return;
+    }
+    const text = fiveText(value);
+    if (text) addText(title, text);
+  };
+  walk(nodes, "");
+  return sections;
+};
+
+const timeText = (value) => {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") return clean(value);
+  if (typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(timeText).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    if (value.number != null || value.unit) {
+      return `${value.number || 1} ${value.unit || "action"}`;
+    }
+    return fiveText(value);
+  }
+  return clean(value);
+};
+
 const featDetails = (entry) => ({
   fields: [
     ["Category", clean(entry.category)],
     ["Prerequisite", prerequisite(entry.prerequisite)],
     ["Repeatable", yesNo(entry.repeatable)],
+    ["Ability Scores", entry.ability ? abilityText(entry.ability) : ""],
     ["Source", clean(entry.source)],
   ],
   sections: [
@@ -364,22 +605,22 @@ const featDetails = (entry) => ({
 
 const backgroundDetails = (entry) => ({
   fields: [
-    ["Ability Scores", join(entry.ability, ", ")],
-    ["Feat", join(entry.feats)],
+    ["Ability Scores", abilityText(entry.ability)],
+    ["Feat", featsText(entry.feats)],
     ["Skills", proficiencyText(entry.skillProficiencies)],
     ["Tools", proficiencyText(entry.toolProficiencies)],
     ["Languages", proficiencyText(entry.languageProficiencies)],
-    ["Equipment", clean(entry.startingEquipment)],
+    ["Equipment", startingEquipmentText(entry.startingEquipment)],
     ["Source", clean(entry.source)],
   ],
-  sections: [textSection("Description", entry.entries)].filter(Boolean),
+  sections: entriesSections(entry.entries, { skipLists: true }),
 });
 
 const speciesDetails = (entry) => ({
   fields: [
     ["Size", sizeText(entry.size)],
     ["Speed", speedText(entry.speed)],
-    ["Ability Scores", join(entry.ability)],
+    ["Ability Scores", abilityText(entry.ability)],
     ["Languages", proficiencyText(entry.languageProficiencies)],
     ["Source", clean(entry.source)],
   ],
@@ -461,27 +702,40 @@ const tableDetails = (entry) => {
   };
 };
 
-const bookDetails = (entry, adventure) => ({
-  fields: [
-    ["Author", join(entry.author)],
-    ["Published", clean(entry.published)],
-    ["Group", clean(entry.group)],
-    ...(adventure
-      ? [
-          ["Storyline", clean(entry.storyline)],
-          ["Level", clean(entry.level)],
-        ]
-      : []),
-    ["Source", clean(entry.source || entry.id)],
-  ],
-  sections: [
-    {
-      title: "Contents",
-      list: contentsList(entry.data?.map((chapter) => ({ name: chapter.name })) || entry.contents),
-    },
-    textSection("Description", entry.entries),
-  ].filter((s) => s && (s.list?.length || s.text)),
-});
+const bookDetails = (entry, adventure, context = {}) => {
+  const title = clean(
+    context.bookTitles?.get(entry.id) || entry.name || entry.title || entry.id || "Book"
+  );
+  const book = bookChapters(entry);
+  return {
+    name: title,
+    fields: [
+      ["Author", join(entry.author)],
+      ["Published", clean(entry.published)],
+      ["Group", clean(entry.group)],
+      ...(adventure
+        ? [
+            ["Storyline", clean(entry.storyline)],
+            ["Level", clean(entry.level)],
+          ]
+        : []),
+      ...(book ? [["Chapters", String(book.chapters.length)]] : []),
+      ["Source", clean(entry.source || entry.id)],
+    ],
+    sections: [
+      ...(book
+        ? []
+        : [
+            {
+              title: "Contents",
+              list: contentsList(entry.contents),
+            },
+          ]),
+      textSection("Description", entry.entries),
+    ].filter((s) => s && (s.list?.length || s.text)),
+    book: book ? { ...book, title } : null,
+  };
+};
 
 const deityDetails = (entry) => ({
   fields: [
@@ -585,7 +839,7 @@ const deckDetails = (entry) => ({
 
 const actionDetails = (entry) => ({
   fields: [
-    ["Time", clean(entry.time)],
+    ["Time", timeText(entry.time)],
     ["Source", clean(entry.source)],
   ],
   sections: [textSection("Description", entry.entries)].filter(Boolean),
@@ -728,18 +982,23 @@ export function entryDetails(categoryId, entry, raw, context = {}) {
   const detailer =
     categoryId === "classes"
       ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName)
-      : DETAILERS[categoryId] || genericDetails;
+      : categoryId === "books"
+        ? (e) => bookDetails(e, false, context)
+        : categoryId === "adventures"
+          ? (e) => bookDetails(e, true, context)
+          : DETAILERS[categoryId] || genericDetails;
   const body =
     (categoryId === "spells"
       ? spellDetails(entry, context)
       : detailer(entry)) || { fields: [], sections: [] };
   const image = entryImage(entry);
   return {
-    name: entryName(entry),
+    name: body.name || entryName(entry),
     source: clean(entry.source || entry.classSource || entry.id),
     page: entry.page,
     edition: clean(entry.edition),
     image,
+    book: body.book || null,
     fields: (body.fields || [])
       .map(([label, value]) => [label, CleanField(value)])
       .filter(([, value]) => value),
