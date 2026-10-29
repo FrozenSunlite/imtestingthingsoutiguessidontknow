@@ -37,6 +37,7 @@ import {
   autoGrantFirstNode,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
+import { nodeMaxPoints } from "@/lib/nodeTiers";
 import {
   LEGACY_KEYS,
   readProjectValue,
@@ -1533,6 +1534,8 @@ export function TreeProvider({ children }) {
         requirementMode: "none",
         requiredPoints: 1,
         talentType: "",
+        talentTypes: [],
+        tiers: [],
         levelReq: 0,
         nodeType: "skill",
         attributeStat: "",
@@ -1926,8 +1929,7 @@ export function TreeProvider({ children }) {
           acquireSeq: seq,
           nodes: t.nodes.map((n) => {
             if (n.id !== id) return n;
-            const rawMax = Number(n.maxPoints);
-            const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+            const max = nodeMaxPoints(n);
             const cur = Number(n.currentPoints) || 0;
             const next = Math.max(0, Math.min(max, cur + delta));
             // First purchase of a talent with its own trees: grant each
@@ -2571,17 +2573,29 @@ function scaledValue(r, node, vars, profBonus, tagCounts) {
   else if (sc.mode === "prof") bonus = profBonus * per;
   else if (sc.mode === "stat") bonus = Math.floor((statOr10(vars[sc.stat]) - 10) / 2) * per;
   else if (sc.mode === "talents") {
-    const tag = sc.talentTag || node?.talentType || "";
+    const tag = sc.talentTag || talentTypesOf(node)[0] || "";
     bonus = tag ? (tagCounts[tag] || 0) * per : 0;
   } else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
   return String(base + bonus);
 }
 
+export function talentTypesOf(node) {
+  if (Array.isArray(node?.talentTypes) && node.talentTypes.length) {
+    return node.talentTypes.map((type) => String(type || "").trim()).filter(Boolean);
+  }
+  return String(node?.talentType || "")
+    .split(/[,;]/)
+    .map((type) => type.trim())
+    .filter(Boolean);
+}
+
 function tagCountsFor(tree) {
   const counts = {};
   tree?.nodes.forEach((n) => {
-    if ((n.currentPoints || 0) > 0 && n.talentType)
-      counts[n.talentType] = (counts[n.talentType] || 0) + 1;
+    if ((n.currentPoints || 0) <= 0) return;
+    talentTypesOf(n).forEach((type) => {
+      counts[type] = (counts[type] || 0) + 1;
+    });
   });
   return counts;
 }
@@ -2709,7 +2723,7 @@ export function aggregateResources(tree, character, levels = []) {
       else if (sc.mode === "prof") bonus = profBonus * per;
       else if (sc.mode === "stat") bonus = Math.floor((statOr10(vars[sc.stat]) - 10) / 2) * per;
       else if (sc.mode === "talents") {
-        const tag = sc.talentTag || node?.talentType || "";
+        const tag = sc.talentTag || talentTypesOf(node)[0] || "";
         bonus = tag ? (tagCounts[tag] || 0) * per : 0;
       } else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
       if (r.mode === "replace") entry.replaced = value.num + bonus;

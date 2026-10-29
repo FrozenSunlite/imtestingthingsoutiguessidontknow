@@ -76,7 +76,7 @@ export function MiniMap({ nodes, gridBounds, view, vp, onJump }) {
         draggingRef.current = false;
       }}
     >
-      <svg ref={ref} width={W} height={H}>
+      <svg ref={ref} width={W} height={H} shapeRendering="geometricPrecision">
         <rect
           x={ox}
           y={oy}

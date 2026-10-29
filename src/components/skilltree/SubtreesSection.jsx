@@ -8,6 +8,7 @@ import { InfoTip } from "@/components/skilltree/InfoTip";
 import { FieldGroup } from "@/components/skilltree/FieldGroup";
 import { AbilityReqEditor } from "@/components/skilltree/AbilityReqEditor";
 import { SubtreeNodeEditor } from "@/components/skilltree/SubtreeNodeEditor";
+import { SubtreePreview } from "@/components/skilltree/SubtreePreview";
 import { makeHostCopy, nextSubtreeId } from "@/lib/subtrees";
 import { ChevronDown, ChevronRight, Plus, Network, Trash2 } from "lucide-react";
 
@@ -119,6 +120,34 @@ export function SubtreesSection({ node, set }) {
                 }
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px]">Unlock level</Label>
+              <Input
+                className="h-7"
+                type="number"
+                min={0}
+                value={st.level ?? 0}
+                onChange={(e) =>
+                  patch(i, { level: Math.max(0, Number(e.target.value) || 0) })
+                }
+              />
+            </div>
+            <label className="flex items-end gap-1.5 pb-1 text-xs">
+              <Switch
+                checked={!!st.default}
+                onCheckedChange={(v) => patch(i, { default: v })}
+              />
+              Default subtree
+            </label>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Level 0 is always available. When no level-specific subtree is ready, the default tree
+            is used automatically.
+          </p>
+          <div className="rounded border bg-background p-1">
+            <SubtreePreview subtree={st} width={210} />
           </div>
           <label className="flex items-center gap-1.5 text-xs">
             <Switch

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CnQNTh7z.js";
+import { n as Button, r as cn } from "./router-Fjf4oYDb.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6112,6 +6112,96 @@ function migrateTalentNames(tree) {
 	} : tree;
 }
 //#endregion
+//#region src/lib/nodeTiers.js
+function normalizeTiers(node) {
+	return (Array.isArray(node?.tiers) ? node.tiers : []).filter((tier) => tier && Number(tier.points) > 0).map((tier, index) => ({
+		level: Math.max(0, Number(tier.level) || 0),
+		points: Math.max(1, Number(tier.points) || 1),
+		label: String(tier.label || "").trim() || `Tier ${index + 1}`,
+		subtreeId: tier.subtreeId || ""
+	}));
+}
+function tiersForNode(node) {
+	const tiers = normalizeTiers(node);
+	if (tiers.length) return tiers;
+	return [{
+		level: Math.max(0, Number(node?.levelReq) || 0),
+		points: Math.max(1, Number(node?.maxPoints) || 1),
+		label: "",
+		subtreeId: ""
+	}];
+}
+function nodeMaxPoints(node) {
+	return tiersForNode(node).reduce((sum, tier) => sum + tier.points, 0);
+}
+function tierPlan(node) {
+	const tiers = tiersForNode(node);
+	let remaining = Math.max(0, Number(node?.currentPoints) || 0);
+	for (let index = 0; index < tiers.length; index += 1) {
+		const tier = tiers[index];
+		if (remaining < tier.points) return {
+			tiers,
+			active: tier,
+			index,
+			pointsInto: remaining,
+			complete: false,
+			max: nodeMaxPoints(node)
+		};
+		remaining -= tier.points;
+	}
+	return {
+		tiers,
+		active: null,
+		index: tiers.length,
+		pointsInto: 0,
+		complete: true,
+		max: nodeMaxPoints(node)
+	};
+}
+function nextTierLevel(node) {
+	return tierPlan(node).active?.level || 0;
+}
+function displayLevel(node) {
+	return nextTierLevel(node);
+}
+function tierGate(node, characterLevel) {
+	const plan = tierPlan(node);
+	if (plan.complete) return {
+		ok: false,
+		reason: "All tiers are already filled."
+	};
+	const need = Number(plan.active?.level) || 0;
+	if (need > 0 && (Number(characterLevel) || 1) < need) return {
+		ok: false,
+		reason: `Requires character level ${need} for ${plan.active.label || "the next tier"}.`,
+		level: need
+	};
+	return {
+		ok: true,
+		level: need,
+		tier: plan.active
+	};
+}
+function withTiers(node, tiers) {
+	const clean = (tiers || []).filter((tier) => tier && Number(tier.points) > 0).map((tier, index) => ({
+		level: Math.max(0, Number(tier.level) || 0),
+		points: Math.max(1, Number(tier.points) || 1),
+		label: String(tier.label || "").trim() || `Tier ${index + 1}`,
+		subtreeId: tier.subtreeId || ""
+	}));
+	if (!clean.length) return {
+		...node,
+		tiers: [],
+		maxPoints: Math.max(1, Number(node.maxPoints) || 1)
+	};
+	return {
+		...node,
+		tiers: clean,
+		maxPoints: clean.reduce((sum, tier) => sum + tier.points, 0),
+		levelReq: clean[0].level || 0
+	};
+}
+//#endregion
 //#region src/lib/projectStore.js
 var DB_NAME = "talent-tree";
 var DB_VERSION = 1;
@@ -6296,6 +6386,7 @@ async function deleteProjectFile(file, { backup = false } = {}) {
 }
 //#endregion
 //#region src/lib/treeFormat.js
+var parseList = (value) => Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : String(value || "").split(/[,;]/).map((item) => item.trim()).filter(Boolean);
 var NODE_TYPES = [
 	{
 		value: "skill",
@@ -6356,12 +6447,16 @@ function normalizeTree(data) {
 			x: 0,
 			y: 0
 		};
+		const talentTypes = parseList(s["Skill Talent Type"]);
+		const tiers = normalizeTiers({ tiers: s["Skill Tiers"] });
+		const maxPoints = tiers.length ? tiers.reduce((sum, tier) => sum + tier.points, 0) : s["Skill Max Points"] ?? 1;
+		const levelReq = tiers.length ? tiers[0].level : Number(s["Skill Level Requirement"]) || 0;
 		return {
 			id: s["Skill Id"] || "n" + i,
 			name: s["Skill Name"] || `Skill ${i}`,
 			x: typeof pos.x === "number" ? pos.x : 0,
 			y: typeof pos.y === "number" ? pos.y : 0,
-			maxPoints: s["Skill Max Points"] ?? 1,
+			maxPoints,
 			currentPoints: s["Skill Current Points"] ?? 0,
 			image: s["Skill Image"] || "",
 			description: s["Skill Description"] || "",
@@ -6414,8 +6509,10 @@ function normalizeTree(data) {
 			attributeStat: s["Skill Attribute"] || "",
 			requirementMode: "all",
 			requiredPoints: 1,
-			talentType: s["Skill Talent Type"] || "",
-			levelReq: Number(s["Skill Level Requirement"]) || 0,
+			talentTypes,
+			talentType: talentTypes.join(", "),
+			tiers,
+			levelReq,
 			exclusiveWithNames: s["Skill Exclusive With"] || [],
 			requiredProficiencies: (s["Skill Prerequisites"] || []).map((p) => ({
 				type: p.type || "skills",
@@ -6459,7 +6556,9 @@ function normalizeTree(data) {
 						connections: inner.connections || [],
 						grantedPoints: Number(sub["Subtree Points"]) || 0,
 						poolName: sub["Subtree Pool"] || "",
-						exclusive: !!sub["Subtree Exclusive"]
+						exclusive: !!sub["Subtree Exclusive"],
+						level: Number(sub["Subtree Level"]) || 0,
+						default: !!sub["Subtree Default"]
 					};
 				});
 			})(),
@@ -6545,8 +6644,9 @@ function denormalizeTree(tree) {
 			"Skill Image": n.image,
 			"Skill Dependencies": tree.nodes.filter((m) => (m.dependencies || []).includes(n.id)).map((m) => m.name),
 			"Skill Prerequisite": n.prerequisite || "-",
-			"Skill Talent Type": n.talentType || "",
+			"Skill Talent Type": n.talentTypes?.length ? n.talentTypes.join(", ") : n.talentType || "",
 			"Skill Level Requirement": n.levelReq || 0,
+			...Array.isArray(n.tiers) && n.tiers.length ? { "Skill Tiers": n.tiers } : {},
 			"Skill Exclusive With": (n.exclusiveWith || []).map((id) => idToNode[id]?.name).filter(Boolean),
 			"Skill Prerequisites": (n.requiredProficiencies || []).map((p) => ({
 				type: p.type || "skills",
@@ -6625,7 +6725,9 @@ function denormalizeTree(tree) {
 				"Subtree Name": st.name || "",
 				"Subtree Points": Number(st.grantedPoints) || 0,
 				"Subtree Pool": st.poolName || "",
-				"Subtree Exclusive": !!st.exclusive
+				"Subtree Exclusive": !!st.exclusive,
+				"Subtree Level": Number(st.level) || 0,
+				"Subtree Default": !!st.default
 			})) } : {}
 		})),
 		"Skill Connectors": (tree.connections || []).map((c) => {
@@ -8381,6 +8483,8 @@ function TreeProvider({ children }) {
 				requirementMode: "none",
 				requiredPoints: 1,
 				talentType: "",
+				talentTypes: [],
+				tiers: [],
 				levelReq: 0,
 				nodeType: "skill",
 				attributeStat: "",
@@ -8684,8 +8788,7 @@ function TreeProvider({ children }) {
 				acquireSeq: seq,
 				nodes: t.nodes.map((n) => {
 					if (n.id !== id) return n;
-					const rawMax = Number(n.maxPoints);
-					const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+					const max = nodeMaxPoints(n);
 					const cur = Number(n.currentPoints) || 0;
 					const next = Math.max(0, Math.min(max, cur + delta));
 					const granted = cur === 0 && next > 0 && (n.subtrees || []).length ? { subtrees: n.subtrees.map(autoGrantFirstNode) } : {};
@@ -9338,15 +9441,22 @@ function scaledValue(r, node, vars, profBonus, tagCounts) {
 	else if (sc.mode === "prof") bonus = profBonus * per;
 	else if (sc.mode === "stat") bonus = Math.floor((statOr10(vars[sc.stat]) - 10) / 2) * per;
 	else if (sc.mode === "talents") {
-		const tag = sc.talentTag || node?.talentType || "";
+		const tag = sc.talentTag || talentTypesOf(node)[0] || "";
 		bonus = tag ? (tagCounts[tag] || 0) * per : 0;
 	} else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
 	return String(base + bonus);
 }
+function talentTypesOf(node) {
+	if (Array.isArray(node?.talentTypes) && node.talentTypes.length) return node.talentTypes.map((type) => String(type || "").trim()).filter(Boolean);
+	return String(node?.talentType || "").split(/[,;]/).map((type) => type.trim()).filter(Boolean);
+}
 function tagCountsFor(tree) {
 	const counts = {};
 	tree?.nodes.forEach((n) => {
-		if ((n.currentPoints || 0) > 0 && n.talentType) counts[n.talentType] = (counts[n.talentType] || 0) + 1;
+		if ((n.currentPoints || 0) <= 0) return;
+		talentTypesOf(n).forEach((type) => {
+			counts[type] = (counts[type] || 0) + 1;
+		});
 	});
 	return counts;
 }
@@ -9450,7 +9560,7 @@ function aggregateResources(tree, character, levels = []) {
 			else if (sc.mode === "prof") bonus = profBonus * per;
 			else if (sc.mode === "stat") bonus = Math.floor((statOr10(vars[sc.stat]) - 10) / 2) * per;
 			else if (sc.mode === "talents") {
-				const tag = sc.talentTag || node?.talentType || "";
+				const tag = sc.talentTag || talentTypesOf(node)[0] || "";
 				bonus = tag ? (tagCounts[tag] || 0) * per : 0;
 			} else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
 			if (r.mode === "replace") entry.replaced = value.num + bonus;
@@ -23097,7 +23207,7 @@ function searchNodes(nodes, raw) {
 			const name = normText(n.name);
 			const desc = normText(n.description);
 			const flavor = normText(n.flavor);
-			const talent = normText(n.talentType);
+			const talent = normText([...n.talentTypes || [], n.talentType].filter(Boolean).join(" "));
 			const cat = normText(n.nodeType);
 			const attr = normText(n.attributeStat);
 			if (name === q) {
@@ -24069,12 +24179,14 @@ function SubtreePreview({ subtree, width = 232 }) {
 		children: "Empty subtree."
 	});
 	const scale = Math.min(1, width / w);
-	const vh = Math.max(40, h * scale);
+	const vh = Math.max(40, Math.round(h * scale));
 	return /* @__PURE__ */ jsxs("svg", {
 		viewBox: `0 0 ${w} ${h}`,
 		width,
 		height: vh,
 		className: "rounded bg-background",
+		shapeRendering: "geometricPrecision",
+		textRendering: "geometricPrecision",
 		"aria-label": "Subtree preview",
 		children: [lines.map((l, i) => /* @__PURE__ */ jsx("line", {
 			...l,
@@ -24392,8 +24504,8 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 	const unlocked = (node.currentPoints || 0) > 0;
 	const dim = !unlocked && !available;
 	const size = node.size || 100;
-	const rawMax = Number(node.maxPoints);
-	const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+	const max = nodeMaxPoints(node);
+	const plan = tierPlan(node);
 	const cost = Math.max(0, Number(node.cost ?? 1) || 0);
 	const frame = node.frameImage || placeholderFrame || null;
 	const inset = frame ? Math.min(35, Math.max(0, Number(node.iconInset ?? 12))) : 0;
@@ -24417,11 +24529,13 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		},
 		style: {
 			position: "absolute",
-			left: node.x - size / 2,
-			top: node.y - size / 2,
+			left: Math.round(node.x - size / 2),
+			top: Math.round(node.y - size / 2),
 			width: size,
 			height: size,
-			cursor: editable ? "grab" : "pointer"
+			cursor: editable ? "grab" : "pointer",
+			willChange: "transform",
+			textRendering: "geometricPrecision"
 		},
 		className: `group ${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
 		children: [
@@ -24474,7 +24588,11 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 				className: "pointer-events-none absolute -bottom-8 left-1/2 max-w-[140px] -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-[10px] leading-tight text-foreground shadow-sm",
 				children: [/* @__PURE__ */ jsxs("div", {
 					className: "flex items-baseline justify-between gap-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground",
-					children: [/* @__PURE__ */ jsx("span", { children: node.nodeType === "attribute" ? `${node.attributeStat || "?"} +1` : node.talentType || "N/A" }), /* @__PURE__ */ jsxs("span", { children: ["lvl: ", Number(node.levelReq) > 0 ? node.levelReq : "N/A"] })]
+					children: [/* @__PURE__ */ jsx("span", { children: node.nodeType === "attribute" ? `${node.attributeStat || "?"} +1` : node.talentTypes?.length ? node.talentTypes.join(", ") : node.talentType || "N/A" }), /* @__PURE__ */ jsxs("span", { children: [
+						"lvl: ",
+						displayLevel(node) > 0 ? displayLevel(node) : "N/A",
+						plan.active?.label && plan.tiers.length > 1 ? ` - ${plan.active.label}` : ""
+					] })]
 				}), node.name]
 			}),
 			!editable && onOpenSubtree && unlocked && (node.subtrees || []).some((s) => (s.nodes || []).length > 0) && /* @__PURE__ */ jsx("button", {
@@ -24767,6 +24885,7 @@ function MiniMap({ nodes, gridBounds, view, vp, onJump }) {
 			ref,
 			width: W,
 			height: H,
+			shapeRendering: "geometricPrecision",
 			children: [
 				/* @__PURE__ */ jsx("rect", {
 					x: ox,
@@ -24975,8 +25094,13 @@ function AbilityChoiceDialog({ node, nodesById, choices, perTake = 1, onPick, on
 //#endregion
 //#region src/components/skilltree/SubtreePickerDialog.jsx
 function SubtreePickerDialog({ node, onPick, onClose }) {
+	const { character } = useTree();
 	if (!node) return null;
-	const subtrees = node.subtrees || [];
+	const level = Math.max(1, Number(character?.level) || 1);
+	const subtrees = (node.subtrees || []).map((subtree, index) => ({
+		subtree,
+		index
+	})).filter(({ subtree }) => !Number(subtree.level) || Number(subtree.level) <= level).sort((a, b) => Number(!!b.subtree.default) - Number(!!a.subtree.default) || Number(a.subtree.level || 0) - Number(b.subtree.level || 0));
 	return /* @__PURE__ */ jsx(Dialog, {
 		open: !!node,
 		onOpenChange: (v) => !v && onClose(),
@@ -24986,13 +25110,13 @@ function SubtreePickerDialog({ node, onPick, onClose }) {
 				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Choose a talent tree — ", node.name] }), /* @__PURE__ */ jsx(DialogDescription, { children: "This talent opens its own skill trees. Pick one to open in a side panel and spend its granted points there. Greyed trees are already open." })] }),
 				/* @__PURE__ */ jsxs("div", {
 					className: "max-h-[50vh] space-y-2 overflow-y-auto pr-1",
-					children: [subtrees.map((s, i) => {
+					children: [subtrees.map(({ subtree: s, index: i }) => {
 						const empty = (s.nodes || []).length === 0;
 						const locked = empty;
 						return /* @__PURE__ */ jsxs("button", {
 							disabled: locked,
 							onClick: () => onPick(i),
-							className: `flex w-full items-center gap-2 rounded-md border p-3 text-left text-sm transition-colors ${locked ? "cursor-not-allowed opacity-50" : "hover:bg-accent"}`,
+							className: `flex w-full items-center gap-2 rounded-md border p-3 text-left text-sm transition-colors ${locked ? "cursor-not-allowed opacity-50" : "hover:bg-accent"} ${s.default ? "border-primary/50 bg-primary/5" : ""}`,
 							children: [
 								/* @__PURE__ */ jsx(ListTree, { className: "h-4 w-4 shrink-0 text-muted-foreground" }),
 								/* @__PURE__ */ jsxs("span", {
@@ -25005,15 +25129,32 @@ function SubtreePickerDialog({ node, onPick, onClose }) {
 										children: empty ? "No nodes yet" : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted`
 									})]
 								}),
-								!empty && /* @__PURE__ */ jsx("span", {
-									className: "shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground",
-									children: "Right panel"
+								/* @__PURE__ */ jsxs("span", {
+									className: "flex shrink-0 flex-col items-end gap-0.5",
+									children: [
+										s.default && /* @__PURE__ */ jsx("span", {
+											className: "rounded bg-primary/15 px-1.5 py-0.5 text-[9px] text-primary",
+											children: "Default"
+										}),
+										Number(s.level) > 0 && /* @__PURE__ */ jsxs("span", {
+											className: "rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground",
+											children: ["Lvl ", s.level]
+										}),
+										!empty && /* @__PURE__ */ jsx("span", {
+											className: "rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground",
+											children: "Right panel"
+										})
+									]
 								})
 							]
 						}, s.id || i);
-					}), subtrees.length === 0 && /* @__PURE__ */ jsx("p", {
+					}), subtrees.length === 0 && /* @__PURE__ */ jsxs("p", {
 						className: "text-xs text-muted-foreground",
-						children: "No subtrees on this node yet."
+						children: [
+							"No subtree is available at character level ",
+							level,
+							". Lower a subtree's unlock level or mark a default subtree."
+						]
 					})]
 				}),
 				/* @__PURE__ */ jsx(Button, {
@@ -25461,7 +25602,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		for (const n of tree.nodes) {
 			if ((n.currentPoints || 0) > 0) continue;
 			if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
-			else if (includeLevel && Number(n.levelReq) > level) ids.add(n.id);
+			else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
 		}
 		return ids;
 	}, [
@@ -25661,6 +25802,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		const id = addNode(p.x, p.y);
 		updateNode(id, {
 			talentType: from?.talentType || "",
+			talentTypes: [...from?.talentTypes || []],
 			size: from?.size || 100
 		});
 		toggleDependency(conn.from, id);
@@ -25813,9 +25955,15 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				};
 			});
 			const world = transformRef.current;
-			if (world) for (const pos of d.positions) {
-				const el = world.querySelector(`[data-node-id="${pos.id}"]`);
-				if (el) el.style.transform = `translate(${pos.x - pos.ox}px, ${pos.y - pos.oy}px)`;
+			if (world) {
+				if (!d.elements) {
+					d.elements = /* @__PURE__ */ new Map();
+					for (const pos of d.positions) d.elements.set(pos.id, world.querySelector(`[data-node-id="${pos.id}"]`));
+				}
+				for (const pos of d.positions) {
+					const el = d.elements.get(pos.id);
+					if (el) el.style.transform = `translate3d(${Math.round(pos.x - pos.ox)}px, ${Math.round(pos.y - pos.oy)}px, 0)`;
+				}
 			}
 		} else if (d.type === "bend") {
 			const rect = containerRef.current.getBoundingClientRect();
@@ -25964,21 +26112,40 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			}
 		}));
 	};
+	const openSubtreeForNode = useCallback((node) => {
+		if (!node) return;
+		const level = Math.max(1, Number(character?.level) || 1);
+		const eligible = (node.subtrees || []).map((subtree, index) => ({
+			subtree,
+			index
+		})).filter(({ subtree }) => !Number(subtree.level) || Number(subtree.level) <= level);
+		const specific = eligible.filter(({ subtree }) => Number(subtree.level) > 0);
+		const fallback = eligible.find(({ subtree }) => subtree.default);
+		if (!specific.length && fallback) {
+			openSubtreePanel(node.id, fallback.index);
+			return;
+		}
+		setSubtreePicker(node);
+	}, [character?.level, openSubtreePanel]);
 	const handleInvest = (n, delta) => {
 		if ((n.nodeType || "") === "informative") {
 			toast.error("Informative nodes are reference only — they can't be invested.");
 			return;
 		}
 		if (delta > 0) {
-			const rawMax = Number(n.maxPoints);
-			const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+			const max = nodeMaxPoints(n);
 			const cur = Number(n.currentPoints) || 0;
 			if (cur >= max) {
 				if ((n.subtrees || []).length) {
-					setSubtreePicker(n);
+					openSubtreeForNode(n);
 					return;
 				}
 				toast.error("Already at max points.");
+				return;
+			}
+			const gate = tierGate(n, character.level || 1);
+			if (!gate.ok) {
+				toast.error(gate.reason);
 				return;
 			}
 			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
@@ -26018,7 +26185,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				return;
 			}
 			commitInvest(n, 1);
-			if ((n.subtrees || []).length) setSubtreePicker(n);
+			if ((n.subtrees || []).length) openSubtreeForNode(n);
 			return;
 		}
 		if ((n.options || []).length) {
@@ -26236,7 +26403,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 					perTake: choiceNode ? Number(choiceNode.optionsPerTake) || 1 : 1,
 					onPick: (optionNames) => {
 						commitInvest(choiceNode, 1, optionNames);
-						if ((choiceNode.subtrees || []).length) setSubtreePicker(choiceNode);
+						if ((choiceNode.subtrees || []).length) openSubtreeForNode(choiceNode);
 						setChoiceNode(null);
 					},
 					onClose: () => setChoiceNode(null)
@@ -28281,6 +28448,39 @@ function SubtreesSection({ node, set }) {
 							})]
 						})]
 					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-2",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1",
+							children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Unlock level"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-7",
+								type: "number",
+								min: 0,
+								value: st.level ?? 0,
+								onChange: (e) => patch(i, { level: Math.max(0, Number(e.target.value) || 0) })
+							})]
+						}), /* @__PURE__ */ jsxs("label", {
+							className: "flex items-end gap-1.5 pb-1 text-xs",
+							children: [/* @__PURE__ */ jsx(Switch, {
+								checked: !!st.default,
+								onCheckedChange: (v) => patch(i, { default: v })
+							}), "Default subtree"]
+						})]
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: "Level 0 is always available. When no level-specific subtree is ready, the default tree is used automatically."
+					}),
+					/* @__PURE__ */ jsx("div", {
+						className: "rounded border bg-background p-1",
+						children: /* @__PURE__ */ jsx(SubtreePreview, {
+							subtree: st,
+							width: 210
+						})
+					}),
 					/* @__PURE__ */ jsxs("label", {
 						className: "flex items-center gap-1.5 text-xs",
 						children: [/* @__PURE__ */ jsx(Switch, {
@@ -28373,12 +28573,494 @@ function SubtreesSection({ node, set }) {
 	});
 }
 //#endregion
+//#region src/lib/worldAssets.js
+var FLOOR_TEXTURES = [
+	{
+		id: "grass",
+		label: "Grass",
+		query: "grass texture",
+		color: "#6f8f4a"
+	},
+	{
+		id: "moss",
+		label: "Moss",
+		query: "moss texture",
+		color: "#5d7a43"
+	},
+	{
+		id: "wood",
+		label: "Wooden planks",
+		query: "wood floor plank",
+		color: "#8a6844"
+	},
+	{
+		id: "stone",
+		label: "Stone",
+		query: "stone floor texture",
+		color: "#77746e"
+	},
+	{
+		id: "marble",
+		label: "Marble",
+		query: "marble texture",
+		color: "#b9b4a8"
+	},
+	{
+		id: "tile",
+		label: "Tile",
+		query: "tile floor texture",
+		color: "#9a8f7d"
+	},
+	{
+		id: "dirt",
+		label: "Dirt",
+		query: "dirt ground texture",
+		color: "#7a5c3e"
+	},
+	{
+		id: "sand",
+		label: "Sand",
+		query: "sand texture",
+		color: "#c6a76a"
+	},
+	{
+		id: "snow",
+		label: "Snow",
+		query: "snow texture",
+		color: "#d7e2e4"
+	},
+	{
+		id: "carpet",
+		label: "Carpet",
+		query: "carpet texture",
+		color: "#8d3f46"
+	},
+	{
+		id: "water",
+		label: "Water",
+		query: "water texture",
+		color: "#3f7f96"
+	},
+	{
+		id: "lava",
+		label: "Lava",
+		query: "lava texture",
+		color: "#9c3a24"
+	}
+];
+var ROOM_ASSET_BUNDLES = {
+	Bedroom: {
+		query: "bed bedroom furniture",
+		types: ["Furnishing", "Object"]
+	},
+	Kitchen: {
+		query: "kitchen hearth cooking furniture",
+		types: ["Furnishing", "Object"]
+	},
+	"Common Room": {
+		query: "table chair tavern furniture",
+		types: ["Furnishing", "Object"]
+	},
+	Cellar: {
+		query: "barrel crate cellar",
+		types: ["Furnishing", "Object"]
+	},
+	Smithy: {
+		query: "anvil forge smithy",
+		types: ["Furnishing", "Object"]
+	},
+	Workshop: {
+		query: "workbench tools workshop",
+		types: ["Furnishing", "Object"]
+	},
+	Storage: {
+		query: "crate barrel shelf",
+		types: ["Furnishing", "Object"]
+	},
+	Office: {
+		query: "desk chair books",
+		types: ["Furnishing", "Object"]
+	},
+	Hall: {
+		query: "table chair hall",
+		types: ["Furnishing", "Object"]
+	},
+	Sanctuary: {
+		query: "altar temple shrine",
+		types: ["Furnishing", "Object"]
+	},
+	Shrine: {
+		query: "altar shrine",
+		types: ["Furnishing", "Object"]
+	},
+	Vestry: {
+		query: "cabinet robe chest",
+		types: ["Furnishing", "Object"]
+	},
+	Garden: {
+		query: "garden plant tree",
+		types: ["Furnishing", "Object"]
+	},
+	"Great Hall": {
+		query: "throne table chair",
+		types: ["Furnishing", "Object"]
+	},
+	Library: {
+		query: "bookshelf book library",
+		types: ["Furnishing", "Object"]
+	},
+	Study: {
+		query: "desk books chair",
+		types: ["Furnishing", "Object"]
+	},
+	Bath: {
+		query: "bath tub",
+		types: ["Furnishing", "Object"]
+	},
+	"Living Room": {
+		query: "chair table hearth",
+		types: ["Furnishing", "Object"]
+	},
+	Privy: {
+		query: "privy",
+		types: ["Object"]
+	},
+	"Bunk Room": {
+		query: "bunk bed",
+		types: ["Furnishing", "Object"]
+	},
+	Armory: {
+		query: "weapon rack armor",
+		types: ["Furnishing", "Object"]
+	},
+	"Mess Hall": {
+		query: "table bench",
+		types: ["Furnishing", "Object"]
+	},
+	"Drill Hall": {
+		query: "training dummy weapon rack",
+		types: ["Furnishing", "Object"]
+	},
+	"Meeting Hall": {
+		query: "table chair council",
+		types: ["Furnishing", "Object"]
+	},
+	Archive: {
+		query: "shelf scroll book",
+		types: ["Furnishing", "Object"]
+	},
+	Treasury: {
+		query: "chest coins gold",
+		types: ["Furnishing", "Object"]
+	},
+	"Reading Room": {
+		query: "chair table book",
+		types: ["Furnishing", "Object"]
+	},
+	Laboratory: {
+		query: "alembic laboratory table",
+		types: ["Furnishing", "Object"]
+	},
+	Shop: {
+		query: "counter shelf shop",
+		types: ["Furnishing", "Object"]
+	},
+	Stalls: {
+		query: "market stall",
+		types: ["Furnishing", "Object"]
+	}
+};
+async function listImportedImages() {
+	try {
+		const res = await fetch("/api/images/list", { cache: "no-store" });
+		if (!res.ok) return [];
+		const data = await res.json();
+		return Array.isArray(data.images) ? data.images : [];
+	} catch {
+		return [];
+	}
+}
+async function fetchAssetStatus() {
+	try {
+		const res = await fetch("/api/assets/status", { cache: "no-store" });
+		if (!res.ok) throw new Error("asset server unavailable");
+		return await res.json();
+	} catch {
+		return {
+			available: false,
+			files: 0,
+			root: ""
+		};
+	}
+}
+async function setStickerRoot(root) {
+	const res = await fetch("/api/assets/root", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ root })
+	});
+	if (!res.ok) throw new Error("could not change the sticker folder");
+	return res.json();
+}
+async function pickStickerFolder() {
+	const res = await fetch("/api/assets/pick-folder", { method: "POST" });
+	if (!res.ok) throw new Error("could not open the folder picker");
+	return res.json();
+}
+async function fetchAssetFolders(match = "", limit = 200) {
+	try {
+		const params = new URLSearchParams();
+		if (match) params.set("match", match);
+		params.set("limit", String(limit));
+		const res = await fetch(`/api/assets/folders?${params.toString()}`, { cache: "no-store" });
+		if (!res.ok) return [];
+		const data = await res.json();
+		return Array.isArray(data.folders) ? data.folders : [];
+	} catch {
+		return [];
+	}
+}
+async function fetchAssetCategories() {
+	try {
+		const res = await fetch("/api/assets/categories");
+		if (!res.ok) throw new Error("no asset categories");
+		return (await res.json()).categories || {};
+	} catch {
+		return {};
+	}
+}
+async function fetchAssets({ q = "", category = "", dir = "", limit = 60, offset = 0 } = {}) {
+	const params = new URLSearchParams();
+	if (q) params.set("q", q);
+	if (category) params.set("category", category);
+	if (dir) params.set("dir", dir);
+	params.set("limit", String(limit));
+	params.set("offset", String(offset));
+	try {
+		const res = await fetch(`/api/assets/list?${params.toString()}`);
+		if (!res.ok) throw new Error("asset search failed");
+		return await res.json();
+	} catch {
+		return {
+			total: 0,
+			offset,
+			limit,
+			items: []
+		};
+	}
+}
+async function importAsset(path) {
+	if (!path) return "";
+	try {
+		const res = await fetch(`/api/assets/import?path=${encodeURIComponent(path)}`, { method: "POST" });
+		if (!res.ok) throw new Error("asset import failed");
+		return (await res.json())?.url || "";
+	} catch {
+		return "";
+	}
+}
+async function fetchAssetsSmart({ q = "", category = "", dir = "", limit = 60, offset = 0 } = {}) {
+	const result = await fetchAssets({
+		q,
+		category,
+		dir,
+		limit,
+		offset
+	});
+	if (result.items?.length || !String(q).trim()) return result;
+	const tokens = String(q).split(/\s+/).map((token) => token.trim()).filter((token) => token.length > 2);
+	for (const token of tokens) {
+		const fallback = await fetchAssets({
+			q: token,
+			category,
+			dir,
+			limit,
+			offset
+		});
+		if (fallback.items?.length) return {
+			...fallback,
+			query: token
+		};
+	}
+	return result;
+}
+var floorTexture = (id) => FLOOR_TEXTURES.find((texture) => texture.id === id) || FLOOR_TEXTURES[0];
+var roomBundle = (roomType) => ROOM_ASSET_BUNDLES[roomType] || {
+	query: String(roomType || "furniture"),
+	types: ["Furnishing", "Object"]
+};
+//#endregion
+//#region src/components/skilltree/NodeImagePicker.jsx
+function NodeImagePicker({ open, onClose, folder = "Icons", onFolderChange, onPick, title = "Choose node artwork" }) {
+	const [draftFolder, setDraftFolder] = useState(folder || "");
+	const [query, setQuery] = useState("");
+	const [results, setResults] = useState([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(false);
+	const [picking, setPicking] = useState("");
+	const [folders, setFolders] = useState([]);
+	useEffect(() => {
+		if (!open) return;
+		setDraftFolder(folder || "");
+	}, [open, folder]);
+	const load = async (overrides = {}) => {
+		setLoading(true);
+		try {
+			const result = await fetchAssetsSmart({
+				q: overrides.q ?? query,
+				dir: overrides.dir ?? draftFolder,
+				limit: 160
+			});
+			setResults(result.items || []);
+			setTotal(result.total || 0);
+		} finally {
+			setLoading(false);
+		}
+	};
+	useEffect(() => {
+		if (!open) return;
+		load({
+			q: "",
+			dir: folder
+		});
+		fetchAssetFolders("icon", 40).then(setFolders);
+	}, [open, folder]);
+	const applyFolder = () => {
+		onFolderChange?.(draftFolder.trim());
+		load({
+			q: query,
+			dir: draftFolder.trim()
+		});
+	};
+	const pick = async (asset) => {
+		if (!asset) return;
+		setPicking(asset.path);
+		try {
+			const url = await importAsset(asset.path);
+			if (url) {
+				onPick?.(url, asset);
+				onClose?.();
+			}
+		} finally {
+			setPicking("");
+		}
+	};
+	const label = useMemo(() => draftFolder.trim() ? `Library subfolder: ${draftFolder.trim()}` : "Whole sticker library", [draftFolder]);
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange: (value) => !value && onClose?.(),
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-w-3xl",
+			children: [
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: title }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
+					"Browse a folder inside the sticker library, then click an image to copy it into this project and assign it to the node. ",
+					label,
+					"."
+				] })] }),
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex flex-wrap items-center gap-1",
+					children: [
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-8 min-w-0 flex-1 text-xs",
+							value: draftFolder,
+							onChange: (event) => setDraftFolder(event.target.value),
+							placeholder: "Folder inside the sticker library, e.g. Icons"
+						}),
+						/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "outline",
+							className: "h-8 text-xs",
+							onClick: applyFolder,
+							children: "Use folder"
+						}),
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-8 w-48 text-xs",
+							value: query,
+							onChange: (event) => setQuery(event.target.value),
+							onKeyDown: (event) => {
+								if (event.key === "Enter") load({
+									q: query,
+									dir: draftFolder
+								});
+							},
+							placeholder: "Search this folder…"
+						}),
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							className: "h-8 text-xs",
+							onClick: () => load({
+								q: query,
+								dir: draftFolder
+							}),
+							disabled: loading,
+							children: [/* @__PURE__ */ jsx(Search, { className: "mr-1 h-3.5 w-3.5" }), " Search"]
+						})
+					]
+				}),
+				folders.length > 0 && /* @__PURE__ */ jsxs("div", {
+					className: "flex flex-wrap gap-1",
+					children: [/* @__PURE__ */ jsx("span", {
+						className: "text-[9px] uppercase tracking-wide text-muted-foreground",
+						children: "Icon folders:"
+					}), folders.slice(0, 12).map((item) => /* @__PURE__ */ jsxs("button", {
+						type: "button",
+						className: "rounded border px-1 py-0.5 text-[9px] hover:bg-accent",
+						onClick: () => {
+							setDraftFolder(item.dir);
+							onFolderChange?.(item.dir);
+							load({
+								q: "",
+								dir: item.dir
+							});
+						},
+						title: `${item.dir} (${item.count} images)`,
+						children: [
+							item.dir.split("/").slice(-2).join("/"),
+							" (",
+							item.count,
+							")"
+						]
+					}, item.dir))]
+				}),
+				/* @__PURE__ */ jsx("p", {
+					className: "text-[10px] text-muted-foreground",
+					children: loading ? "Searching…" : `${results.length} shown · ${total.toLocaleString()} matches`
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "grid max-h-[58vh] grid-cols-3 gap-2 overflow-y-auto rounded-md border p-2 sm:grid-cols-5 lg:grid-cols-7",
+					children: [results.map((asset) => /* @__PURE__ */ jsxs("button", {
+						type: "button",
+						className: "overflow-hidden rounded border text-left hover:border-primary disabled:opacity-50",
+						disabled: !!picking,
+						onClick: () => pick(asset),
+						title: asset.path,
+						children: [/* @__PURE__ */ jsx("img", {
+							src: asset.url,
+							alt: asset.name,
+							loading: "lazy",
+							className: "h-16 w-full bg-muted/30 object-contain"
+						}), /* @__PURE__ */ jsx("span", {
+							className: "block truncate px-1 py-0.5 text-[8px] text-muted-foreground",
+							children: picking === asset.path ? "Importing…" : asset.name
+						})]
+					}, asset.path)), !loading && results.length === 0 && /* @__PURE__ */ jsx("p", {
+						className: "col-span-full p-3 text-xs text-muted-foreground",
+						children: "No images found. Check the folder name, or use the Stickers page to change the source library."
+					})]
+				})
+			]
+		})
+	});
+}
+//#endregion
 //#region src/components/skilltree/NodeEditorPanel.jsx
 var entryName = (e) => typeof e === "string" ? e : e?.name || "";
 function NodeEditorPanel() {
-	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, enterSubtreeEditor } = useTree();
+	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, setSettings, enterSubtreeEditor } = useTree();
 	const [search, setSearch] = useState("");
 	const [exSearch, setExSearch] = useState("");
+	const [imagePickerField, setImagePickerField] = useState("");
 	const [width] = usePanelWidth();
 	const [uploading, setUploading] = useState(false);
 	const imageFileRef = useRef(null);
@@ -28411,7 +29093,16 @@ function NodeEditorPanel() {
 		]
 	});
 	const set = (patch) => updateNode(node.id, patch);
+	const applyTiers = (tiers) => {
+		const next = withTiers(node, tiers);
+		set({
+			tiers: next.tiers,
+			maxPoints: next.maxPoints,
+			levelReq: next.levelReq
+		});
+	};
 	checkOptions(settings);
+	const nodeImageFolder = settings?.nodeImageFolder || settings?.library?.nodeImageFolder || "Icons";
 	const filtered = search ? tree.nodes.filter((n) => n.id !== node.id && matchesQuery(n.name, search)).slice(0, 30) : [];
 	const exFiltered = exSearch ? tree.nodes.filter((n) => n.id !== node.id && matchesQuery(n.name, exSearch)).slice(0, 30) : [];
 	const toggleExclusive = (otherId) => {
@@ -28460,12 +29151,19 @@ function NodeEditorPanel() {
 							}), /* @__PURE__ */ jsxs("div", {
 								className: "space-y-1",
 								children: [/* @__PURE__ */ jsx(InfoTip, {
-									label: "Tag shown next to the node name on the canvas, e.g. [Arcane Talent].",
-									children: /* @__PURE__ */ jsx(Label, { children: "Talent Type" })
+									label: "One or more comma-separated tags shown on the canvas, e.g. [Arcane Talent], [Bloodline]. A node can belong to several Talent Types.",
+									children: /* @__PURE__ */ jsx(Label, { children: "Talent Types" })
 								}), /* @__PURE__ */ jsx(Input, {
-									value: node.talentType || "",
-									placeholder: "[Arcane Talent]",
-									onChange: (e) => set({ talentType: e.target.value })
+									value: node.talentTypes?.length ? node.talentTypes.join(", ") : node.talentType || "",
+									placeholder: "[Arcane Talent], [Bloodline]",
+									onChange: (e) => {
+										const talentTypes = e.target.value.split(/[,;]/).map((value) => value.trim()).filter(Boolean);
+										set({
+											talentTypes,
+											talentType: talentTypes.join(", ")
+										});
+									},
+									title: "Comma-separated. A node may belong to several Talent Types."
 								})]
 							})]
 						})
@@ -28592,50 +29290,153 @@ function NodeEditorPanel() {
 					/* @__PURE__ */ jsxs(FieldGroup, {
 						label: "Costs & Investment",
 						collapsible: true,
-						children: [/* @__PURE__ */ jsxs("div", {
-							className: "grid grid-cols-3 gap-2",
-							children: [
-								/* @__PURE__ */ jsxs("div", {
-									className: "space-y-1",
-									children: [/* @__PURE__ */ jsx(InfoTip, {
-										label: "Points spent from the pool each time a point is invested here (0 = free).",
-										children: /* @__PURE__ */ jsx(Label, { children: "Node Cost" })
-									}), /* @__PURE__ */ jsx(Input, {
-										type: "number",
-										min: 0,
-										value: node.cost ?? 1,
-										onChange: (e) => set({ cost: Math.max(0, Number(e.target.value) || 0) })
-									})]
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "space-y-1",
-									children: [/* @__PURE__ */ jsx(InfoTip, {
-										label: "How many times this node can be invested (1 = one-time pick).",
-										children: /* @__PURE__ */ jsx(Label, { children: "Max Points" })
-									}), /* @__PURE__ */ jsx(Input, {
-										type: "number",
-										min: 1,
-										value: node.maxPoints,
-										onChange: (e) => set({ maxPoints: Math.max(1, Number(e.target.value) || 1) })
-									})]
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "space-y-1",
-									children: [/* @__PURE__ */ jsx(InfoTip, {
-										label: "Points that must already be invested in a prerequisite node before this one unlocks. 0 = auto: whatever it takes to unlock the prerequisite.",
-										children: /* @__PURE__ */ jsx(Label, { children: "Prerequisite Points" })
-									}), /* @__PURE__ */ jsx(Input, {
-										type: "number",
-										min: 0,
-										value: Number(node.requiredPoints) === 0 ? 0 : node.requiredPoints,
-										onChange: (e) => set({ requiredPoints: Math.max(0, Number(e.target.value) || 0) })
-									})]
-								})
-							]
-						}), /* @__PURE__ */ jsx("p", {
-							className: "text-[10px] text-muted-foreground",
-							children: "Node Cost: pool points per invested point, 0 to make it free. Prerequisite Points: 0 defaults to auto — however many it takes to get to the prerequisite node."
-						})]
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(InfoTip, {
+											label: "Points spent from the pool each time a point is invested here (0 = free).",
+											children: /* @__PURE__ */ jsx(Label, { children: "Node Cost" })
+										}), /* @__PURE__ */ jsx(Input, {
+											type: "number",
+											min: 0,
+											value: node.cost ?? 1,
+											onChange: (e) => set({ cost: Math.max(0, Number(e.target.value) || 0) })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(InfoTip, {
+											label: "How many times this node can be invested (1 = one-time pick).",
+											children: /* @__PURE__ */ jsx(Label, { children: "Max Points" })
+										}), /* @__PURE__ */ jsx(Input, {
+											type: "number",
+											min: 1,
+											value: node.maxPoints,
+											onChange: (e) => set({ maxPoints: Math.max(1, Number(e.target.value) || 1) })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(InfoTip, {
+											label: "Points that must already be invested in a prerequisite node before this one unlocks. 0 = auto: whatever it takes to unlock the prerequisite.",
+											children: /* @__PURE__ */ jsx(Label, { children: "Prerequisite Points" })
+										}), /* @__PURE__ */ jsx(Input, {
+											type: "number",
+											min: 0,
+											value: Number(node.requiredPoints) === 0 ? 0 : node.requiredPoints,
+											onChange: (e) => set({ requiredPoints: Math.max(0, Number(e.target.value) || 0) })
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsx("p", {
+								className: "text-[10px] text-muted-foreground",
+								children: "Node Cost: pool points per invested point, 0 to make it free. Prerequisite Points: 0 defaults to auto — however many it takes to get to the prerequisite node."
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "mt-2 rounded-md border p-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "flex items-center justify-between gap-1",
+										children: [/* @__PURE__ */ jsx(InfoTip, {
+											label: "Level-gated investment tiers. The first tier unlocks the node; later tiers require their own level and their own points. Action Surge at level 2 and its level-17 extra use is the classic example.",
+											children: /* @__PURE__ */ jsx(Label, { children: "Tiers" })
+										}), /* @__PURE__ */ jsxs(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-6 text-[10px]",
+											onClick: () => applyTiers([...node.tiers || [], {
+												level: Number(node.levelReq) || 1,
+												points: 1,
+												label: `Tier ${(node.tiers || []).length + 1}`
+											}]),
+											children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3 w-3" }), " Add tier"]
+										})]
+									}),
+									/* @__PURE__ */ jsx("p", {
+										className: "mt-0.5 text-[10px] text-muted-foreground",
+										children: "Points are filled in order. The node shows the next tier's level and refuses investment until that level is reached."
+									}),
+									(node.tiers || []).length === 0 && /* @__PURE__ */ jsx("p", {
+										className: "mt-1 text-[10px] text-muted-foreground",
+										children: "No tiers yet. The Level Requirement and Max Points above apply as a single tier."
+									}),
+									(node.tiers || []).map((tier, index) => /* @__PURE__ */ jsxs("div", {
+										className: "mt-1 flex flex-wrap items-end gap-1 rounded border p-1",
+										children: [
+											/* @__PURE__ */ jsxs("label", {
+												className: "flex items-center gap-1",
+												children: [/* @__PURE__ */ jsx("span", {
+													className: "text-[9px] text-muted-foreground",
+													children: "Lvl"
+												}), /* @__PURE__ */ jsx(Input, {
+													className: "h-7 w-14 text-xs",
+													type: "number",
+													min: 0,
+													value: tier.level || 0,
+													onChange: (e) => {
+														const tiers = [...node.tiers || []];
+														tiers[index] = {
+															...tier,
+															level: Math.max(0, Number(e.target.value) || 0)
+														};
+														applyTiers(tiers);
+													}
+												})]
+											}),
+											/* @__PURE__ */ jsxs("label", {
+												className: "flex items-center gap-1",
+												children: [/* @__PURE__ */ jsx("span", {
+													className: "text-[9px] text-muted-foreground",
+													children: "Pts"
+												}), /* @__PURE__ */ jsx(Input, {
+													className: "h-7 w-14 text-xs",
+													type: "number",
+													min: 1,
+													value: tier.points || 1,
+													onChange: (e) => {
+														const tiers = [...node.tiers || []];
+														tiers[index] = {
+															...tier,
+															points: Math.max(1, Number(e.target.value) || 1)
+														};
+														applyTiers(tiers);
+													}
+												})]
+											}),
+											/* @__PURE__ */ jsx(Input, {
+												className: "h-7 min-w-32 flex-1 text-xs",
+												placeholder: "Tier label",
+												value: tier.label || "",
+												onChange: (e) => {
+													const tiers = [...node.tiers || []];
+													tiers[index] = {
+														...tier,
+														label: e.target.value
+													};
+													applyTiers(tiers);
+												}
+											}),
+											/* @__PURE__ */ jsx(Button, {
+												size: "sm",
+												variant: "ghost",
+												className: "h-7 px-1 text-destructive",
+												title: "Remove this tier",
+												onClick: () => applyTiers((node.tiers || []).filter((_, i) => i !== index)),
+												children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
+											})
+										]
+									}, index)),
+									(node.tiers || []).length > 0 && /* @__PURE__ */ jsxs("p", {
+										className: "mt-1 text-[10px] text-muted-foreground",
+										children: ["Total points across tiers: ", nodeMaxPoints(node)]
+									})
+								]
+							})
+						]
 					}),
 					/* @__PURE__ */ jsxs(FieldGroup, {
 						label: "Requirements & Gates",
@@ -29105,6 +29906,13 @@ function NodeEditorPanel() {
 											disabled: uploading,
 											onClick: () => imageFileRef.current?.click(),
 											children: /* @__PURE__ */ jsx(Upload, { className: "h-4 w-4" })
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											title: `Browse ${nodeImageFolder}`,
+											onClick: () => setImagePickerField("image"),
+											children: "Library"
 										})
 									]
 								})]
@@ -29112,7 +29920,7 @@ function NodeEditorPanel() {
 							/* @__PURE__ */ jsxs("div", {
 								className: "space-y-1",
 								children: [/* @__PURE__ */ jsx(InfoTip, {
-									label: "Decorative image overlaid on the node — its border defines the node's shape.",
+									label: "Decorative image overlaid on the node - its border defines the node's shape.",
 									children: /* @__PURE__ */ jsx(Label, { children: "Frame Image URL (overlays the node)" })
 								}), /* @__PURE__ */ jsxs("div", {
 									className: "flex gap-1",
@@ -29144,6 +29952,13 @@ function NodeEditorPanel() {
 											disabled: uploading,
 											onClick: () => frameFileRef.current?.click(),
 											children: /* @__PURE__ */ jsx(Upload, { className: "h-4 w-4" })
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											title: `Browse ${nodeImageFolder}`,
+											onClick: () => setImagePickerField("frameImage"),
+											children: "Library"
 										})
 									]
 								})]
@@ -29237,6 +30052,23 @@ function NodeEditorPanel() {
 					onClick: () => deleteNode(node.id),
 					children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-4 w-4" }), " Delete node"]
 				})
+			}),
+			/* @__PURE__ */ jsx(NodeImagePicker, {
+				open: !!imagePickerField,
+				onClose: () => setImagePickerField(""),
+				folder: nodeImageFolder,
+				title: imagePickerField === "frameImage" ? "Choose frame artwork" : "Choose node artwork",
+				onFolderChange: (folder) => setSettings((current) => ({
+					...current,
+					nodeImageFolder: folder,
+					library: {
+						...current.library || {},
+						nodeImageFolder: folder
+					}
+				})),
+				onPick: (url) => {
+					if (imagePickerField) updateNode(node.id, { [imagePickerField]: url });
+				}
 			})
 		]
 	});
@@ -29517,6 +30349,8 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 			rotation: node.rotation,
 			flipped: node.flipped,
 			talentType: node.talentType,
+			talentTypes: [...node.talentTypes || []],
+			tiers: JSON.parse(JSON.stringify(node.tiers || [])),
 			levelReq: node.levelReq,
 			nodeType: node.nodeType,
 			attributeStat: node.attributeStat,
@@ -29749,8 +30583,14 @@ function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
 	const groups = {};
 	list.forEach((n) => {
 		if (poolForNode(n) !== "talent" || (n.nodeType || "") === "informative") return;
-		const key = String(n.talentType || "").trim();
-		(groups[key] = groups[key] || []).push(n);
+		const types = talentTypesOf(n);
+		if (!types.length) {
+			(groups[""] = groups[""] || []).push(n);
+			return;
+		}
+		types.forEach((type) => {
+			(groups[type] = groups[type] || []).push(n);
+		});
 	});
 	return {
 		heritage,
@@ -43976,6 +44816,14 @@ function ReferenceIndexTab() {
 		root
 	]);
 	const sourceOptions = useMemo(() => [...new Set(entries.map(sourceOf).filter(Boolean))].sort(), [entries]);
+	const sourceCounts = useMemo(() => {
+		const counts = /* @__PURE__ */ new Map();
+		entries.forEach((entry) => {
+			const source = sourceOf(entry) || "Unknown source";
+			counts.set(source, (counts.get(source) || 0) + 1);
+		});
+		return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+	}, [entries]);
 	const shown = entries.filter((e) => {
 		const q = query.trim().toLowerCase();
 		if (q && !`${entryName$1(e)} ${entryMeta(e)}`.toLowerCase().includes(q)) return false;
@@ -44948,19 +45796,53 @@ function ReferenceIndexTab() {
 				children: [
 					/* @__PURE__ */ jsxs("aside", {
 						className: "overflow-y-auto rounded-md border p-1",
-						children: [isRemote && /* @__PURE__ */ jsx("button", {
-							type: "button",
-							onClick: () => setCategoryId("__all__"),
-							className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${categoryId === "__all__" ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
-							title: "Show every file in this repository",
-							children: "All files"
-						}), FIVE_CATEGORIES.map((c) => /* @__PURE__ */ jsx("button", {
-							type: "button",
-							onClick: () => setCategoryId(c.id),
-							className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${c.id === categoryId ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
-							title: c.label,
-							children: c.label
-						}, c.id))]
+						children: [
+							isRemote && /* @__PURE__ */ jsx("button", {
+								type: "button",
+								onClick: () => setCategoryId("__all__"),
+								className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${categoryId === "__all__" ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
+								title: "Show every file in this repository",
+								children: "All files"
+							}),
+							FIVE_CATEGORIES.map((c) => /* @__PURE__ */ jsx("button", {
+								type: "button",
+								onClick: () => setCategoryId(c.id),
+								className: `w-full truncate rounded px-2 py-1 text-left text-[11px] ${c.id === categoryId ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
+								title: c.label,
+								children: c.label
+							}, c.id)),
+							sourceCounts.length > 0 && /* @__PURE__ */ jsxs("div", {
+								className: "mt-2 border-t pt-1",
+								children: [
+									/* @__PURE__ */ jsx("p", {
+										className: "px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground",
+										children: "Sources"
+									}),
+									/* @__PURE__ */ jsxs("button", {
+										type: "button",
+										onClick: () => setSourceFilter("__all__"),
+										className: `w-full truncate rounded px-2 py-1 text-left text-[10px] ${sourceFilter === "__all__" ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
+										children: [
+											"All sources (",
+											entries.length,
+											")"
+										]
+									}),
+									sourceCounts.map(([source, count]) => /* @__PURE__ */ jsxs("button", {
+										type: "button",
+										onClick: () => setSourceFilter(source),
+										className: `w-full truncate rounded px-2 py-1 text-left text-[10px] ${sourceFilter === source ? "bg-primary/10 font-semibold text-foreground" : "text-muted-foreground hover:bg-accent"}`,
+										title: `${source} (${count} entries)`,
+										children: [
+											source,
+											" (",
+											count,
+											")"
+										]
+									}, source))
+								]
+							})
+						]
 					}),
 					/* @__PURE__ */ jsxs("aside", {
 						className: "flex min-h-0 flex-col rounded-md border",
@@ -45264,9 +46146,12 @@ function ReferenceIndexTab() {
 					}),
 					/* @__PURE__ */ jsxs("aside", {
 						className: "flex min-h-0 flex-col rounded-md border",
-						children: [/* @__PURE__ */ jsx("div", {
-							className: "border-b px-2 py-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground",
-							children: "Preview"
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "flex items-center justify-between gap-1 border-b px-2 py-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground",
+							children: [/* @__PURE__ */ jsx("span", { children: "Preview" }), preview && /* @__PURE__ */ jsx("span", {
+								className: "truncate text-[9px] normal-case tracking-normal text-muted-foreground",
+								children: sourceOf(preview) || "Unknown source"
+							})]
 						}), /* @__PURE__ */ jsx("div", {
 							className: "min-h-0 flex-1 overflow-y-auto p-2 text-xs",
 							children: /* @__PURE__ */ jsx(ReferenceEntryPreview, {
@@ -45711,307 +46596,6 @@ function HomesteadContextMenu({ menu, fac, onAttach, onAddRoom, onWallRoom, onRo
 		]
 	})] });
 }
-//#endregion
-//#region src/lib/worldAssets.js
-var FLOOR_TEXTURES = [
-	{
-		id: "grass",
-		label: "Grass",
-		query: "grass texture",
-		color: "#6f8f4a"
-	},
-	{
-		id: "moss",
-		label: "Moss",
-		query: "moss texture",
-		color: "#5d7a43"
-	},
-	{
-		id: "wood",
-		label: "Wooden planks",
-		query: "wood floor plank",
-		color: "#8a6844"
-	},
-	{
-		id: "stone",
-		label: "Stone",
-		query: "stone floor texture",
-		color: "#77746e"
-	},
-	{
-		id: "marble",
-		label: "Marble",
-		query: "marble texture",
-		color: "#b9b4a8"
-	},
-	{
-		id: "tile",
-		label: "Tile",
-		query: "tile floor texture",
-		color: "#9a8f7d"
-	},
-	{
-		id: "dirt",
-		label: "Dirt",
-		query: "dirt ground texture",
-		color: "#7a5c3e"
-	},
-	{
-		id: "sand",
-		label: "Sand",
-		query: "sand texture",
-		color: "#c6a76a"
-	},
-	{
-		id: "snow",
-		label: "Snow",
-		query: "snow texture",
-		color: "#d7e2e4"
-	},
-	{
-		id: "carpet",
-		label: "Carpet",
-		query: "carpet texture",
-		color: "#8d3f46"
-	},
-	{
-		id: "water",
-		label: "Water",
-		query: "water texture",
-		color: "#3f7f96"
-	},
-	{
-		id: "lava",
-		label: "Lava",
-		query: "lava texture",
-		color: "#9c3a24"
-	}
-];
-var ROOM_ASSET_BUNDLES = {
-	Bedroom: {
-		query: "bed bedroom furniture",
-		types: ["Furnishing", "Object"]
-	},
-	Kitchen: {
-		query: "kitchen hearth cooking furniture",
-		types: ["Furnishing", "Object"]
-	},
-	"Common Room": {
-		query: "table chair tavern furniture",
-		types: ["Furnishing", "Object"]
-	},
-	Cellar: {
-		query: "barrel crate cellar",
-		types: ["Furnishing", "Object"]
-	},
-	Smithy: {
-		query: "anvil forge smithy",
-		types: ["Furnishing", "Object"]
-	},
-	Workshop: {
-		query: "workbench tools workshop",
-		types: ["Furnishing", "Object"]
-	},
-	Storage: {
-		query: "crate barrel shelf",
-		types: ["Furnishing", "Object"]
-	},
-	Office: {
-		query: "desk chair books",
-		types: ["Furnishing", "Object"]
-	},
-	Hall: {
-		query: "table chair hall",
-		types: ["Furnishing", "Object"]
-	},
-	Sanctuary: {
-		query: "altar temple shrine",
-		types: ["Furnishing", "Object"]
-	},
-	Shrine: {
-		query: "altar shrine",
-		types: ["Furnishing", "Object"]
-	},
-	Vestry: {
-		query: "cabinet robe chest",
-		types: ["Furnishing", "Object"]
-	},
-	Garden: {
-		query: "garden plant tree",
-		types: ["Furnishing", "Object"]
-	},
-	"Great Hall": {
-		query: "throne table chair",
-		types: ["Furnishing", "Object"]
-	},
-	Library: {
-		query: "bookshelf book library",
-		types: ["Furnishing", "Object"]
-	},
-	Study: {
-		query: "desk books chair",
-		types: ["Furnishing", "Object"]
-	},
-	Bath: {
-		query: "bath tub",
-		types: ["Furnishing", "Object"]
-	},
-	"Living Room": {
-		query: "chair table hearth",
-		types: ["Furnishing", "Object"]
-	},
-	Privy: {
-		query: "privy",
-		types: ["Object"]
-	},
-	"Bunk Room": {
-		query: "bunk bed",
-		types: ["Furnishing", "Object"]
-	},
-	Armory: {
-		query: "weapon rack armor",
-		types: ["Furnishing", "Object"]
-	},
-	"Mess Hall": {
-		query: "table bench",
-		types: ["Furnishing", "Object"]
-	},
-	"Drill Hall": {
-		query: "training dummy weapon rack",
-		types: ["Furnishing", "Object"]
-	},
-	"Meeting Hall": {
-		query: "table chair council",
-		types: ["Furnishing", "Object"]
-	},
-	Archive: {
-		query: "shelf scroll book",
-		types: ["Furnishing", "Object"]
-	},
-	Treasury: {
-		query: "chest coins gold",
-		types: ["Furnishing", "Object"]
-	},
-	"Reading Room": {
-		query: "chair table book",
-		types: ["Furnishing", "Object"]
-	},
-	Laboratory: {
-		query: "alembic laboratory table",
-		types: ["Furnishing", "Object"]
-	},
-	Shop: {
-		query: "counter shelf shop",
-		types: ["Furnishing", "Object"]
-	},
-	Stalls: {
-		query: "market stall",
-		types: ["Furnishing", "Object"]
-	}
-};
-async function listImportedImages() {
-	try {
-		const res = await fetch("/api/images/list", { cache: "no-store" });
-		if (!res.ok) return [];
-		const data = await res.json();
-		return Array.isArray(data.images) ? data.images : [];
-	} catch {
-		return [];
-	}
-}
-async function fetchAssetStatus() {
-	try {
-		const res = await fetch("/api/assets/status", { cache: "no-store" });
-		if (!res.ok) throw new Error("asset server unavailable");
-		return await res.json();
-	} catch {
-		return {
-			available: false,
-			files: 0,
-			root: ""
-		};
-	}
-}
-async function setStickerRoot(root) {
-	const res = await fetch("/api/assets/root", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ root })
-	});
-	if (!res.ok) throw new Error("could not change the sticker folder");
-	return res.json();
-}
-async function pickStickerFolder() {
-	const res = await fetch("/api/assets/pick-folder", { method: "POST" });
-	if (!res.ok) throw new Error("could not open the folder picker");
-	return res.json();
-}
-async function fetchAssetCategories() {
-	try {
-		const res = await fetch("/api/assets/categories");
-		if (!res.ok) throw new Error("no asset categories");
-		return (await res.json()).categories || {};
-	} catch {
-		return {};
-	}
-}
-async function fetchAssets({ q = "", category = "", limit = 60, offset = 0 } = {}) {
-	const params = new URLSearchParams();
-	if (q) params.set("q", q);
-	if (category) params.set("category", category);
-	params.set("limit", String(limit));
-	params.set("offset", String(offset));
-	try {
-		const res = await fetch(`/api/assets/list?${params.toString()}`);
-		if (!res.ok) throw new Error("asset search failed");
-		return await res.json();
-	} catch {
-		return {
-			total: 0,
-			offset,
-			limit,
-			items: []
-		};
-	}
-}
-async function importAsset(path) {
-	if (!path) return "";
-	try {
-		const res = await fetch(`/api/assets/import?path=${encodeURIComponent(path)}`, { method: "POST" });
-		if (!res.ok) throw new Error("asset import failed");
-		return (await res.json())?.url || "";
-	} catch {
-		return "";
-	}
-}
-async function fetchAssetsSmart({ q = "", category = "", limit = 60, offset = 0 } = {}) {
-	const result = await fetchAssets({
-		q,
-		category,
-		limit,
-		offset
-	});
-	if (result.items?.length || !String(q).trim()) return result;
-	const tokens = String(q).split(/\s+/).map((token) => token.trim()).filter((token) => token.length > 2);
-	for (const token of tokens) {
-		const fallback = await fetchAssets({
-			q: token,
-			category,
-			limit,
-			offset
-		});
-		if (fallback.items?.length) return {
-			...fallback,
-			query: token
-		};
-	}
-	return result;
-}
-var floorTexture = (id) => FLOOR_TEXTURES.find((texture) => texture.id === id) || FLOOR_TEXTURES[0];
-var roomBundle = (roomType) => ROOM_ASSET_BUNDLES[roomType] || {
-	query: String(roomType || "furniture"),
-	types: ["Furnishing", "Object"]
-};
 //#endregion
 //#region src/lib/homesteadBastionOrders.js
 var BASTION_ORDERS = {
@@ -73911,9 +74495,9 @@ function SideTreePanel({ slot, floating = false }) {
 							]
 						})]
 					}),
-					(selected.talentType || Number(selected.levelReq) > 0) && /* @__PURE__ */ jsxs("div", {
+					(selected.talentTypes?.length || selected.talentType || Number(selected.levelReq) > 0) && /* @__PURE__ */ jsxs("div", {
 						className: "text-[10px] text-muted-foreground",
-						children: [selected.talentType || "", Number(selected.levelReq) > 0 ? ` · requires level ${selected.levelReq}` : ""]
+						children: [selected.talentTypes?.length ? selected.talentTypes.join(", ") : selected.talentType || "", Number(selected.levelReq) > 0 ? ` · requires level ${selected.levelReq}` : ""]
 					}),
 					/* @__PURE__ */ jsx("p", {
 						className: "mt-1 text-[11px] leading-snug text-muted-foreground",

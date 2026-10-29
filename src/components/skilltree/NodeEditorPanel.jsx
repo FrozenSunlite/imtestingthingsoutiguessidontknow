@@ -37,6 +37,8 @@ import { BonusDiceEditor } from "@/components/skilltree/BonusDiceEditor";
 import { SubtreesSection } from "@/components/skilltree/SubtreesSection";
 import { ProficienciesEditor } from "@/components/skilltree/ProficienciesEditor";
 import { AbilityReqEditor } from "@/components/skilltree/AbilityReqEditor";
+import { NodeImagePicker } from "@/components/skilltree/NodeImagePicker";
+import { nodeMaxPoints, withTiers } from "@/lib/nodeTiers";
 
 // Library list entries can be plain names (older saves) or {name, ability}.
 const entryName = (e) => (typeof e === "string" ? e : e?.name || "");
@@ -53,10 +55,12 @@ export function NodeEditorPanel() {
     flipNode,
     toggleDependency,
     settings,
+    setSettings,
     enterSubtreeEditor,
   } = useTree();
   const [search, setSearch] = useState("");
   const [exSearch, setExSearch] = useState("");
+  const [imagePickerField, setImagePickerField] = useState("");
   // Panel width persists across sessions and is shared with the View panel.
   const [width] = usePanelWidth();
   const [uploading, setUploading] = useState(false);
@@ -93,7 +97,17 @@ export function NodeEditorPanel() {
   }
 
   const set = (patch) => updateNode(node.id, patch);
+  const applyTiers = (tiers) => {
+    const next = withTiers(node, tiers);
+    set({
+      tiers: next.tiers,
+      maxPoints: next.maxPoints,
+      levelReq: next.levelReq,
+    });
+  };
   const opts = checkOptions(settings);
+  const nodeImageFolder =
+    settings?.nodeImageFolder || settings?.library?.nodeImageFolder || "Icons";
 
   const filtered = search
     ? tree.nodes
@@ -146,13 +160,27 @@ export function NodeEditorPanel() {
               <Input value={node.name} onChange={(e) => set({ name: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <InfoTip label="Tag shown next to the node name on the canvas, e.g. [Arcane Talent].">
-                <Label>Talent Type</Label>
+              <InfoTip label="One or more comma-separated tags shown on the canvas, e.g. [Arcane Talent], [Bloodline]. A node can belong to several Talent Types.">
+                <Label>Talent Types</Label>
               </InfoTip>
               <Input
-                value={node.talentType || ""}
-                placeholder="[Arcane Talent]"
-                onChange={(e) => set({ talentType: e.target.value })}
+                value={
+                  node.talentTypes?.length
+                    ? node.talentTypes.join(", ")
+                    : node.talentType || ""
+                }
+                placeholder="[Arcane Talent], [Bloodline]"
+                onChange={(e) => {
+                  const talentTypes = e.target.value
+                    .split(/[,;]/)
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                  set({
+                    talentTypes,
+                    talentType: talentTypes.join(", "),
+                  });
+                }}
+                title="Comma-separated. A node may belong to several Talent Types."
               />
             </div>
           </div>
@@ -283,6 +311,96 @@ export function NodeEditorPanel() {
             Node Cost: pool points per invested point, 0 to make it free. Prerequisite Points: 0
             defaults to auto — however many it takes to get to the prerequisite node.
           </p>
+
+          <div className="mt-2 rounded-md border p-2">
+            <div className="flex items-center justify-between gap-1">
+              <InfoTip label="Level-gated investment tiers. The first tier unlocks the node; later tiers require their own level and their own points. Action Surge at level 2 and its level-17 extra use is the classic example.">
+                <Label>Tiers</Label>
+              </InfoTip>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[10px]"
+                onClick={() =>
+                  applyTiers([
+                    ...(node.tiers || []),
+                    {
+                      level: Number(node.levelReq) || 1,
+                      points: 1,
+                      label: `Tier ${(node.tiers || []).length + 1}`,
+                    },
+                  ])
+                }
+              >
+                <Plus className="mr-1 h-3 w-3" /> Add tier
+              </Button>
+            </div>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Points are filled in order. The node shows the next tier&apos;s level and refuses
+              investment until that level is reached.
+            </p>
+            {(node.tiers || []).length === 0 && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                No tiers yet. The Level Requirement and Max Points above apply as a single tier.
+              </p>
+            )}
+            {(node.tiers || []).map((tier, index) => (
+              <div key={index} className="mt-1 flex flex-wrap items-end gap-1 rounded border p-1">
+                <label className="flex items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground">Lvl</span>
+                  <Input
+                    className="h-7 w-14 text-xs"
+                    type="number"
+                    min={0}
+                    value={tier.level || 0}
+                    onChange={(e) => {
+                      const tiers = [...(node.tiers || [])];
+                      tiers[index] = { ...tier, level: Math.max(0, Number(e.target.value) || 0) };
+                      applyTiers(tiers);
+                    }}
+                  />
+                </label>
+                <label className="flex items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground">Pts</span>
+                  <Input
+                    className="h-7 w-14 text-xs"
+                    type="number"
+                    min={1}
+                    value={tier.points || 1}
+                    onChange={(e) => {
+                      const tiers = [...(node.tiers || [])];
+                      tiers[index] = { ...tier, points: Math.max(1, Number(e.target.value) || 1) };
+                      applyTiers(tiers);
+                    }}
+                  />
+                </label>
+                <Input
+                  className="h-7 min-w-32 flex-1 text-xs"
+                  placeholder="Tier label"
+                  value={tier.label || ""}
+                  onChange={(e) => {
+                    const tiers = [...(node.tiers || [])];
+                    tiers[index] = { ...tier, label: e.target.value };
+                    applyTiers(tiers);
+                  }}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-1 text-destructive"
+                  title="Remove this tier"
+                  onClick={() => applyTiers((node.tiers || []).filter((_, i) => i !== index))}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            {(node.tiers || []).length > 0 && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Total points across tiers: {nodeMaxPoints(node)}
+              </p>
+            )}
+          </div>
         </FieldGroup>
 
         {/* ── Requirements & Gates ─────────────────────────────────── */}
@@ -706,11 +824,19 @@ export function NodeEditorPanel() {
               >
                 <Upload className="h-4 w-4" />
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                title={`Browse ${nodeImageFolder}`}
+                onClick={() => setImagePickerField("image")}
+              >
+                Library
+              </Button>
             </div>
           </div>
 
           <div className="space-y-1">
-            <InfoTip label="Decorative image overlaid on the node — its border defines the node's shape.">
+            <InfoTip label="Decorative image overlaid on the node - its border defines the node's shape.">
               <Label>Frame Image URL (overlays the node)</Label>
             </InfoTip>
             <div
@@ -738,6 +864,14 @@ export function NodeEditorPanel() {
                 onClick={() => frameFileRef.current?.click()}
               >
                 <Upload className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                title={`Browse ${nodeImageFolder}`}
+                onClick={() => setImagePickerField("frameImage")}
+              >
+                Library
               </Button>
             </div>
           </div>
@@ -822,6 +956,22 @@ export function NodeEditorPanel() {
           <Trash2 className="mr-1 h-4 w-4" /> Delete node
         </Button>
       </div>
+      <NodeImagePicker
+        open={!!imagePickerField}
+        onClose={() => setImagePickerField("")}
+        folder={nodeImageFolder}
+        title={imagePickerField === "frameImage" ? "Choose frame artwork" : "Choose node artwork"}
+        onFolderChange={(folder) =>
+          setSettings((current) => ({
+            ...current,
+            nodeImageFolder: folder,
+            library: { ...(current.library || {}), nodeImageFolder: folder },
+          }))
+        }
+        onPick={(url) => {
+          if (imagePickerField) updateNode(node.id, { [imagePickerField]: url });
+        }}
+      />
     </div>
   );
 }

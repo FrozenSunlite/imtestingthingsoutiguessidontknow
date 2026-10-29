@@ -39,13 +39,15 @@ export function SubtreePreview({ subtree, width = 232 }) {
     return <p className="p-1 text-[10px] text-muted-foreground">Empty subtree.</p>;
 
   const scale = Math.min(1, width / w);
-  const vh = Math.max(40, h * scale);
+  const vh = Math.max(40, Math.round(h * scale));
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
       width={width}
       height={vh}
       className="rounded bg-background"
+      shapeRendering="geometricPrecision"
+      textRendering="geometricPrecision"
       aria-label="Subtree preview"
     >
       {lines.map((l, i) => (

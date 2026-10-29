@@ -91,6 +91,22 @@ export async function pickStickerFolder() {
   return res.json();
 }
 
+export async function fetchAssetFolders(match = "", limit = 200) {
+  try {
+    const params = new URLSearchParams();
+    if (match) params.set("match", match);
+    params.set("limit", String(limit));
+    const res = await fetch(`/api/assets/folders?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.folders) ? data.folders : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchAssetCategories() {
   try {
     const res = await fetch("/api/assets/categories");
@@ -102,10 +118,17 @@ export async function fetchAssetCategories() {
   }
 }
 
-export async function fetchAssets({ q = "", category = "", limit = 60, offset = 0 } = {}) {
+export async function fetchAssets({
+  q = "",
+  category = "",
+  dir = "",
+  limit = 60,
+  offset = 0,
+} = {}) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (category) params.set("category", category);
+  if (dir) params.set("dir", dir);
   params.set("limit", String(limit));
   params.set("offset", String(offset));
   try {
@@ -134,15 +157,21 @@ export async function importAsset(path) {
 // The asset index treats multi-word queries as an AND search, so a bundle like
 // "chair table hearth" can legitimately match nothing. Fall back to the most
 // specific single term before giving up, which keeps room templates useful.
-export async function fetchAssetsSmart({ q = "", category = "", limit = 60, offset = 0 } = {}) {
-  const result = await fetchAssets({ q, category, limit, offset });
+export async function fetchAssetsSmart({
+  q = "",
+  category = "",
+  dir = "",
+  limit = 60,
+  offset = 0,
+} = {}) {
+  const result = await fetchAssets({ q, category, dir, limit, offset });
   if (result.items?.length || !String(q).trim()) return result;
   const tokens = String(q)
     .split(/\s+/)
     .map((token) => token.trim())
     .filter((token) => token.length > 2);
   for (const token of tokens) {
-    const fallback = await fetchAssets({ q: token, category, limit, offset });
+    const fallback = await fetchAssets({ q: token, category, dir, limit, offset });
     if (fallback.items?.length) return { ...fallback, query: token };
   }
   return result;

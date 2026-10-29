@@ -237,6 +237,14 @@ export function ReferenceIndexTab() {
     () => [...new Set(entries.map(sourceOf).filter(Boolean))].sort(),
     [entries]
   );
+  const sourceCounts = useMemo(() => {
+    const counts = new Map();
+    entries.forEach((entry) => {
+      const source = sourceOf(entry) || "Unknown source";
+      counts.set(source, (counts.get(source) || 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [entries]);
   const shown = entries.filter((e) => {
     const q = query.trim().toLowerCase();
     if (q && !`${entryName(e)} ${entryMeta(e)}`.toLowerCase().includes(q)) return false;
@@ -1263,6 +1271,39 @@ export function ReferenceIndexTab() {
               {c.label}
             </button>
           ))}
+          {sourceCounts.length > 0 && (
+            <div className="mt-2 border-t pt-1">
+              <p className="px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Sources
+              </p>
+              <button
+                type="button"
+                onClick={() => setSourceFilter("__all__")}
+                className={`w-full truncate rounded px-2 py-1 text-left text-[10px] ${
+                  sourceFilter === "__all__"
+                    ? "bg-primary/10 font-semibold text-foreground"
+                    : "text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                All sources ({entries.length})
+              </button>
+              {sourceCounts.map(([source, count]) => (
+                <button
+                  key={source}
+                  type="button"
+                  onClick={() => setSourceFilter(source)}
+                  className={`w-full truncate rounded px-2 py-1 text-left text-[10px] ${
+                    sourceFilter === source
+                      ? "bg-primary/10 font-semibold text-foreground"
+                      : "text-muted-foreground hover:bg-accent"
+                  }`}
+                  title={`${source} (${count} entries)`}
+                >
+                  {source} ({count})
+                </button>
+              ))}
+            </div>
+          )}
         </aside>
 
         <aside className="flex min-h-0 flex-col rounded-md border">
@@ -1519,8 +1560,13 @@ export function ReferenceIndexTab() {
         </section>
 
         <aside className="flex min-h-0 flex-col rounded-md border">
-          <div className="border-b px-2 py-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Preview
+          <div className="flex items-center justify-between gap-1 border-b px-2 py-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <span>Preview</span>
+            {preview && (
+              <span className="truncate text-[9px] normal-case tracking-normal text-muted-foreground">
+                {sourceOf(preview) || "Unknown source"}
+              </span>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2 text-xs">
             <ReferenceEntryPreview

@@ -142,6 +142,8 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
       rotation: node.rotation,
       flipped: node.flipped,
       talentType: node.talentType,
+      talentTypes: [...(node.talentTypes || [])],
+      tiers: JSON.parse(JSON.stringify(node.tiers || [])),
       levelReq: node.levelReq,
       nodeType: node.nodeType,
       attributeStat: node.attributeStat,

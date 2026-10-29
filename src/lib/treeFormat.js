@@ -1,6 +1,15 @@
 // RPG skill-tree file format: converting the import/export JSON into the
 // internal normalized tree and back. Extracted from treeStore to keep the
 // store focused on state.
+import { normalizeTiers } from "@/lib/nodeTiers";
+
+const parseList = (value) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : String(value || "")
+        .split(/[,;]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
 
 // The six node types. Each maps to the pool its points are spent from;
 // "attribute" nodes spend Attribute Points and grant +1 to a chosen attribute
@@ -47,12 +56,20 @@ export function normalizeTree(data) {
   }
   const nodes = raw.map((s, i) => {
     const pos = s["Skill Position Exact"] || { x: 0, y: 0 };
+    const talentTypes = parseList(s["Skill Talent Type"]);
+    const tiers = normalizeTiers({ tiers: s["Skill Tiers"] });
+    const maxPoints = tiers.length
+      ? tiers.reduce((sum, tier) => sum + tier.points, 0)
+      : s["Skill Max Points"] ?? 1;
+    const levelReq = tiers.length
+      ? tiers[0].level
+      : Number(s["Skill Level Requirement"]) || 0;
     return {
       id: s["Skill Id"] || "n" + i,
       name: s["Skill Name"] || `Skill ${i}`,
       x: typeof pos.x === "number" ? pos.x : 0,
       y: typeof pos.y === "number" ? pos.y : 0,
-      maxPoints: s["Skill Max Points"] ?? 1,
+      maxPoints,
       currentPoints: s["Skill Current Points"] ?? 0,
       image: s["Skill Image"] || "",
       description: s["Skill Description"] || "",
@@ -103,8 +120,10 @@ export function normalizeTree(data) {
       attributeStat: s["Skill Attribute"] || "",
       requirementMode: "all",
       requiredPoints: 1,
-      talentType: s["Skill Talent Type"] || "",
-      levelReq: Number(s["Skill Level Requirement"]) || 0,
+      talentTypes,
+      talentType: talentTypes.join(", "),
+      tiers,
+      levelReq,
       exclusiveWithNames: s["Skill Exclusive With"] || [],
       requiredProficiencies: (s["Skill Prerequisites"] || []).map((p) => ({
         type: p.type || "skills",
@@ -158,6 +177,8 @@ export function normalizeTree(data) {
             grantedPoints: Number(sub["Subtree Points"]) || 0,
             poolName: sub["Subtree Pool"] || "",
             exclusive: !!sub["Subtree Exclusive"],
+            level: Number(sub["Subtree Level"]) || 0,
+            default: !!sub["Subtree Default"],
           };
         });
       })(),
@@ -249,8 +270,13 @@ export function denormalizeTree(tree) {
       .filter((m) => (m.dependencies || []).includes(n.id))
       .map((m) => m.name),
     "Skill Prerequisite": n.prerequisite || "-",
-    "Skill Talent Type": n.talentType || "",
+    "Skill Talent Type": (n.talentTypes?.length
+      ? n.talentTypes.join(", ")
+      : n.talentType || ""),
     "Skill Level Requirement": n.levelReq || 0,
+    ...(Array.isArray(n.tiers) && n.tiers.length
+      ? { "Skill Tiers": n.tiers }
+      : {}),
     "Skill Exclusive With": (n.exclusiveWith || [])
       .map((id) => idToNode[id]?.name)
       .filter(Boolean),
@@ -339,6 +365,8 @@ export function denormalizeTree(tree) {
             "Subtree Points": Number(st.grantedPoints) || 0,
             "Subtree Pool": st.poolName || "",
             "Subtree Exclusive": !!st.exclusive,
+            "Subtree Level": Number(st.level) || 0,
+            "Subtree Default": !!st.default,
           })),
         }
       : {}),

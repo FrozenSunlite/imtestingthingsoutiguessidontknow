@@ -1,4 +1,4 @@
-import { poolForNode } from "@/lib/treeStore";
+import { poolForNode, talentTypesOf } from "@/lib/treeStore";
 
 // Grouping for the View screen's unlocked list: nodes bought with Heritage
 // Points (Heritage Traits) come first; Talent-pool nodes are grouped by their
@@ -18,8 +18,14 @@ export function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
   const groups = {};
   list.forEach((n) => {
     if (poolForNode(n) !== "talent" || (n.nodeType || "") === "informative") return;
-    const key = String(n.talentType || "").trim();
-    (groups[key] = groups[key] || []).push(n);
+    const types = talentTypesOf(n);
+    if (!types.length) {
+      (groups[""] = groups[""] || []).push(n);
+      return;
+    }
+    types.forEach((type) => {
+      (groups[type] = groups[type] || []).push(n);
+    });
   });
   const talentGroups = Object.entries(groups)
     .sort(([a], [b]) => {

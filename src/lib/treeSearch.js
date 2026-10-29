@@ -46,7 +46,9 @@ export function searchNodes(nodes, raw) {
       const name = normText(n.name);
       const desc = normText(n.description);
       const flavor = normText(n.flavor);
-      const talent = normText(n.talentType);
+      const talent = normText(
+        [...(n.talentTypes || []), n.talentType].filter(Boolean).join(" ")
+      );
       const cat = normText(n.nodeType);
       const attr = normText(n.attributeStat);
       if (name === q) { matched = "Name"; score = 100; }

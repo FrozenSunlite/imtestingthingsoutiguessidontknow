@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { ChevronDown } from "lucide-react";
 import { IconArt } from "@/components/skilltree/IconArt";
+import { displayLevel, nodeMaxPoints, tierPlan } from "@/lib/nodeTiers";
 
 // One node on the canvas. Memoized: while panning only the canvas transform
 // changes, so every prop stays identical and the node skips re-rendering.
@@ -27,8 +28,8 @@ export const SkillNodeView = memo(function SkillNodeView({
   const unlocked = (node.currentPoints || 0) > 0;
   const dim = !unlocked && !available;
   const size = node.size || 100;
-  const rawMax = Number(node.maxPoints);
-  const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+  const max = nodeMaxPoints(node);
+  const plan = tierPlan(node);
   const cost = Math.max(0, Number(node.cost ?? 1) || 0);
   // A node's own frame wins; otherwise the default node frame applies and its
   // border defines the node's shape.
@@ -64,11 +65,14 @@ export const SkillNodeView = memo(function SkillNodeView({
       }}
       style={{
         position: "absolute",
-        left: node.x - size / 2,
-        top: node.y - size / 2,
+        // Whole pixels keep node labels and borders sharp at every zoom.
+        left: Math.round(node.x - size / 2),
+        top: Math.round(node.y - size / 2),
         width: size,
         height: size,
         cursor: editable ? "grab" : "pointer",
+        willChange: "transform",
+        textRendering: "geometricPrecision",
       }}
       className={`group ${
         // Blind run: newly revealed nodes pop in; a press squishes the node
@@ -152,9 +156,14 @@ export const SkillNodeView = memo(function SkillNodeView({
             <span>
               {node.nodeType === "attribute"
                 ? `${node.attributeStat || "?"} +1`
-                : node.talentType || "N/A"}
+                : (node.talentTypes?.length
+                    ? node.talentTypes.join(", ")
+                    : node.talentType || "N/A")}
             </span>
-            <span>lvl: {Number(node.levelReq) > 0 ? node.levelReq : "N/A"}</span>
+            <span>
+              lvl: {displayLevel(node) > 0 ? displayLevel(node) : "N/A"}
+              {plan.active?.label && plan.tiers.length > 1 ? ` - ${plan.active.label}` : ""}
+            </span>
           </div>
           {node.name}
         </div>

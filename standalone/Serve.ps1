@@ -443,10 +443,36 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       $res.Close()
       continue
     }
+    if ($req.HttpMethod -eq "GET" -and $path -eq "api/assets/folders") {
+      $index = Get-AssetIndex
+      $match = ([string]$req.QueryString["match"]).Trim().ToLower()
+      $limit = 200
+      [void][int]::TryParse([string]$req.QueryString["limit"], [ref]$limit)
+      $limit = [Math]::Max(1, [Math]::Min(500, $limit))
+      $counts = @{}
+      foreach ($f in @($index.files)) {
+        $d = [string]$f.dir
+        if (-not $d) { continue }
+        if ($match -and -not $d.ToLower().Contains($match)) { continue }
+        if (-not $counts.ContainsKey($d)) { $counts[$d] = 0 }
+        $counts[$d] = $counts[$d] + 1
+      }
+      $folders = @($counts.GetEnumerator() |
+        Sort-Object Value -Descending |
+        Select-Object -First $limit |
+        ForEach-Object { @{ dir = $_.Key; count = $_.Value } })
+      $body = [Text.Encoding]::UTF8.GetBytes((@{ folders = $folders } | ConvertTo-Json -Depth 3 -Compress))
+      $res.ContentType = "application/json; charset=utf-8"
+      $res.Headers["Cache-Control"] = "no-store"
+      $res.OutputStream.Write($body,0,$body.Length)
+      $res.Close()
+      continue
+    }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/assets/list") {
       $index = Get-AssetIndex
       $q = ([string]$req.QueryString["q"]).Trim().ToLower()
       $cat = ([string]$req.QueryString["category"]).Trim()
+      $dir = ([string]$req.QueryString["dir"]).Trim().Replace('\','/').Trim('/')
       $limit = 80
       $offset = 0
       [void][int]::TryParse([string]$req.QueryString["limit"], [ref]$limit)
@@ -455,6 +481,13 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       $offset = [Math]::Max(0, $offset)
       $files = @($index.files)
       if ($cat) { $files = @($files | Where-Object { [string]$_.category -eq $cat }) }
+      if ($dir) {
+        $needle = $dir.ToLower()
+        $files = @($files | Where-Object {
+          $d = ([string]$_.dir).Replace('\','/').Trim('/').ToLower()
+          $d -eq $needle -or $d.StartsWith("$needle/")
+        })
+      }
       if ($q) { $files = @($files | Where-Object { (([string]$_.name) + " " + ([string]$_.dir)).ToLower().Contains($q) }) }
       $total = $files.Count
       $page = @($files | Sort-Object category, name | Select-Object -Skip $offset -First $limit | ForEach-Object {

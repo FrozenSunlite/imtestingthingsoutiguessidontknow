@@ -788,10 +788,15 @@ export function SideTreePanel({ slot, floating = false }) {
               {selected.__autoGranted ? " · granted free" : ""}
             </span>
           </div>
-          {(selected.talentType || Number(selected.levelReq) > 0) && (
+          {((selected.talentTypes?.length || selected.talentType) ||
+            Number(selected.levelReq) > 0) && (
             <div className="text-[10px] text-muted-foreground">
-              {selected.talentType || ""}
-              {Number(selected.levelReq) > 0 ? ` · requires level ${selected.levelReq}` : ""}
+              {selected.talentTypes?.length
+                ? selected.talentTypes.join(", ")
+                : selected.talentType || ""}
+              {Number(selected.levelReq) > 0
+                ? ` · requires level ${selected.levelReq}`
+                : ""}
             </div>
           )}
           <p className="mt-1 text-[11px] leading-snug text-muted-foreground">

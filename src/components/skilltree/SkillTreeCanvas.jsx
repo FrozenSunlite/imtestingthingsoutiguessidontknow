@@ -2,6 +2,11 @@ import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { Network } from "lucide-react";
 import { useTree } from "@/lib/treeStore";
 import {
+  displayLevel,
+  nodeMaxPoints,
+  tierGate,
+} from "@/lib/nodeTiers";
+import {
   snapPoint,
   isAvailable,
   isExclusiveBlocked,
@@ -479,7 +484,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     for (const n of tree.nodes) {
       if ((n.currentPoints || 0) > 0) continue;
       if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
-      else if (includeLevel && Number(n.levelReq) > level) ids.add(n.id);
+      else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
     }
     return ids;
   }, [editable, character, tree, nodesById, unlockedNames]);
@@ -666,7 +671,11 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       const from = nodesById[conn.from];
       const p = snapPoint(world.x, world.y, grid);
       const id = addNode(p.x, p.y);
-      updateNode(id, { talentType: from?.talentType || "", size: from?.size || 100 });
+      updateNode(id, {
+        talentType: from?.talentType || "",
+        talentTypes: [...(from?.talentTypes || [])],
+        size: from?.size || 100,
+      });
       toggleDependency(conn.from, id);
       addBend(conn.id, world.x, world.y, 0);
       setUi((u) => ({
@@ -825,10 +834,19 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       });
       const world = transformRef.current;
       if (world) {
+        // Cache the dragged DOM nodes for this gesture. Querying every node on
+        // every pointermove was a measurable cost with large trees.
+        if (!d.elements) {
+          d.elements = new Map();
+          for (const pos of d.positions) {
+            d.elements.set(pos.id, world.querySelector(`[data-node-id="${pos.id}"]`));
+          }
+        }
         for (const pos of d.positions) {
-          const el = world.querySelector(`[data-node-id="${pos.id}"]`);
-          if (el)
-            el.style.transform = `translate(${pos.x - pos.ox}px, ${pos.y - pos.oy}px)`;
+          const el = d.elements.get(pos.id);
+          if (el) {
+            el.style.transform = `translate3d(${Math.round(pos.x - pos.ox)}px, ${Math.round(pos.y - pos.oy)}px, 0)`;
+          }
         }
       }
     } else if (d.type === "bend") {
@@ -990,23 +1008,48 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     }
   };
 
+  const openSubtreeForNode = useCallback(
+    (node) => {
+      if (!node) return;
+      const level = Math.max(1, Number(character?.level) || 1);
+      const eligible = (node.subtrees || [])
+        .map((subtree, index) => ({ subtree, index }))
+        .filter(
+          ({ subtree }) =>
+            !Number(subtree.level) || Number(subtree.level) <= level
+        );
+      const specific = eligible.filter(({ subtree }) => Number(subtree.level) > 0);
+      const fallback = eligible.find(({ subtree }) => subtree.default);
+      if (!specific.length && fallback) {
+        openSubtreePanel(node.id, fallback.index);
+        return;
+      }
+      setSubtreePicker(node);
+    },
+    [character?.level, openSubtreePanel]
+  );
+
   const handleInvest = (n, delta) => {
     if ((n.nodeType || "") === "informative") {
       toast.error("Informative nodes are reference only — they can't be invested.");
       return;
     }
     if (delta > 0) {
-      const rawMax = Number(n.maxPoints);
-      const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+      const max = nodeMaxPoints(n);
       const cur = Number(n.currentPoints) || 0;
       if (cur >= max) {
         // A talent with its own skill trees: reopening the chooser lets the
         // player keep spending that tree's granted points until they're done.
         if ((n.subtrees || []).length) {
-          setSubtreePicker(n);
+          openSubtreeForNode(n);
           return;
         }
         toast.error("Already at max points.");
+        return;
+      }
+      const gate = tierGate(n, character.level || 1);
+      if (!gate.ok) {
+        toast.error(gate.reason);
         return;
       }
       if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
@@ -1077,7 +1120,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       commitInvest(n, 1);
       // A talent with its own skill trees: open the chooser so the player can
       // pick a tree and spend the pool it grants.
-      if ((n.subtrees || []).length) setSubtreePicker(n);
+      if ((n.subtrees || []).length) openSubtreeForNode(n);
       return;
     }
     if ((n.options || []).length) {
@@ -1318,7 +1361,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         perTake={choiceNode ? Number(choiceNode.optionsPerTake) || 1 : 1}
         onPick={(optionNames) => {
           commitInvest(choiceNode, 1, optionNames);
-          if ((choiceNode.subtrees || []).length) setSubtreePicker(choiceNode);
+          if ((choiceNode.subtrees || []).length) openSubtreeForNode(choiceNode);
           setChoiceNode(null);
         }}
         onClose={() => setChoiceNode(null)}
