@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-Bgapv-na.js";
+import { n as Button, r as cn } from "./router-CMf5EFPQ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelLeft, PanelRight, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -38992,9 +38992,9 @@ function ViewSheet({ onExport }) {
 					/* @__PURE__ */ jsxs(Button, {
 						size: "sm",
 						variant: isOpen("right") ? "secondary" : "outline",
-						title: "Show a second tree panel on the right — e.g. one side for skills, one for heritage",
+						title: "Show a second tree panel underneath the skill tree — e.g. one for skills, one for heritage. They share one width and a drag bar between them.",
 						onClick: () => togglePanel("right", { kind: "empty" }),
-						children: [/* @__PURE__ */ jsx(PanelRight, { className: "mr-1 h-4 w-4" }), " Second tree"]
+						children: [/* @__PURE__ */ jsx(PanelBottom, { className: "mr-1 h-4 w-4" }), " Second tree"]
 					}),
 					/* @__PURE__ */ jsx(InfoTip, {
 						label: "Run one of the character's unlocked actions",
@@ -39139,6 +39139,924 @@ function ViewSheet({ onExport }) {
 			/* @__PURE__ */ jsx(DiceRoller, {
 				open: diceOpen,
 				onClose: () => setDiceOpen(false)
+			})
+		]
+	});
+}
+//#endregion
+//#region src/components/ui/dropdown-menu.jsx
+var DropdownMenu = DropdownMenuPrimitive.Root;
+var DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+var DropdownMenuSubTrigger = React.forwardRef(({ className, inset, children, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.SubTrigger, {
+	ref,
+	className: cn("flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0", inset && "pl-8", className),
+	...props,
+	children: [children, /* @__PURE__ */ jsx(ChevronRight, { className: "ml-auto" })]
+}));
+DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
+var DropdownMenuSubContent = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.SubContent, {
+	ref,
+	className: cn("z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2", className),
+	...props
+}));
+DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName;
+var DropdownMenuContent = React.forwardRef(({ className, sideOffset = 4, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Portal, { children: /* @__PURE__ */ jsx(DropdownMenuPrimitive.Content, {
+	ref,
+	sideOffset,
+	className: cn("z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2", className),
+	...props
+}) }));
+DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
+var DropdownMenuItem = React.forwardRef(({ className, inset, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Item, {
+	ref,
+	className: cn("relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0", inset && "pl-8", className),
+	...props
+}));
+DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
+var DropdownMenuCheckboxItem = React.forwardRef(({ className, children, checked, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.CheckboxItem, {
+	ref,
+	className: cn("relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50", className),
+	checked,
+	...props,
+	children: [/* @__PURE__ */ jsx("span", {
+		className: "absolute left-2 flex h-3.5 w-3.5 items-center justify-center",
+		children: /* @__PURE__ */ jsx(DropdownMenuPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx(Check, { className: "h-4 w-4" }) })
+	}), children]
+}));
+DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName;
+var DropdownMenuRadioItem = React.forwardRef(({ className, children, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.RadioItem, {
+	ref,
+	className: cn("relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50", className),
+	...props,
+	children: [/* @__PURE__ */ jsx("span", {
+		className: "absolute left-2 flex h-3.5 w-3.5 items-center justify-center",
+		children: /* @__PURE__ */ jsx(DropdownMenuPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx(Circle, { className: "h-2 w-2 fill-current" }) })
+	}), children]
+}));
+DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName;
+var DropdownMenuLabel = React.forwardRef(({ className, inset, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Label, {
+	ref,
+	className: cn("px-2 py-1.5 text-sm font-semibold", inset && "pl-8", className),
+	...props
+}));
+DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName;
+var DropdownMenuSeparator = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Separator, {
+	ref,
+	className: cn("-mx-1 my-1 h-px bg-muted", className),
+	...props
+}));
+DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
+var DropdownMenuShortcut = ({ className, ...props }) => {
+	return /* @__PURE__ */ jsx("span", {
+		className: cn("ml-auto text-xs tracking-widest opacity-60", className),
+		...props
+	});
+};
+DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
+//#endregion
+//#region src/components/skilltree/SideTreePanel.jsx
+function prefixTree(nodes, connections, prefix) {
+	const idMap = {};
+	nodes.forEach((n) => idMap[n.id] = `${prefix}-${n.id}`);
+	return {
+		nodes: nodes.map((n) => ({
+			...n,
+			id: idMap[n.id],
+			dependencies: (n.dependencies || []).map((d) => idMap[d]).filter(Boolean),
+			exclusiveWith: (n.exclusiveWith || []).map((d) => idMap[d]).filter(Boolean)
+		})),
+		connections: connections.filter((c) => idMap[c.from] && idMap[c.to]).map((c) => ({
+			...c,
+			id: `${idMap[c.from]}->${idMap[c.to]}`,
+			from: idMap[c.from],
+			to: idMap[c.to]
+		}))
+	};
+}
+function SideTreePanel({ slot, floating = false, stacked = false }) {
+	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel } = useTree();
+	const st = (sideTrees || {})[slot];
+	const [width, setPanelWidth] = usePanelWidth(440, 260, 720, "skilltree:sideWidth:" + slot);
+	const [view, setView] = useState({
+		panX: 0,
+		panY: 0,
+		zoom: .35
+	});
+	const [selectedId, setSelectedId] = useState(null);
+	const [choiceNode, setChoiceNode] = useState(null);
+	const [subtreePickNode, setSubtreePickNode] = useState(null);
+	const [vp, setVp] = useState({
+		w: 440,
+		h: 500
+	});
+	const containerRef = useRef(null);
+	const fileRef = useRef(null);
+	const dragRef = useRef(null);
+	const isMain = st?.kind === "main";
+	const nodes = isMain ? tree?.nodes || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.nodes || [] : [];
+	const connections = isMain ? tree?.connections || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.connections || [] : [];
+	const nodesById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
+	const hiddenIds = useMemo(() => {
+		if (!character?.hideLockedNodes) return null;
+		const level = character.level || 1;
+		const includeLevel = !!character.hideLockedIncludeLevel;
+		const ids = /* @__PURE__ */ new Set();
+		for (const n of nodes) {
+			if ((n.currentPoints || 0) > 0) continue;
+			if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
+			else if (includeLevel && Number(n.levelReq) > level) ids.add(n.id);
+		}
+		return ids;
+	}, [
+		character,
+		nodes,
+		nodesById,
+		unlockedNames
+	]);
+	const region = useMemo(() => {
+		const z = view.zoom || .1;
+		const step = 600;
+		const m = 900;
+		const f = (v) => Math.floor(v / step) * step;
+		const c = (v) => Math.ceil(v / step) * step;
+		return {
+			minX: f(-view.panX / z) - m,
+			maxX: c((vp.w - view.panX) / z) + m,
+			minY: f(-view.panY / z) - m,
+			maxY: c((vp.h - view.panY) / z) + m
+		};
+	}, [view, vp]);
+	const visibleNodes = useMemo(() => nodes.filter((n) => !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY), [
+		nodes,
+		region,
+		hiddenIds
+	]);
+	const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
+	const title = isMain ? tree?.name || "Main tree" : st?.name || "Tree";
+	const levels = settings?.library?.levels || [];
+	const usage = poolUsage(mergedTree);
+	const eff = effectivePools(pools, character, mergedTree, levels);
+	useEffect(() => {
+		const el = containerRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver(() => setVp({
+			w: el.clientWidth,
+			h: el.clientHeight
+		}));
+		ro.observe(el);
+		setVp({
+			w: el.clientWidth,
+			h: el.clientHeight
+		});
+		return () => ro.disconnect();
+	}, [st]);
+	const bounds = useMemo(() => {
+		if (!nodes.length) return null;
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		for (const n of nodes) {
+			minX = Math.min(minX, n.x);
+			minY = Math.min(minY, n.y);
+			maxX = Math.max(maxX, n.x);
+			maxY = Math.max(maxY, n.y);
+		}
+		return {
+			minX,
+			minY,
+			maxX,
+			maxY
+		};
+	}, [nodes]);
+	const fit = () => {
+		if (!bounds) return;
+		const w = bounds.maxX - bounds.minX + 200;
+		const h = bounds.maxY - bounds.minY + 200;
+		const vw = containerRef.current?.clientWidth || vp.w || 440;
+		const vh = containerRef.current?.clientHeight || vp.h || 500;
+		const z = Math.min(vw / w, vh / h, 1);
+		setView({
+			zoom: z,
+			panX: -(bounds.minX - 100) * z,
+			panY: -(bounds.minY - 100) * z
+		});
+	};
+	const startNode = (() => {
+		if (!nodes.length) return null;
+		if (isMain) {
+			const id = String(settings?.cameraStartNode || "");
+			const configured = id ? nodesById[id] : null;
+			if (configured) return configured;
+		}
+		return nodes.find((n) => n.__autoGranted) || nodes[0];
+	})();
+	const sig = nodes.length + ":" + (nodes[0]?.id || "") + ":" + (startNode?.id || "");
+	useEffect(() => {
+		if (startNode) {
+			const vw = containerRef.current?.clientWidth || vp.w || 440;
+			const vh = containerRef.current?.clientHeight || vp.h || 500;
+			const z = Math.max(.4, Math.min(.8, view.zoom || .5));
+			setView({
+				zoom: z,
+				panX: vw / 2 - startNode.x * z,
+				panY: vh / 2 - startNode.y * z
+			});
+		}
+		setSelectedId(null);
+	}, [sig]);
+	useEffect(() => {
+		if (!treeFocus?.nodeId) return;
+		const n = nodesById[treeFocus.nodeId];
+		if (!n) return;
+		const z = Math.max(view.zoom || .35, .5);
+		setView({
+			zoom: z,
+			panX: (vp.w || 440) / 2 - n.x * z,
+			panY: (vp.h || 500) / 2 - n.y * z
+		});
+		setSelectedId(n.id);
+		clearTreeFocus();
+	}, [treeFocus]);
+	const onPointerDown = (e) => {
+		if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
+		dragRef.current = {
+			sx: e.clientX,
+			sy: e.clientY,
+			panX: view.panX,
+			panY: view.panY
+		};
+		e.currentTarget.setPointerCapture?.(e.pointerId);
+		setSelectedId(null);
+	};
+	const onPointerMove = (e) => {
+		const d = dragRef.current;
+		if (!d) return;
+		const dx = e.clientX - d.sx;
+		const dy = e.clientY - d.sy;
+		if (Math.hypot(dx, dy) > 4) dragRef.current.moved = true;
+		setView((v) => ({
+			...v,
+			panX: d.panX + dx,
+			panY: d.panY + dy
+		}));
+	};
+	const onPointerUp = () => {
+		dragRef.current = null;
+	};
+	const onWheel = (e) => {
+		e.preventDefault();
+		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+		const rect = containerRef.current.getBoundingClientRect();
+		const sx = e.clientX - rect.left;
+		const sy = e.clientY - rect.top;
+		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+		setView((v) => {
+			const z = Math.min(2.5, Math.max(.05, (v.zoom || .3) * factor));
+			const wx = (sx - v.panX) / (v.zoom || .3);
+			const wy = (sy - v.panY) / (v.zoom || .3);
+			return {
+				zoom: z,
+				panX: sx - wx * z,
+				panY: sy - wy * z
+			};
+		});
+	};
+	const [hover, setHover] = useState(null);
+	const hoverTimer = useRef(null);
+	const overRef = useRef(false);
+	const pendingNode = useRef(null);
+	const pendingPos = useRef({
+		x: 0,
+		y: 0
+	});
+	const clampPos = (e) => ({
+		x: Math.min(e.clientX + 14, window.innerWidth - 280),
+		y: Math.min(e.clientY + 14, window.innerHeight - 240)
+	});
+	const onHover = (e, node) => {
+		overRef.current = true;
+		pendingNode.current = node;
+		pendingPos.current = clampPos(e);
+		clearTimeout(hoverTimer.current);
+		hoverTimer.current = setTimeout(() => {
+			hoverTimer.current = null;
+			setHover({
+				node: pendingNode.current,
+				...pendingPos.current
+			});
+		}, 1200);
+	};
+	const onHoverMove = (e) => {
+		if (!overRef.current || dragRef.current) return;
+		pendingPos.current = clampPos(e);
+		setHover((h) => h ? {
+			...h,
+			...pendingPos.current
+		} : h);
+		if (!hoverTimer.current) hoverTimer.current = setTimeout(() => {
+			hoverTimer.current = null;
+			setHover({
+				node: pendingNode.current,
+				...pendingPos.current
+			});
+		}, 300);
+	};
+	const onHoverEnd = () => {
+		overRef.current = false;
+		clearTimeout(hoverTimer.current);
+		hoverTimer.current = null;
+		setHover(null);
+	};
+	useEffect(() => () => clearTimeout(hoverTimer.current), []);
+	const applyPoints = (id, delta) => {
+		if (isMain) {
+			investPoint(id, delta);
+			return;
+		}
+		const updated = nodes.map((m) => {
+			if (m.id !== id) return m;
+			const rawMax = Number(m.maxPoints);
+			const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+			const cur = Number(m.currentPoints) || 0;
+			const next = Math.max(0, Math.min(max, cur + delta));
+			return cur === 0 && next > 0 ? {
+				...m,
+				currentPoints: next,
+				acquiredOrder: m.acquiredOrder || Date.now()
+			} : {
+				...m,
+				currentPoints: next
+			};
+		});
+		const nextSt = Array.isArray(st.tabs) && st.activeKey ? {
+			...st,
+			nodes: updated,
+			tabs: st.tabs.map((t) => t.key === st.activeKey ? {
+				...t,
+				nodes: updated
+			} : t)
+		} : {
+			...st,
+			nodes: updated
+		};
+		setSideTree(slot, nextSt);
+		const target = updated.find((m) => m.id === id);
+		if (st.subtreeHostId && Array.isArray(target?.__path)) {
+			const chain = st.hostChain || [{
+				hostId: st.subtreeHostId,
+				subIndex: st.subtreeIndex ?? 0
+			}];
+			setSubtreeNodePoints(chain, target.__path, target.currentPoints || 0);
+		}
+	};
+	const commitInvest = (n, delta, optionNames) => {
+		applyPoints(n.id, delta);
+		if (delta !== 0 && (n.proficiencies || []).length) setCharacter((c) => ({
+			...c,
+			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
+		}));
+		if (delta > 0 && Array.isArray(optionNames) && optionNames.length) setCharacter((c) => ({
+			...c,
+			abilityChoices: {
+				...c.abilityChoices || {},
+				[n.id]: [...c.abilityChoices?.[n.id] || [], ...optionNames]
+			}
+		}));
+	};
+	const handleInvest = (n, delta) => {
+		if ((n.nodeType || "") === "informative") {
+			toast.error("Informative nodes are reference only — they can't be invested.");
+			return;
+		}
+		const isSub = !!st?.subtreeHostId;
+		if (isSub) {
+			const host = (tree?.nodes || []).find((m) => m.id === st.subtreeHostId);
+			if (!host || (host.currentPoints || 0) <= 0) {
+				toast.error(`Unlock “${host?.name || st.name || "the node"}” first — invest a point in it.`);
+				return;
+			}
+			if ((st.abilityReqs || []).length) {
+				const ab = abilityReqStatus(st.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
+				if (!ab.ok) {
+					toast.error(`Requires ${ab.missing.join(", ")} before entering this tree.`);
+					return;
+				}
+			}
+		}
+		if (delta > 0) {
+			const max = nodeMaxPoints(n);
+			const cur = Number(n.currentPoints) || 0;
+			if (cur >= max) {
+				if (!isSub && (n.subtrees || []).length) {
+					setSubtreePickNode(n);
+					return;
+				}
+				toast.error("Already at max points.");
+				return;
+			}
+			const gate = tierGate(n, character.level || 1);
+			if (!gate.ok) {
+				toast.error(gate.reason);
+				return;
+			}
+			if (isSub && st.exclusive && cur === 0) {
+				const inSet = new Set(nodes.map((m) => m.id));
+				const takenRoot = !(n.dependencies || []).some((d) => inSet.has(d)) ? nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && !(m.dependencies || []).some((d) => inSet.has(d))) : null;
+				if (takenRoot) {
+					toast.error(`Mutually exclusive with “${takenRoot.name || "another branch"}” — refund it first.`);
+					return;
+				}
+			}
+			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
+				const other = nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && ((n.exclusiveWith || []).includes(m.id) || (m.exclusiveWith || []).includes(n.id)));
+				toast.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
+				return;
+			}
+			if (!isAvailable(n, nodesById, unlockedNames) && cur === 0) {
+				toast.error("Prerequisites not met — invest in the required skills first.");
+				return;
+			}
+			if (cur === 0) {
+				const ab = abilityReqStatus(n.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
+				if (!ab.ok) {
+					toast.error(`Requires ${ab.missing.join(", ")} first.`);
+					return;
+				}
+			}
+			const profs = character.proficiencies || {};
+			const missing = (n.requiredProficiencies || []).filter((r) => !(profs[r.type] || []).some((p) => (p.name || "").trim().toLowerCase() === String(r.name || "").trim().toLowerCase()));
+			if (missing.length) {
+				toast.error(`Requires proficiency in ${missing.map((m) => m.name || "?").join(", ")} first.`);
+				return;
+			}
+			const cost = Math.max(0, Number(n.cost ?? 1) || 0);
+			if (isSub) {
+				if (cost > 0) {
+					const spent = nodes.reduce((a, m) => m.__autoGranted ? a : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0);
+					const grant = Number(st.grantedPoints) || 0;
+					if (spent + cost > grant) {
+						toast.error(`No ${st.poolName || "Subtree"} points left — this tree grants ${grant}.`);
+						return;
+					}
+				}
+			} else {
+				const poolKey = poolForNode(n);
+				if (cost > 0 && poolKey) {
+					const effPools = effectivePools(pools, character, mergedTree, levels);
+					if (usage[poolKey] + cost > effPools[poolKey].total) {
+						toast.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
+						return;
+					}
+				}
+			}
+			if ((n.options || []).length) {
+				setChoiceNode(n);
+				return;
+			}
+			commitInvest(n, 1);
+			if (!isSub && (n.subtrees || []).length) {
+				setSubtreePickNode(n);
+				return;
+			}
+			return;
+		}
+		if (n.__autoGranted) {
+			toast.error(`“${n.name || "This node"}” is granted by the talent and can't be refunded.`);
+			return;
+		}
+		if ((n.options || []).length) {
+			const taken = character.abilityChoices?.[n.id] || [];
+			if (taken.length) {
+				const perTake = Math.max(1, Number(n.optionsPerTake) || 1);
+				setCharacter((c) => ({
+					...c,
+					abilityChoices: {
+						...c.abilityChoices || {},
+						[n.id]: taken.slice(0, Math.max(0, taken.length - perTake))
+					}
+				}));
+			}
+		}
+		commitInvest(n, -1);
+	};
+	const investStable = useRef(handleInvest);
+	investStable.current = handleInvest;
+	const onInvest = (node, delta) => investStable.current(node, delta);
+	const loadSnapshot = (name, n, c) => {
+		const p = prefixTree(n || [], c || [], slot);
+		setSideTree(slot, {
+			kind: "snapshot",
+			name: name || "Tree",
+			...p
+		});
+		toast.success(`Loaded "${name || "Tree"}" into the ${slot} panel.`);
+	};
+	const onFile = (e) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const reader = new FileReader();
+		reader.onload = () => {
+			try {
+				const t = migrateTree(normalizeTree(JSON.parse(reader.result)));
+				loadSnapshot(t.name || "Imported tree", t.nodes, t.connections);
+			} catch {
+				toast.error("Invalid skill tree file.");
+			}
+		};
+		reader.readAsText(file);
+		e.target.value = "";
+	};
+	const onNodePointerDown = (e, node) => {
+		if (e.button !== 0) return;
+		e.stopPropagation();
+		setSelectedId(node.id);
+	};
+	if (!tree || !st || st.closed) return null;
+	const selected = selectedId ? nodesById[selectedId] : null;
+	const effChoices = effectiveChoices(character, mergedTree);
+	return /* @__PURE__ */ jsxs("div", {
+		className: cn("flex min-h-0 flex-col bg-card", stacked ? "w-full min-h-0 flex-1" : "h-full", !floating && !stacked && "relative shrink-0", !floating && !stacked && (slot === "left" ? "border-r" : "border-l")),
+		style: floating || stacked ? void 0 : { width },
+		children: [
+			!floating && !stacked && /* @__PURE__ */ jsx(PanelResizer, {
+				width,
+				onResize: setPanelWidth,
+				edge: slot === "left" ? "right" : "left"
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center gap-1 border-b px-2 py-1.5",
+				children: [
+					/* @__PURE__ */ jsx("span", {
+						className: "min-w-0 flex-1 truncate text-xs font-semibold",
+						children: title
+					}),
+					/* @__PURE__ */ jsxs(DropdownMenu, { children: [/* @__PURE__ */ jsx(DropdownMenuTrigger, {
+						asChild: true,
+						children: /* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "ghost",
+							className: "h-7 px-2 text-xs",
+							title: "Load a saved skill tree into this panel",
+							children: [/* @__PURE__ */ jsx(FolderOpen, { className: "h-4 w-4" }), " Load"]
+						})
+					}), /* @__PURE__ */ jsxs(DropdownMenuContent, {
+						align: "start",
+						className: "max-h-80 w-60 overflow-y-auto",
+						children: [
+							/* @__PURE__ */ jsx(DropdownMenuItem, {
+								onClick: () => loadSnapshot(tree?.name || "Main tree", tree?.nodes, tree?.connections),
+								children: "Current project tree"
+							}),
+							(tree?.tabs || []).length > 1 && /* @__PURE__ */ jsx(DropdownMenuSeparator, {}),
+							(tree?.tabs || []).length > 1 && /* @__PURE__ */ jsx(DropdownMenuLabel, { children: "Project tabs" }),
+							(tree?.tabs || []).filter((t) => t.id !== tree.activeTabId).map((t) => /* @__PURE__ */ jsx(DropdownMenuItem, {
+								onClick: () => loadSnapshot(t.name, t.nodes, t.connections),
+								children: t.name
+							}, t.id)),
+							/* @__PURE__ */ jsx(SaveItems, { onPick: (s) => {
+								const t = ensureTabs(s.tree);
+								loadSnapshot(s.name || "Saved tree", t.nodes, t.connections);
+							} })
+						]
+					})] }),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						className: "h-7 px-2",
+						title: "Import a skill tree .json file",
+						onClick: () => fileRef.current?.click(),
+						children: /* @__PURE__ */ jsx(Upload, { className: "h-4 w-4" })
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						className: "h-7 px-2",
+						title: "Fit the tree in view",
+						onClick: fit,
+						children: /* @__PURE__ */ jsx(Maximize, { className: "h-4 w-4" })
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						className: "h-7 px-2",
+						title: "Close this panel — its tree and invested points are kept",
+						onClick: () => setSideTree(slot, {
+							...st,
+							closed: true
+						}),
+						children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+					})
+				]
+			}),
+			/* @__PURE__ */ jsx("input", {
+				ref: fileRef,
+				type: "file",
+				accept: ".json",
+				className: "hidden",
+				onChange: onFile
+			}),
+			Array.isArray(st?.tabs) && st.tabs.length > 1 && /* @__PURE__ */ jsx("div", {
+				className: "flex flex-wrap items-center gap-1 border-b bg-muted/30 px-1.5 py-1",
+				children: st.tabs.map((tab) => /* @__PURE__ */ jsx("button", {
+					type: "button",
+					title: tab.name,
+					onClick: () => setSideTree(slot, {
+						...st,
+						...tab,
+						activeKey: tab.key
+					}),
+					className: `max-w-48 truncate rounded border px-2 py-0.5 text-[10px] ${tab.key === st.activeKey ? "border-primary/60 bg-primary/10 font-semibold text-foreground" : "border-border text-muted-foreground hover:bg-accent"}`,
+					children: tab.name
+				}, tab.key))
+			}),
+			st?.subtreeHostId ? /* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
+				title: "Tree-specific points granted by the node that owns this subtree",
+				children: [/* @__PURE__ */ jsxs("span", { children: [
+					/* @__PURE__ */ jsx("span", {
+						className: "text-amber-600",
+						children: st.poolName || "Subtree"
+					}),
+					" ",
+					/* @__PURE__ */ jsxs("span", {
+						className: "font-mono",
+						children: [
+							nodes.reduce((a, m) => m.__autoGranted ? a : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0),
+							"/",
+							Number(st.grantedPoints) || 0
+						]
+					})
+				] }), st.exclusive && /* @__PURE__ */ jsx("span", {
+					className: "text-rose-600",
+					children: "Mutually exclusive"
+				})]
+			}) : /* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
+				title: "Shared by every tree — points invested in any panel draw from these pools",
+				children: [
+					/* @__PURE__ */ jsxs("span", { children: [
+						/* @__PURE__ */ jsx("span", {
+							className: "text-amber-600",
+							children: "Heritage"
+						}),
+						" ",
+						/* @__PURE__ */ jsxs("span", {
+							className: "font-mono",
+							children: [
+								usage.heritage,
+								"/",
+								eff.heritage.total
+							]
+						})
+					] }),
+					/* @__PURE__ */ jsxs("span", { children: [
+						/* @__PURE__ */ jsx("span", {
+							className: "text-sky-600",
+							children: "Talent"
+						}),
+						" ",
+						/* @__PURE__ */ jsxs("span", {
+							className: "font-mono",
+							children: [
+								usage.talent,
+								"/",
+								eff.talent.total
+							]
+						})
+					] }),
+					/* @__PURE__ */ jsxs("span", { children: [
+						/* @__PURE__ */ jsx("span", {
+							className: "text-violet-600",
+							children: "Attribute"
+						}),
+						" ",
+						/* @__PURE__ */ jsxs("span", {
+							className: "font-mono",
+							children: [
+								usage.attribute,
+								"/",
+								eff.attribute.total
+							]
+						})
+					] })
+				]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				ref: containerRef,
+				className: "relative flex-1 touch-none overflow-hidden bg-background",
+				onPointerDown,
+				onPointerMove,
+				onPointerUp,
+				onPointerCancel: onPointerUp,
+				onWheel,
+				children: [nodes.length === 0 ? /* @__PURE__ */ jsx("div", {
+					className: "flex h-full flex-col items-center justify-center gap-2 p-4 text-center",
+					children: /* @__PURE__ */ jsx("p", {
+						className: "text-xs text-muted-foreground",
+						children: "No tree loaded in this panel — use Load or Import above. E.g. one side for skills, the other for heritage."
+					})
+				}) : /* @__PURE__ */ jsxs("div", {
+					style: {
+						position: "absolute",
+						left: 0,
+						top: 0,
+						transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`,
+						transformOrigin: "0 0",
+						willChange: "transform"
+					},
+					children: [/* @__PURE__ */ jsx(ConnectionLayer, {
+						connections,
+						nodesById,
+						visibleIds,
+						style: ui?.connectionStyle || "curved",
+						showArrows: true,
+						connector: settings.connector,
+						altActive: false,
+						hidden: hiddenIds,
+						selectedId: null,
+						onConnPointerDown: () => {},
+						onConnSelect: () => {},
+						onConnContextMenu: () => {}
+					}), visibleNodes.map((n) => /* @__PURE__ */ jsx(SkillNodeView, {
+						node: n,
+						editable: false,
+						selected: selectedId === n.id,
+						showNames: true,
+						available: isAvailable(n, nodesById, unlockedNames),
+						placeholder: settings.placeholderImage,
+						placeholderFrame: settings.placeholderFrame,
+						highlighted: false,
+						onSelect: () => {},
+						onPointerDown: onNodePointerDown,
+						onHover,
+						onHoverMove,
+						onHoverEnd,
+						onContextMenu: () => {},
+						onInvest,
+						onOpenSubtree: isMain || st?.subtreeHostId && Array.isArray(st?.hostChain) ? (n) => setSubtreePickNode(n) : void 0,
+						dblClickInvest: floating
+					}, n.id))]
+				}), /* @__PURE__ */ jsx(NodeTooltip, {
+					hover,
+					nodesById
+				})]
+			}),
+			selected && /* @__PURE__ */ jsxs("div", {
+				className: "max-h-28 shrink-0 overflow-y-auto border-t p-2 text-xs",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex items-center justify-between gap-2",
+						children: [/* @__PURE__ */ jsx("span", {
+							className: "truncate font-semibold",
+							children: selected.name
+						}), /* @__PURE__ */ jsxs("span", {
+							className: "shrink-0 text-[10px] text-muted-foreground",
+							children: [
+								selected.currentPoints || 0,
+								"/",
+								selected.maxPoints,
+								selected.__autoGranted ? " · granted free" : ""
+							]
+						})]
+					}),
+					(selected.talentTypes?.length || selected.talentType || Number(selected.levelReq) > 0) && /* @__PURE__ */ jsxs("div", {
+						className: "text-[10px] text-muted-foreground",
+						children: [selected.talentTypes?.length ? selected.talentTypes.join(", ") : selected.talentType || "", Number(selected.levelReq) > 0 ? ` · requires level ${selected.levelReq}` : ""]
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "mt-1 text-[11px] leading-snug text-muted-foreground",
+						children: selected.description || "No description."
+					})
+				]
+			}),
+			/* @__PURE__ */ jsx(AbilityChoiceDialog, {
+				node: choiceNode,
+				nodesById,
+				choices: effChoices,
+				perTake: choiceNode ? Number(choiceNode.optionsPerTake) || 1 : 1,
+				onPick: (optionNames) => {
+					commitInvest(choiceNode, 1, optionNames);
+					setChoiceNode(null);
+				},
+				onClose: () => setChoiceNode(null)
+			}),
+			/* @__PURE__ */ jsx(SubtreePickerDialog, {
+				node: subtreePickNode,
+				sideTrees: tree?.sideTrees,
+				onPick: (i) => {
+					const n = subtreePickNode;
+					const parentChain = st?.hostChain || (st?.subtreeHostId ? [{
+						hostId: st.subtreeHostId,
+						subIndex: st.subtreeIndex ?? 0
+					}] : []);
+					openSubtreePanel(n.__originalId || n.id, i, parentChain);
+					setSubtreePickNode(null);
+				},
+				onClose: () => setSubtreePickNode(null)
+			})
+		]
+	});
+}
+function SaveItems({ onPick }) {
+	const [saves, setSaves] = useState([]);
+	useEffect(() => {
+		let alive = true;
+		listCharacterSaves().then((rows) => alive && setSaves(rows)).catch(() => {});
+		return () => {
+			alive = false;
+		};
+	}, []);
+	if (!saves.length) return null;
+	return /* @__PURE__ */ jsxs(Fragment, { children: [
+		/* @__PURE__ */ jsx(DropdownMenuSeparator, {}),
+		/* @__PURE__ */ jsx(DropdownMenuLabel, { children: "Saved characters" }),
+		saves.map((s) => /* @__PURE__ */ jsx(DropdownMenuItem, {
+			onClick: () => onPick(s),
+			children: s.name
+		}, s.id))
+	] });
+}
+//#endregion
+//#region src/components/skilltree/StackSplitter.jsx
+function StackSplitter({ value = .5, onChange, min = .18 }) {
+	return /* @__PURE__ */ jsx("div", {
+		role: "separator",
+		"aria-orientation": "horizontal",
+		title: "Drag to resize both trees",
+		className: "h-1.5 shrink-0 cursor-row-resize bg-border/60 hover:bg-primary/50",
+		onPointerDown: (e) => {
+			e.preventDefault();
+			const parent = e.currentTarget.parentElement;
+			if (!parent) return;
+			const height = Math.max(1, parent.getBoundingClientRect().height);
+			const startY = e.clientY;
+			const start = value;
+			const move = (ev) => {
+				const next = Math.min(1 - min, Math.max(min, start + (ev.clientY - startY) / height));
+				onChange?.(next);
+			};
+			const up = () => {
+				window.removeEventListener("pointermove", move);
+				window.removeEventListener("pointerup", up);
+			};
+			window.addEventListener("pointermove", move);
+			window.addEventListener("pointerup", up);
+		}
+	});
+}
+//#endregion
+//#region src/components/skilltree/ViewTreeColumn.jsx
+var SPLIT_KEY = "skilltree:sideSplit";
+function ViewTreeColumn() {
+	const { sideTrees } = useTree();
+	const [width, setWidth] = usePanelWidth(460, 260, 900, "skilltree:sideWidth:stack");
+	const [split, setSplit] = useState(.5);
+	useEffect(() => {
+		const saved = Number(localStorage.getItem(SPLIT_KEY));
+		if (saved >= .18 && saved <= .82) setSplit(saved);
+	}, []);
+	const left = !!sideTrees?.left && !sideTrees.left.closed;
+	const right = !!sideTrees?.right && !sideTrees.right.closed;
+	if (!left && !right) return null;
+	const updateSplit = (value) => {
+		setSplit(value);
+		try {
+			localStorage.setItem(SPLIT_KEY, String(value));
+		} catch {}
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "relative flex min-h-0 shrink-0 flex-col border-r bg-card",
+		style: { width },
+		children: [
+			/* @__PURE__ */ jsx(PanelResizer, {
+				width,
+				onResize: setWidth,
+				edge: "right"
+			}),
+			left && /* @__PURE__ */ jsx("div", {
+				className: "flex min-h-0 min-w-0 flex-col",
+				style: {
+					flexGrow: right ? split : 1,
+					flexBasis: 0
+				},
+				children: /* @__PURE__ */ jsx(SideTreePanel, {
+					slot: "left",
+					stacked: true
+				})
+			}),
+			left && right && /* @__PURE__ */ jsx(StackSplitter, {
+				value: split,
+				onChange: updateSplit
+			}),
+			right && /* @__PURE__ */ jsx("div", {
+				className: "flex min-h-0 min-w-0 flex-col",
+				style: {
+					flexGrow: left ? 1 - split : 1,
+					flexBasis: 0
+				},
+				children: /* @__PURE__ */ jsx(SideTreePanel, {
+					slot: "right",
+					stacked: true
+				})
 			})
 		]
 	});
@@ -46677,76 +47595,6 @@ function ReferenceIndexPage({ onExit }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/ui/dropdown-menu.jsx
-var DropdownMenu = DropdownMenuPrimitive.Root;
-var DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
-var DropdownMenuSubTrigger = React.forwardRef(({ className, inset, children, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.SubTrigger, {
-	ref,
-	className: cn("flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0", inset && "pl-8", className),
-	...props,
-	children: [children, /* @__PURE__ */ jsx(ChevronRight, { className: "ml-auto" })]
-}));
-DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
-var DropdownMenuSubContent = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.SubContent, {
-	ref,
-	className: cn("z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2", className),
-	...props
-}));
-DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName;
-var DropdownMenuContent = React.forwardRef(({ className, sideOffset = 4, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Portal, { children: /* @__PURE__ */ jsx(DropdownMenuPrimitive.Content, {
-	ref,
-	sideOffset,
-	className: cn("z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2", className),
-	...props
-}) }));
-DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
-var DropdownMenuItem = React.forwardRef(({ className, inset, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Item, {
-	ref,
-	className: cn("relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0", inset && "pl-8", className),
-	...props
-}));
-DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
-var DropdownMenuCheckboxItem = React.forwardRef(({ className, children, checked, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.CheckboxItem, {
-	ref,
-	className: cn("relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50", className),
-	checked,
-	...props,
-	children: [/* @__PURE__ */ jsx("span", {
-		className: "absolute left-2 flex h-3.5 w-3.5 items-center justify-center",
-		children: /* @__PURE__ */ jsx(DropdownMenuPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx(Check, { className: "h-4 w-4" }) })
-	}), children]
-}));
-DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName;
-var DropdownMenuRadioItem = React.forwardRef(({ className, children, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.RadioItem, {
-	ref,
-	className: cn("relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50", className),
-	...props,
-	children: [/* @__PURE__ */ jsx("span", {
-		className: "absolute left-2 flex h-3.5 w-3.5 items-center justify-center",
-		children: /* @__PURE__ */ jsx(DropdownMenuPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx(Circle, { className: "h-2 w-2 fill-current" }) })
-	}), children]
-}));
-DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName;
-var DropdownMenuLabel = React.forwardRef(({ className, inset, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Label, {
-	ref,
-	className: cn("px-2 py-1.5 text-sm font-semibold", inset && "pl-8", className),
-	...props
-}));
-DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName;
-var DropdownMenuSeparator = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DropdownMenuPrimitive.Separator, {
-	ref,
-	className: cn("-mx-1 my-1 h-px bg-muted", className),
-	...props
-}));
-DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
-var DropdownMenuShortcut = ({ className, ...props }) => {
-	return /* @__PURE__ */ jsx("span", {
-		className: cn("ml-auto text-xs tracking-widest opacity-60", className),
-		...props
-	});
-};
-DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
 //#endregion
 //#region src/lib/homesteadEdit.js
 var clone = (x) => JSON.parse(JSON.stringify(x));
@@ -74218,768 +75066,6 @@ function Metric({ icon: Icon, label, value }) {
 	});
 }
 //#endregion
-//#region src/components/skilltree/SideTreePanel.jsx
-function prefixTree(nodes, connections, prefix) {
-	const idMap = {};
-	nodes.forEach((n) => idMap[n.id] = `${prefix}-${n.id}`);
-	return {
-		nodes: nodes.map((n) => ({
-			...n,
-			id: idMap[n.id],
-			dependencies: (n.dependencies || []).map((d) => idMap[d]).filter(Boolean),
-			exclusiveWith: (n.exclusiveWith || []).map((d) => idMap[d]).filter(Boolean)
-		})),
-		connections: connections.filter((c) => idMap[c.from] && idMap[c.to]).map((c) => ({
-			...c,
-			id: `${idMap[c.from]}->${idMap[c.to]}`,
-			from: idMap[c.from],
-			to: idMap[c.to]
-		}))
-	};
-}
-function SideTreePanel({ slot, floating = false }) {
-	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel } = useTree();
-	const st = (sideTrees || {})[slot];
-	const [width, setPanelWidth] = usePanelWidth(440, 260, 720, "skilltree:sideWidth:" + slot);
-	const [view, setView] = useState({
-		panX: 0,
-		panY: 0,
-		zoom: .35
-	});
-	const [selectedId, setSelectedId] = useState(null);
-	const [choiceNode, setChoiceNode] = useState(null);
-	const [subtreePickNode, setSubtreePickNode] = useState(null);
-	const [vp, setVp] = useState({
-		w: 440,
-		h: 500
-	});
-	const containerRef = useRef(null);
-	const fileRef = useRef(null);
-	const dragRef = useRef(null);
-	const isMain = st?.kind === "main";
-	const nodes = isMain ? tree?.nodes || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.nodes || [] : [];
-	const connections = isMain ? tree?.connections || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.connections || [] : [];
-	const nodesById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
-	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
-	const hiddenIds = useMemo(() => {
-		if (!character?.hideLockedNodes) return null;
-		const level = character.level || 1;
-		const includeLevel = !!character.hideLockedIncludeLevel;
-		const ids = /* @__PURE__ */ new Set();
-		for (const n of nodes) {
-			if ((n.currentPoints || 0) > 0) continue;
-			if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
-			else if (includeLevel && Number(n.levelReq) > level) ids.add(n.id);
-		}
-		return ids;
-	}, [
-		character,
-		nodes,
-		nodesById,
-		unlockedNames
-	]);
-	const region = useMemo(() => {
-		const z = view.zoom || .1;
-		const step = 600;
-		const m = 900;
-		const f = (v) => Math.floor(v / step) * step;
-		const c = (v) => Math.ceil(v / step) * step;
-		return {
-			minX: f(-view.panX / z) - m,
-			maxX: c((vp.w - view.panX) / z) + m,
-			minY: f(-view.panY / z) - m,
-			maxY: c((vp.h - view.panY) / z) + m
-		};
-	}, [view, vp]);
-	const visibleNodes = useMemo(() => nodes.filter((n) => !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY), [
-		nodes,
-		region,
-		hiddenIds
-	]);
-	const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
-	const title = isMain ? tree?.name || "Main tree" : st?.name || "Tree";
-	const levels = settings?.library?.levels || [];
-	const usage = poolUsage(mergedTree);
-	const eff = effectivePools(pools, character, mergedTree, levels);
-	useEffect(() => {
-		const el = containerRef.current;
-		if (!el) return;
-		const ro = new ResizeObserver(() => setVp({
-			w: el.clientWidth,
-			h: el.clientHeight
-		}));
-		ro.observe(el);
-		setVp({
-			w: el.clientWidth,
-			h: el.clientHeight
-		});
-		return () => ro.disconnect();
-	}, [st]);
-	const bounds = useMemo(() => {
-		if (!nodes.length) return null;
-		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-		for (const n of nodes) {
-			minX = Math.min(minX, n.x);
-			minY = Math.min(minY, n.y);
-			maxX = Math.max(maxX, n.x);
-			maxY = Math.max(maxY, n.y);
-		}
-		return {
-			minX,
-			minY,
-			maxX,
-			maxY
-		};
-	}, [nodes]);
-	const fit = () => {
-		if (!bounds) return;
-		const w = bounds.maxX - bounds.minX + 200;
-		const h = bounds.maxY - bounds.minY + 200;
-		const vw = containerRef.current?.clientWidth || vp.w || 440;
-		const vh = containerRef.current?.clientHeight || vp.h || 500;
-		const z = Math.min(vw / w, vh / h, 1);
-		setView({
-			zoom: z,
-			panX: -(bounds.minX - 100) * z,
-			panY: -(bounds.minY - 100) * z
-		});
-	};
-	const startNode = (() => {
-		if (!nodes.length) return null;
-		if (isMain) {
-			const id = String(settings?.cameraStartNode || "");
-			const configured = id ? nodesById[id] : null;
-			if (configured) return configured;
-		}
-		return nodes.find((n) => n.__autoGranted) || nodes[0];
-	})();
-	const sig = nodes.length + ":" + (nodes[0]?.id || "") + ":" + (startNode?.id || "");
-	useEffect(() => {
-		if (startNode) {
-			const vw = containerRef.current?.clientWidth || vp.w || 440;
-			const vh = containerRef.current?.clientHeight || vp.h || 500;
-			const z = Math.max(.4, Math.min(.8, view.zoom || .5));
-			setView({
-				zoom: z,
-				panX: vw / 2 - startNode.x * z,
-				panY: vh / 2 - startNode.y * z
-			});
-		}
-		setSelectedId(null);
-	}, [sig]);
-	useEffect(() => {
-		if (!treeFocus?.nodeId) return;
-		const n = nodesById[treeFocus.nodeId];
-		if (!n) return;
-		const z = Math.max(view.zoom || .35, .5);
-		setView({
-			zoom: z,
-			panX: (vp.w || 440) / 2 - n.x * z,
-			panY: (vp.h || 500) / 2 - n.y * z
-		});
-		setSelectedId(n.id);
-		clearTreeFocus();
-	}, [treeFocus]);
-	const onPointerDown = (e) => {
-		if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
-		dragRef.current = {
-			sx: e.clientX,
-			sy: e.clientY,
-			panX: view.panX,
-			panY: view.panY
-		};
-		e.currentTarget.setPointerCapture?.(e.pointerId);
-		setSelectedId(null);
-	};
-	const onPointerMove = (e) => {
-		const d = dragRef.current;
-		if (!d) return;
-		const dx = e.clientX - d.sx;
-		const dy = e.clientY - d.sy;
-		if (Math.hypot(dx, dy) > 4) dragRef.current.moved = true;
-		setView((v) => ({
-			...v,
-			panX: d.panX + dx,
-			panY: d.panY + dy
-		}));
-	};
-	const onPointerUp = () => {
-		dragRef.current = null;
-	};
-	const onWheel = (e) => {
-		e.preventDefault();
-		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-		const rect = containerRef.current.getBoundingClientRect();
-		const sx = e.clientX - rect.left;
-		const sy = e.clientY - rect.top;
-		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-		setView((v) => {
-			const z = Math.min(2.5, Math.max(.05, (v.zoom || .3) * factor));
-			const wx = (sx - v.panX) / (v.zoom || .3);
-			const wy = (sy - v.panY) / (v.zoom || .3);
-			return {
-				zoom: z,
-				panX: sx - wx * z,
-				panY: sy - wy * z
-			};
-		});
-	};
-	const [hover, setHover] = useState(null);
-	const hoverTimer = useRef(null);
-	const overRef = useRef(false);
-	const pendingNode = useRef(null);
-	const pendingPos = useRef({
-		x: 0,
-		y: 0
-	});
-	const clampPos = (e) => ({
-		x: Math.min(e.clientX + 14, window.innerWidth - 280),
-		y: Math.min(e.clientY + 14, window.innerHeight - 240)
-	});
-	const onHover = (e, node) => {
-		overRef.current = true;
-		pendingNode.current = node;
-		pendingPos.current = clampPos(e);
-		clearTimeout(hoverTimer.current);
-		hoverTimer.current = setTimeout(() => {
-			hoverTimer.current = null;
-			setHover({
-				node: pendingNode.current,
-				...pendingPos.current
-			});
-		}, 1200);
-	};
-	const onHoverMove = (e) => {
-		if (!overRef.current || dragRef.current) return;
-		pendingPos.current = clampPos(e);
-		setHover((h) => h ? {
-			...h,
-			...pendingPos.current
-		} : h);
-		if (!hoverTimer.current) hoverTimer.current = setTimeout(() => {
-			hoverTimer.current = null;
-			setHover({
-				node: pendingNode.current,
-				...pendingPos.current
-			});
-		}, 300);
-	};
-	const onHoverEnd = () => {
-		overRef.current = false;
-		clearTimeout(hoverTimer.current);
-		hoverTimer.current = null;
-		setHover(null);
-	};
-	useEffect(() => () => clearTimeout(hoverTimer.current), []);
-	const applyPoints = (id, delta) => {
-		if (isMain) {
-			investPoint(id, delta);
-			return;
-		}
-		const updated = nodes.map((m) => {
-			if (m.id !== id) return m;
-			const rawMax = Number(m.maxPoints);
-			const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
-			const cur = Number(m.currentPoints) || 0;
-			const next = Math.max(0, Math.min(max, cur + delta));
-			return cur === 0 && next > 0 ? {
-				...m,
-				currentPoints: next,
-				acquiredOrder: m.acquiredOrder || Date.now()
-			} : {
-				...m,
-				currentPoints: next
-			};
-		});
-		const nextSt = Array.isArray(st.tabs) && st.activeKey ? {
-			...st,
-			nodes: updated,
-			tabs: st.tabs.map((t) => t.key === st.activeKey ? {
-				...t,
-				nodes: updated
-			} : t)
-		} : {
-			...st,
-			nodes: updated
-		};
-		setSideTree(slot, nextSt);
-		const target = updated.find((m) => m.id === id);
-		if (st.subtreeHostId && Array.isArray(target?.__path)) {
-			const chain = st.hostChain || [{
-				hostId: st.subtreeHostId,
-				subIndex: st.subtreeIndex ?? 0
-			}];
-			setSubtreeNodePoints(chain, target.__path, target.currentPoints || 0);
-		}
-	};
-	const commitInvest = (n, delta, optionNames) => {
-		applyPoints(n.id, delta);
-		if (delta !== 0 && (n.proficiencies || []).length) setCharacter((c) => ({
-			...c,
-			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
-		}));
-		if (delta > 0 && Array.isArray(optionNames) && optionNames.length) setCharacter((c) => ({
-			...c,
-			abilityChoices: {
-				...c.abilityChoices || {},
-				[n.id]: [...c.abilityChoices?.[n.id] || [], ...optionNames]
-			}
-		}));
-	};
-	const handleInvest = (n, delta) => {
-		if ((n.nodeType || "") === "informative") {
-			toast.error("Informative nodes are reference only — they can't be invested.");
-			return;
-		}
-		const isSub = !!st?.subtreeHostId;
-		if (isSub) {
-			const host = (tree?.nodes || []).find((m) => m.id === st.subtreeHostId);
-			if (!host || (host.currentPoints || 0) <= 0) {
-				toast.error(`Unlock “${host?.name || st.name || "the node"}” first — invest a point in it.`);
-				return;
-			}
-			if ((st.abilityReqs || []).length) {
-				const ab = abilityReqStatus(st.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
-				if (!ab.ok) {
-					toast.error(`Requires ${ab.missing.join(", ")} before entering this tree.`);
-					return;
-				}
-			}
-		}
-		if (delta > 0) {
-			const max = nodeMaxPoints(n);
-			const cur = Number(n.currentPoints) || 0;
-			if (cur >= max) {
-				if (!isSub && (n.subtrees || []).length) {
-					setSubtreePickNode(n);
-					return;
-				}
-				toast.error("Already at max points.");
-				return;
-			}
-			const gate = tierGate(n, character.level || 1);
-			if (!gate.ok) {
-				toast.error(gate.reason);
-				return;
-			}
-			if (isSub && st.exclusive && cur === 0) {
-				const inSet = new Set(nodes.map((m) => m.id));
-				const takenRoot = !(n.dependencies || []).some((d) => inSet.has(d)) ? nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && !(m.dependencies || []).some((d) => inSet.has(d))) : null;
-				if (takenRoot) {
-					toast.error(`Mutually exclusive with “${takenRoot.name || "another branch"}” — refund it first.`);
-					return;
-				}
-			}
-			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
-				const other = nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && ((n.exclusiveWith || []).includes(m.id) || (m.exclusiveWith || []).includes(n.id)));
-				toast.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
-				return;
-			}
-			if (!isAvailable(n, nodesById, unlockedNames) && cur === 0) {
-				toast.error("Prerequisites not met — invest in the required skills first.");
-				return;
-			}
-			if (cur === 0) {
-				const ab = abilityReqStatus(n.abilityReqs, statVars(character, mergedTree), character.modifiers?.ability);
-				if (!ab.ok) {
-					toast.error(`Requires ${ab.missing.join(", ")} first.`);
-					return;
-				}
-			}
-			const profs = character.proficiencies || {};
-			const missing = (n.requiredProficiencies || []).filter((r) => !(profs[r.type] || []).some((p) => (p.name || "").trim().toLowerCase() === String(r.name || "").trim().toLowerCase()));
-			if (missing.length) {
-				toast.error(`Requires proficiency in ${missing.map((m) => m.name || "?").join(", ")} first.`);
-				return;
-			}
-			const cost = Math.max(0, Number(n.cost ?? 1) || 0);
-			if (isSub) {
-				if (cost > 0) {
-					const spent = nodes.reduce((a, m) => m.__autoGranted ? a : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0);
-					const grant = Number(st.grantedPoints) || 0;
-					if (spent + cost > grant) {
-						toast.error(`No ${st.poolName || "Subtree"} points left — this tree grants ${grant}.`);
-						return;
-					}
-				}
-			} else {
-				const poolKey = poolForNode(n);
-				if (cost > 0 && poolKey) {
-					const effPools = effectivePools(pools, character, mergedTree, levels);
-					if (usage[poolKey] + cost > effPools[poolKey].total) {
-						toast.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
-						return;
-					}
-				}
-			}
-			if ((n.options || []).length) {
-				setChoiceNode(n);
-				return;
-			}
-			commitInvest(n, 1);
-			if (!isSub && (n.subtrees || []).length) {
-				setSubtreePickNode(n);
-				return;
-			}
-			return;
-		}
-		if (n.__autoGranted) {
-			toast.error(`“${n.name || "This node"}” is granted by the talent and can't be refunded.`);
-			return;
-		}
-		if ((n.options || []).length) {
-			const taken = character.abilityChoices?.[n.id] || [];
-			if (taken.length) {
-				const perTake = Math.max(1, Number(n.optionsPerTake) || 1);
-				setCharacter((c) => ({
-					...c,
-					abilityChoices: {
-						...c.abilityChoices || {},
-						[n.id]: taken.slice(0, Math.max(0, taken.length - perTake))
-					}
-				}));
-			}
-		}
-		commitInvest(n, -1);
-	};
-	const investStable = useRef(handleInvest);
-	investStable.current = handleInvest;
-	const onInvest = (node, delta) => investStable.current(node, delta);
-	const loadSnapshot = (name, n, c) => {
-		const p = prefixTree(n || [], c || [], slot);
-		setSideTree(slot, {
-			kind: "snapshot",
-			name: name || "Tree",
-			...p
-		});
-		toast.success(`Loaded "${name || "Tree"}" into the ${slot} panel.`);
-	};
-	const onFile = (e) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
-		const reader = new FileReader();
-		reader.onload = () => {
-			try {
-				const t = migrateTree(normalizeTree(JSON.parse(reader.result)));
-				loadSnapshot(t.name || "Imported tree", t.nodes, t.connections);
-			} catch {
-				toast.error("Invalid skill tree file.");
-			}
-		};
-		reader.readAsText(file);
-		e.target.value = "";
-	};
-	const onNodePointerDown = (e, node) => {
-		if (e.button !== 0) return;
-		e.stopPropagation();
-		setSelectedId(node.id);
-	};
-	if (!tree || !st || st.closed) return null;
-	const selected = selectedId ? nodesById[selectedId] : null;
-	const effChoices = effectiveChoices(character, mergedTree);
-	return /* @__PURE__ */ jsxs("div", {
-		className: cn("flex h-full min-h-0 flex-col bg-card", !floating && "relative shrink-0", !floating && (slot === "left" ? "border-r" : "border-l")),
-		style: floating ? void 0 : { width },
-		children: [
-			!floating && /* @__PURE__ */ jsx(PanelResizer, {
-				width,
-				onResize: setPanelWidth,
-				edge: slot === "left" ? "right" : "left"
-			}),
-			/* @__PURE__ */ jsxs("div", {
-				className: "flex items-center gap-1 border-b px-2 py-1.5",
-				children: [
-					/* @__PURE__ */ jsx("span", {
-						className: "min-w-0 flex-1 truncate text-xs font-semibold",
-						children: title
-					}),
-					/* @__PURE__ */ jsxs(DropdownMenu, { children: [/* @__PURE__ */ jsx(DropdownMenuTrigger, {
-						asChild: true,
-						children: /* @__PURE__ */ jsxs(Button, {
-							size: "sm",
-							variant: "ghost",
-							className: "h-7 px-2 text-xs",
-							title: "Load a saved skill tree into this panel",
-							children: [/* @__PURE__ */ jsx(FolderOpen, { className: "h-4 w-4" }), " Load"]
-						})
-					}), /* @__PURE__ */ jsxs(DropdownMenuContent, {
-						align: "start",
-						className: "max-h-80 w-60 overflow-y-auto",
-						children: [
-							/* @__PURE__ */ jsx(DropdownMenuItem, {
-								onClick: () => loadSnapshot(tree?.name || "Main tree", tree?.nodes, tree?.connections),
-								children: "Current project tree"
-							}),
-							(tree?.tabs || []).length > 1 && /* @__PURE__ */ jsx(DropdownMenuSeparator, {}),
-							(tree?.tabs || []).length > 1 && /* @__PURE__ */ jsx(DropdownMenuLabel, { children: "Project tabs" }),
-							(tree?.tabs || []).filter((t) => t.id !== tree.activeTabId).map((t) => /* @__PURE__ */ jsx(DropdownMenuItem, {
-								onClick: () => loadSnapshot(t.name, t.nodes, t.connections),
-								children: t.name
-							}, t.id)),
-							/* @__PURE__ */ jsx(SaveItems, { onPick: (s) => {
-								const t = ensureTabs(s.tree);
-								loadSnapshot(s.name || "Saved tree", t.nodes, t.connections);
-							} })
-						]
-					})] }),
-					/* @__PURE__ */ jsx(Button, {
-						size: "sm",
-						variant: "ghost",
-						className: "h-7 px-2",
-						title: "Import a skill tree .json file",
-						onClick: () => fileRef.current?.click(),
-						children: /* @__PURE__ */ jsx(Upload, { className: "h-4 w-4" })
-					}),
-					/* @__PURE__ */ jsx(Button, {
-						size: "sm",
-						variant: "ghost",
-						className: "h-7 px-2",
-						title: "Fit the tree in view",
-						onClick: fit,
-						children: /* @__PURE__ */ jsx(Maximize, { className: "h-4 w-4" })
-					}),
-					/* @__PURE__ */ jsx(Button, {
-						size: "sm",
-						variant: "ghost",
-						className: "h-7 px-2",
-						title: "Close this panel — its tree and invested points are kept",
-						onClick: () => setSideTree(slot, {
-							...st,
-							closed: true
-						}),
-						children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
-					})
-				]
-			}),
-			/* @__PURE__ */ jsx("input", {
-				ref: fileRef,
-				type: "file",
-				accept: ".json",
-				className: "hidden",
-				onChange: onFile
-			}),
-			Array.isArray(st?.tabs) && st.tabs.length > 1 && /* @__PURE__ */ jsx("div", {
-				className: "flex flex-wrap items-center gap-1 border-b bg-muted/30 px-1.5 py-1",
-				children: st.tabs.map((tab) => /* @__PURE__ */ jsx("button", {
-					type: "button",
-					title: tab.name,
-					onClick: () => setSideTree(slot, {
-						...st,
-						...tab,
-						activeKey: tab.key
-					}),
-					className: `max-w-48 truncate rounded border px-2 py-0.5 text-[10px] ${tab.key === st.activeKey ? "border-primary/60 bg-primary/10 font-semibold text-foreground" : "border-border text-muted-foreground hover:bg-accent"}`,
-					children: tab.name
-				}, tab.key))
-			}),
-			st?.subtreeHostId ? /* @__PURE__ */ jsxs("div", {
-				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
-				title: "Tree-specific points granted by the node that owns this subtree",
-				children: [/* @__PURE__ */ jsxs("span", { children: [
-					/* @__PURE__ */ jsx("span", {
-						className: "text-amber-600",
-						children: st.poolName || "Subtree"
-					}),
-					" ",
-					/* @__PURE__ */ jsxs("span", {
-						className: "font-mono",
-						children: [
-							nodes.reduce((a, m) => m.__autoGranted ? a : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0),
-							"/",
-							Number(st.grantedPoints) || 0
-						]
-					})
-				] }), st.exclusive && /* @__PURE__ */ jsx("span", {
-					className: "text-rose-600",
-					children: "Mutually exclusive"
-				})]
-			}) : /* @__PURE__ */ jsxs("div", {
-				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
-				title: "Shared by every tree — points invested in any panel draw from these pools",
-				children: [
-					/* @__PURE__ */ jsxs("span", { children: [
-						/* @__PURE__ */ jsx("span", {
-							className: "text-amber-600",
-							children: "Heritage"
-						}),
-						" ",
-						/* @__PURE__ */ jsxs("span", {
-							className: "font-mono",
-							children: [
-								usage.heritage,
-								"/",
-								eff.heritage.total
-							]
-						})
-					] }),
-					/* @__PURE__ */ jsxs("span", { children: [
-						/* @__PURE__ */ jsx("span", {
-							className: "text-sky-600",
-							children: "Talent"
-						}),
-						" ",
-						/* @__PURE__ */ jsxs("span", {
-							className: "font-mono",
-							children: [
-								usage.talent,
-								"/",
-								eff.talent.total
-							]
-						})
-					] }),
-					/* @__PURE__ */ jsxs("span", { children: [
-						/* @__PURE__ */ jsx("span", {
-							className: "text-violet-600",
-							children: "Attribute"
-						}),
-						" ",
-						/* @__PURE__ */ jsxs("span", {
-							className: "font-mono",
-							children: [
-								usage.attribute,
-								"/",
-								eff.attribute.total
-							]
-						})
-					] })
-				]
-			}),
-			/* @__PURE__ */ jsxs("div", {
-				ref: containerRef,
-				className: "relative flex-1 touch-none overflow-hidden bg-background",
-				onPointerDown,
-				onPointerMove,
-				onPointerUp,
-				onPointerCancel: onPointerUp,
-				onWheel,
-				children: [nodes.length === 0 ? /* @__PURE__ */ jsx("div", {
-					className: "flex h-full flex-col items-center justify-center gap-2 p-4 text-center",
-					children: /* @__PURE__ */ jsx("p", {
-						className: "text-xs text-muted-foreground",
-						children: "No tree loaded in this panel — use Load or Import above. E.g. one side for skills, the other for heritage."
-					})
-				}) : /* @__PURE__ */ jsxs("div", {
-					style: {
-						position: "absolute",
-						left: 0,
-						top: 0,
-						transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`,
-						transformOrigin: "0 0",
-						willChange: "transform"
-					},
-					children: [/* @__PURE__ */ jsx(ConnectionLayer, {
-						connections,
-						nodesById,
-						visibleIds,
-						style: ui?.connectionStyle || "curved",
-						showArrows: true,
-						connector: settings.connector,
-						altActive: false,
-						hidden: hiddenIds,
-						selectedId: null,
-						onConnPointerDown: () => {},
-						onConnSelect: () => {},
-						onConnContextMenu: () => {}
-					}), visibleNodes.map((n) => /* @__PURE__ */ jsx(SkillNodeView, {
-						node: n,
-						editable: false,
-						selected: selectedId === n.id,
-						showNames: true,
-						available: isAvailable(n, nodesById, unlockedNames),
-						placeholder: settings.placeholderImage,
-						placeholderFrame: settings.placeholderFrame,
-						highlighted: false,
-						onSelect: () => {},
-						onPointerDown: onNodePointerDown,
-						onHover,
-						onHoverMove,
-						onHoverEnd,
-						onContextMenu: () => {},
-						onInvest,
-						onOpenSubtree: isMain || st?.subtreeHostId && Array.isArray(st?.hostChain) ? (n) => setSubtreePickNode(n) : void 0,
-						dblClickInvest: floating
-					}, n.id))]
-				}), /* @__PURE__ */ jsx(NodeTooltip, {
-					hover,
-					nodesById
-				})]
-			}),
-			selected && /* @__PURE__ */ jsxs("div", {
-				className: "max-h-28 shrink-0 overflow-y-auto border-t p-2 text-xs",
-				children: [
-					/* @__PURE__ */ jsxs("div", {
-						className: "flex items-center justify-between gap-2",
-						children: [/* @__PURE__ */ jsx("span", {
-							className: "truncate font-semibold",
-							children: selected.name
-						}), /* @__PURE__ */ jsxs("span", {
-							className: "shrink-0 text-[10px] text-muted-foreground",
-							children: [
-								selected.currentPoints || 0,
-								"/",
-								selected.maxPoints,
-								selected.__autoGranted ? " · granted free" : ""
-							]
-						})]
-					}),
-					(selected.talentTypes?.length || selected.talentType || Number(selected.levelReq) > 0) && /* @__PURE__ */ jsxs("div", {
-						className: "text-[10px] text-muted-foreground",
-						children: [selected.talentTypes?.length ? selected.talentTypes.join(", ") : selected.talentType || "", Number(selected.levelReq) > 0 ? ` · requires level ${selected.levelReq}` : ""]
-					}),
-					/* @__PURE__ */ jsx("p", {
-						className: "mt-1 text-[11px] leading-snug text-muted-foreground",
-						children: selected.description || "No description."
-					})
-				]
-			}),
-			/* @__PURE__ */ jsx(AbilityChoiceDialog, {
-				node: choiceNode,
-				nodesById,
-				choices: effChoices,
-				perTake: choiceNode ? Number(choiceNode.optionsPerTake) || 1 : 1,
-				onPick: (optionNames) => {
-					commitInvest(choiceNode, 1, optionNames);
-					setChoiceNode(null);
-				},
-				onClose: () => setChoiceNode(null)
-			}),
-			/* @__PURE__ */ jsx(SubtreePickerDialog, {
-				node: subtreePickNode,
-				sideTrees: tree?.sideTrees,
-				onPick: (i) => {
-					const n = subtreePickNode;
-					const parentChain = st?.hostChain || (st?.subtreeHostId ? [{
-						hostId: st.subtreeHostId,
-						subIndex: st.subtreeIndex ?? 0
-					}] : []);
-					openSubtreePanel(n.__originalId || n.id, i, parentChain);
-					setSubtreePickNode(null);
-				},
-				onClose: () => setSubtreePickNode(null)
-			})
-		]
-	});
-}
-function SaveItems({ onPick }) {
-	const [saves, setSaves] = useState([]);
-	useEffect(() => {
-		let alive = true;
-		listCharacterSaves().then((rows) => alive && setSaves(rows)).catch(() => {});
-		return () => {
-			alive = false;
-		};
-	}, []);
-	if (!saves.length) return null;
-	return /* @__PURE__ */ jsxs(Fragment, { children: [
-		/* @__PURE__ */ jsx(DropdownMenuSeparator, {}),
-		/* @__PURE__ */ jsx(DropdownMenuLabel, { children: "Saved characters" }),
-		saves.map((s) => /* @__PURE__ */ jsx(DropdownMenuItem, {
-			onClick: () => onPick(s),
-			children: s.name
-		}, s.id))
-	] });
-}
-//#endregion
 //#region src/components/skilltree/ActivityLogPanel.jsx
 function ActivityLogPanel() {
 	const { character, setCharacter } = useTree();
@@ -76862,14 +76948,10 @@ function Workspace() {
 					}),
 					mode === "sheet" && /* @__PURE__ */ jsxs("div", {
 						className: "flex flex-1 overflow-hidden",
-						children: [
-							/* @__PURE__ */ jsx(SideTreePanel, { slot: "left" }),
-							/* @__PURE__ */ jsx("div", {
-								className: "flex-1 overflow-auto bg-muted/50 p-3 sm:p-6",
-								children: /* @__PURE__ */ jsx(ViewSheet, { onExport: () => setExportOpen(true) })
-							}),
-							/* @__PURE__ */ jsx(SideTreePanel, { slot: "right" })
-						]
+						children: [/* @__PURE__ */ jsx(ViewTreeColumn, {}), /* @__PURE__ */ jsx("div", {
+							className: "flex-1 overflow-auto bg-muted/50 p-3 sm:p-6",
+							children: /* @__PURE__ */ jsx(ViewSheet, { onExport: () => setExportOpen(true) })
+						})]
 					}),
 					mode === "edit" && (ui.selectedConnectionId ? /* @__PURE__ */ jsx(ConnectorEditorPanel, {}) : /* @__PURE__ */ jsx(NodeEditorPanel, {})),
 					/* @__PURE__ */ jsx(PoolWindows, {

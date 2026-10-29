@@ -15,13 +15,13 @@ import { ActionActivationDialog } from "./ActionActivationDialog";
 import { DiceRoller } from "./DiceRoller";
 import { InfoTip } from "./InfoTip";
 import Rulebook from "@/components/rulebook/Rulebook";
-import { BookOpen, Dices, Download, PanelLeft, PanelRight, Play } from "lucide-react";
+import { BookOpen, Dices, Download, PanelBottom, PanelLeft, Play } from "lucide-react";
 
 // The tabbed "View" screen: a player-facing character sheet, organized like
 // the sheet but split across tabs — Character, Actions, Inventory, Spells and
-// a Shop for category-based purchases. Side tree panels can be shown on either
-// side (investing points there feeds this sheet); the working "Values" sheet
-// appears as one more tab, but only in dev mode.
+// a Shop for category-based purchases. The skill trees stack in one column on
+// the left (investing points there feeds this sheet); the working "Values"
+// sheet appears as one more tab, but only in dev mode.
 export function ViewSheet({ onExport }) {
   const { character, sideTrees, setSideTree } = useTree();
   const [actOpen, setActOpen] = useState(false);
@@ -49,10 +49,10 @@ export function ViewSheet({ onExport }) {
         <Button
           size="sm"
           variant={isOpen("right") ? "secondary" : "outline"}
-          title="Show a second tree panel on the right — e.g. one side for skills, one for heritage"
+          title="Show a second tree panel underneath the skill tree — e.g. one for skills, one for heritage. They share one width and a drag bar between them."
           onClick={() => togglePanel("right", { kind: "empty" })}
         >
-          <PanelRight className="mr-1 h-4 w-4" /> Second tree
+          <PanelBottom className="mr-1 h-4 w-4" /> Second tree
         </Button>
         <InfoTip label="Run one of the character's unlocked actions">
           <Button size="sm" variant="outline" onClick={() => setActOpen(true)}>

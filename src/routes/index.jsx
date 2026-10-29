@@ -8,6 +8,7 @@ import { ConnectorEditorPanel } from "@/components/skilltree/ConnectorEditorPane
 import { ContextMenu } from "@/components/skilltree/ContextMenu";
 import { SendToSubtreeDialog } from "@/components/skilltree/SendToSubtreeDialog";
 import { ViewSheet } from "@/components/skilltree/ViewSheet";
+import { ViewTreeColumn } from "@/components/skilltree/ViewTreeColumn";
 import { PinnedNodeCard } from "@/components/skilltree/PinnedNodeCard";
 import { LaunchMenu } from "@/components/skilltree/LaunchMenu";
 import { DMScreen } from "@/components/skilltree/DMScreen";
@@ -15,7 +16,6 @@ import { ReferenceIndexPage } from "@/components/skilltree/ReferenceIndexPage";
 import Homebuilder from "@/components/skilltree/homestead/Homebuilder";
 import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
 import { WorldBuilder } from "@/components/skilltree/world/WorldBuilder";
-import { SideTreePanel } from "@/components/skilltree/SideTreePanel";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
@@ -137,11 +137,10 @@ function Workspace() {
         )}
         {mode === "sheet" && (
           <div className="flex flex-1 overflow-hidden">
-            <SideTreePanel slot="left" />
+            <ViewTreeColumn />
             <div className="flex-1 overflow-auto bg-muted/50 p-3 sm:p-6">
               <ViewSheet onExport={() => setExportOpen(true)} />
             </div>
-            <SideTreePanel slot="right" />
           </div>
         )}
         {mode === "edit" &&

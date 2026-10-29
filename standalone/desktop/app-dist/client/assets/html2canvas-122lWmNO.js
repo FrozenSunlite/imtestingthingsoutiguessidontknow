@@ -1,0 +1,1 @@
+import{g as e}from"./routes-DSZ2uxIh.js";export default e();

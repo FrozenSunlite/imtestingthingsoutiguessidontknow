@@ -63,7 +63,7 @@ function prefixTree(nodes, connections, prefix) {
 // tree is visible, nodes selectable, and investing a point applies its effects
 // (resources, proficiencies, attribute bonuses…) to the character sheet.
 // Points spent here draw from the same global pools as the main tree.
-export function SideTreePanel({ slot, floating = false }) {
+export function SideTreePanel({ slot, floating = false, stacked = false }) {
   const {
     tree,
     mergedTree,
@@ -577,13 +577,14 @@ export function SideTreePanel({ slot, floating = false }) {
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 flex-col bg-card",
-        !floating && "relative shrink-0",
-        !floating && (slot === "left" ? "border-r" : "border-l")
+        "flex min-h-0 flex-col bg-card",
+        stacked ? "w-full min-h-0 flex-1" : "h-full",
+        !floating && !stacked && "relative shrink-0",
+        !floating && !stacked && (slot === "left" ? "border-r" : "border-l")
       )}
-      style={floating ? undefined : { width }}
+      style={floating || stacked ? undefined : { width }}
     >
-      {!floating && (
+      {!floating && !stacked && (
         <PanelResizer width={width} onResize={setPanelWidth} edge={slot === "left" ? "right" : "left"} />
       )}
       <div className="flex items-center gap-1 border-b px-2 py-1.5">
