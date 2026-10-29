@@ -300,8 +300,16 @@ export function ReferenceIndexTab() {
         setCatalog([]);
       }
     } catch {
-      if (!isRemote) setStatus({ available: false, roots: {} });
-      else toast.error("Could not load the remote 5eTools catalog. Check your connection.");
+      if (!isRemote) {
+        setStatus({
+          available: false,
+          roots: {},
+          apiError: true,
+          error: "The local API did not respond.",
+        });
+      } else {
+        toast.error("Could not load the remote 5eTools catalog. Check your connection.");
+      }
       setIndex([]);
       setCatalog([]);
     }
@@ -1122,12 +1130,17 @@ export function ReferenceIndexTab() {
   };
 
   if (!isRemote && status && !status.available) {
+    const devPort = typeof window !== "undefined" ? window.location.port : "";
+    const apiMissing = status.apiError && devPort && devPort !== "4173";
     return (
       <div className="space-y-2 rounded-md border border-dashed p-4 text-xs">
-        <p className="font-medium">5eTools data not found.</p>
+        <p className="font-medium">
+          {apiMissing ? "Local server API not reachable." : "5eTools data not found."}
+        </p>
         <p className="text-muted-foreground">
-          Download the latest 5eTools release, or place a 5eTools folder at{" "}
-          <code>E:\5etools</code>. Downloaded data stays in the app's own user data folder.
+          {apiMissing
+            ? `This page is running on the Vite dev server (port ${devPort}), which does not host the PowerShell API. Use the launcher at http://localhost:4173, or restart the dev server so its /api proxy can reach the local server.`
+            : "Download the latest 5eTools release, or place a 5eTools folder at E:\\5etools. Downloaded data stays in the app's own user data folder."}
         </p>
         <div className="flex gap-2">
           <Button size="sm" onClick={updateData} disabled={updating}>

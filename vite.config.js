@@ -31,6 +31,19 @@ export default defineConfig({
     watch: {
       ignored: ["**/standalone/desktop/userdata/**"],
     },
+    // The Vite dev server only serves the UI. Proxy the local PowerShell
+    // server's data APIs so Reference Index, 5eTools, project saves and
+    // imported images work while developing at localhost:5173 too.
+    proxy: {
+      "/api": {
+        target: "http://localhost:4173",
+        changeOrigin: true,
+      },
+      "/images": {
+        target: "http://localhost:4173",
+        changeOrigin: true,
+      },
+    },
   },
   plugins: [tanstackStart({ srcDirectory: "src" }), react()],
 });
