@@ -1,1 +1,0 @@
-import{n as e}from"./routes-3j33TQK7.js";export{e as default,e as jsPDF};

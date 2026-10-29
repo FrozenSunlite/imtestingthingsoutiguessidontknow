@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Bc8RleBS.js";
+import { n as Button, r as cn } from "./router-Bgapv-na.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -24663,92 +24663,13 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	] });
 }
 //#endregion
-//#region src/components/skilltree/SubtreePreview.jsx
-function SubtreePreview({ subtree, width = 232 }) {
-	const { marks, lines, w, h } = useMemo(() => {
-		const ns = subtree?.nodes || [];
-		const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
-		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-		for (const n of ns) {
-			minX = Math.min(minX, n.x - 40);
-			minY = Math.min(minY, n.y - 40);
-			maxX = Math.max(maxX, n.x + 40);
-			maxY = Math.max(maxY, n.y + 40);
-		}
-		if (!ns.length) return {
-			marks: [],
-			lines: [],
-			w: width,
-			h: 60
-		};
-		const w = Math.max(1, maxX - minX);
-		const h = Math.max(1, maxY - minY);
-		const lines = (subtree?.connections || []).filter((c) => byId[c.from] && byId[c.to]).map((c) => ({
-			x1: byId[c.from].x - minX,
-			y1: byId[c.from].y - minY,
-			x2: byId[c.to].x - minX,
-			y2: byId[c.to].y - minY
-		}));
-		return {
-			marks: ns.map((n) => ({
-				x: n.x - minX,
-				y: n.y - minY,
-				on: (n.currentPoints || 0) > 0,
-				label: n.name || "?"
-			})),
-			lines,
-			w,
-			h
-		};
-	}, [subtree]);
-	if (!marks.length) return /* @__PURE__ */ jsx("p", {
-		className: "p-1 text-[10px] text-muted-foreground",
-		children: "Empty subtree."
-	});
-	const scale = Math.min(1, width / w);
-	const vh = Math.max(40, Math.round(h * scale));
-	return /* @__PURE__ */ jsxs("svg", {
-		viewBox: `0 0 ${w} ${h}`,
-		width,
-		height: vh,
-		className: "rounded bg-background",
-		shapeRendering: "geometricPrecision",
-		textRendering: "geometricPrecision",
-		"aria-label": "Subtree preview",
-		children: [lines.map((l, i) => /* @__PURE__ */ jsx("line", {
-			...l,
-			stroke: "hsl(var(--border))",
-			strokeWidth: 2
-		}, i)), marks.map((m, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
-			cx: m.x,
-			cy: m.y,
-			r: 18,
-			fill: m.on ? "rgba(16,185,129,0.35)" : "hsl(var(--card))",
-			stroke: m.on ? "rgb(16,185,129)" : "hsl(var(--border))",
-			strokeWidth: 2
-		}), /* @__PURE__ */ jsx("text", {
-			x: m.x,
-			y: m.y + 32,
-			textAnchor: "middle",
-			fontSize: 11,
-			fill: "hsl(var(--foreground))",
-			children: m.label.length > 14 ? m.label.slice(0, 13) + "…" : m.label
-		})] }, i))]
-	});
-}
-//#endregion
-//#region src/components/skilltree/NodeTooltip.jsx
+//#region src/components/skilltree/NodeHoverCard.jsx
 var poolForNodeType = poolForNode;
-function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
-	if (!hover) return null;
-	const { node, x, y } = hover;
+function NodeHoverCard({ node, nodesById, extra = null }) {
+	if (!node) return null;
 	const exclusiveNames = (node.exclusiveWith || []).map((id) => nodesById?.[id]?.name).filter(Boolean);
 	return /* @__PURE__ */ jsxs("div", {
-		className: "pointer-events-none fixed z-50 w-64 rounded-md border bg-popover p-3 text-xs shadow-lg",
-		style: {
-			left: x,
-			top: y
-		},
+		className: "w-64 rounded-md border bg-popover p-3 text-xs shadow-lg",
 		children: [
 			/* @__PURE__ */ jsx("p", {
 				className: "text-sm font-semibold",
@@ -24763,7 +24684,7 @@ function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
 					" points ·",
 					" ",
 					node.nodeType === "attribute" ? `Attribute (${node.attributeStat || "?"})` : node.nodeType || node.pointType,
-					"· costs ",
+					" · costs ",
 					POOL_LABELS[node.poolOverride || poolForNodeType(node)] || "Talent"
 				]
 			}),
@@ -24779,22 +24700,7 @@ function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
 				className: "mt-1 text-[10px] text-rose-500",
 				children: isExclusiveBlocked(node, nodesById) ? `Locked — mutually exclusive with ${exclusiveNames.join(", ")}` : `Cannot combine with: ${exclusiveNames.join(", ")}`
 			}),
-			subtreePreview && (node.subtrees?.[0]?.nodes || []).length > 0 && /* @__PURE__ */ jsxs("div", {
-				className: "mt-2 rounded-md border bg-background p-1",
-				children: [/* @__PURE__ */ jsx(SubtreePreview, {
-					subtree: node.subtrees[0],
-					width: 232
-				}), /* @__PURE__ */ jsxs("p", {
-					className: "px-1 pt-0.5 text-[10px] text-muted-foreground",
-					children: [
-						node.subtrees[0].nodes.length,
-						" subnode",
-						node.subtrees[0].nodes.length > 1 ? "s" : "",
-						node.subtrees.length > 1 ? ` · first of ${node.subtrees.length} subtrees` : "",
-						" — Alt preview"
-					]
-				})]
-			}),
+			extra,
 			node.description && /* @__PURE__ */ jsx("p", {
 				className: "mt-2 whitespace-pre-wrap text-foreground/90",
 				children: node.description
@@ -24818,6 +24724,165 @@ function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
 				}, i))
 			})
 		]
+	});
+}
+//#endregion
+//#region src/components/skilltree/SubtreePreview.jsx
+var clamp$6 = (x, y) => {
+	if (typeof window === "undefined") return {
+		x,
+		y
+	};
+	return {
+		x: Math.max(8, Math.min(x, window.innerWidth - 280)),
+		y: Math.max(8, Math.min(y, window.innerHeight - 280))
+	};
+};
+function SubtreePreview({ subtree, width = 232, interactive = false }) {
+	const [hover, setHover] = useState(null);
+	const { marks, lines, byId, w, h } = useMemo(() => {
+		const ns = subtree?.nodes || [];
+		const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		for (const n of ns) {
+			minX = Math.min(minX, n.x - 40);
+			minY = Math.min(minY, n.y - 40);
+			maxX = Math.max(maxX, n.x + 40);
+			maxY = Math.max(maxY, n.y + 40);
+		}
+		if (!ns.length) return {
+			marks: [],
+			lines: [],
+			byId,
+			w: width,
+			h: 60
+		};
+		const w = Math.max(1, maxX - minX);
+		const h = Math.max(1, maxY - minY);
+		const lines = (subtree?.connections || []).filter((c) => byId[c.from] && byId[c.to]).map((c) => ({
+			x1: byId[c.from].x - minX,
+			y1: byId[c.from].y - minY,
+			x2: byId[c.to].x - minX,
+			y2: byId[c.to].y - minY
+		}));
+		return {
+			marks: ns.map((n) => ({
+				x: n.x - minX,
+				y: n.y - minY,
+				on: (n.currentPoints || 0) > 0,
+				label: n.name || "?",
+				node: n
+			})),
+			lines,
+			byId,
+			w,
+			h
+		};
+	}, [subtree, width]);
+	if (!marks.length) return /* @__PURE__ */ jsx("p", {
+		className: "p-1 text-[10px] text-muted-foreground",
+		children: "Empty subtree."
+	});
+	const scale = Math.min(1, width / w);
+	const vh = Math.max(40, Math.round(h * scale));
+	const showHover = (event, node) => {
+		if (!interactive) return;
+		const pos = clamp$6(event.clientX + 14, event.clientY + 14);
+		setHover({
+			node,
+			nodesById: byId,
+			...pos
+		});
+	};
+	return /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs("svg", {
+		viewBox: `0 0 ${w} ${h}`,
+		width,
+		height: vh,
+		className: "rounded bg-background",
+		shapeRendering: "geometricPrecision",
+		textRendering: "geometricPrecision",
+		"aria-label": "Subtree preview",
+		onMouseLeave: () => interactive && setHover(null),
+		children: [lines.map((l, i) => /* @__PURE__ */ jsx("line", {
+			...l,
+			stroke: "hsl(var(--border))",
+			strokeWidth: 2
+		}, i)), marks.map((m, i) => /* @__PURE__ */ jsxs("g", {
+			onMouseEnter: (event) => showHover(event, m.node),
+			onMouseMove: (event) => showHover(event, m.node),
+			onMouseLeave: () => interactive && setHover(null),
+			style: interactive ? { cursor: "help" } : void 0,
+			children: [
+				/* @__PURE__ */ jsx("circle", {
+					cx: m.x,
+					cy: m.y,
+					r: 18,
+					fill: m.on ? "rgba(16,185,129,0.35)" : "hsl(var(--card))",
+					stroke: m.on ? "rgb(16,185,129)" : "hsl(var(--border))",
+					strokeWidth: 2
+				}),
+				interactive && /* @__PURE__ */ jsx("circle", {
+					cx: m.x,
+					cy: m.y,
+					r: 28,
+					fill: "transparent",
+					pointerEvents: "all"
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: m.x,
+					y: m.y + 32,
+					textAnchor: "middle",
+					fontSize: 11,
+					fill: "hsl(var(--foreground))",
+					pointerEvents: "none",
+					children: m.label.length > 14 ? m.label.slice(0, 13) + "…" : m.label
+				})
+			]
+		}, i))]
+	}), interactive && hover && /* @__PURE__ */ jsx("div", {
+		className: "pointer-events-none fixed z-[60]",
+		style: {
+			left: hover.x,
+			top: hover.y
+		},
+		children: /* @__PURE__ */ jsx(NodeHoverCard, {
+			node: hover.node,
+			nodesById: hover.nodesById
+		})
+	})] });
+}
+//#endregion
+//#region src/components/skilltree/NodeTooltip.jsx
+function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
+	if (!hover) return null;
+	const { node } = hover;
+	const preview = subtreePreview && (node.subtrees?.[0]?.nodes || []).length > 0 ? /* @__PURE__ */ jsxs("div", {
+		className: "mt-2 rounded-md border bg-background p-1",
+		children: [/* @__PURE__ */ jsx(SubtreePreview, {
+			subtree: node.subtrees[0],
+			width: 232
+		}), /* @__PURE__ */ jsxs("p", {
+			className: "px-1 pt-0.5 text-[10px] text-muted-foreground",
+			children: [
+				node.subtrees[0].nodes.length,
+				" subnode",
+				node.subtrees[0].nodes.length > 1 ? "s" : "",
+				node.subtrees.length > 1 ? ` · first of ${node.subtrees.length} subtrees` : "",
+				" — Alt preview"
+			]
+		})]
+	}) : null;
+	return /* @__PURE__ */ jsx("div", {
+		className: "pointer-events-none fixed z-50",
+		style: {
+			left: hover.x,
+			top: hover.y
+		},
+		children: /* @__PURE__ */ jsx(NodeHoverCard, {
+			node,
+			nodesById,
+			extra: preview
+		})
 	});
 }
 //#endregion
@@ -29030,7 +29095,8 @@ function SubtreesSection({ node, set }) {
 						className: "rounded border bg-background p-1",
 						children: /* @__PURE__ */ jsx(SubtreePreview, {
 							subtree: st,
-							width: 210
+							width: 210,
+							interactive: true
 						})
 					}),
 					/* @__PURE__ */ jsxs("label", {

@@ -147,7 +147,7 @@ export function SubtreesSection({ node, set }) {
             is used automatically.
           </p>
           <div className="rounded border bg-background p-1">
-            <SubtreePreview subtree={st} width={210} />
+            <SubtreePreview subtree={st} width={210} interactive />
           </div>
           <label className="flex items-center gap-1.5 text-xs">
             <Switch
