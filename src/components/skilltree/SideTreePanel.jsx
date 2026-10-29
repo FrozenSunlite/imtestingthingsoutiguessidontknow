@@ -232,7 +232,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     setSelectedId(n.id);
     clearTreeFocus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeFocus]);
+  }, [treeFocus, nodesById]);
 
   // Pan and wheel-zoom, mirroring the main canvas.
   const onPointerDown = (e) => {

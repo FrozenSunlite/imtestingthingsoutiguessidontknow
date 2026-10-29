@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 // invest gates). Double-clicking jumps to the node on its tree panel.
 export default function SkillTestRow({ node, onAdjust, onJump }) {
   const [open, setOpen] = useState(false);
+  const isSubtree = !!node.__subtreeLabel;
   const subtreePicks = (node.subtrees || [])
     .map((st) => ({
       name: st.name || "Subtree",
@@ -22,7 +23,13 @@ export default function SkillTestRow({ node, onAdjust, onJump }) {
   return (
     <div
       className="rounded-lg border bg-accent/40 px-2.5 py-1"
-      title={onJump ? "Double-click to jump to this skill on the tree" : undefined}
+      title={
+        onJump
+          ? isSubtree
+            ? "Double-click to open its subtree and jump to it"
+            : "Double-click to jump to this skill on the tree"
+          : undefined
+      }
       onDoubleClick={onJump ? () => onJump(node) : undefined}
     >
       <div className="flex items-center justify-between gap-2">

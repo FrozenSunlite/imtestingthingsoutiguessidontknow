@@ -1,0 +1,1 @@
+import{g as e}from"./routes-BPVHzMSd.js";export default e();

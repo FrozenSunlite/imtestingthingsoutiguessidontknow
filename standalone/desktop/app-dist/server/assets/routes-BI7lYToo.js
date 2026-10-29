@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-ru0lSoN4.js";
+import { n as Button, r as cn } from "./router-C7QKpxt-.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -31193,6 +31193,45 @@ function SendToSubtreeDialog({ open, rows, onClose }) {
 }
 //#endregion
 //#region src/lib/unlocked.js
+function collectSubtreeUnlocked(tree) {
+	const out = [];
+	const walk = (subtree, host, chain, label) => {
+		(subtree?.nodes || []).forEach((n) => {
+			if (n.__hostCopy) return;
+			if ((n.currentPoints || 0) > 0) {
+				const subtreeIndex = chain[chain.length - 1]?.subIndex ?? 0;
+				out.push({
+					...n,
+					poolOverride: "__subtree",
+					id: `sub-${host.id}-${subtreeIndex}-${n.id}`,
+					__originalId: n.id,
+					__path: [n.id],
+					__subtreeLabel: label,
+					__hostChain: chain,
+					__subtreeHostId: host.id,
+					__subtreeIndex: subtreeIndex
+				});
+			}
+			const nested = Array.isArray(n.subtrees) ? n.subtrees : n.subtree ? [n.subtree] : [];
+			if ((n.currentPoints || 0) > 0) nested.forEach((st, i) => {
+				walk(st, n, [...chain, {
+					hostId: n.id,
+					subIndex: i
+				}], st.poolName || st.name || n.name || "Subtree");
+			});
+		});
+	};
+	(tree?.nodes || []).forEach((host) => {
+		if ((host.currentPoints || 0) <= 0) return;
+		(host.subtrees || []).forEach((st, i) => {
+			walk(st, host, [{
+				hostId: host.id,
+				subIndex: i
+			}], st.poolName || st.name || host.name || "Subtree");
+		});
+	});
+	return out;
+}
 function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
 	const list = (nodes || []).filter((n) => !n.__hostCopy && (includeAutoGranted || !n.__autoGranted));
 	const byAcquired = (a, b) => (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
@@ -31236,6 +31275,7 @@ function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
 //#region src/components/skilltree/SkillTestRow.jsx
 function SkillTestRow({ node, onAdjust, onJump }) {
 	const [open, setOpen] = useState(false);
+	const isSubtree = !!node.__subtreeLabel;
 	const subtreePicks = (node.subtrees || []).map((st) => ({
 		name: st.name || "Subtree",
 		picks: (st.nodes || []).filter((m) => (m.currentPoints || 0) > 0).map((m) => `${m.name || "Unnamed"}${(m.currentPoints || 0) > 1 ? ` (${m.currentPoints})` : ""}`)
@@ -31243,7 +31283,7 @@ function SkillTestRow({ node, onAdjust, onJump }) {
 	const hasDetail = !!(node.description || subtreePicks.length);
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-lg border bg-accent/40 px-2.5 py-1",
-		title: onJump ? "Double-click to jump to this skill on the tree" : void 0,
+		title: onJump ? isSubtree ? "Double-click to open its subtree and jump to it" : "Double-click to jump to this skill on the tree" : void 0,
 		onDoubleClick: onJump ? () => onJump(node) : void 0,
 		children: [/* @__PURE__ */ jsxs("div", {
 			className: "flex items-center justify-between gap-2",
@@ -32586,7 +32626,7 @@ function SectionCard({ title, children }) {
 	});
 }
 function CharacterTab() {
-	const { mergedTree: tree, character, setCharacter, pools, settings, investPoint, focusNode } = useTree();
+	const { mergedTree: tree, character, setCharacter, pools, settings, investPoint, focusNode, openSubtreePanel, setSubtreeNodePoints } = useTree();
 	const levels = settings?.library?.levels || [];
 	const usage = poolUsage(tree);
 	const eff = effectivePools(pools, character, tree, levels);
@@ -32617,8 +32657,20 @@ function CharacterTab() {
 	});
 	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
 	const dev = !!character.devMode;
-	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? tree?.nodes || [] : unlocked, { includeAutoGranted: dev });
+	const seenIds = new Set(unlocked.map((n) => n.id));
+	const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id));
+	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? [...tree?.nodes || [], ...subtreeUnlocked] : [...unlocked, ...subtreeUnlocked], { includeAutoGranted: dev });
 	const testAdjust = (n, delta) => {
+		if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
+			const max = Math.max(1, Number(n.maxPoints) || 1);
+			const next = Math.max(0, Math.min(max, (Number(n.currentPoints) || 0) + delta));
+			setSubtreeNodePoints(n.__hostChain, n.__path || [n.__originalId], next);
+			if ((n.proficiencies || []).length) setCharacter((c) => ({
+				...c,
+				proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
+			}));
+			return;
+		}
 		investPoint(n.id, delta);
 		if ((n.proficiencies || []).length) setCharacter((c) => ({
 			...c,
@@ -32626,6 +32678,13 @@ function CharacterTab() {
 		}));
 	};
 	const jumpToNode = (n) => {
+		if (n.__subtreeLabel && Array.isArray(n.__hostChain) && n.__hostChain.length) {
+			const final = n.__hostChain[n.__hostChain.length - 1];
+			const subIndex = final.subIndex ?? 0;
+			openSubtreePanel(final.hostId, subIndex, n.__hostChain.slice(0, -1));
+			focusNode(`sub-${final.hostId}-${subIndex}-${n.__originalId || n.id}`);
+			return;
+		}
 		const sideTrees = tree?.sideTrees || {};
 		if (!["left", "right"].some((slot) => {
 			const st = sideTrees[slot];
@@ -39375,7 +39434,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		});
 		setSelectedId(n.id);
 		clearTreeFocus();
-	}, [treeFocus]);
+	}, [treeFocus, nodesById]);
 	const onPointerDown = (e) => {
 		if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
 		dragRef.current = {

@@ -7,7 +7,7 @@ import {
   profBonusFor,
   applyNodeProficiencies,
 } from "@/lib/treeStore";
-import { groupUnlocked } from "@/lib/unlocked";
+import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
 import SkillTestRow from "./SkillTestRow";
 import { HitPointsCard } from "./HitPointsCard";
 import { ActiveEffects } from "./ActiveEffects";
@@ -79,6 +79,8 @@ export function CharacterTab() {
     settings,
     investPoint,
     focusNode,
+    openSubtreePanel,
+    setSubtreeNodePoints,
   } = useTree();
   const levels = settings?.library?.levels || [];
   const usage = poolUsage(tree);
@@ -130,13 +132,29 @@ export function CharacterTab() {
   // Test tool: with dev mode on, every talent is listed here (even ones with
   // no points yet) and its points can be added or removed freely.
   const dev = !!character.devMode;
-  const sourceNodes = dev ? tree?.nodes || [] : unlocked;
+  const seenIds = new Set(unlocked.map((n) => n.id));
+  const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id));
+  const sourceNodes = dev
+    ? [...(tree?.nodes || []), ...subtreeUnlocked]
+    : [...unlocked, ...subtreeUnlocked];
   const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } =
     groupUnlocked(sourceNodes, { includeAutoGranted: dev });
 
   // Test add/remove: a raw point change plus the proficiency side effects the
   // normal invest flow applies — no prerequisite, pool or level gates.
   const testAdjust = (n, delta) => {
+    // Subtree rows live in the host's nested tree, not in tree.nodes.
+    if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
+      const max = Math.max(1, Number(n.maxPoints) || 1);
+      const next = Math.max(0, Math.min(max, (Number(n.currentPoints) || 0) + delta));
+      setSubtreeNodePoints(n.__hostChain, n.__path || [n.__originalId], next);
+      if ((n.proficiencies || []).length)
+        setCharacter((c) => ({
+          ...c,
+          proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta),
+        }));
+      return;
+    }
     investPoint(n.id, delta);
     if ((n.proficiencies || []).length)
       setCharacter((c) => ({
@@ -148,6 +166,15 @@ export function CharacterTab() {
   // Double-click a skill: if its tree is open in a side panel (the main tree
   // or a loaded snapshot), centre that panel on the node; otherwise say so.
   const jumpToNode = (n) => {
+    // A node inside a host subtree: open that subtree in a panel (reusing its
+    // tab when it is already open) and centre on the flattened copy.
+    if (n.__subtreeLabel && Array.isArray(n.__hostChain) && n.__hostChain.length) {
+      const final = n.__hostChain[n.__hostChain.length - 1];
+      const subIndex = final.subIndex ?? 0;
+      openSubtreePanel(final.hostId, subIndex, n.__hostChain.slice(0, -1));
+      focusNode(`sub-${final.hostId}-${subIndex}-${n.__originalId || n.id}`);
+      return;
+    }
     const sideTrees = tree?.sideTrees || {};
     const loaded = ["left", "right"].some((slot) => {
       const st = sideTrees[slot];
