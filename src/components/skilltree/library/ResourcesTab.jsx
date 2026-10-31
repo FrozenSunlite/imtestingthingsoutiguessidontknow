@@ -1,6 +1,7 @@
 import { useTree } from "@/lib/treeStore";
 import { useLibList, ListHeader, EmptyNote, EntryCard } from "./shared";
 import { Input } from "@/components/ui/input";
+import { benefitDragProps } from "@/lib/benefits";
 import {
   Select,
   SelectContent,
@@ -63,7 +64,15 @@ export function ResourcesTab() {
           const mode = modeOf(e);
           const resolved = resolveResourceDie(e, settings?.library);
           return (
-            <EntryCard key={i} entry={e} onPatch={(p) => patch(i, p)} onDelete={() => remove(i)}>
+            <EntryCard
+              key={i}
+              entry={e}
+              onPatch={(p) => patch(i, p)}
+              onDelete={() => remove(i)}
+              dragProps={benefitDragProps("resource", e.name, {
+                description: e.description,
+              })}
+            >
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1">
                   <InfoTip label="The resource's display name — node resources can add to or replace it by this name.">

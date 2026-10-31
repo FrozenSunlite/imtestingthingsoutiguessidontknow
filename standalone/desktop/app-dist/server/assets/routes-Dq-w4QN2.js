@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-aRReo0RQ.js";
+import { n as Button, r as cn } from "./router-B-XpdHyw.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -15844,7 +15844,7 @@ function CreatureTypesTab() {
 }
 //#endregion
 //#region src/components/skilltree/library/SpeedSensesTabs.jsx
-function TypeListTab({ libKey, addLabel, placeholder, tip }) {
+function TypeListTab({ libKey, addLabel, placeholder, tip, dragCategory }) {
 	const { items, add, patch, remove, query, setQuery, shown } = useLibList(libKey);
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2",
@@ -15864,6 +15864,10 @@ function TypeListTab({ libKey, addLabel, placeholder, tip }) {
 			entry: e,
 			onPatch: (p) => patch(i, p),
 			onDelete: () => remove(i),
+			dragProps: dragCategory ? benefitDragProps(dragCategory, e.name, {
+				description: e.description,
+				image: e.image
+			}) : void 0,
 			children: /* @__PURE__ */ jsx(InfoTip, {
 				label: tip,
 				children: /* @__PURE__ */ jsx(Input, {
@@ -15881,7 +15885,8 @@ function SpeedTypesTab() {
 		libKey: "speedTypes",
 		addLabel: "Add speed type",
 		placeholder: "Speed type (e.g. Levitating)",
-		tip: "Extra speed type shown on the sheet — nodes add to it with a resource named “<Type> Speed”."
+		tip: "Extra speed type shown on the sheet — nodes add to it with a resource named “<Type> Speed”.",
+		dragCategory: "speed"
 	});
 }
 function SensesLibraryTab() {
@@ -15889,7 +15894,8 @@ function SensesLibraryTab() {
 		libKey: "senses",
 		addLabel: "Add sense",
 		placeholder: "Sense (e.g. Lifesense)",
-		tip: "Extra sense shown on the sheet — nodes add to it with a resource named after the sense."
+		tip: "Extra sense shown on the sheet — nodes add to it with a resource named after the sense.",
+		dragCategory: "sense"
 	});
 }
 //#endregion
@@ -15950,6 +15956,7 @@ function ResourcesTab() {
 					entry: e,
 					onPatch: (p) => patch(i, p),
 					onDelete: () => remove(i),
+					dragProps: benefitDragProps("resource", e.name, { description: e.description }),
 					children: /* @__PURE__ */ jsxs("div", {
 						className: "space-y-1.5",
 						children: [/* @__PURE__ */ jsxs("div", {
