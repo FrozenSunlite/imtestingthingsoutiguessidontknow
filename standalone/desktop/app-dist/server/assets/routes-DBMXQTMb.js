@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C0j3DHlI.js";
+import { n as Button, r as cn } from "./router-BZTFzcJA.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -49526,7 +49526,7 @@ var SLOT_STYLE = {
 	floor: "fill-sky-500/25 stroke-sky-400/80",
 	attic: "fill-amber-500/25 stroke-amber-400/80"
 };
-function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, update }) {
+function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, update, devMode }) {
 	const wrapRef = useRef(null);
 	const svgRef = useRef(null);
 	const [size, setSize] = useState({
@@ -49681,6 +49681,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		};
 	})();
 	const placeFacility = (item) => {
+		if (!devMode && plot.ownership === "rented") return toast("Rented property — structural facilities and Bastion rooms need ownership or the landlord's permission.");
 		if (!inBounds(item)) return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
 		if (facs.some((f) => overlaps$1(item, f))) return toast("That spot overlaps another structure on this floor.");
 		update((p) => ({
@@ -49799,6 +49800,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 				h
 			};
 			if (def.businessOnly && !plotHasKind(plot, "business")) return toast(`${def.name} is only permitted on a Business property.`);
+			if (def.businessOnly && plot.ownership === "rented" && !plot.allowRentedBusiness) return toast("Rented property — the lease does not allow business modifications. Enable the landlord allowance first.");
 			if (!inBounds(rect)) return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
 			const fac = containingFacility(plot, floor.id, rect);
 			if (!fac && !def.outdoor) return toast(`${def.name} must be placed inside a facility (or a Courtyard).`);
@@ -52020,7 +52022,8 @@ function AttachmentEditor({ plot, f, keyName, update }) {
 //#endregion
 //#region src/components/skilltree/homestead/HomesteadSummary.jsx
 function HomesteadSummary({ plot, update }) {
-	const { settings, setSettings } = useTree();
+	const { settings, setSettings, character } = useTree();
+	const devMode = !!character.devMode;
 	const coin = currencyOf(settings);
 	const t = plotTotals(plot);
 	const up = plotUpkeep(plot);
@@ -52036,6 +52039,10 @@ function HomesteadSummary({ plot, update }) {
 	const specials = (plot.facilities || []).filter((f) => f.bastion);
 	const expandCost = (dir) => 25 * (plotBoundary(plot)[dir] + 1);
 	const expand = (dir) => {
+		if (!devMode && plot.ownership === "rented") {
+			toast("Rented property — the footprint is fixed by the lease. Buy the property first.");
+			return;
+		}
 		const cost = expandCost(dir);
 		update((p) => ({
 			...p,
@@ -55710,7 +55717,8 @@ function Homebuilder({ onExit }) {
 							setTool,
 							selection,
 							onSelect: setSelection,
-							update
+							update,
+							devMode
 						}) : /* @__PURE__ */ jsx("div", {
 							className: "flex flex-1 items-center justify-center text-sm text-muted-foreground",
 							children: "Pick or create a plot."
@@ -55852,10 +55860,16 @@ function MetaPanel({ plot, update, isLand, devMode }) {
 				}, c)) })]
 			}) : /* @__PURE__ */ jsxs(Select, {
 				value: plot.comfort,
-				onValueChange: (v) => update((p) => ({
-					...p,
-					comfort: v
-				})),
+				onValueChange: (v) => {
+					if (!devMode && plot.ownership === "rented") {
+						toast("Rented property — the building size is fixed by the lease. Buy the property first.");
+						return;
+					}
+					update((p) => ({
+						...p,
+						comfort: v
+					}));
+				},
 				children: [/* @__PURE__ */ jsx(SelectTrigger, {
 					className: "h-8",
 					children: /* @__PURE__ */ jsx(SelectValue, {})
@@ -55868,6 +55882,16 @@ function MetaPanel({ plot, update, isLand, devMode }) {
 						" gp"
 					]
 				}, c)) })]
+			}),
+			plot.ownership === "rented" && plotKinds(plot).includes("business") && /* @__PURE__ */ jsxs("label", {
+				className: "flex items-center gap-2 text-xs",
+				children: [/* @__PURE__ */ jsx(Switch, {
+					checked: !!plot.allowRentedBusiness,
+					onCheckedChange: (v) => update((p) => ({
+						...p,
+						allowRentedBusiness: v
+					}))
+				}), "Landlord allows business modifications"]
 			}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center gap-2",

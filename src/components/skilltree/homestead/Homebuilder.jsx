@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -564,6 +565,7 @@ export default function Homebuilder({ onExit }) {
             <HomesteadCanvas
               plot={plot} floor={floor} tool={tool} setTool={setTool}
               selection={selection} onSelect={setSelection} update={update}
+              devMode={devMode}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Pick or create a plot.</div>
@@ -633,7 +635,16 @@ function MetaPanel({ plot, update, isLand, devMode }) {
           </SelectContent>
         </Select>
       ) : (
-        <Select value={plot.comfort} onValueChange={(v) => update((p) => ({ ...p, comfort: v }))}>
+        <Select
+          value={plot.comfort}
+          onValueChange={(v) => {
+            if (!devMode && plot.ownership === "rented") {
+              toast("Rented property — the building size is fixed by the lease. Buy the property first.");
+              return;
+            }
+            update((p) => ({ ...p, comfort: v }));
+          }}
+        >
           <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
           <SelectContent>
             {COMFORT_LEVELS.map((c) => (
@@ -641,6 +652,15 @@ function MetaPanel({ plot, update, isLand, devMode }) {
             ))}
           </SelectContent>
         </Select>
+      )}
+      {plot.ownership === "rented" && plotKinds(plot).includes("business") && (
+        <label className="flex items-center gap-2 text-xs">
+          <Switch
+            checked={!!plot.allowRentedBusiness}
+            onCheckedChange={(v) => update((p) => ({ ...p, allowRentedBusiness: v }))}
+          />
+          Landlord allows business modifications
+        </label>
       )}
       <div className="flex items-center gap-2">
         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Staff</Label>

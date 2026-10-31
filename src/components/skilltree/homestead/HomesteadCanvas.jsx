@@ -76,7 +76,7 @@ const SLOT_STYLE = {
 // to move with cell snapping and collision checks, and resizable items have
 // draggable edge handles. Left-drag or middle-drag pans; the middle button
 // never places. Right-clicking a basic facility offers Cellar / Floor / Attic.
-export default function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, update }) {
+export default function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, update, devMode }) {
   const wrapRef = useRef(null);
   const svgRef = useRef(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
@@ -206,6 +206,10 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
 
   // Validate and commit a facility placed on the viewed floor.
   const placeFacility = (item) => {
+    if (!devMode && plot.ownership === "rented")
+      return toast(
+        "Rented property — structural facilities and Bastion rooms need ownership or the landlord's permission."
+      );
     if (!inBounds(item))
       return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
     if (facs.some((f) => overlaps(item, f)))
@@ -285,6 +289,10 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
       const rect = { x: cell.x, y: cell.y, w, h };
       if (def.businessOnly && !plotHasKind(plot, "business"))
         return toast(`${def.name} is only permitted on a Business property.`);
+      if (def.businessOnly && plot.ownership === "rented" && !plot.allowRentedBusiness)
+        return toast(
+          "Rented property — the lease does not allow business modifications. Enable the landlord allowance first."
+        );
       if (!inBounds(rect))
         return toast("That spot is outside the property boundary — buy more land tiles to expand it.");
       const fac = containingFacility(plot, floor.id, rect);

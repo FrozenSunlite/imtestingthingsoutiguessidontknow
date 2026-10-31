@@ -16,7 +16,8 @@ import { plotTotals, plotUpkeep, STATIONS, plotBoundary } from "@/lib/homestead"
 // boundary (25 gp × the boundary's new size), plus monthly upkeep. Amounts use
 // the project's reward currency so the Architect and Dungeon Builder match.
 export default function HomesteadSummary({ plot, update }) {
-  const { settings, setSettings } = useTree();
+  const { settings, setSettings, character } = useTree();
+  const devMode = !!character.devMode;
   const coin = currencyOf(settings);
   const t = plotTotals(plot);
   const up = plotUpkeep(plot);
@@ -36,6 +37,10 @@ export default function HomesteadSummary({ plot, update }) {
   // 2×2 → 3×2 is 75 gp, 3×2 → 4×2 is 100 gp, 4×2 → 4×3 is 125 gp, and so on.
   const expandCost = (dir) => 25 * (plotBoundary(plot)[dir] + 1);
   const expand = (dir) => {
+    if (!devMode && plot.ownership === "rented") {
+      toast("Rented property — the footprint is fixed by the lease. Buy the property first.");
+      return;
+    }
     const cost = expandCost(dir);
     update((p) => ({
       ...p,
