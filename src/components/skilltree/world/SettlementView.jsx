@@ -60,6 +60,7 @@ export function SettlementView({
   onUseRoomTemplate,
   onRerollInterior,
   onUpdateBuilding,
+  onMoveBuilding,
 }) {
   const [buildingId, setBuildingId] = useState("");
   const [floor, setFloor] = useState(1);
@@ -333,6 +334,38 @@ export function SettlementView({
     });
     onRerollInterior?.(settlement, { ...buildingView, footprint: { w, h } });
     toast.success(`Footprint expanded to ${w}×${h} spaces.`);
+  };
+
+  // Nudge the selected building by one tile. Used when a larger footprint is
+  // blocked by neighbours: move it first, then expand.
+  const nudgeBuilding = (dx, dy) => {
+    if (!buildingView || !layout) return;
+    const entry = (layout.buildings || []).find((row) => row.id === buildingView.id);
+    if (!entry) return;
+    const x = entry.x + dx;
+    const y = entry.y + dy;
+    if (
+      x < 0 ||
+      y < 0 ||
+      x + entry.w > layout.width ||
+      y + entry.h > layout.height
+    ) {
+      toast.error("That move would leave the settlement boundary.");
+      return;
+    }
+    const clash = (layout.buildings || []).some(
+      (other) =>
+        other.id !== entry.id &&
+        x < other.x + other.w &&
+        x + entry.w > other.x &&
+        y < other.y + other.h &&
+        y + entry.h > other.y
+    );
+    if (clash) {
+      toast.error("Another building occupies that lot.");
+      return;
+    }
+    onMoveBuilding?.(settlement, buildingView, x, y);
   };
 
   const stickerRoom =
@@ -875,6 +908,12 @@ export function SettlementView({
               >
                 Expand +1
               </Button>
+              <span className="flex items-center gap-0.5" title="Move this building by one map space">
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-xs" onClick={() => nudgeBuilding(-1, 0)}>←</Button>
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-xs" onClick={() => nudgeBuilding(1, 0)}>→</Button>
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-xs" onClick={() => nudgeBuilding(0, -1)}>↑</Button>
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-xs" onClick={() => nudgeBuilding(0, 1)}>↓</Button>
+              </span>
               {onRerollInterior && (
                 <Button
                   size="sm"

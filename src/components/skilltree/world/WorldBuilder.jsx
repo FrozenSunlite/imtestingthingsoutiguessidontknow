@@ -39,6 +39,7 @@ import {
 } from "@/lib/worldAssets";
 import {
   applyCityLayout,
+  ensureCityLayout,
   BUILDING_COMFORT,
   adjustComfort,
   footprintFor,
@@ -749,6 +750,33 @@ export function WorldBuilder({ onExit }) {
     saveWorld(nextWorld);
   };
 
+  const moveBuilding = (settlement, building, x, y) => {
+    if (!settlement || !building) return;
+    const layout = settlement.mapLayout || ensureCityLayout(settlement);
+    const entry = (layout?.buildings || []).find((row) => row.id === building.id);
+    if (!entry) return;
+    const nextLayout = {
+      ...layout,
+      buildings: (layout.buildings || []).map((row) =>
+        row.id !== entry.id
+          ? row
+          : {
+              ...row,
+              x,
+              y,
+              doorX: row.doorX != null ? row.doorX + (x - row.x) : row.doorX,
+              doorY: row.doorY != null ? row.doorY + (y - row.y) : row.doorY,
+            }
+      ),
+    };
+    saveWorld({
+      ...world,
+      settlements: (world.settlements || []).map((item) =>
+        item.id === settlement.id ? { ...item, mapLayout: nextLayout } : item
+      ),
+    });
+  };
+
   const rerollInterior = (settlement, building) => {
     if (!settlement || !building) return;
     const seed = `${building.id || building.name}:${Date.now().toString(36)}`;
@@ -1325,6 +1353,7 @@ export function WorldBuilder({ onExit }) {
             onUseRoomTemplate={useRoomAsTemplate}
             onRerollInterior={rerollInterior}
             onUpdateBuilding={updateBuilding}
+            onMoveBuilding={moveBuilding}
           />
         )}
 

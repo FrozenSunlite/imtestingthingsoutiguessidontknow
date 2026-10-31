@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CoWmzLze.js";
+import { n as Button, r as cn } from "./router-DABAXHvc.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -68984,7 +68984,7 @@ var CATEGORY_COLOR = {
 var MAP_TILE = 14;
 var CITY_GRID_COLOR = "#2a2d34";
 var clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSettlement, onFindAssets, onSetFloorTexture, onOpenKingdom, onBuildHere, onRegenerateLayout, onUpdateRoomStickers, onUseRoomTemplate, onRerollInterior, onUpdateBuilding }) {
+function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSettlement, onFindAssets, onSetFloorTexture, onOpenKingdom, onBuildHere, onRegenerateLayout, onUpdateRoomStickers, onUseRoomTemplate, onRerollInterior, onUpdateBuilding, onMoveBuilding }) {
 	const [buildingId, setBuildingId] = useState("");
 	const [floor, setFloor] = useState(1);
 	const [stickerRoomId, setStickerRoomId] = useState("");
@@ -69264,6 +69264,22 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 			}
 		});
 		toast.success(`Footprint expanded to ${w}×${h} spaces.`);
+	};
+	const nudgeBuilding = (dx, dy) => {
+		if (!buildingView || !layout) return;
+		const entry = (layout.buildings || []).find((row) => row.id === buildingView.id);
+		if (!entry) return;
+		const x = entry.x + dx;
+		const y = entry.y + dy;
+		if (x < 0 || y < 0 || x + entry.w > layout.width || y + entry.h > layout.height) {
+			toast.error("That move would leave the settlement boundary.");
+			return;
+		}
+		if ((layout.buildings || []).some((other) => other.id !== entry.id && x < other.x + other.w && x + entry.w > other.x && y < other.y + other.h && y + entry.h > other.y)) {
+			toast.error("Another building occupies that lot.");
+			return;
+		}
+		onMoveBuilding?.(settlement, buildingView, x, y);
 	};
 	const stickerRoom = (interior?.rooms || []).find((room) => room.id === stickerRoomId) || null;
 	const stickerList = stickerRoom ? roomStickerList(stickerRoom, assetsForRoom(stickerRoom)) : [];
@@ -69906,6 +69922,40 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 									onClick: growBuilding,
 									title: "Expand the building footprint by one map space if the neighbouring lots allow it.",
 									children: "Expand +1"
+								}),
+								/* @__PURE__ */ jsxs("span", {
+									className: "flex items-center gap-0.5",
+									title: "Move this building by one map space",
+									children: [
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-7 w-7 p-0 text-xs",
+											onClick: () => nudgeBuilding(-1, 0),
+											children: "←"
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-7 w-7 p-0 text-xs",
+											onClick: () => nudgeBuilding(1, 0),
+											children: "→"
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-7 w-7 p-0 text-xs",
+											onClick: () => nudgeBuilding(0, -1),
+											children: "↑"
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											className: "h-7 w-7 p-0 text-xs",
+											onClick: () => nudgeBuilding(0, 1),
+											children: "↓"
+										})
+									]
 								}),
 								onRerollInterior && /* @__PURE__ */ jsxs(Button, {
 									size: "sm",
@@ -74845,6 +74895,29 @@ function WorldBuilder({ onExit }) {
 		};
 		saveWorld(nextWorld);
 	};
+	const moveBuilding = (settlement, building, x, y) => {
+		if (!settlement || !building) return;
+		const layout = settlement.mapLayout || ensureCityLayout(settlement);
+		const entry = (layout?.buildings || []).find((row) => row.id === building.id);
+		if (!entry) return;
+		const nextLayout = {
+			...layout,
+			buildings: (layout.buildings || []).map((row) => row.id !== entry.id ? row : {
+				...row,
+				x,
+				y,
+				doorX: row.doorX != null ? row.doorX + (x - row.x) : row.doorX,
+				doorY: row.doorY != null ? row.doorY + (y - row.y) : row.doorY
+			})
+		};
+		saveWorld({
+			...world,
+			settlements: (world.settlements || []).map((item) => item.id === settlement.id ? {
+				...item,
+				mapLayout: nextLayout
+			} : item)
+		});
+	};
 	const rerollInterior = (settlement, building) => {
 		if (!settlement || !building) return;
 		const seed = `${building.id || building.name}:${Date.now().toString(36)}`;
@@ -75678,7 +75751,8 @@ function WorldBuilder({ onExit }) {
 						onUpdateRoomStickers: setRoomStickers,
 						onUseRoomTemplate: useRoomAsTemplate,
 						onRerollInterior: rerollInterior,
-						onUpdateBuilding: updateBuilding
+						onUpdateBuilding: updateBuilding,
+						onMoveBuilding: moveBuilding
 					}),
 					tab === "developments" && /* @__PURE__ */ jsx(DevelopmentsPanel, {
 						world,
