@@ -1,0 +1,1 @@
+import{g as e}from"./routes-BM8Z3902.js";export default e();

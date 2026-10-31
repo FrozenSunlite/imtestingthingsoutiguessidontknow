@@ -11,7 +11,7 @@ import {
   talentPurchaseLimit,
 } from "@/lib/treeStore";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
-import { collectNodeBenefits, BENEFIT_CATEGORIES } from "@/lib/benefits";
+import { collectNodeBenefits, BENEFIT_CATEGORIES, tableSummary, tableOptions } from "@/lib/benefits";
 import SkillTestRow from "./SkillTestRow";
 import { HitPointsCard } from "./HitPointsCard";
 import { ActiveEffects } from "./ActiveEffects";
@@ -590,15 +590,30 @@ export function CharacterTab() {
                   {g.label}
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {g.items.map((b) => (
-                    <span
-                      key={b.id}
-                      title={b.description || b.name}
-                      className="rounded border bg-accent/40 px-2 py-0.5 text-[10px]"
-                    >
-                      {b.name}
-                    </span>
-                  ))}
+                  {g.items.map((b) => {
+                    const summary = b.table
+                      ? tableSummary(b.table, settings?.library?.spells)
+                      : b.description || b.name;
+                    const options = b.table
+                      ? tableOptions(b.table, settings?.library?.spells)
+                      : [];
+                    return (
+                      <span
+                        key={b.id}
+                        title={[summary, options.slice(0, 20).join(", ")]
+                          .filter(Boolean)
+                          .join("\n")}
+                        className="rounded border bg-accent/40 px-2 py-0.5 text-[10px]"
+                      >
+                        {b.name}
+                        {b.table ? (
+                          <span className="ml-1 text-muted-foreground">
+                            ({summary})
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             ))}

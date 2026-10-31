@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, X } from "lucide-react";
+import { BenefitTableDialog } from "@/components/skilltree/BenefitTableDialog";
 import {
   BENEFIT_CATEGORIES,
   BENEFIT_CATEGORY_FOR_5E,
   benefitId,
   benefitOptions,
+  tableSummary,
 } from "@/lib/benefits";
 
 // A compact drop grid for node benefits. Drop a Reference Index entry onto a
@@ -16,6 +18,7 @@ import {
 export function NodeBenefitsSection({ node, set }) {
   const { settings } = useTree();
   const [drafts, setDrafts] = useState({});
+  const [tableOpen, setTableOpen] = useState(false);
   const benefits = node.benefits || [];
 
   const add = (category, value, extra = {}) => {
@@ -31,6 +34,7 @@ export function NodeBenefitsSection({ node, set }) {
           source: extra.source || "",
           description: extra.description || "",
           image: extra.image || "",
+          table: extra.table || null,
         },
       ],
     });
@@ -96,46 +100,63 @@ export function NodeBenefitsSection({ node, set }) {
                 <span className="text-[10px] text-muted-foreground">{mine.length}</span>
               </div>
               <div className="flex items-center gap-1">
-                <Input
-                  className="h-7 min-w-0 flex-1 text-[11px]"
-                  list={options.length ? list : undefined}
-                  placeholder="Type or choose…"
-                  value={drafts[cat.id] || ""}
-                  onChange={(e) =>
-                    setDrafts((d) => ({ ...d, [cat.id]: e.target.value }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
-                    add(cat.id, drafts[cat.id]);
-                    setDrafts((d) => ({ ...d, [cat.id]: "" }));
-                  }}
-                />
-                {options.length > 0 && (
-                  <datalist id={list}>
-                    {[...new Set(options)].map((name) => (
-                      <option key={name} value={name} />
-                    ))}
-                  </datalist>
+                {cat.id === "table" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 w-full text-[10px]"
+                    onClick={() => setTableOpen(true)}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" /> New table
+                  </Button>
+                ) : (
+                  <>
+                    <Input
+                      className="h-7 min-w-0 flex-1 text-[11px]"
+                      list={options.length ? list : undefined}
+                      placeholder="Type or choose…"
+                      value={drafts[cat.id] || ""}
+                      onChange={(e) =>
+                        setDrafts((d) => ({ ...d, [cat.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        add(cat.id, drafts[cat.id]);
+                        setDrafts((d) => ({ ...d, [cat.id]: "" }));
+                      }}
+                    />
+                    {options.length > 0 && (
+                      <datalist id={list}>
+                        {[...new Set(options)].map((name) => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      title={`Add ${cat.label.toLowerCase()}`}
+                      onClick={() => {
+                        add(cat.id, drafts[cat.id]);
+                        setDrafts((d) => ({ ...d, [cat.id]: "" }));
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
                 )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 shrink-0"
-                  title={`Add ${cat.label.toLowerCase()}`}
-                  onClick={() => {
-                    add(cat.id, drafts[cat.id]);
-                    setDrafts((d) => ({ ...d, [cat.id]: "" }));
-                  }}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
               </div>
               {mine.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {mine.map((b) => (
                     <span
                       key={b.id}
-                      title={b.description || b.name}
+                      title={
+                        b.table
+                          ? tableSummary(b.table, settings?.library?.spells)
+                          : b.description || b.name
+                      }
                       className="inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]"
                     >
                       <span className="truncate">{b.name}</span>
@@ -155,6 +176,13 @@ export function NodeBenefitsSection({ node, set }) {
           );
         })}
       </div>
+      <BenefitTableDialog
+        open={tableOpen}
+        onClose={() => setTableOpen(false)}
+        onSave={({ name, table }) => add("table", name, { table })}
+        spells={settings?.library?.spells || []}
+        schools={settings?.library?.spellSchools || []}
+      />
     </div>
   );
 }

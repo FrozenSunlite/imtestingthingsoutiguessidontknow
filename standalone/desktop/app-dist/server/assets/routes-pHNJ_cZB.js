@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-0v4wGiY4.js";
+import { n as Button, r as cn } from "./router-DiBtq5R8.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -28691,6 +28691,130 @@ var BENEFIT_CATEGORY_FOR_5E = {
 	conditions: "other",
 	actions: "other"
 };
+var LEVEL_MODES = [
+	{
+		id: "any",
+		label: "Any level"
+	},
+	{
+		id: "equal",
+		label: "Equal to"
+	},
+	{
+		id: "upTo",
+		label: "Up to"
+	},
+	{
+		id: "below",
+		label: "Below"
+	},
+	{
+		id: "equalOrGreater",
+		label: "Equal or greater"
+	},
+	{
+		id: "equalOrLesser",
+		label: "Equal or lesser"
+	}
+];
+var TABLE_SAVE_MODES = [
+	{
+		id: "any",
+		label: "Any"
+	},
+	{
+		id: "save",
+		label: "Saving Throw"
+	},
+	{
+		id: "attack",
+		label: "Spell Attack"
+	},
+	{
+		id: "neither",
+		label: "Neither"
+	}
+];
+var TABLE_RANGE_MODES = [
+	{
+		id: "any",
+		label: "Any"
+	},
+	{
+		id: "melee",
+		label: "Melee"
+	},
+	{
+		id: "ranged",
+		label: "Ranged"
+	},
+	{
+		id: "neither",
+		label: "Neither"
+	}
+];
+var numLevel = (spell) => {
+	const raw = spell?.level ?? spell?.spellLevel ?? spell?.lvl;
+	if (raw === "cantrip" || raw === "0") return 0;
+	return Number(raw) || 0;
+};
+var text = (value) => String(value ?? "").toLowerCase();
+function filterSpells(spells, filters = {}) {
+	return (Array.isArray(spells) ? spells : []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => {
+		if (!s?.name) return false;
+		if (filters.schools?.length) {
+			const school = text(s.school || s.School);
+			if (!filters.schools.some((x) => school.includes(text(x)))) return false;
+		}
+		if (filters.levelMode && filters.levelMode !== "any" && filters.level !== "" && filters.level != null) {
+			const want = Number(filters.level) || 0;
+			const lvl = numLevel(s);
+			if (filters.levelMode === "equal" && lvl !== want) return false;
+			if (filters.levelMode === "upTo" && lvl > want) return false;
+			if (filters.levelMode === "below" && lvl >= want) return false;
+			if (filters.levelMode === "equalOrGreater" && lvl < want) return false;
+			if (filters.levelMode === "equalOrLesser" && lvl > want) return false;
+		}
+		const check = (field, query) => {
+			if (!query) return true;
+			const hay = text(s[field]);
+			return !hay || hay.includes(text(query));
+		};
+		if (!check("subschool", filters.subschool)) return false;
+		if (!check("castingTime", filters.castingTime) && !check("time", filters.castingTime)) return false;
+		if (!check("duration", filters.duration)) return false;
+		if (!check("target", filters.target)) return false;
+		if (!check("area", filters.area)) return false;
+		if (!check("effect", filters.effect)) return false;
+		if (!check("materials", filters.materials) && !check("components", filters.materials)) return false;
+		if (filters.save && filters.save !== "any") {
+			const hasSave = !!(s.save || s.savingThrow);
+			const hasAttack = !!(s.spellAttack || s.attack);
+			if (filters.save === "save" && !hasSave) return false;
+			if (filters.save === "attack" && !hasAttack) return false;
+			if (filters.save === "neither" && (hasSave || hasAttack)) return false;
+		}
+		if (filters.range && filters.range !== "any") {
+			const range = text(s.range || s.rangeType);
+			const melee = /melee|touch|self/.test(range);
+			const ranged = /ranged|feet|foot|mile/.test(range) && !melee;
+			if (filters.range === "melee" && !melee) return false;
+			if (filters.range === "ranged" && !ranged) return false;
+			if (filters.range === "neither" && (melee || ranged)) return false;
+		}
+		return true;
+	});
+}
+function tableOptions(table, spells) {
+	if (!table) return [];
+	if (table.source === "custom") return String(table.optionsText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+	return filterSpells(spells, table.filters || []).map((s) => s.name);
+}
+function tableSummary(table, spells) {
+	if (!table) return "";
+	const options = tableOptions(table, spells);
+	return `${table.mode === "roll" ? `Roll ${table.die || "d20"}` : `Choose ${Number(table.count) || 1}`} from ${table.source === "custom" ? `${options.length} option${options.length === 1 ? "" : "s"}` : `${options.length} matching spell${options.length === 1 ? "" : "s"}`}`;
+}
 function benefitId() {
 	return `bnf${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
 }
@@ -28713,10 +28837,377 @@ function collectNodeBenefits(tree) {
 	return out;
 }
 //#endregion
+//#region src/components/skilltree/BenefitTableDialog.jsx
+var DEFAULT_TABLE = {
+	source: "spells",
+	mode: "choose",
+	count: 1,
+	die: "d20",
+	optionsText: "",
+	filters: {
+		schools: [],
+		levelMode: "any",
+		level: "",
+		subschool: "",
+		castingTime: "",
+		duration: "",
+		save: "any",
+		range: "any",
+		target: "",
+		area: "",
+		effect: "",
+		materials: ""
+	}
+};
+function BenefitTableDialog({ open, onClose, onSave, spells = [], schools = [] }) {
+	const [name, setName] = useState("");
+	const [table, setTable] = useState(DEFAULT_TABLE);
+	const matches = useMemo(() => filterSpells(spells, table.filters), [spells, table.filters]);
+	if (!open) return null;
+	const patch = (p) => setTable((t) => ({
+		...t,
+		...p
+	}));
+	const patchFilter = (p) => setTable((t) => ({
+		...t,
+		filters: {
+			...t.filters,
+			...p
+		}
+	}));
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange: (v) => !v && onClose(),
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-w-2xl",
+			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Create a benefit table" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Choose options or roll on a table. Spell tables filter the spell library by school, level, subschool, casting time, duration, save/attack, range, target, area, effect and materials." })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-2",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-2",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1",
+							children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Table name"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								placeholder: "e.g. Arcane Talent Spells",
+								value: name,
+								onChange: (e) => setName(e.target.value)
+							})]
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "space-y-1",
+							children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Options come from"
+							}), /* @__PURE__ */ jsxs(Select, {
+								value: table.source,
+								onValueChange: (v) => patch({ source: v }),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-8",
+									children: /* @__PURE__ */ jsx(SelectValue, {})
+								}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+									value: "spells",
+									children: "Spell library"
+								}), /* @__PURE__ */ jsx(SelectItem, {
+									value: "custom",
+									children: "Custom list"
+								})] })]
+							})]
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-3 gap-2",
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "How many"
+								}), /* @__PURE__ */ jsxs(Select, {
+									value: table.mode,
+									onValueChange: (v) => patch({ mode: v }),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-8",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+										value: "choose",
+										children: "Choose N"
+									}), /* @__PURE__ */ jsx(SelectItem, {
+										value: "roll",
+										children: "Roll a die"
+									})] })]
+								})]
+							}),
+							table.mode === "choose" ? /* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Choices"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									type: "number",
+									min: 1,
+									value: table.count,
+									onChange: (e) => patch({ count: Math.max(1, Number(e.target.value) || 1) })
+								})]
+							}) : /* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Die"
+								}), /* @__PURE__ */ jsxs(Select, {
+									value: table.die,
+									onValueChange: (v) => patch({ die: v }),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-8",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsx(SelectContent, { children: [
+										"d4",
+										"d6",
+										"d8",
+										"d10",
+										"d12",
+										"d20",
+										"d100"
+									].map((d) => /* @__PURE__ */ jsx(SelectItem, {
+										value: d,
+										children: d
+									}, d)) })]
+								})]
+							}),
+							/* @__PURE__ */ jsx("div", {
+								className: "self-end pb-1 text-[10px] text-muted-foreground",
+								children: table.source === "spells" ? `${matches.length} spell${matches.length === 1 ? "" : "s"} match` : `${String(table.optionsText || "").split(/\r?\n/).filter((s) => s.trim()).length} options`
+							})
+						]
+					}),
+					table.source === "spells" ? /* @__PURE__ */ jsxs("div", {
+						className: "space-y-2 rounded-md border p-2",
+						children: [
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Schools"
+							}), /* @__PURE__ */ jsx("div", {
+								className: "mt-1 flex flex-wrap gap-1",
+								children: schools.map((school) => {
+									const on = table.filters.schools.includes(school);
+									return /* @__PURE__ */ jsx("button", {
+										type: "button",
+										onClick: () => patchFilter({ schools: on ? table.filters.schools.filter((s) => s !== school) : [...table.filters.schools, school] }),
+										className: `rounded border px-1.5 py-0.5 text-[10px] ${on ? "border-primary bg-primary/10" : "hover:bg-accent"}`,
+										children: school
+									}, school);
+								})
+							})] }),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Level relation"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: table.filters.levelMode,
+											onValueChange: (v) => patchFilter({ levelMode: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: LEVEL_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
+												value: m.id,
+												children: m.label
+											}, m.id)) })]
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Level (0 = cantrip)"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											type: "number",
+											min: 0,
+											value: table.filters.level,
+											onChange: (e) => patchFilter({ level: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Subschool"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "e.g. Dunamancy",
+											value: table.filters.subschool,
+											onChange: (e) => patchFilter({ subschool: e.target.value })
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Casting time"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "Action, Bonus…",
+											value: table.filters.castingTime,
+											onChange: (e) => patchFilter({ castingTime: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Duration"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "Instant, 1 minute…",
+											value: table.filters.duration,
+											onChange: (e) => patchFilter({ duration: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Save / attack"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: table.filters.save,
+											onValueChange: (v) => patchFilter({ save: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: TABLE_SAVE_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
+												value: m.id,
+												children: m.label
+											}, m.id)) })]
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Melee / ranged"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: table.filters.range,
+											onValueChange: (v) => patchFilter({ range: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: TABLE_RANGE_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
+												value: m.id,
+												children: m.label
+											}, m.id)) })]
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Target"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "e.g. one creature",
+											value: table.filters.target,
+											onChange: (e) => patchFilter({ target: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Area of effect"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "e.g. 20-foot cone",
+											value: table.filters.area,
+											onChange: (e) => patchFilter({ area: e.target.value })
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-2 gap-2",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Effect"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										placeholder: "e.g. damage, healing",
+										value: table.filters.effect,
+										onChange: (e) => patchFilter({ effect: e.target.value })
+									})]
+								}), /* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Casting materials"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										placeholder: "e.g. a bit of fleece",
+										value: table.filters.materials,
+										onChange: (e) => patchFilter({ materials: e.target.value })
+									})]
+								})]
+							})
+						]
+					}) : /* @__PURE__ */ jsxs("div", {
+						className: "space-y-1",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px]",
+							children: "Options (one per line)"
+						}), /* @__PURE__ */ jsx(Textarea, {
+							className: "min-h-24",
+							placeholder: "Fire Bolt\nMagic Missile\nShield",
+							value: table.optionsText,
+							onChange: (e) => patch({ optionsText: e.target.value })
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex justify-end gap-1",
+						children: [/* @__PURE__ */ jsx(Button, {
+							variant: "outline",
+							onClick: onClose,
+							children: "Cancel"
+						}), /* @__PURE__ */ jsx(Button, {
+							disabled: !name.trim(),
+							onClick: () => {
+								onSave({
+									name: name.trim(),
+									table
+								});
+								onClose();
+							},
+							children: "Add table"
+						})]
+					})
+				]
+			})]
+		})
+	});
+}
+//#endregion
 //#region src/components/skilltree/NodeBenefitsSection.jsx
 function NodeBenefitsSection({ node, set }) {
 	const { settings } = useTree();
 	const [drafts, setDrafts] = useState({});
+	const [tableOpen, setTableOpen] = useState(false);
 	const benefits = node.benefits || [];
 	const add = (category, value, extra = {}) => {
 		const name = String(value || "").trim();
@@ -28727,7 +29218,8 @@ function NodeBenefitsSection({ node, set }) {
 			name,
 			source: extra.source || "",
 			description: extra.description || "",
-			image: extra.image || ""
+			image: extra.image || "",
+			table: extra.table || null
 		}] });
 	};
 	const remove = (id) => set({ benefits: benefits.filter((b) => b.id !== id) });
@@ -28758,99 +29250,115 @@ function NodeBenefitsSection({ node, set }) {
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2",
-		children: [/* @__PURE__ */ jsxs("div", {
-			className: "flex items-center justify-between",
-			children: [/* @__PURE__ */ jsx(Label, { children: "Granted Benefits" }), /* @__PURE__ */ jsx("span", {
-				className: "text-[10px] text-muted-foreground",
-				children: "Drop from the Reference Library or type a name"
-			})]
-		}), /* @__PURE__ */ jsx("div", {
-			className: "grid grid-cols-2 gap-1.5",
-			children: BENEFIT_CATEGORIES.map((cat) => {
-				const options = benefitOptions(settings, cat.id);
-				const list = `benefit-${cat.id}-${node.id}`;
-				const mine = benefits.filter((b) => b.category === cat.id);
-				return /* @__PURE__ */ jsxs("div", {
-					onDragOver: (e) => {
-						e.preventDefault();
-						e.dataTransfer.dropEffect = "copy";
-					},
-					onDrop: (e) => onDrop(e, cat.id),
-					className: "rounded-md border border-dashed p-1.5",
-					title: "Drop a Reference Library entry here",
-					children: [
-						/* @__PURE__ */ jsxs("div", {
-							className: "mb-1 flex items-center justify-between gap-1",
-							children: [/* @__PURE__ */ jsx("span", {
-								className: "truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
-								children: cat.label
-							}), /* @__PURE__ */ jsx("span", {
-								className: "text-[10px] text-muted-foreground",
-								children: mine.length
-							})]
-						}),
-						/* @__PURE__ */ jsxs("div", {
-							className: "flex items-center gap-1",
-							children: [
-								/* @__PURE__ */ jsx(Input, {
-									className: "h-7 min-w-0 flex-1 text-[11px]",
-									list: options.length ? list : void 0,
-									placeholder: "Type or choose…",
-									value: drafts[cat.id] || "",
-									onChange: (e) => setDrafts((d) => ({
-										...d,
-										[cat.id]: e.target.value
-									})),
-									onKeyDown: (e) => {
-										if (e.key !== "Enter") return;
-										add(cat.id, drafts[cat.id]);
-										setDrafts((d) => ({
-											...d,
-											[cat.id]: ""
-										}));
-									}
-								}),
-								options.length > 0 && /* @__PURE__ */ jsx("datalist", {
-									id: list,
-									children: [...new Set(options)].map((name) => /* @__PURE__ */ jsx("option", { value: name }, name))
-								}),
-								/* @__PURE__ */ jsx(Button, {
-									size: "icon",
-									variant: "ghost",
-									className: "h-7 w-7 shrink-0",
-									title: `Add ${cat.label.toLowerCase()}`,
-									onClick: () => {
-										add(cat.id, drafts[cat.id]);
-										setDrafts((d) => ({
-											...d,
-											[cat.id]: ""
-										}));
-									},
-									children: /* @__PURE__ */ jsx(Plus, { className: "h-3.5 w-3.5" })
-								})
-							]
-						}),
-						mine.length > 0 && /* @__PURE__ */ jsx("div", {
-							className: "mt-1 flex flex-wrap gap-1",
-							children: mine.map((b) => /* @__PURE__ */ jsxs("span", {
-								title: b.description || b.name,
-								className: "inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between",
+				children: [/* @__PURE__ */ jsx(Label, { children: "Granted Benefits" }), /* @__PURE__ */ jsx("span", {
+					className: "text-[10px] text-muted-foreground",
+					children: "Drop from the Reference Library or type a name"
+				})]
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "grid grid-cols-2 gap-1.5",
+				children: BENEFIT_CATEGORIES.map((cat) => {
+					const options = benefitOptions(settings, cat.id);
+					const list = `benefit-${cat.id}-${node.id}`;
+					const mine = benefits.filter((b) => b.category === cat.id);
+					return /* @__PURE__ */ jsxs("div", {
+						onDragOver: (e) => {
+							e.preventDefault();
+							e.dataTransfer.dropEffect = "copy";
+						},
+						onDrop: (e) => onDrop(e, cat.id),
+						className: "rounded-md border border-dashed p-1.5",
+						title: "Drop a Reference Library entry here",
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "mb-1 flex items-center justify-between gap-1",
 								children: [/* @__PURE__ */ jsx("span", {
-									className: "truncate",
-									children: b.name
-								}), /* @__PURE__ */ jsx("button", {
-									type: "button",
-									className: "text-muted-foreground hover:text-destructive",
-									title: "Remove benefit",
-									onClick: () => remove(b.id),
-									children: /* @__PURE__ */ jsx(X, { className: "h-2.5 w-2.5" })
+									className: "truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+									children: cat.label
+								}), /* @__PURE__ */ jsx("span", {
+									className: "text-[10px] text-muted-foreground",
+									children: mine.length
 								})]
-							}, b.id))
-						})
-					]
-				}, cat.id);
+							}),
+							/* @__PURE__ */ jsx("div", {
+								className: "flex items-center gap-1",
+								children: cat.id === "table" ? /* @__PURE__ */ jsxs(Button, {
+									size: "sm",
+									variant: "outline",
+									className: "h-7 w-full text-[10px]",
+									onClick: () => setTableOpen(true),
+									children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-3.5 w-3.5" }), " New table"]
+								}) : /* @__PURE__ */ jsxs(Fragment, { children: [
+									/* @__PURE__ */ jsx(Input, {
+										className: "h-7 min-w-0 flex-1 text-[11px]",
+										list: options.length ? list : void 0,
+										placeholder: "Type or choose…",
+										value: drafts[cat.id] || "",
+										onChange: (e) => setDrafts((d) => ({
+											...d,
+											[cat.id]: e.target.value
+										})),
+										onKeyDown: (e) => {
+											if (e.key !== "Enter") return;
+											add(cat.id, drafts[cat.id]);
+											setDrafts((d) => ({
+												...d,
+												[cat.id]: ""
+											}));
+										}
+									}),
+									options.length > 0 && /* @__PURE__ */ jsx("datalist", {
+										id: list,
+										children: [...new Set(options)].map((name) => /* @__PURE__ */ jsx("option", { value: name }, name))
+									}),
+									/* @__PURE__ */ jsx(Button, {
+										size: "icon",
+										variant: "ghost",
+										className: "h-7 w-7 shrink-0",
+										title: `Add ${cat.label.toLowerCase()}`,
+										onClick: () => {
+											add(cat.id, drafts[cat.id]);
+											setDrafts((d) => ({
+												...d,
+												[cat.id]: ""
+											}));
+										},
+										children: /* @__PURE__ */ jsx(Plus, { className: "h-3.5 w-3.5" })
+									})
+								] })
+							}),
+							mine.length > 0 && /* @__PURE__ */ jsx("div", {
+								className: "mt-1 flex flex-wrap gap-1",
+								children: mine.map((b) => /* @__PURE__ */ jsxs("span", {
+									title: b.table ? tableSummary(b.table, settings?.library?.spells) : b.description || b.name,
+									className: "inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]",
+									children: [/* @__PURE__ */ jsx("span", {
+										className: "truncate",
+										children: b.name
+									}), /* @__PURE__ */ jsx("button", {
+										type: "button",
+										className: "text-muted-foreground hover:text-destructive",
+										title: "Remove benefit",
+										onClick: () => remove(b.id),
+										children: /* @__PURE__ */ jsx(X, { className: "h-2.5 w-2.5" })
+									})]
+								}, b.id))
+							})
+						]
+					}, cat.id);
+				})
+			}),
+			/* @__PURE__ */ jsx(BenefitTableDialog, {
+				open: tableOpen,
+				onClose: () => setTableOpen(false),
+				onSave: ({ name, table }) => add("table", name, { table }),
+				spells: settings?.library?.spells || [],
+				schools: settings?.library?.spellSchools || []
 			})
-		})]
+		]
 	});
 }
 //#endregion
@@ -33705,11 +34213,22 @@ function CharacterTab() {
 						children: g.label
 					}), /* @__PURE__ */ jsx("div", {
 						className: "flex flex-wrap gap-1",
-						children: g.items.map((b) => /* @__PURE__ */ jsx("span", {
-							title: b.description || b.name,
-							className: "rounded border bg-accent/40 px-2 py-0.5 text-[10px]",
-							children: b.name
-						}, b.id))
+						children: g.items.map((b) => {
+							const summary = b.table ? tableSummary(b.table, settings?.library?.spells) : b.description || b.name;
+							const options = b.table ? tableOptions(b.table, settings?.library?.spells) : [];
+							return /* @__PURE__ */ jsxs("span", {
+								title: [summary, options.slice(0, 20).join(", ")].filter(Boolean).join("\n"),
+								className: "rounded border bg-accent/40 px-2 py-0.5 text-[10px]",
+								children: [b.name, b.table ? /* @__PURE__ */ jsxs("span", {
+									className: "ml-1 text-muted-foreground",
+									children: [
+										"(",
+										summary,
+										")"
+									]
+								}) : null]
+							}, b.id);
+						})
 					})] }, g.id))
 				})
 			}),
