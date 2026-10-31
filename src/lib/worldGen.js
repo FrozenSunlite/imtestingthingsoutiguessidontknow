@@ -377,6 +377,7 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
     floorTexture: interior.rooms[0]?.floorTexture || "stone",
     propertyValue: Math.round((footprint.w * footprint.h * floors * base) / 10) * 10,
     ownerId: "",
+    tenure: "owned",
     residentIds: [],
     staffIds: [],
     notes: "",

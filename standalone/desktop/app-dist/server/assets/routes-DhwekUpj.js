@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C4N5YIYQ.js";
+import { n as Button, r as cn } from "./router-BE6x7T7O.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -28720,6 +28720,14 @@ var BENEFIT_CATEGORIES = [
 		label: "Character Stats"
 	},
 	{
+		id: "facility",
+		label: "Facilities"
+	},
+	{
+		id: "object",
+		label: "Objects"
+	},
+	{
 		id: "table",
 		label: "Tables"
 	}
@@ -28759,6 +28767,8 @@ function benefitOptions(settings, category) {
 		case "speed": return names(lib.speedTypes);
 		case "sense": return names(lib.senses);
 		case "resource": return names(lib.resources);
+		case "facility": return [...Object.keys(FACILITY_TYPES), ...BASTION_FACILITIES.map((f) => f.name)];
+		case "object": return names(lib.fiveETools?.objects);
 		case "stat": return STAT_OPTIONS;
 		default: return [];
 	}
@@ -61355,6 +61365,7 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
 		floorTexture: interior.rooms[0]?.floorTexture || "stone",
 		propertyValue: Math.round(footprint.w * footprint.h * floors * base / 10) * 10,
 		ownerId: "",
+		tenure: "owned",
 		residentIds: [],
 		staffIds: [],
 		notes: "",
@@ -69379,6 +69390,10 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 	};
 	const growBuilding = () => {
 		if (!buildingView || !layout) return;
+		if ((buildingView.tenure || "owned") === "rented") {
+			toast.error("Rented homes cannot be expanded — buy the property first.");
+			return;
+		}
 		const entry = (layout.buildings || []).find((row) => row.id === buildingView.id);
 		if (!entry) {
 			toast.error("This building has no map lot.");
@@ -70140,6 +70155,21 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 								placeholder: "Icon URL or /api/assets/file?path=…",
 								value: buildingView.icon || "",
 								onChange: (e) => onUpdateBuilding?.(settlement, buildingView, { icon: e.target.value })
+							}),
+							/* @__PURE__ */ jsxs("label", {
+								className: "flex items-center gap-1",
+								children: [/* @__PURE__ */ jsx("span", { children: "Tenure" }), /* @__PURE__ */ jsxs("select", {
+									className: "h-7 rounded border bg-background px-1 text-[10px]",
+									value: buildingView.tenure || "owned",
+									onChange: (e) => onUpdateBuilding?.(settlement, buildingView, { tenure: e.target.value }),
+									children: [/* @__PURE__ */ jsx("option", {
+										value: "owned",
+										children: "Owned"
+									}), /* @__PURE__ */ jsx("option", {
+										value: "rented",
+										children: "Rented"
+									})]
+								})]
 							}),
 							/* @__PURE__ */ jsx(Button, {
 								size: "sm",

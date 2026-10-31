@@ -301,6 +301,10 @@ export function SettlementView({
   // checked against its neighbours first so a home can't silently overwrite one.
   const growBuilding = () => {
     if (!buildingView || !layout) return;
+    if ((buildingView.tenure || "owned") === "rented") {
+      toast.error("Rented homes cannot be expanded — buy the property first.");
+      return;
+    }
     const entry = (layout.buildings || []).find((row) => row.id === buildingView.id);
     if (!entry) {
       toast.error("This building has no map lot.");
@@ -939,6 +943,19 @@ export function SettlementView({
                 onUpdateBuilding?.(settlement, buildingView, { icon: e.target.value })
               }
             />
+            <label className="flex items-center gap-1">
+              <span>Tenure</span>
+              <select
+                className="h-7 rounded border bg-background px-1 text-[10px]"
+                value={buildingView.tenure || "owned"}
+                onChange={(e) =>
+                  onUpdateBuilding?.(settlement, buildingView, { tenure: e.target.value })
+                }
+              >
+                <option value="owned">Owned</option>
+                <option value="rented">Rented</option>
+              </select>
+            </label>
             <Button
               size="sm"
               variant="outline"
