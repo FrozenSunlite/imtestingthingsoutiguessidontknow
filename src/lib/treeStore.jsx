@@ -65,6 +65,18 @@ export const DEFAULT_LIBRARY = {
     "Finesse", "Light", "Heavy", "Two-Handed", "Reach", "Thrown", "Versatile",
     "Loading", "Ammunition", "Range", "Special",
   ],
+  // 2024 Weapon Masteries (XPHB, p. 214). Weapons carry a `mastery` name; the
+  // Reference Library keeps the readable rules text for each.
+  weaponMasteries: [
+    { name: "Cleave", description: "If you hit a creature with a melee attack using this weapon, you can make a melee attack with it against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon's damage, but don't add your ability modifier unless it is negative. Once per turn." },
+    { name: "Graze", description: "If your attack roll with this weapon misses a creature, you can deal damage to it equal to the ability modifier used to make the attack roll. The damage is the weapon's type and can be increased only by increasing that modifier." },
+    { name: "Nick", description: "When you make the extra attack of the Light property, you can make it as part of the Attack action instead of as a Bonus Action. Once per turn." },
+    { name: "Push", description: "If you hit a creature with this weapon, you can push it up to 10 feet straight away from yourself if it is Large or smaller." },
+    { name: "Sap", description: "If you hit a creature with this weapon, it has Disadvantage on its next attack roll before the start of your next turn." },
+    { name: "Slow", description: "If you hit a creature with this weapon and deal damage, you can reduce its Speed by 10 feet until the start of your next turn. Multiple hits don't stack beyond 10 feet." },
+    { name: "Topple", description: "If you hit a creature with this weapon, you can force it to make a Constitution saving throw (DC 8 + the ability modifier used for the attack + your Proficiency Bonus). On a failure, it has the Prone condition." },
+    { name: "Vex", description: "If you hit a creature with this weapon and deal damage, you have Advantage on your next attack roll against it before the end of your next turn." },
+  ],
   actions: [
     { name: "Attack", description: "Make one attack with a weapon or an unarmed strike.", category: "action", resolve: "weapon" },
     { name: "Cast a Spell", description: "Cast a spell with a casting time of one action.", category: "action", resolve: "spell" },
@@ -511,6 +523,10 @@ function mergeLibrary(lib) {
     properties: (lib?.properties?.length ? lib.properties : d.properties).map((p) =>
       typeof p === "string" ? { name: p, description: "" } : p
     ),
+    weaponMasteries: (lib?.weaponMasteries?.length
+      ? lib.weaponMasteries
+      : d.weaponMasteries
+    ).map((m) => (typeof m === "string" ? { name: m, description: "" } : m)),
     weaponCategories: lib?.weaponCategories?.length ? lib.weaponCategories : d.weaponCategories,
     armorTypes: lib?.armorTypes?.length ? lib.armorTypes : d.armorTypes,
     spellSchools: lib?.spellSchools?.length ? lib.spellSchools : d.spellSchools,

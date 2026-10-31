@@ -46,6 +46,7 @@ import { DamageTypesTab, GearCategoriesTab, LanguagesTab } from "./library/Refer
 import { CostField } from "./library/shared";
 import { WondrousTab, SiegeTab, VehiclesTab } from "./library/CombatTabs";
 import { WeaponPropertiesTab } from "./library/WeaponPropertiesTab";
+import { WeaponMasteriesTab } from "./library/WeaponMasteriesTab";
 import { LevelsTab } from "./library/LevelsTab";
 import { CreatureTypesTab } from "./library/CreatureTypesTab";
 import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
@@ -80,7 +81,8 @@ const TAB_GROUPS = [
   ["Combat", [
     ["weapons", "Weapons"], ["weaponUpgrades", "Weapon Upgrades"], ["armor", "Armor"],
     ["categories", "Categories"],
-    ["properties", "Weapon Properties"], ["damageTypes", "Damage Types"],
+    ["properties", "Weapon Properties"], ["weaponMasteries", "Weapon Masteries"],
+    ["damageTypes", "Damage Types"],
     ["types", "Creature Types"], ["monsters", "Monsters"], ["actions", "Actions"],
     ["downtime", "Downtime Actions"],
     ["triggers", "Triggers"], ["statusEffects", "Status Effects"],
@@ -145,6 +147,7 @@ const SEARCH_CATEGORIES = (lib) => [
   ["Spell Subschools", "spellSchools", (lib.spellSubschools || []).map((s) => ({ name: s?.name }))],
   ["Attributes", "attributes", (lib.attributes || []).map((n) => ({ name: n }))],
   ["Weapon Properties", "properties", (lib.properties || []).map((n) => ({ name: n }))],
+  ["Weapon Masteries", "weaponMasteries", (lib.weaponMasteries || []).map((m) => ({ name: m.name || m }))],
   ["Shop", "shop", lib.shop || []],
   ["Skills", "skills", (lib.lists?.skills || []).map((n) => (typeof n === "string" ? { name: n } : n))],
   ["Languages", "languages", (lib.lists?.languages || []).map((n) => ({ name: n }))],
@@ -675,6 +678,9 @@ export function LibraryMenu({ open, onClose }) {
 
             <TabsContent value="properties" className="mt-0">
               <WeaponPropertiesTab />
+            </TabsContent>
+            <TabsContent value="weaponMasteries" className="mt-0">
+              <WeaponMasteriesTab />
             </TabsContent>
             <TabsContent value="levels" className="mt-0">
               <LevelsTab />

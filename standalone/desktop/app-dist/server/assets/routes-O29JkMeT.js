@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-D9ipVuKF.js";
+import { n as Button, r as cn } from "./router-DuMfmYm9.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6839,6 +6839,40 @@ var DEFAULT_LIBRARY = {
 		"Range",
 		"Special"
 	],
+	weaponMasteries: [
+		{
+			name: "Cleave",
+			description: "If you hit a creature with a melee attack using this weapon, you can make a melee attack with it against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon's damage, but don't add your ability modifier unless it is negative. Once per turn."
+		},
+		{
+			name: "Graze",
+			description: "If your attack roll with this weapon misses a creature, you can deal damage to it equal to the ability modifier used to make the attack roll. The damage is the weapon's type and can be increased only by increasing that modifier."
+		},
+		{
+			name: "Nick",
+			description: "When you make the extra attack of the Light property, you can make it as part of the Attack action instead of as a Bonus Action. Once per turn."
+		},
+		{
+			name: "Push",
+			description: "If you hit a creature with this weapon, you can push it up to 10 feet straight away from yourself if it is Large or smaller."
+		},
+		{
+			name: "Sap",
+			description: "If you hit a creature with this weapon, it has Disadvantage on its next attack roll before the start of your next turn."
+		},
+		{
+			name: "Slow",
+			description: "If you hit a creature with this weapon and deal damage, you can reduce its Speed by 10 feet until the start of your next turn. Multiple hits don't stack beyond 10 feet."
+		},
+		{
+			name: "Topple",
+			description: "If you hit a creature with this weapon, you can force it to make a Constitution saving throw (DC 8 + the ability modifier used for the attack + your Proficiency Bonus). On a failure, it has the Prone condition."
+		},
+		{
+			name: "Vex",
+			description: "If you hit a creature with this weapon and deal damage, you have Advantage on your next attack roll against it before the end of your next turn."
+		}
+	],
 	actions: [
 		{
 			name: "Attack",
@@ -7642,6 +7676,10 @@ function mergeLibrary(lib) {
 			name: p,
 			description: ""
 		} : p),
+		weaponMasteries: (lib?.weaponMasteries?.length ? lib.weaponMasteries : d.weaponMasteries).map((m) => typeof m === "string" ? {
+			name: m,
+			description: ""
+		} : m),
 		weaponCategories: lib?.weaponCategories?.length ? lib.weaponCategories : d.weaponCategories,
 		armorTypes: lib?.armorTypes?.length ? lib.armorTypes : d.armorTypes,
 		spellSchools: lib?.spellSchools?.length ? lib.spellSchools : d.spellSchools,
@@ -15169,6 +15207,39 @@ function WeaponPropertiesTab() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/library/WeaponMasteriesTab.jsx
+function WeaponMasteriesTab() {
+	const { items, add, patch, remove, query, setQuery, shown } = useLibList("weaponMasteries");
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [/* @__PURE__ */ jsx(ListHeader, {
+			onAdd: () => add({
+				name: "",
+				description: ""
+			}),
+			addLabel: "Add mastery",
+			query,
+			setQuery,
+			searchPlaceholder: "Search masteries…"
+		}), shown.length === 0 ? /* @__PURE__ */ jsx(EmptyNote, {
+			items,
+			query
+		}) : shown.map(({ e, i }) => /* @__PURE__ */ jsx(EntryCard, {
+			entry: e,
+			onPatch: (p) => patch(i, p),
+			onDelete: () => remove(i),
+			children: /* @__PURE__ */ jsx(InfoTip, {
+				label: "The mastery's name, e.g. Sap or Topple.",
+				children: /* @__PURE__ */ jsx(Input, {
+					value: e.name || "",
+					placeholder: "Mastery name",
+					onChange: (ev) => patch(i, { name: ev.target.value })
+				})
+			})
+		}, i))]
+	});
+}
+//#endregion
 //#region src/components/skilltree/library/LevelsTab.jsx
 function LevelsTab() {
 	const { settings, setSettings } = useTree();
@@ -22424,6 +22495,7 @@ var TAB_GROUPS = [
 		["armor", "Armor"],
 		["categories", "Categories"],
 		["properties", "Weapon Properties"],
+		["weaponMasteries", "Weapon Masteries"],
 		["damageTypes", "Damage Types"],
 		["types", "Creature Types"],
 		["monsters", "Monsters"],
@@ -22663,6 +22735,11 @@ var SEARCH_CATEGORIES = (lib) => [
 		"Weapon Properties",
 		"properties",
 		(lib.properties || []).map((n) => ({ name: n }))
+	],
+	[
+		"Weapon Masteries",
+		"weaponMasteries",
+		(lib.weaponMasteries || []).map((m) => ({ name: m.name || m }))
 	],
 	[
 		"Shop",
@@ -23296,6 +23373,11 @@ function LibraryMenu({ open, onClose }) {
 								value: "properties",
 								className: "mt-0",
 								children: /* @__PURE__ */ jsx(WeaponPropertiesTab, {})
+							}),
+							/* @__PURE__ */ jsx(TabsContent, {
+								value: "weaponMasteries",
+								className: "mt-0",
+								children: /* @__PURE__ */ jsx(WeaponMasteriesTab, {})
 							}),
 							/* @__PURE__ */ jsx(TabsContent, {
 								value: "levels",
