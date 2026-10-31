@@ -1624,8 +1624,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Room</p>
-                <span className="text-[10px]" style={{ color: categoryColor(selected.category) }}>
-                  {selected.category}
+                <span className="flex items-center gap-2 text-[10px]">
+                  <span className="text-muted-foreground">Floor {Number(selected.floor) || 0}</span>
+                  <span style={{ color: categoryColor(selected.category) }}>{selected.category}</span>
                 </span>
               </div>
               <Input className="h-8" value={selected.name} onChange={(e) => patchSelected({ name: e.target.value })} />
@@ -1647,6 +1648,16 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                       {CONNECTORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label className="text-[10px]">Floor</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-8"
+                    value={Number(selected.floor) || 0}
+                    onChange={(e) => patchSelected({ floor: Math.max(0, Number(e.target.value) || 0) })}
+                  />
                 </div>
                 <div>
                   <Label className="text-[10px]">Width (spaces)</Label>

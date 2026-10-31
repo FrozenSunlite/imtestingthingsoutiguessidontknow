@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DABAXHvc.js";
+import { n as Button, r as cn } from "./router-BYd3xnoN.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3851,6 +3851,7 @@ function instantiate(template, category, rng, rank, { monsters, lootPools, playe
 		id: uid("room"),
 		templateId: template.id,
 		name: template.name || `${category} ${rng.int(1, 9)}`,
+		floor: 0,
 		category,
 		x: 0,
 		y: 0,
@@ -3883,11 +3884,13 @@ function instantiate(template, category, rng, rank, { monsters, lootPools, playe
 		bonfire: !!template.bonfire
 	};
 }
-var link = (from, to, type = "Doorway") => ({
+var link = (from, to, type = "Doorway", floor = 0) => ({
 	id: `${from}->${to}`,
 	from,
 	to,
-	type
+	type,
+	floor: Number(floor) || 0,
+	door: true
 });
 function makeMissionStart() {
 	const w = 4;
@@ -3897,6 +3900,7 @@ function makeMissionStart() {
 		id: uid("room"),
 		templateId: "room-mission-start",
 		name: "Mission Start",
+		floor: 0,
 		category: "Start",
 		x: 0,
 		y: 0,
@@ -3928,6 +3932,7 @@ function makeBonfire(rng) {
 		id: uid("room"),
 		templateId: "room-bonfire",
 		name: "Bonfire Safe Zone",
+		floor: 0,
 		category: "Rest",
 		x: 0,
 		y: 0,
@@ -4026,6 +4031,7 @@ function makeHall(rng, dx, dy) {
 		id: uid("hall"),
 		templateId: `hall-${kind.name.toLowerCase().replace(/\s+/g, "-")}`,
 		name: kind.name,
+		floor: 0,
 		category: "Corridor",
 		hall: true,
 		combat: false,
@@ -4084,8 +4090,8 @@ function insertHalls(rooms, connections, rng) {
 		if (Math.abs(dx) >= Math.abs(dy)) hall.y = (from.y + from.h / 2 + to.y + to.h / 2) / 2 - hall.h / 2;
 		else hall.x = (from.x + from.w / 2 + to.x + to.w / 2) / 2 - hall.w / 2;
 		halls.push(hall);
-		next.push(link(from.id, hall.id, hall.connector));
-		next.push(link(hall.id, to.id, connection.type || "Doorway"));
+		next.push(link(from.id, hall.id, hall.connector, from.floor || 0));
+		next.push(link(hall.id, to.id, connection.type || "Doorway", from.floor || 0));
 	});
 	return {
 		halls,
@@ -4185,6 +4191,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), t
 				]);
 				let room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
 				if (last) room = themedBoss(room, lane);
+				room.floor = f;
 				room.x = f * 52;
 				room.y = (lane - (count - 1) / 2) * 42 + (last ? 0 : rng.int(-2, 2));
 				current.push(room);
@@ -4192,23 +4199,24 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), t
 			}
 			previous.forEach((p) => {
 				const nearest = [...current].sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y));
-				connections.push(link(p.id, nearest[0].id, p.connector));
-				if (nearest[1] && rng.chance(.35)) connections.push(link(p.id, nearest[1].id, p.connector));
+				connections.push(link(p.id, nearest[0].id, p.connector, f));
+				if (nearest[1] && rng.chance(.35)) connections.push(link(p.id, nearest[1].id, p.connector, f));
 			});
 			current.forEach((c) => {
 				if (!connections.some((e) => e.to === c.id)) {
 					const p = [...previous].sort((a, b) => Math.abs(a.y - c.y) - Math.abs(b.y - c.y))[0];
-					if (p) connections.push(link(p.id, c.id, p.connector));
+					if (p) connections.push(link(p.id, c.id, p.connector, f));
 				}
 			});
 			previous = current;
 			if (!current.every((r) => ["Rest", "Shop"].includes(r.category)) && !last) encounterFloors += 1;
 			if (!last && (f === 13 || encounterFloors >= 2) && !current.some((r) => r.category === "Boss")) {
 				const camp = makeBonfire(rng);
+				camp.floor = f;
 				camp.x = f * 52 + 36;
 				camp.y = 0;
 				rooms.push(camp);
-				current.forEach((room) => connections.push(link(room.id, camp.id, room.connector)));
+				current.forEach((room) => connections.push(link(room.id, camp.id, room.connector, f)));
 				previous = [camp];
 				encounterFloors = 0;
 			}
@@ -46288,10 +46296,15 @@ function DungeonGenerator({ onExit, embedded = false }) {
 									children: [/* @__PURE__ */ jsx("p", {
 										className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
 										children: "Room"
-									}), /* @__PURE__ */ jsx("span", {
-										className: "text-[10px]",
-										style: { color: categoryColor(selected.category) },
-										children: selected.category
+									}), /* @__PURE__ */ jsxs("span", {
+										className: "flex items-center gap-2 text-[10px]",
+										children: [/* @__PURE__ */ jsxs("span", {
+											className: "text-muted-foreground",
+											children: ["Floor ", Number(selected.floor) || 0]
+										}), /* @__PURE__ */ jsx("span", {
+											style: { color: categoryColor(selected.category) },
+											children: selected.category
+										})]
 									})]
 								}),
 								/* @__PURE__ */ jsx(Input, {
@@ -46329,6 +46342,16 @@ function DungeonGenerator({ onExit, embedded = false }) {
 												value: c,
 												children: c
 											}, c)) })]
+										})] }),
+										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Floor"
+										}), /* @__PURE__ */ jsx(Input, {
+											type: "number",
+											min: 0,
+											className: "h-8",
+											value: Number(selected.floor) || 0,
+											onChange: (e) => patchSelected({ floor: Math.max(0, Number(e.target.value) || 0) })
 										})] }),
 										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 											className: "text-[10px]",
