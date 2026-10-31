@@ -15,6 +15,7 @@ export function LanguagesTab() {
       entries={lib.lists?.languages || []}
       onChange={(next) => setList("languages", next)}
       placeholder="e.g. Elvish"
+      dragCategory="language"
     />
   );
 }

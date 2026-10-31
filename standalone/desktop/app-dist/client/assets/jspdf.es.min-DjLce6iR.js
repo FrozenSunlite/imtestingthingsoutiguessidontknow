@@ -1,0 +1,1 @@
+import{n as e}from"./routes-BQYOOg_d.js";export{e as default,e as jsPDF};

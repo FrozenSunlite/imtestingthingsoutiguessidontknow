@@ -1,0 +1,1 @@
+import{g as e}from"./routes-BQYOOg_d.js";export default e();

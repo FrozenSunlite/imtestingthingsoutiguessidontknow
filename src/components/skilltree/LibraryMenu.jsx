@@ -47,6 +47,7 @@ import { CostField } from "./library/shared";
 import { WondrousTab, SiegeTab, VehiclesTab } from "./library/CombatTabs";
 import { WeaponPropertiesTab } from "./library/WeaponPropertiesTab";
 import { WeaponMasteriesTab } from "./library/WeaponMasteriesTab";
+import { benefitDragProps } from "@/lib/benefits";
 import { LevelsTab } from "./library/LevelsTab";
 import { CreatureTypesTab } from "./library/CreatureTypesTab";
 import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
@@ -421,7 +422,14 @@ export function LibraryMenu({ open, onClose }) {
                     setLib({ weapons: next });
                   };
                   return (
-                    <div key={i} className="space-y-1.5 rounded-md border p-2">
+                    <div
+                      key={i}
+                      {...benefitDragProps("equipment", w.name, {
+                        description: w.description,
+                        image: w.image,
+                      })}
+                      className="space-y-1.5 rounded-md border p-2"
+                    >
                       <div className="grid grid-cols-2 gap-1.5">
                         <InfoTip label="The weapon's display name.">
                           <Input
@@ -573,7 +581,14 @@ export function LibraryMenu({ open, onClose }) {
                     setLib({ armor: next });
                   };
                   return (
-                    <div key={i} className="rounded-md border p-2">
+                    <div
+                      key={i}
+                      {...benefitDragProps("armor", a.name, {
+                        description: a.description,
+                        image: a.image,
+                      })}
+                      className="rounded-md border p-2"
+                    >
                       <div className="grid grid-cols-2 gap-1.5">
                         <InfoTip label="The armor's display name.">
                           <Input
@@ -673,6 +688,7 @@ export function LibraryMenu({ open, onClose }) {
                 entries={lib.lists.skills || []}
                 onChange={(n) => setList("skills", n)}
                 placeholder="Skill name"
+                dragCategory="skill"
               />
             </TabsContent>
 
@@ -759,24 +775,28 @@ export function LibraryMenu({ open, onClose }) {
                 entries={lib.lists.artisanTools || []}
                 onChange={(n) => setList("artisanTools", n)}
                 placeholder="Artisan's tool"
+                dragCategory="tool"
               />
               <AbilityList
                 label="Musical Instruments (ability used for checks)"
                 entries={lib.lists.instruments || []}
                 onChange={(n) => setList("instruments", n)}
                 placeholder="Instrument"
+                dragCategory="tool"
               />
               <AbilityList
                 label="Gaming Sets (ability used for checks)"
                 entries={lib.lists.gamingSets || []}
                 onChange={(n) => setList("gamingSets", n)}
                 placeholder="Gaming set"
+                dragCategory="tool"
               />
               <AbilityList
                 label="Miscellaneous Tools (ability used for checks)"
                 entries={lib.lists.miscTools || []}
                 onChange={(n) => setList("miscTools", n)}
                 placeholder="Tool"
+                dragCategory="tool"
               />
             </TabsContent>
             <TabsContent value="siege" className="mt-0">

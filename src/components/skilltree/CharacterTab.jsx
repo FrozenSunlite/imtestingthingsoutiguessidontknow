@@ -119,8 +119,26 @@ export function CharacterTab() {
   const effectiveLevel = effectiveCharacterLevel(character, tree);
   const talentLimit = talentPurchaseLimit(effectiveLevel, settings);
   const talentsUsed = talentPurchasesUsed(tree);
-  const profBonus = profBonusFor(effectiveLevel, levels);
+  const statBenefit = (label) =>
+    collectNodeBenefits(tree)
+      .filter(
+        (b) =>
+          b.category === "stat" &&
+          String(b.name || "").trim().toLowerCase() === label.toLowerCase()
+      )
+      .reduce((sum, b) => sum + (Number(b.value) || 1), 0);
+  let profBonus = profBonusFor(effectiveLevel, levels) + statBenefit("Proficiency Bonus");
   const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
+  const applyBenefit = (key, label) => {
+    const bonus = statBenefit(label);
+    if (!bonus || !sheet[key]) return;
+    sheet[key] = {
+      ...sheet[key],
+      final: (Number(sheet[key].final) || 0) + bonus,
+    };
+  };
+  applyBenefit("Armor Class", "Armor Class");
+  applyBenefit("Initiative", "Initiative");
   const customs = customResourceList(aggregated, settings?.library)
     .filter(
       (e) => !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name)

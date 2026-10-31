@@ -1,4 +1,5 @@
 import { useTree } from "@/lib/treeStore";
+import { benefitDragProps } from "@/lib/benefits";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,7 +55,16 @@ export function UpgradesTab() {
       />
       <EmptyNote items={u.items} query={u.query} />
       {u.shown.map(({ e, i }) => (
-        <EntryCard key={i} entry={e} onPatch={(p) => u.patch(i, p)} onDelete={() => u.remove(i)}>
+        <EntryCard
+          key={i}
+          entry={e}
+          onPatch={(p) => u.patch(i, p)}
+          onDelete={() => u.remove(i)}
+          dragProps={benefitDragProps("upgrade", e.name, {
+            description: e.description,
+            image: e.image,
+          })}
+        >
           <div className="grid grid-cols-2 gap-1.5">
             <InfoTip label="The upgrade's display name, e.g. Flame Tongue.">
               <Input

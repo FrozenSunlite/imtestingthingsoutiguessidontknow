@@ -141,7 +141,7 @@ var Toaster$1 = ({ ...props }) => {
 };
 //#endregion
 //#region src/index.css?url
-var src_default = "/assets/index-CICRmGW4.css";
+var src_default = "/assets/index-BJSnaNp7.css";
 //#endregion
 //#region src/routes/__root.jsx
 var Route$1 = createRootRoute({
@@ -182,7 +182,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-DhwekUpj.js");
+var $$splitComponentImporter = () => import("./routes-9R2m-RVp.js");
 //#endregion
 //#region src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({

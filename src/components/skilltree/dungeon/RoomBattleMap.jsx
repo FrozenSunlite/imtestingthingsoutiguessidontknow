@@ -384,21 +384,37 @@ export function RoomBattleMap({ room }) {
           const [cx, cy] = at(5 + i * 9);
           const x = (cx + 0.5) * cell;
           const y = (cy + 0.5) * cell;
+          const [rawName, rawUrl] = String(object).split("|").map((part) => part.trim());
+          const url = /^(data:|\/images\/|\/api\/|https?:)/i.test(rawUrl || "") ? rawUrl : "";
           return (
             <g key={`obj${i}`}>
-              <title>{String(object)}</title>
-              <rect
-                x={x - cell * 0.24}
-                y={y - cell * 0.24}
-                width={cell * 0.48}
-                height={cell * 0.48}
-                rx={1.5}
-                fill="hsl(38 90% 55%)"
-                fillOpacity="0.9"
-                stroke="hsl(var(--background))"
-                strokeWidth="0.6"
-              />
-              {label(x, y + 2, "O", "hsl(var(--background))", 5)}
+              <title>{rawName || String(object)}</title>
+              {url ? (
+                <image
+                  href={url}
+                  x={x - cell * 0.42}
+                  y={y - cell * 0.42}
+                  width={cell * 0.84}
+                  height={cell * 0.84}
+                  preserveAspectRatio="xMidYMid meet"
+                  opacity="0.95"
+                />
+              ) : (
+                <>
+                  <rect
+                    x={x - cell * 0.24}
+                    y={y - cell * 0.24}
+                    width={cell * 0.48}
+                    height={cell * 0.48}
+                    rx={1.5}
+                    fill="hsl(38 90% 55%)"
+                    fillOpacity="0.9"
+                    stroke="hsl(var(--background))"
+                    strokeWidth="0.6"
+                  />
+                  {label(x, y + 2, "O", "hsl(var(--background))", 5)}
+                </>
+              )}
             </g>
           );
         })}

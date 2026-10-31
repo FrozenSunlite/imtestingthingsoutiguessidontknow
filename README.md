@@ -122,8 +122,9 @@ the same origin.
 ```bash
 npm run lint
 npm run lint:fix
+npm test
 ```
 
 `eslint-plugin-react` is installed so JSX usage counts as variable use. The
 remaining warnings are genuine unused imports/arguments; there are no lint
-errors.
+errors. `npm test` runs the pure progression/migration unit tests.

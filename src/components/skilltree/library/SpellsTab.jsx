@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { matchesQuery } from "@/lib/textSearch";
+import { benefitDragProps } from "@/lib/benefits";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -368,7 +369,14 @@ export function SpellsTab() {
           ];
           const subNames = [...new Set(subOptions.map((s) => s.name).filter(Boolean))];
           return (
-            <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <div
+              key={i}
+              {...benefitDragProps("spell", sp.name, {
+                description: sp.description,
+                image: sp.image,
+              })}
+              className="space-y-1.5 rounded-md border p-2"
+            >
               <div className="flex items-center gap-1.5">
                 <InfoTip label="The spell's name.">
                   <Input

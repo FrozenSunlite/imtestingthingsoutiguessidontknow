@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { matchesQuery } from "@/lib/textSearch";
+import { benefitDragProps } from "@/lib/benefits";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -115,11 +116,11 @@ export function EmptyNote({ items, query }) {
 }
 
 // One entry card with an optional, collapsible description box (collapsed by default).
-export function EntryCard({ entry, onPatch, onDelete, children }) {
+export function EntryCard({ entry, onPatch, onDelete, children, dragProps }) {
   const [open, setOpen] = useState(false);
   const image = typeof entry?.image === "string" ? entry.image : "";
   return (
-    <div className="space-y-1.5 rounded-md border p-2">
+    <div {...dragProps} className="space-y-1.5 rounded-md border p-2">
       {children}
       {image && (
         <img
@@ -194,7 +195,7 @@ import { STATS } from "@/lib/skills";
 
 // An editable list of name + ability entries (skills, tools, instruments).
 // The ability assignment drives the auto-calculated check modifiers.
-export function AbilityList({ label, entries, onChange, placeholder }) {
+export function AbilityList({ label, entries, onChange, placeholder, dragCategory = "" }) {
   const [q, setQ] = useState("");
   const shown = (entries || [])
     .map((e, i) => ({ e: typeof e === "string" ? { name: e, ability: "" } : e, i }))
@@ -216,7 +217,11 @@ export function AbilityList({ label, entries, onChange, placeholder }) {
       </InfoTip>
       <div className="mt-1 space-y-1">
         {shown.map(({ e, i }) => (
-          <div key={i} className="flex items-center gap-1">
+          <div
+            key={i}
+            {...(dragCategory ? benefitDragProps(dragCategory, e.name) : {})}
+            className="flex items-center gap-1"
+          >
             <InfoTip label="One entry per row — the assigned ability powers auto-calculated check modifiers.">
               <Input
                 className="h-8 flex-1"
@@ -269,7 +274,7 @@ export function AbilityList({ label, entries, onChange, placeholder }) {
 }
 
 // One editable list of simple text entries, with a search box.
-export function NameList({ label, entries, onChange, placeholder }) {
+export function NameList({ label, entries, onChange, placeholder, dragCategory = "" }) {
   const [q, setQ] = useState("");
   const shown = (entries || [])
     .map((v, i) => ({ v, i }))
@@ -292,7 +297,11 @@ export function NameList({ label, entries, onChange, placeholder }) {
       </InfoTip>
       <div className="mt-1 space-y-1">
         {shown.map(({ v, i }) => (
-          <div key={i} className="flex items-center gap-1">
+          <div
+            key={i}
+            {...(dragCategory ? benefitDragProps(dragCategory, v) : {})}
+            className="flex items-center gap-1"
+          >
             <InfoTip label="One entry per row — press + to add another.">
               <Input
                 className="h-8 flex-1"

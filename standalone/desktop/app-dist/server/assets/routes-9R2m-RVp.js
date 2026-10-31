@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BE6x7T7O.js";
+import { n as Button, r as cn } from "./router-aRReo0RQ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -12015,6 +12015,304 @@ function matchesQuery(value, query) {
 	return normText(value).includes(q);
 }
 //#endregion
+//#region src/lib/benefits.js
+var BENEFIT_CATEGORIES = [
+	{
+		id: "spell",
+		label: "Spells"
+	},
+	{
+		id: "equipment",
+		label: "Equipment"
+	},
+	{
+		id: "upgrade",
+		label: "Upgrades"
+	},
+	{
+		id: "armor",
+		label: "Armor"
+	},
+	{
+		id: "attribute",
+		label: "Attributes"
+	},
+	{
+		id: "skill",
+		label: "Skill Proficiencies"
+	},
+	{
+		id: "tool",
+		label: "Tool Proficiencies"
+	},
+	{
+		id: "language",
+		label: "Languages"
+	},
+	{
+		id: "speed",
+		label: "Speeds"
+	},
+	{
+		id: "sense",
+		label: "Senses"
+	},
+	{
+		id: "resource",
+		label: "Resources"
+	},
+	{
+		id: "mastery",
+		label: "Weapon Masteries"
+	},
+	{
+		id: "property",
+		label: "Weapon Properties"
+	},
+	{
+		id: "stat",
+		label: "Character Stats"
+	},
+	{
+		id: "facility",
+		label: "Facilities"
+	},
+	{
+		id: "object",
+		label: "Objects"
+	},
+	{
+		id: "table",
+		label: "Tables"
+	}
+];
+var names = (value) => (Array.isArray(value) ? value : []).map((item) => typeof item === "string" ? item : item?.name).filter(Boolean);
+var STAT_OPTIONS = [
+	"Hit Points",
+	"Armor Class",
+	"Exhaustion",
+	"Proficiency Bonus",
+	"Initiative",
+	"Speed",
+	"Saving Throws",
+	"Temp HP"
+];
+function benefitOptions(settings, category) {
+	const lib = settings?.library || {};
+	switch (category) {
+		case "spell": return names(benefitSpells(settings));
+		case "equipment": return [
+			...names(lib.weapons),
+			...names(lib.armor),
+			...names(lib.adventuringGear)
+		];
+		case "upgrade": return names(lib.weaponUpgrades);
+		case "armor": return names(lib.armor);
+		case "attribute": return names(lib.attributes);
+		case "skill": return names(lib.lists?.skills);
+		case "tool": return [
+			...names(lib.lists?.tools),
+			...names(lib.lists?.artisanTools),
+			...names(lib.lists?.gamingSets),
+			...names(lib.lists?.miscTools),
+			...names(lib.lists?.instruments)
+		];
+		case "language": return names(lib.lists?.languages);
+		case "speed": return names(lib.speedTypes);
+		case "sense": return names(lib.senses);
+		case "resource": return names(lib.resources);
+		case "mastery": return names(lib.weaponMasteries);
+		case "property": return names(lib.properties);
+		case "facility": return [...Object.keys(FACILITY_TYPES), ...BASTION_FACILITIES.map((f) => f.name)];
+		case "object": return names(lib.fiveETools?.objects);
+		case "stat": return STAT_OPTIONS;
+		default: return [];
+	}
+}
+var BENEFIT_CATEGORY_FOR_5E = {
+	spells: "spell",
+	items: "equipment",
+	languages: "language",
+	skills: "skill",
+	senses: "sense",
+	tables: "table",
+	backgrounds: "other",
+	species: "other",
+	feats: "other",
+	conditions: "other",
+	actions: "other"
+};
+function benefitSpells(settings) {
+	const lib = settings?.library || {};
+	const merged = [...Array.isArray(lib.spells) ? lib.spells : [], ...Array.isArray(lib.fiveETools?.spells) ? lib.fiveETools.spells : []];
+	const seen = /* @__PURE__ */ new Set();
+	return merged.filter((spell) => {
+		const name = typeof spell === "string" ? spell : String(spell?.name || "");
+		if (!name || seen.has(name.toLowerCase())) return false;
+		seen.add(name.toLowerCase());
+		return true;
+	});
+}
+var LEVEL_MODES = [
+	{
+		id: "any",
+		label: "Any level"
+	},
+	{
+		id: "equal",
+		label: "Equal to"
+	},
+	{
+		id: "upTo",
+		label: "Up to"
+	},
+	{
+		id: "below",
+		label: "Below"
+	},
+	{
+		id: "equalOrGreater",
+		label: "Equal or greater"
+	},
+	{
+		id: "equalOrLesser",
+		label: "Equal or lesser"
+	}
+];
+var TABLE_SAVE_MODES = [
+	{
+		id: "any",
+		label: "Any"
+	},
+	{
+		id: "save",
+		label: "Saving Throw"
+	},
+	{
+		id: "attack",
+		label: "Spell Attack"
+	},
+	{
+		id: "neither",
+		label: "Neither"
+	}
+];
+var TABLE_RANGE_MODES = [
+	{
+		id: "any",
+		label: "Any"
+	},
+	{
+		id: "melee",
+		label: "Melee"
+	},
+	{
+		id: "ranged",
+		label: "Ranged"
+	},
+	{
+		id: "neither",
+		label: "Neither"
+	}
+];
+var numLevel = (spell) => {
+	const raw = spell?.level ?? spell?.spellLevel ?? spell?.lvl;
+	if (raw === "cantrip" || raw === "0") return 0;
+	return Number(raw) || 0;
+};
+var text = (value) => String(value ?? "").toLowerCase();
+function filterSpells(spells, filters = {}) {
+	return (Array.isArray(spells) ? spells : []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => {
+		if (!s?.name) return false;
+		if (filters.schools?.length) {
+			const school = text(s.school || s.School);
+			if (!filters.schools.some((x) => school.includes(text(x)))) return false;
+		}
+		if (filters.levelMode && filters.levelMode !== "any" && filters.level !== "" && filters.level != null) {
+			const want = Number(filters.level) || 0;
+			const lvl = numLevel(s);
+			if (filters.levelMode === "equal" && lvl !== want) return false;
+			if (filters.levelMode === "upTo" && lvl > want) return false;
+			if (filters.levelMode === "below" && lvl >= want) return false;
+			if (filters.levelMode === "equalOrGreater" && lvl < want) return false;
+			if (filters.levelMode === "equalOrLesser" && lvl > want) return false;
+		}
+		const check = (field, query) => {
+			if (!query) return true;
+			const hay = text(s[field]);
+			return !hay || hay.includes(text(query));
+		};
+		if (!check("subschool", filters.subschool)) return false;
+		if (!check("castingTime", filters.castingTime) && !check("time", filters.castingTime)) return false;
+		if (!check("duration", filters.duration)) return false;
+		if (!check("target", filters.target)) return false;
+		if (!check("area", filters.area)) return false;
+		if (!check("effect", filters.effect)) return false;
+		if (!check("materials", filters.materials) && !check("components", filters.materials)) return false;
+		if (filters.save && filters.save !== "any") {
+			const hasSave = !!(s.save || s.savingThrow);
+			const hasAttack = !!(s.spellAttack || s.attack);
+			if (filters.save === "save" && !hasSave) return false;
+			if (filters.save === "attack" && !hasAttack) return false;
+			if (filters.save === "neither" && (hasSave || hasAttack)) return false;
+		}
+		if (filters.range && filters.range !== "any") {
+			const range = text(s.range || s.rangeType);
+			const melee = /melee|touch|self/.test(range);
+			const ranged = /ranged|feet|foot|mile/.test(range) && !melee;
+			if (filters.range === "melee" && !melee) return false;
+			if (filters.range === "ranged" && !ranged) return false;
+			if (filters.range === "neither" && (melee || ranged)) return false;
+		}
+		return true;
+	});
+}
+function tableOptions(table, spells) {
+	if (!table) return [];
+	if (table.source === "custom") return String(table.optionsText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+	return filterSpells(spells, table.filters || []).map((s) => s.name);
+}
+function tableSummary(table, spells) {
+	if (!table) return "";
+	const options = tableOptions(table, spells);
+	return `${table.mode === "roll" ? `Roll ${table.die || "d20"}` : `Choose ${Number(table.count) || 1}`} from ${table.source === "custom" ? `${options.length} option${options.length === 1 ? "" : "s"}` : `${options.length} matching spell${options.length === 1 ? "" : "s"}`}`;
+}
+function benefitDragProps(category, name, extra = {}) {
+	const payload = JSON.stringify({
+		category,
+		name,
+		...extra
+	});
+	return {
+		draggable: true,
+		onDragStart: (event) => {
+			event.dataTransfer.setData("application/x-benefit", payload);
+			event.dataTransfer.effectAllowed = "copy";
+		}
+	};
+}
+function benefitId() {
+	return `bnf${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
+}
+function collectNodeBenefits(tree) {
+	const out = [];
+	const seen = /* @__PURE__ */ new Set();
+	const walk = (nodes) => {
+		for (const n of nodes || []) {
+			(n.subtrees || []).forEach((st) => walk(st.nodes));
+			if ((Number(n.currentPoints) || 0) <= 0) continue;
+			for (const b of n.benefits || []) {
+				const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
+				if (!b.name || seen.has(key)) continue;
+				seen.add(key);
+				out.push(b);
+			}
+		}
+	};
+	walk(tree?.nodes);
+	return out;
+}
+//#endregion
 //#region src/components/ui/textarea.jsx
 var Textarea = React.forwardRef(({ className, ...props }, ref) => {
 	return /* @__PURE__ */ jsx("textarea", {
@@ -12177,10 +12475,11 @@ function EmptyNote({ items, query }) {
 		children: (items || []).length === 0 ? "Nothing added yet." : "No matches."
 	});
 }
-function EntryCard({ entry, onPatch, onDelete, children }) {
+function EntryCard({ entry, onPatch, onDelete, children, dragProps }) {
 	const [open, setOpen] = useState(false);
 	const image = typeof entry?.image === "string" ? entry.image : "";
 	return /* @__PURE__ */ jsxs("div", {
+		...dragProps,
 		className: "space-y-1.5 rounded-md border p-2",
 		children: [
 			children,
@@ -12248,7 +12547,7 @@ function PeriodSelect({ periods, value, onChange, className }) {
 		}, p)) })]
 	});
 }
-function AbilityList({ label, entries, onChange, placeholder }) {
+function AbilityList({ label, entries, onChange, placeholder, dragCategory = "" }) {
 	const [q, setQ] = useState("");
 	const shown = (entries || []).map((e, i) => ({
 		e: typeof e === "string" ? {
@@ -12287,6 +12586,7 @@ function AbilityList({ label, entries, onChange, placeholder }) {
 			/* @__PURE__ */ jsxs("div", {
 				className: "mt-1 space-y-1",
 				children: [shown.map(({ e, i }) => /* @__PURE__ */ jsxs("div", {
+					...dragCategory ? benefitDragProps(dragCategory, e.name) : {},
 					className: "flex items-center gap-1",
 					children: [
 						/* @__PURE__ */ jsx(InfoTip, {
@@ -12341,7 +12641,7 @@ function AbilityList({ label, entries, onChange, placeholder }) {
 		]
 	});
 }
-function NameList({ label, entries, onChange, placeholder }) {
+function NameList({ label, entries, onChange, placeholder, dragCategory = "" }) {
 	const [q, setQ] = useState("");
 	const shown = (entries || []).map((v, i) => ({
 		v,
@@ -12374,6 +12674,7 @@ function NameList({ label, entries, onChange, placeholder }) {
 			/* @__PURE__ */ jsxs("div", {
 				className: "mt-1 space-y-1",
 				children: [shown.map(({ v, i }) => /* @__PURE__ */ jsxs("div", {
+					...dragCategory ? benefitDragProps(dragCategory, v) : {},
 					className: "flex items-center gap-1",
 					children: [/* @__PURE__ */ jsx(InfoTip, {
 						label: "One entry per row — press + to add another.",
@@ -14704,7 +15005,8 @@ function LanguagesTab() {
 		label: "Languages (suggestions for language proficiencies and requirements)",
 		entries: lib.lists?.languages || [],
 		onChange: (next) => setList("languages", next),
-		placeholder: "e.g. Elvish"
+		placeholder: "e.g. Elvish",
+		dragCategory: "language"
 	});
 }
 function DamageTypesTab() {
@@ -15278,6 +15580,10 @@ function WeaponPropertiesTab() {
 			entry: e,
 			onPatch: (p) => patch(i, p),
 			onDelete: () => remove(i),
+			dragProps: benefitDragProps("property", e.name, {
+				description: e.description,
+				image: e.image
+			}),
 			children: /* @__PURE__ */ jsx(InfoTip, {
 				label: "The property's name, e.g. Finesse.",
 				children: /* @__PURE__ */ jsx(Input, {
@@ -15311,6 +15617,10 @@ function WeaponMasteriesTab() {
 			entry: e,
 			onPatch: (p) => patch(i, p),
 			onDelete: () => remove(i),
+			dragProps: benefitDragProps("mastery", e.name, {
+				description: e.description,
+				image: e.image
+			}),
 			children: [/* @__PURE__ */ jsx(InfoTip, {
 				label: "The mastery's name, e.g. Sap or Topple.",
 				children: /* @__PURE__ */ jsx(Input, {
@@ -15985,7 +16295,7 @@ function DungeonRoomsTab() {
 						["spawns", "Spawns / placement (one per line)"],
 						["loot", "Loot (one per line)"],
 						["harvest", "Harvestable materials (one per line)"],
-						["objects", "Imported objects (one per line)"]
+						["objects", "Imported objects (one per line; Name | /images/... for artwork)"]
 					].map(([key, label]) => /* @__PURE__ */ jsxs("div", {
 						className: "mt-1.5",
 						children: [/* @__PURE__ */ jsx(Label, {
@@ -19733,6 +20043,10 @@ function SpellsTab() {
 				}] : []];
 				const subNames = [...new Set(subOptions.map((s) => s.name).filter(Boolean))];
 				return /* @__PURE__ */ jsxs("div", {
+					...benefitDragProps("spell", sp.name, {
+						description: sp.description,
+						image: sp.image
+					}),
 					className: "space-y-1.5 rounded-md border p-2",
 					children: [
 						/* @__PURE__ */ jsxs("div", {
@@ -22355,6 +22669,10 @@ function UpgradesTab() {
 				entry: e,
 				onPatch: (p) => u.patch(i, p),
 				onDelete: () => u.remove(i),
+				dragProps: benefitDragProps("upgrade", e.name, {
+					description: e.description,
+					image: e.image
+				}),
 				children: [
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-2 gap-1.5",
@@ -23173,6 +23491,10 @@ function LibraryMenu({ open, onClose }) {
 													setLib({ weapons: next });
 												};
 												return /* @__PURE__ */ jsxs("div", {
+													...benefitDragProps("equipment", w.name, {
+														description: w.description,
+														image: w.image
+													}),
 													className: "space-y-1.5 rounded-md border p-2",
 													children: [/* @__PURE__ */ jsxs("div", {
 														className: "grid grid-cols-2 gap-1.5",
@@ -23352,6 +23674,10 @@ function LibraryMenu({ open, onClose }) {
 													setLib({ armor: next });
 												};
 												return /* @__PURE__ */ jsxs("div", {
+													...benefitDragProps("armor", a.name, {
+														description: a.description,
+														image: a.image
+													}),
 													className: "rounded-md border p-2",
 													children: [/* @__PURE__ */ jsxs("div", {
 														className: "grid grid-cols-2 gap-1.5",
@@ -23462,7 +23788,8 @@ function LibraryMenu({ open, onClose }) {
 										label: "Skills — the ability assignment powers auto-calculated check modifiers",
 										entries: lib.lists.skills || [],
 										onChange: (n) => setList("skills", n),
-										placeholder: "Skill name"
+										placeholder: "Skill name",
+										dragCategory: "skill"
 									})
 								}),
 								/* @__PURE__ */ jsx(TabsContent, {
@@ -23583,25 +23910,29 @@ function LibraryMenu({ open, onClose }) {
 											label: "Artisan's Tools (ability used for tool checks)",
 											entries: lib.lists.artisanTools || [],
 											onChange: (n) => setList("artisanTools", n),
-											placeholder: "Artisan's tool"
+											placeholder: "Artisan's tool",
+											dragCategory: "tool"
 										}),
 										/* @__PURE__ */ jsx(AbilityList, {
 											label: "Musical Instruments (ability used for checks)",
 											entries: lib.lists.instruments || [],
 											onChange: (n) => setList("instruments", n),
-											placeholder: "Instrument"
+											placeholder: "Instrument",
+											dragCategory: "tool"
 										}),
 										/* @__PURE__ */ jsx(AbilityList, {
 											label: "Gaming Sets (ability used for checks)",
 											entries: lib.lists.gamingSets || [],
 											onChange: (n) => setList("gamingSets", n),
-											placeholder: "Gaming set"
+											placeholder: "Gaming set",
+											dragCategory: "tool"
 										}),
 										/* @__PURE__ */ jsx(AbilityList, {
 											label: "Miscellaneous Tools (ability used for checks)",
 											entries: lib.lists.miscTools || [],
 											onChange: (n) => setList("miscTools", n),
-											placeholder: "Tool"
+											placeholder: "Tool",
+											dragCategory: "tool"
 										})
 									]
 								}),
@@ -28669,280 +29000,6 @@ function NodeResourcesSection({ node, set }) {
 	});
 }
 //#endregion
-//#region src/lib/benefits.js
-var BENEFIT_CATEGORIES = [
-	{
-		id: "spell",
-		label: "Spells"
-	},
-	{
-		id: "equipment",
-		label: "Equipment"
-	},
-	{
-		id: "upgrade",
-		label: "Upgrades"
-	},
-	{
-		id: "armor",
-		label: "Armor"
-	},
-	{
-		id: "attribute",
-		label: "Attributes"
-	},
-	{
-		id: "skill",
-		label: "Skill Proficiencies"
-	},
-	{
-		id: "tool",
-		label: "Tool Proficiencies"
-	},
-	{
-		id: "language",
-		label: "Languages"
-	},
-	{
-		id: "speed",
-		label: "Speeds"
-	},
-	{
-		id: "sense",
-		label: "Senses"
-	},
-	{
-		id: "resource",
-		label: "Resources"
-	},
-	{
-		id: "stat",
-		label: "Character Stats"
-	},
-	{
-		id: "facility",
-		label: "Facilities"
-	},
-	{
-		id: "object",
-		label: "Objects"
-	},
-	{
-		id: "table",
-		label: "Tables"
-	}
-];
-var names = (value) => (Array.isArray(value) ? value : []).map((item) => typeof item === "string" ? item : item?.name).filter(Boolean);
-var STAT_OPTIONS = [
-	"Hit Points",
-	"Armor Class",
-	"Exhaustion",
-	"Proficiency Bonus",
-	"Initiative",
-	"Speed",
-	"Saving Throws",
-	"Temp HP"
-];
-function benefitOptions(settings, category) {
-	const lib = settings?.library || {};
-	switch (category) {
-		case "spell": return names(benefitSpells(settings));
-		case "equipment": return [
-			...names(lib.weapons),
-			...names(lib.armor),
-			...names(lib.adventuringGear)
-		];
-		case "upgrade": return names(lib.weaponUpgrades);
-		case "armor": return names(lib.armor);
-		case "attribute": return names(lib.attributes);
-		case "skill": return names(lib.lists?.skills);
-		case "tool": return [
-			...names(lib.lists?.tools),
-			...names(lib.lists?.artisanTools),
-			...names(lib.lists?.gamingSets),
-			...names(lib.lists?.miscTools),
-			...names(lib.lists?.instruments)
-		];
-		case "language": return names(lib.lists?.languages);
-		case "speed": return names(lib.speedTypes);
-		case "sense": return names(lib.senses);
-		case "resource": return names(lib.resources);
-		case "facility": return [...Object.keys(FACILITY_TYPES), ...BASTION_FACILITIES.map((f) => f.name)];
-		case "object": return names(lib.fiveETools?.objects);
-		case "stat": return STAT_OPTIONS;
-		default: return [];
-	}
-}
-var BENEFIT_CATEGORY_FOR_5E = {
-	spells: "spell",
-	items: "equipment",
-	languages: "language",
-	skills: "skill",
-	senses: "sense",
-	tables: "table",
-	backgrounds: "other",
-	species: "other",
-	feats: "other",
-	conditions: "other",
-	actions: "other"
-};
-function benefitSpells(settings) {
-	const lib = settings?.library || {};
-	const merged = [...Array.isArray(lib.spells) ? lib.spells : [], ...Array.isArray(lib.fiveETools?.spells) ? lib.fiveETools.spells : []];
-	const seen = /* @__PURE__ */ new Set();
-	return merged.filter((spell) => {
-		const name = typeof spell === "string" ? spell : String(spell?.name || "");
-		if (!name || seen.has(name.toLowerCase())) return false;
-		seen.add(name.toLowerCase());
-		return true;
-	});
-}
-var LEVEL_MODES = [
-	{
-		id: "any",
-		label: "Any level"
-	},
-	{
-		id: "equal",
-		label: "Equal to"
-	},
-	{
-		id: "upTo",
-		label: "Up to"
-	},
-	{
-		id: "below",
-		label: "Below"
-	},
-	{
-		id: "equalOrGreater",
-		label: "Equal or greater"
-	},
-	{
-		id: "equalOrLesser",
-		label: "Equal or lesser"
-	}
-];
-var TABLE_SAVE_MODES = [
-	{
-		id: "any",
-		label: "Any"
-	},
-	{
-		id: "save",
-		label: "Saving Throw"
-	},
-	{
-		id: "attack",
-		label: "Spell Attack"
-	},
-	{
-		id: "neither",
-		label: "Neither"
-	}
-];
-var TABLE_RANGE_MODES = [
-	{
-		id: "any",
-		label: "Any"
-	},
-	{
-		id: "melee",
-		label: "Melee"
-	},
-	{
-		id: "ranged",
-		label: "Ranged"
-	},
-	{
-		id: "neither",
-		label: "Neither"
-	}
-];
-var numLevel = (spell) => {
-	const raw = spell?.level ?? spell?.spellLevel ?? spell?.lvl;
-	if (raw === "cantrip" || raw === "0") return 0;
-	return Number(raw) || 0;
-};
-var text = (value) => String(value ?? "").toLowerCase();
-function filterSpells(spells, filters = {}) {
-	return (Array.isArray(spells) ? spells : []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => {
-		if (!s?.name) return false;
-		if (filters.schools?.length) {
-			const school = text(s.school || s.School);
-			if (!filters.schools.some((x) => school.includes(text(x)))) return false;
-		}
-		if (filters.levelMode && filters.levelMode !== "any" && filters.level !== "" && filters.level != null) {
-			const want = Number(filters.level) || 0;
-			const lvl = numLevel(s);
-			if (filters.levelMode === "equal" && lvl !== want) return false;
-			if (filters.levelMode === "upTo" && lvl > want) return false;
-			if (filters.levelMode === "below" && lvl >= want) return false;
-			if (filters.levelMode === "equalOrGreater" && lvl < want) return false;
-			if (filters.levelMode === "equalOrLesser" && lvl > want) return false;
-		}
-		const check = (field, query) => {
-			if (!query) return true;
-			const hay = text(s[field]);
-			return !hay || hay.includes(text(query));
-		};
-		if (!check("subschool", filters.subschool)) return false;
-		if (!check("castingTime", filters.castingTime) && !check("time", filters.castingTime)) return false;
-		if (!check("duration", filters.duration)) return false;
-		if (!check("target", filters.target)) return false;
-		if (!check("area", filters.area)) return false;
-		if (!check("effect", filters.effect)) return false;
-		if (!check("materials", filters.materials) && !check("components", filters.materials)) return false;
-		if (filters.save && filters.save !== "any") {
-			const hasSave = !!(s.save || s.savingThrow);
-			const hasAttack = !!(s.spellAttack || s.attack);
-			if (filters.save === "save" && !hasSave) return false;
-			if (filters.save === "attack" && !hasAttack) return false;
-			if (filters.save === "neither" && (hasSave || hasAttack)) return false;
-		}
-		if (filters.range && filters.range !== "any") {
-			const range = text(s.range || s.rangeType);
-			const melee = /melee|touch|self/.test(range);
-			const ranged = /ranged|feet|foot|mile/.test(range) && !melee;
-			if (filters.range === "melee" && !melee) return false;
-			if (filters.range === "ranged" && !ranged) return false;
-			if (filters.range === "neither" && (melee || ranged)) return false;
-		}
-		return true;
-	});
-}
-function tableOptions(table, spells) {
-	if (!table) return [];
-	if (table.source === "custom") return String(table.optionsText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-	return filterSpells(spells, table.filters || []).map((s) => s.name);
-}
-function tableSummary(table, spells) {
-	if (!table) return "";
-	const options = tableOptions(table, spells);
-	return `${table.mode === "roll" ? `Roll ${table.die || "d20"}` : `Choose ${Number(table.count) || 1}`} from ${table.source === "custom" ? `${options.length} option${options.length === 1 ? "" : "s"}` : `${options.length} matching spell${options.length === 1 ? "" : "s"}`}`;
-}
-function benefitId() {
-	return `bnf${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
-}
-function collectNodeBenefits(tree) {
-	const out = [];
-	const seen = /* @__PURE__ */ new Set();
-	const walk = (nodes) => {
-		for (const n of nodes || []) {
-			(n.subtrees || []).forEach((st) => walk(st.nodes));
-			if ((Number(n.currentPoints) || 0) <= 0) continue;
-			for (const b of n.benefits || []) {
-				const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
-				if (!b.name || seen.has(key)) continue;
-				seen.add(key);
-				out.push(b);
-			}
-		}
-	};
-	walk(tree?.nodes);
-	return out;
-}
-//#endregion
 //#region src/components/skilltree/BenefitTableDialog.jsx
 var DEFAULT_TABLE = {
 	source: "spells",
@@ -29421,10 +29478,10 @@ function NodeBenefitsSection({ node, set }) {
 										id: list,
 										children: [...new Set(options)].map((name) => /* @__PURE__ */ jsx("option", { value: name }, name))
 									}),
-									cat.id === "attribute" && /* @__PURE__ */ jsx(Input, {
+									(cat.id === "attribute" || cat.id === "stat") && /* @__PURE__ */ jsx(Input, {
 										className: "h-7 w-12 text-[11px]",
 										type: "number",
-										title: "Attribute bonus amount",
+										title: cat.id === "stat" ? "Stat bonus amount" : "Attribute bonus amount",
 										value: drafts[`${cat.id}:value`] ?? 1,
 										onChange: (e) => setDrafts((d) => ({
 											...d,
@@ -29454,7 +29511,7 @@ function NodeBenefitsSection({ node, set }) {
 									className: "inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]",
 									children: [/* @__PURE__ */ jsxs("span", {
 										className: "truncate",
-										children: [b.name, b.category === "attribute" ? ` +${Number(b.value) || 1}` : ""]
+										children: [b.name, b.category === "attribute" || b.category === "stat" ? ` +${Number(b.value) || 1}` : ""]
 									}), /* @__PURE__ */ jsx("button", {
 										type: "button",
 										className: "text-muted-foreground hover:text-destructive",
@@ -33879,8 +33936,19 @@ function CharacterTab() {
 	const effectiveLevel = effectiveCharacterLevel(character, tree);
 	const talentLimit = talentPurchaseLimit(effectiveLevel, settings);
 	const talentsUsed = talentPurchasesUsed(tree);
-	const profBonus = profBonusFor(effectiveLevel, levels);
+	const statBenefit = (label) => collectNodeBenefits(tree).filter((b) => b.category === "stat" && String(b.name || "").trim().toLowerCase() === label.toLowerCase()).reduce((sum, b) => sum + (Number(b.value) || 1), 0);
+	let profBonus = profBonusFor(effectiveLevel, levels) + statBenefit("Proficiency Bonus");
 	const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
+	const applyBenefit = (key, label) => {
+		const bonus = statBenefit(label);
+		if (!bonus || !sheet[key]) return;
+		sheet[key] = {
+			...sheet[key],
+			final: (Number(sheet[key].final) || 0) + bonus
+		};
+	};
+	applyBenefit("Armor Class", "Armor Class");
+	applyBenefit("Initiative", "Initiative");
 	const customs = customResourceList(aggregated, settings?.library).filter((e) => !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name)).map((e) => {
 		const lib = (settings?.library?.resources || []).find((r) => String(r?.name || "").toLowerCase() === e.name.toLowerCase());
 		if (!lib) return e;
@@ -43613,21 +43681,27 @@ function RoomBattleMap({ room }) {
 						const [cx, cy] = at(5 + i * 9);
 						const x = (cx + .5) * cell;
 						const y = (cy + .5) * cell;
-						return /* @__PURE__ */ jsxs("g", { children: [
-							/* @__PURE__ */ jsx("title", { children: String(object) }),
-							/* @__PURE__ */ jsx("rect", {
-								x: x - cell * .24,
-								y: y - cell * .24,
-								width: cell * .48,
-								height: cell * .48,
-								rx: 1.5,
-								fill: "hsl(38 90% 55%)",
-								fillOpacity: "0.9",
-								stroke: "hsl(var(--background))",
-								strokeWidth: "0.6"
-							}),
-							label(x, y + 2, "O", "hsl(var(--background))", 5)
-						] }, `obj${i}`);
+						const [rawName, rawUrl] = String(object).split("|").map((part) => part.trim());
+						const url = /^(data:|\/images\/|\/api\/|https?:)/i.test(rawUrl || "") ? rawUrl : "";
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("title", { children: rawName || String(object) }), url ? /* @__PURE__ */ jsx("image", {
+							href: url,
+							x: x - cell * .42,
+							y: y - cell * .42,
+							width: cell * .84,
+							height: cell * .84,
+							preserveAspectRatio: "xMidYMid meet",
+							opacity: "0.95"
+						}) : /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("rect", {
+							x: x - cell * .24,
+							y: y - cell * .24,
+							width: cell * .48,
+							height: cell * .48,
+							rx: 1.5,
+							fill: "hsl(38 90% 55%)",
+							fillOpacity: "0.9",
+							stroke: "hsl(var(--background))",
+							strokeWidth: "0.6"
+						}), label(x, y + 2, "O", "hsl(var(--background))", 5)] })] }, `obj${i}`);
 					}),
 					ingressPoints.map((point, i) => {
 						const cx = point.x + ox;
@@ -46833,13 +46907,27 @@ function DungeonGenerator({ onExit, embedded = false }) {
 					})
 				})
 			}),
-			/* @__PURE__ */ jsx(Dialog, {
-				open: roomsLibOpen,
-				onOpenChange: setRoomsLibOpen,
-				children: /* @__PURE__ */ jsxs(DialogContent, {
-					className: "max-h-[85vh] max-w-3xl overflow-y-auto",
-					children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Dungeon Rooms" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Create, edit, enable or import room templates. The procedural generator draws from the enabled rooms; traps, spawns, loot and imported objects travel with the template." })] }), /* @__PURE__ */ jsx(DungeonRoomsTab, {})]
-				})
+			roomsLibOpen && /* @__PURE__ */ jsxs("aside", {
+				className: "fixed bottom-3 right-3 top-16 z-40 flex w-[min(420px,calc(100vw-1.5rem))] flex-col rounded-lg border bg-background shadow-xl",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center justify-between border-b px-3 py-2",
+					children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
+						className: "text-xs font-semibold",
+						children: "Dungeon Rooms"
+					}), /* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: "Create, enable or import room templates — the generator draws from these."
+					})] }), /* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "ghost",
+						className: "h-7 text-xs",
+						onClick: () => setRoomsLibOpen(false),
+						children: "Hide"
+					})]
+				}), /* @__PURE__ */ jsx("div", {
+					className: "min-h-0 flex-1 overflow-y-auto p-3",
+					children: /* @__PURE__ */ jsx(DungeonRoomsTab, {})
+				})]
 			})
 		]
 	});

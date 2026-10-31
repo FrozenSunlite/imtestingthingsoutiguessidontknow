@@ -1,4 +1,5 @@
 import { useLibList, ListHeader, EntryCard, EmptyNote } from "./shared";
+import { benefitDragProps } from "@/lib/benefits";
 import { Input } from "@/components/ui/input";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 
@@ -19,7 +20,16 @@ export function WeaponPropertiesTab() {
         <EmptyNote items={items} query={query} />
       ) : (
         shown.map(({ e, i }) => (
-          <EntryCard key={i} entry={e} onPatch={(p) => patch(i, p)} onDelete={() => remove(i)}>
+          <EntryCard
+            key={i}
+            entry={e}
+            onPatch={(p) => patch(i, p)}
+            onDelete={() => remove(i)}
+            dragProps={benefitDragProps("property", e.name, {
+              description: e.description,
+              image: e.image,
+            })}
+          >
             <InfoTip label="The property's name, e.g. Finesse.">
               <Input
                 value={e.name || ""}

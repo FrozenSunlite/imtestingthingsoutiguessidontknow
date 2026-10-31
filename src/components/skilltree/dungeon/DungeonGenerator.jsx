@@ -17,13 +17,6 @@ import { roomThreat } from "@/lib/roomThreat";
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
 import { RoomBattleMap } from "@/components/skilltree/dungeon/RoomBattleMap";
 import { RoomShapeBuilder } from "@/components/skilltree/dungeon/RoomShapeBuilder";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { DungeonRoomsTab } from "@/components/skilltree/library/DungeonRoomsTab";
 import { DungeonDangerPanel } from "@/components/skilltree/dungeon/DungeonDangerPanel";
 import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
@@ -1979,18 +1972,24 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           </div>
         </div>
       )}
-      <Dialog open={roomsLibOpen} onOpenChange={setRoomsLibOpen}>
-        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Dungeon Rooms</DialogTitle>
-            <DialogDescription>
-              Create, edit, enable or import room templates. The procedural generator draws from
-              the enabled rooms; traps, spawns, loot and imported objects travel with the template.
-            </DialogDescription>
-          </DialogHeader>
-          <DungeonRoomsTab />
-        </DialogContent>
-      </Dialog>
+      {roomsLibOpen && (
+        <aside className="fixed bottom-3 right-3 top-16 z-40 flex w-[min(420px,calc(100vw-1.5rem))] flex-col rounded-lg border bg-background shadow-xl">
+          <div className="flex items-center justify-between border-b px-3 py-2">
+            <div>
+              <p className="text-xs font-semibold">Dungeon Rooms</p>
+              <p className="text-[10px] text-muted-foreground">
+                Create, enable or import room templates — the generator draws from these.
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setRoomsLibOpen(false)}>
+              Hide
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <DungeonRoomsTab />
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

@@ -15,6 +15,8 @@ export const BENEFIT_CATEGORIES = [
   { id: "speed", label: "Speeds" },
   { id: "sense", label: "Senses" },
   { id: "resource", label: "Resources" },
+  { id: "mastery", label: "Weapon Masteries" },
+  { id: "property", label: "Weapon Properties" },
   { id: "stat", label: "Character Stats" },
   { id: "facility", label: "Facilities" },
   { id: "object", label: "Objects" },
@@ -74,6 +76,10 @@ export function benefitOptions(settings, category) {
       return names(lib.senses);
     case "resource":
       return names(lib.resources);
+    case "mastery":
+      return names(lib.weaponMasteries);
+    case "property":
+      return names(lib.properties);
     case "facility":
       return [
         ...Object.keys(FACILITY_TYPES),
@@ -228,6 +234,18 @@ export function tableSummary(table, spells) {
       ? `${options.length} option${options.length === 1 ? "" : "s"}`
       : `${options.length} matching spell${options.length === 1 ? "" : "s"}`;
   return `${how} from ${source}`;
+}
+
+// Spread onto a library row/card to make it a Benefits drag source.
+export function benefitDragProps(category, name, extra = {}) {
+  const payload = JSON.stringify({ category, name, ...extra });
+  return {
+    draggable: true,
+    onDragStart: (event) => {
+      event.dataTransfer.setData("application/x-benefit", payload);
+      event.dataTransfer.effectAllowed = "copy";
+    },
+  };
 }
 
 export function benefitLabel(category) {

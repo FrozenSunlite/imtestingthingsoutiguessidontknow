@@ -136,11 +136,11 @@ export function NodeBenefitsSection({ node, set }) {
                         ))}
                       </datalist>
                     )}
-                    {cat.id === "attribute" && (
+                    {(cat.id === "attribute" || cat.id === "stat") && (
                       <Input
                         className="h-7 w-12 text-[11px]"
                         type="number"
-                        title="Attribute bonus amount"
+                        title={cat.id === "stat" ? "Stat bonus amount" : "Attribute bonus amount"}
                         value={drafts[`${cat.id}:value`] ?? 1}
                         onChange={(e) =>
                           setDrafts((d) => ({
@@ -181,7 +181,7 @@ export function NodeBenefitsSection({ node, set }) {
                     >
                       <span className="truncate">
                         {b.name}
-                        {b.category === "attribute"
+                        {b.category === "attribute" || b.category === "stat"
                           ? ` +${Number(b.value) || 1}`
                           : ""}
                       </span>
