@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B8urVZye.js";
+import { n as Button, r as cn } from "./router-C0j3DHlI.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -22863,7 +22863,7 @@ function LibraryMenu({ open, onClose }) {
 									children: groupLabel
 								}), entries.map(([value, entryLabel]) => /* @__PURE__ */ jsx(TabsTrigger, {
 									value,
-									className: "w-full justify-start px-2 py-1 text-left text-xs",
+									className: "ml-1 w-full justify-start py-1 pl-5 pr-2 text-left text-xs",
 									children: entryLabel
 								}, value))]
 							}, groupLabel))
@@ -69855,6 +69855,14 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 								size: "sm",
 								variant: "outline",
 								className: "h-7 text-[10px]",
+								onClick: () => onFindAssets?.({ type: "house" }, buildingView, "buildingIcon"),
+								title: "Pick house artwork from the sticker library",
+								children: "Pick icon"
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-7 text-[10px]",
 								onClick: () => onUpdateBuilding?.(settlement, buildingView, { rotation: ((Number(buildingView.rotation) || 0) + 45) % 360 }),
 								children: "Rotate +45°"
 							}),
@@ -74504,6 +74512,20 @@ function WorldBuilder({ onExit }) {
 			});
 			const label = BIOMES.find((biome) => biome.id === assetTarget.biome)?.label || assetTarget.roomType || assetTarget.biome;
 			toast.success(`Map texture set for ${label}.`);
+			return;
+		}
+		if (assetTarget?.mode === "buildingIcon" && assetTarget.buildingId) {
+			saveWorld({
+				...world,
+				settlements: (world.settlements || []).map((settlement) => settlement.id !== assetTarget.settlementId ? settlement : {
+					...settlement,
+					buildings: (settlement.buildings || []).map((building) => building.id === assetTarget.buildingId ? {
+						...building,
+						icon: url
+					} : building)
+				})
+			});
+			toast.success("House icon applied.");
 			return;
 		}
 		if (!assetTarget) {

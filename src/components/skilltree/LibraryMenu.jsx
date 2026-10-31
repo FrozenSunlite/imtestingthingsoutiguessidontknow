@@ -235,7 +235,7 @@ export function LibraryMenu({ open, onClose }) {
                       <TabsTrigger
                         key={value}
                         value={value}
-                        className="w-full justify-start px-2 py-1 text-left text-xs"
+                        className="ml-1 w-full justify-start py-1 pl-5 pr-2 text-left text-xs"
                       >
                         {entryLabel}
                       </TabsTrigger>

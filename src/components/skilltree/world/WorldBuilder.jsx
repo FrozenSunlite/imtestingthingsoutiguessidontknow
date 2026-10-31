@@ -447,6 +447,25 @@ export function WorldBuilder({ onExit }) {
       toast.success(`Map texture set for ${label}.`);
       return;
     }
+    if (assetTarget?.mode === "buildingIcon" && assetTarget.buildingId) {
+      saveWorld({
+        ...world,
+        settlements: (world.settlements || []).map((settlement) =>
+          settlement.id !== assetTarget.settlementId
+            ? settlement
+            : {
+                ...settlement,
+                buildings: (settlement.buildings || []).map((building) =>
+                  building.id === assetTarget.buildingId
+                    ? { ...building, icon: url }
+                    : building
+                ),
+              }
+        ),
+      });
+      toast.success("House icon applied.");
+      return;
+    }
     if (!assetTarget) {
       toast.success("Sticker imported to the project image folder.");
       navigator.clipboard?.writeText(url).catch(() => {});

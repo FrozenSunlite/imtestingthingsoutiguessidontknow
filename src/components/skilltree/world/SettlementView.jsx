@@ -853,6 +853,15 @@ export function SettlementView({
               size="sm"
               variant="outline"
               className="h-7 text-[10px]"
+              onClick={() => onFindAssets?.({ type: "house" }, buildingView, "buildingIcon")}
+              title="Pick house artwork from the sticker library"
+            >
+              Pick icon
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[10px]"
               onClick={() =>
                 onUpdateBuilding?.(settlement, buildingView, {
                   rotation: ((Number(buildingView.rotation) || 0) + 45) % 360,
