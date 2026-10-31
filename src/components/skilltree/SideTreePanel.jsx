@@ -12,6 +12,7 @@ import {
   migrateTree,
   normalizeTree,
   statVars,
+  subtreeAtChain,
 } from "@/lib/treeStore";
 import { abilityReqStatus } from "@/lib/skills";
 import { tierGate, nodeMaxPoints } from "@/lib/nodeTiers";
@@ -79,6 +80,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     ui,
     setSubtreeNodePoints,
     openSubtreePanel,
+    purchaseSubtree,
   } = useTree();
   const st = (sideTrees || {})[slot];
   const [width, setPanelWidth] = usePanelWidth(440, 260, 720, "skilltree:sideWidth:" + slot);
@@ -573,6 +575,33 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   if (!tree || !st || st.closed) return null;
   const selected = selectedId ? nodesById[selectedId] : null;
   const effChoices = effectiveChoices(character, mergedTree);
+  const subtreeChain =
+    st.hostChain ||
+    (st.subtreeHostId
+      ? [{ hostId: st.subtreeHostId, subIndex: st.subtreeIndex ?? 0 }]
+      : []);
+  const liveSubtree = st.subtreeHostId
+    ? subtreeAtChain(tree?.nodes || [], subtreeChain)?.subtree
+    : null;
+  const subtreeMax = Math.max(0, Number(liveSubtree?.maxPurchases ?? st.maxPurchases) || 0);
+  const subtreeBought = Math.max(
+    1,
+    Number(liveSubtree?.purchases ?? st.purchases) || 1
+  );
+  const subtreeBatch =
+    Number(liveSubtree?.grantedPoints ?? st.batchPoints) ||
+    Math.max(1, Math.round((Number(st.grantedPoints) || 0) / subtreeBought));
+  const subtreePool = subtreeBatch * subtreeBought;
+  const hostUnlocked =
+    !st.subtreeHostId ||
+    ((tree?.nodes || []).find((n) => n.id === st.subtreeHostId)?.currentPoints || 0) > 0;
+  const canBuySubtree =
+    !!st.subtreeHostId && hostUnlocked && (subtreeMax === 0 || subtreeBought < subtreeMax);
+  const buySubtree = () => {
+    if (!canBuySubtree) return;
+    purchaseSubtree(subtreeChain, st.subtreeHostId, st.subtreeIndex ?? 0);
+    openSubtreePanel(st.subtreeHostId, st.subtreeIndex ?? 0, subtreeChain.slice(0, -1));
+  };
 
   return (
     <div
@@ -689,8 +718,30 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
                     : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0),
                 0
               )}
-              /{Number(st.grantedPoints) || 0}
+              /{subtreePool}
             </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-muted-foreground" title="Times this subtree has been purchased">
+              {subtreeBought}
+              {subtreeMax ? `/${subtreeMax}` : "×"}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-5 px-1 text-[9px]"
+              disabled={!canBuySubtree}
+              title={
+                !hostUnlocked
+                  ? "Unlock the host talent first"
+                  : subtreeMax && subtreeBought >= subtreeMax
+                    ? "Purchase limit reached"
+                    : `Buy another batch of ${subtreeBatch} points`
+              }
+              onClick={buySubtree}
+            >
+              +{subtreeBatch}
+            </Button>
           </span>
           {st.exclusive && <span className="text-rose-600">Mutually exclusive</span>}
         </div>

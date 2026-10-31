@@ -57,7 +57,11 @@ export function SubtreePickerDialog({ node, onPick, onClose }) {
                   <span className="block truncate text-[10px] text-muted-foreground">
                     {empty
                       ? "No nodes yet"
-                      : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted`}
+                      : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted${
+                          Number(s.maxPurchases) > 0
+                            ? ` · bought ${Number(s.purchases) || 0}/${s.maxPurchases}`
+                            : ""
+                        }`}
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-0.5">

@@ -1,0 +1,1 @@
+import{g as e}from"./routes-BS_Pv8vq.js";export default e();

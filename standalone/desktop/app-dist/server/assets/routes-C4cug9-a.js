@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BHKLGmMd.js";
+import { n as Button, r as cn } from "./router-p3r2KW3T.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5963,7 +5963,9 @@ var DEFAULT_SUBTREE = {
 	connections: [],
 	grantedPoints: 3,
 	poolName: "",
-	exclusive: false
+	exclusive: false,
+	maxPurchases: 0,
+	purchases: 0
 };
 function stripLegacyAutoGrants(tree) {
 	if (!tree?.nodes) return tree;
@@ -5999,10 +6001,17 @@ function stripLegacyAutoGrants(tree) {
 			return next;
 		});
 		const hadFlag = Object.prototype.hasOwnProperty.call(st, "autoGrantFirst");
-		if (!subChanged && !hadFlag) return st;
+		const purchasesRaw = Number(st.purchases);
+		const invested = (st.nodes || []).some((n) => (Number(n.currentPoints) || 0) > 0);
+		const purchases = Number.isFinite(purchasesRaw) && purchasesRaw > 0 ? purchasesRaw : invested ? 1 : 0;
+		const maxPurchases = Math.max(0, Number(st.maxPurchases) || 0);
+		const needsDefaults = !Number.isFinite(purchasesRaw) || st.maxPurchases == null;
+		if (!subChanged && !hadFlag && !needsDefaults) return st;
 		const { autoGrantFirst, ...rest } = st;
 		return {
 			...rest,
+			maxPurchases,
+			purchases,
 			nodes
 		};
 	};
@@ -8035,7 +8044,7 @@ function TreeProvider({ children }) {
 	}, []);
 	const devModeRef = useRef(false);
 	const openSubtreePanel = useCallback((hostId, subIndex = 0, parentChain = []) => {
-		setTreeRaw((prev) => {
+		setTree((prev) => {
 			if (!prev) return prev;
 			const chain = [...Array.isArray(parentChain) ? parentChain : [], {
 				hostId,
@@ -8045,6 +8054,17 @@ function TreeProvider({ children }) {
 			let nodes = prev.nodes || [];
 			let resolved = subtreeAtChain(nodes, chain);
 			if (!resolved) return prev;
+			let purchases = Math.max(0, Number(resolved.subtree.purchases) || 0);
+			if (purchases < 1) {
+				nodes = updateSubtreeAtChain(nodes, chain, (st) => ({
+					...st,
+					purchases: Math.max(1, Number(st.purchases) || 1)
+				}));
+				resolved = subtreeAtChain(nodes, chain);
+				if (!resolved) return prev;
+				purchases = Math.max(1, Number(resolved.subtree.purchases) || 1);
+			}
+			const batchPoints = Number(resolved.subtree.grantedPoints) || 0;
 			const finalIndex = chain[chain.length - 1].subIndex ?? 0;
 			const flat = flattenSubtreeForPlay(resolved.host, finalIndex, !!devModeRef.current);
 			const tab = {
@@ -8053,7 +8073,10 @@ function TreeProvider({ children }) {
 				subtreeHostId: hostId,
 				subtreeIndex: finalIndex,
 				name: `${resolved.host.name || "Node"} — ${resolved.subtree.name || "subtree"}`,
-				grantedPoints: Number(resolved.subtree.grantedPoints) || 0,
+				grantedPoints: batchPoints * purchases,
+				batchPoints,
+				purchases,
+				maxPurchases: Math.max(0, Number(resolved.subtree.maxPurchases) || 0),
 				poolName: resolved.subtree.poolName || "",
 				exclusive: !!resolved.subtree.exclusive,
 				abilityReqs: resolved.subtree.abilityReqs || [],
@@ -8095,7 +8118,28 @@ function TreeProvider({ children }) {
 				}
 			};
 		});
-	}, []);
+	}, [setTree]);
+	const purchaseSubtree = useCallback((hostChain, hostId, subIndex = 0) => {
+		setTree((t) => {
+			if (!t) return t;
+			const chain = Array.isArray(hostChain) && hostChain.length ? hostChain : [{
+				hostId,
+				subIndex
+			}];
+			const resolved = subtreeAtChain(t.nodes || [], chain);
+			if (!resolved) return t;
+			const max = Math.max(0, Number(resolved.subtree.maxPurchases) || 0);
+			const cur = Math.max(1, Number(resolved.subtree.purchases) || 0);
+			if (max > 0 && cur >= max) return t;
+			return {
+				...t,
+				nodes: updateSubtreeAtChain(t.nodes || [], chain, (st) => ({
+					...st,
+					purchases: Math.max(1, Number(st.purchases) || 0) + 1
+				}))
+			};
+		});
+	}, [setTree]);
 	const [carry, setCarryState] = useState(null);
 	const carryRef = useRef(null);
 	const startCarry = useCallback((nodes, from) => {
@@ -8130,7 +8174,9 @@ function TreeProvider({ children }) {
 				connections: [],
 				grantedPoints: 3,
 				poolName: "",
-				exclusive: false
+				exclusive: false,
+				maxPurchases: 0,
+				purchases: 0
 			};
 			const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
 			const clones = c.nodes.map((n, i) => {
@@ -8275,7 +8321,9 @@ function TreeProvider({ children }) {
 					connections: [],
 					grantedPoints: 3,
 					poolName: "",
-					exclusive: false
+					exclusive: false,
+					maxPurchases: 0,
+					purchases: 0
 				};
 				const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
 				const clones = [];
@@ -9436,6 +9484,7 @@ function TreeProvider({ children }) {
 		enterSubtreeEditor,
 		exitSubtreeEditor,
 		openSubtreePanel,
+		purchaseSubtree,
 		setSubtreeNodePoints,
 		carry,
 		startCarry,
@@ -25761,7 +25810,7 @@ function SubtreePickerDialog({ node, onPick, onClose }) {
 										children: s.name || `Subtree ${i + 1}`
 									}), /* @__PURE__ */ jsx("span", {
 										className: "block truncate text-[10px] text-muted-foreground",
-										children: empty ? "No nodes yet" : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted`
+										children: empty ? "No nodes yet" : `${(s.nodes || []).length} nodes · ${s.poolName || "Subtree"} pool · ${Number(s.grantedPoints) || 0} points granted${Number(s.maxPurchases) > 0 ? ` · bought ${Number(s.purchases) || 0}/${s.maxPurchases}` : ""}`
 									})]
 								}),
 								/* @__PURE__ */ jsxs("span", {
@@ -29025,6 +29074,8 @@ function SubtreesSection({ node, set }) {
 		grantedPoints: 3,
 		poolName: "",
 		exclusive: false,
+		maxPurchases: 0,
+		purchases: 0,
 		abilityReqs: []
 	}] });
 	const patch = (i, up) => set({ subtrees: subtrees.map((st, j) => j === i ? {
@@ -29103,6 +29154,29 @@ function SubtreesSection({ node, set }) {
 								value: st.grantedPoints ?? 3,
 								onChange: (e) => patch(i, { grantedPoints: Math.max(0, Number(e.target.value) || 0) })
 							})]
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-2",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1",
+							children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Purchase limit"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-7",
+								type: "number",
+								min: 0,
+								value: st.maxPurchases ?? 0,
+								onChange: (e) => patch(i, { maxPurchases: Math.max(0, Number(e.target.value) || 0) })
+							})]
+						}), /* @__PURE__ */ jsxs("p", {
+							className: "self-end pb-1 text-[10px] text-muted-foreground",
+							children: [
+								"0 = unlimited. Each purchase adds another ",
+								st.grantedPoints ?? 3,
+								" points."
+							]
 						})]
 					}),
 					/* @__PURE__ */ jsxs("div", {
@@ -39326,7 +39400,7 @@ function prefixTree(nodes, connections, prefix) {
 	};
 }
 function SideTreePanel({ slot, floating = false, stacked = false }) {
-	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel } = useTree();
+	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel, purchaseSubtree } = useTree();
 	const st = (sideTrees || {})[slot];
 	const [width, setPanelWidth] = usePanelWidth(440, 260, 720, "skilltree:sideWidth:" + slot);
 	const [view, setView] = useState({
@@ -39765,6 +39839,22 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	if (!tree || !st || st.closed) return null;
 	const selected = selectedId ? nodesById[selectedId] : null;
 	const effChoices = effectiveChoices(character, mergedTree);
+	const subtreeChain = st.hostChain || (st.subtreeHostId ? [{
+		hostId: st.subtreeHostId,
+		subIndex: st.subtreeIndex ?? 0
+	}] : []);
+	const liveSubtree = st.subtreeHostId ? subtreeAtChain(tree?.nodes || [], subtreeChain)?.subtree : null;
+	const subtreeMax = Math.max(0, Number(liveSubtree?.maxPurchases ?? st.maxPurchases) || 0);
+	const subtreeBought = Math.max(1, Number(liveSubtree?.purchases ?? st.purchases) || 1);
+	const subtreeBatch = Number(liveSubtree?.grantedPoints ?? st.batchPoints) || Math.max(1, Math.round((Number(st.grantedPoints) || 0) / subtreeBought));
+	const subtreePool = subtreeBatch * subtreeBought;
+	const hostUnlocked = !st.subtreeHostId || ((tree?.nodes || []).find((n) => n.id === st.subtreeHostId)?.currentPoints || 0) > 0;
+	const canBuySubtree = !!st.subtreeHostId && hostUnlocked && (subtreeMax === 0 || subtreeBought < subtreeMax);
+	const buySubtree = () => {
+		if (!canBuySubtree) return;
+		purchaseSubtree(subtreeChain, st.subtreeHostId, st.subtreeIndex ?? 0);
+		openSubtreePanel(st.subtreeHostId, st.subtreeIndex ?? 0, subtreeChain.slice(0, -1));
+	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: cn("flex min-h-0 flex-col bg-card", stacked ? "w-full min-h-0 flex-1" : "h-full", !floating && !stacked && "relative shrink-0", !floating && !stacked && (slot === "left" ? "border-r" : "border-l")),
 		style: floating || stacked ? void 0 : { width },
@@ -39863,24 +39953,43 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 			st?.subtreeHostId ? /* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
 				title: "Tree-specific points granted by the node that owns this subtree",
-				children: [/* @__PURE__ */ jsxs("span", { children: [
-					/* @__PURE__ */ jsx("span", {
-						className: "text-amber-600",
-						children: st.poolName || "Subtree"
-					}),
-					" ",
+				children: [
+					/* @__PURE__ */ jsxs("span", { children: [
+						/* @__PURE__ */ jsx("span", {
+							className: "text-amber-600",
+							children: st.poolName || "Subtree"
+						}),
+						" ",
+						/* @__PURE__ */ jsxs("span", {
+							className: "font-mono",
+							children: [
+								nodes.reduce((a, m) => m.__autoGranted ? a : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0),
+								"/",
+								subtreePool
+							]
+						})
+					] }),
 					/* @__PURE__ */ jsxs("span", {
-						className: "font-mono",
-						children: [
-							nodes.reduce((a, m) => m.__autoGranted ? a : a + (m.currentPoints || 0) * Math.max(0, Number(m.cost ?? 1) || 0), 0),
-							"/",
-							Number(st.grantedPoints) || 0
-						]
+						className: "flex items-center gap-1",
+						children: [/* @__PURE__ */ jsxs("span", {
+							className: "text-muted-foreground",
+							title: "Times this subtree has been purchased",
+							children: [subtreeBought, subtreeMax ? `/${subtreeMax}` : "×"]
+						}), /* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							className: "h-5 px-1 text-[9px]",
+							disabled: !canBuySubtree,
+							title: !hostUnlocked ? "Unlock the host talent first" : subtreeMax && subtreeBought >= subtreeMax ? "Purchase limit reached" : `Buy another batch of ${subtreeBatch} points`,
+							onClick: buySubtree,
+							children: ["+", subtreeBatch]
+						})]
+					}),
+					st.exclusive && /* @__PURE__ */ jsx("span", {
+						className: "text-rose-600",
+						children: "Mutually exclusive"
 					})
-				] }), st.exclusive && /* @__PURE__ */ jsx("span", {
-					className: "text-rose-600",
-					children: "Mutually exclusive"
-				})]
+				]
 			}) : /* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
 				title: "Shared by every tree — points invested in any panel draw from these pools",

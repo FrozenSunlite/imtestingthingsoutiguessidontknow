@@ -16,6 +16,8 @@ export const DEFAULT_SUBTREE = {
   grantedPoints: 3,
   poolName: "",
   exclusive: false,
+  maxPurchases: 0,
+  purchases: 0,
 };
 
 // The first playable node of a subtree: the first root (a node with no
@@ -64,9 +66,15 @@ export function stripLegacyAutoGrants(tree) {
       return next;
     });
     const hadFlag = Object.prototype.hasOwnProperty.call(st, "autoGrantFirst");
-    if (!subChanged && !hadFlag) return st;
+    const purchasesRaw = Number(st.purchases);
+    const invested = (st.nodes || []).some((n) => (Number(n.currentPoints) || 0) > 0);
+    const purchases =
+      Number.isFinite(purchasesRaw) && purchasesRaw > 0 ? purchasesRaw : invested ? 1 : 0;
+    const maxPurchases = Math.max(0, Number(st.maxPurchases) || 0);
+    const needsDefaults = !Number.isFinite(purchasesRaw) || st.maxPurchases == null;
+    if (!subChanged && !hadFlag && !needsDefaults) return st;
     const { autoGrantFirst, ...rest } = st;
-    return { ...rest, nodes };
+    return { ...rest, maxPurchases, purchases, nodes };
   };
 
   const nodes = tree.nodes.map((n) => {

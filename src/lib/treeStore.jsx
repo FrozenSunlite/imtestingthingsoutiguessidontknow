@@ -705,7 +705,7 @@ export async function deleteCharacterSave(id) {
 // Resolve a nested subtree chain. Each segment is { hostId, subIndex } where
 // hostId is a node in the parent space and subIndex picks that node's subtree.
 // The first segment starts from the main tree.
-function subtreeAtChain(nodes, chain) {
+export function subtreeAtChain(nodes, chain) {
   let current = nodes || [];
   let host = null;
   let subtree = null;
@@ -980,7 +980,7 @@ export function TreeProvider({ children }) {
   // the flattened snapshot so it shows on the panel.
   const devModeRef = useRef(false);
   const openSubtreePanel = useCallback((hostId, subIndex = 0, parentChain = []) => {
-    setTreeRaw((prev) => {
+    setTree((prev) => {
       if (!prev) return prev;
       const chain = [
         ...(Array.isArray(parentChain) ? parentChain : []),
@@ -990,6 +990,19 @@ export function TreeProvider({ children }) {
       let nodes = prev.nodes || [];
       let resolved = subtreeAtChain(nodes, chain);
       if (!resolved) return prev;
+      let purchases = Math.max(0, Number(resolved.subtree.purchases) || 0);
+      // Selecting/opening a tree is its first purchase. Later purchases add
+      // another batch of the tree's granted points.
+      if (purchases < 1) {
+        nodes = updateSubtreeAtChain(nodes, chain, (st) => ({
+          ...st,
+          purchases: Math.max(1, Number(st.purchases) || 1),
+        }));
+        resolved = subtreeAtChain(nodes, chain);
+        if (!resolved) return prev;
+        purchases = Math.max(1, Number(resolved.subtree.purchases) || 1);
+      }
+      const batchPoints = Number(resolved.subtree.grantedPoints) || 0;
       const finalIndex = chain[chain.length - 1].subIndex ?? 0;
       const flat = flattenSubtreeForPlay(
         resolved.host,
@@ -1002,7 +1015,10 @@ export function TreeProvider({ children }) {
         subtreeHostId: hostId,
         subtreeIndex: finalIndex,
         name: `${resolved.host.name || "Node"} — ${resolved.subtree.name || "subtree"}`,
-        grantedPoints: Number(resolved.subtree.grantedPoints) || 0,
+        grantedPoints: batchPoints * purchases,
+        batchPoints,
+        purchases,
+        maxPurchases: Math.max(0, Number(resolved.subtree.maxPurchases) || 0),
         poolName: resolved.subtree.poolName || "",
         exclusive: !!resolved.subtree.exclusive,
         abilityReqs: resolved.subtree.abilityReqs || [],
@@ -1036,7 +1052,34 @@ export function TreeProvider({ children }) {
         },
       };
     });
-  }, []);
+  }, [setTree]);
+
+  // Buy another batch of a subtree's granted points. `maxPurchases` 0 means
+  // unlimited; the first open counts as purchase 1.
+  const purchaseSubtree = useCallback(
+    (hostChain, hostId, subIndex = 0) => {
+      setTree((t) => {
+        if (!t) return t;
+        const chain =
+          Array.isArray(hostChain) && hostChain.length
+            ? hostChain
+            : [{ hostId, subIndex }];
+        const resolved = subtreeAtChain(t.nodes || [], chain);
+        if (!resolved) return t;
+        const max = Math.max(0, Number(resolved.subtree.maxPurchases) || 0);
+        const cur = Math.max(1, Number(resolved.subtree.purchases) || 0);
+        if (max > 0 && cur >= max) return t;
+        return {
+          ...t,
+          nodes: updateSubtreeAtChain(t.nodes || [], chain, (st) => ({
+            ...st,
+            purchases: Math.max(1, Number(st.purchases) || 0) + 1,
+          })),
+        };
+      });
+    },
+    [setTree]
+  );
 
   // Carry drag: nodes picked up by dragging them off the canvas. Dropping on
   // a node's Subtrees section copies them into that subtree (linked to the
@@ -1077,6 +1120,8 @@ export function TreeProvider({ children }) {
         grantedPoints: 3,
         poolName: "",
         exclusive: false,
+        maxPurchases: 0,
+        purchases: 0,
       };
       // Every subtree is seeded with a copy of its host node; new arrivals
       // are connected to it.
@@ -1247,6 +1292,8 @@ export function TreeProvider({ children }) {
           grantedPoints: 3,
           poolName: "",
           exclusive: false,
+          maxPurchases: 0,
+          purchases: 0,
         };
         const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
         const clones = [];
@@ -2520,6 +2567,7 @@ export function TreeProvider({ children }) {
     enterSubtreeEditor,
     exitSubtreeEditor,
     openSubtreePanel,
+    purchaseSubtree,
     setSubtreeNodePoints,
     carry,
     startCarry,

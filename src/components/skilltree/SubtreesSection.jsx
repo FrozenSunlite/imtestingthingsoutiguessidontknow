@@ -38,6 +38,8 @@ export function SubtreesSection({ node, set }) {
           grantedPoints: 3,
           poolName: "",
           exclusive: false,
+          maxPurchases: 0,
+          purchases: 0,
           abilityReqs: [],
         },
       ],
@@ -119,6 +121,23 @@ export function SubtreesSection({ node, set }) {
                 }
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px]">Purchase limit</Label>
+              <Input
+                className="h-7"
+                type="number"
+                min={0}
+                value={st.maxPurchases ?? 0}
+                onChange={(e) =>
+                  patch(i, { maxPurchases: Math.max(0, Number(e.target.value) || 0) })
+                }
+              />
+            </div>
+            <p className="self-end pb-1 text-[10px] text-muted-foreground">
+              0 = unlimited. Each purchase adds another {st.grantedPoints ?? 3} points.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
