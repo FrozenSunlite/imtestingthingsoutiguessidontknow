@@ -709,6 +709,24 @@ export function WorldBuilder({ onExit }) {
     saveWorld(nextWorld);
   };
 
+  const updateBuilding = (settlement, building, patch) => {
+    if (!settlement || !building) return;
+    const nextWorld = {
+      ...world,
+      settlements: (world.settlements || []).map((item) =>
+        item.id !== settlement.id
+          ? item
+          : {
+              ...item,
+              buildings: (item.buildings || []).map((candidate) =>
+                candidate.id === building.id ? { ...candidate, ...patch } : candidate
+              ),
+            }
+      ),
+    };
+    saveWorld(nextWorld);
+  };
+
   const rerollInterior = (settlement, building) => {
     if (!settlement || !building) return;
     const seed = `${building.id || building.name}:${Date.now().toString(36)}`;
@@ -1284,6 +1302,7 @@ export function WorldBuilder({ onExit }) {
             onUpdateRoomStickers={setRoomStickers}
             onUseRoomTemplate={useRoomAsTemplate}
             onRerollInterior={rerollInterior}
+            onUpdateBuilding={updateBuilding}
           />
         )}
 

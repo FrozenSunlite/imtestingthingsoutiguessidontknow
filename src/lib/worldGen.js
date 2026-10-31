@@ -382,6 +382,9 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
     notes: "",
     terrain: template.terrain || [],
     era: era.id,
+    // House artwork shown on the settlement map; rotates in 45° steps.
+    icon: "",
+    rotation: rng.pick([0, 45, 90, 135, 180, 225, 270, 315]),
   };
 }
 

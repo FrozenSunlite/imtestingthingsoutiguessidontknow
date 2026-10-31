@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DiBtq5R8.js";
+import { n as Button, r as cn } from "./router-B8urVZye.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -61175,7 +61175,18 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
 		staffIds: [],
 		notes: "",
 		terrain: template.terrain || [],
-		era: era.id
+		era: era.id,
+		icon: "",
+		rotation: rng.pick([
+			0,
+			45,
+			90,
+			135,
+			180,
+			225,
+			270,
+			315
+		])
 	};
 }
 function createSettlementAt(worldInput, { realmId = "", nationId = "", kind = "village", x = 500, y = 500, name = "", withNpcs = true, withBuildings = true, seed = "" } = {}) {
@@ -68949,7 +68960,7 @@ var CATEGORY_COLOR = {
 var MAP_TILE = 14;
 var CITY_GRID_COLOR = "#2a2d34";
 var clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSettlement, onFindAssets, onSetFloorTexture, onOpenKingdom, onBuildHere, onRegenerateLayout, onUpdateRoomStickers, onUseRoomTemplate, onRerollInterior }) {
+function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSettlement, onFindAssets, onSetFloorTexture, onOpenKingdom, onBuildHere, onRegenerateLayout, onUpdateRoomStickers, onUseRoomTemplate, onRerollInterior, onUpdateBuilding }) {
 	const [buildingId, setBuildingId] = useState("");
 	const [floor, setFloor] = useState(1);
 	const [stickerRoomId, setStickerRoomId] = useState("");
@@ -69535,6 +69546,17 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 														" spaces"
 													] })
 												}),
+												item.icon && /* @__PURE__ */ jsx("image", {
+													href: item.icon,
+													x: entry.x * MAP_TILE + 1,
+													y: entry.y * MAP_TILE + 1,
+													width: Math.max(1, entry.w * MAP_TILE - 2),
+													height: Math.max(1, entry.h * MAP_TILE - 2),
+													opacity: .92,
+													preserveAspectRatio: "xMidYMid meet",
+													pointerEvents: "none",
+													transform: `rotate(${Number(item.rotation) || 0} ${(entry.x + entry.w / 2) * MAP_TILE} ${(entry.y + entry.h / 2) * MAP_TILE})`
+												}),
 												entry.doorX != null && entry.doorY != null && /* @__PURE__ */ jsx("rect", {
 													x: entry.doorX * MAP_TILE + MAP_TILE * .3,
 													y: entry.doorY * MAP_TILE + MAP_TILE * .3,
@@ -69815,6 +69837,38 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 								})
 							]
 						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
+						children: [
+							/* @__PURE__ */ jsx("span", {
+								className: "font-semibold uppercase tracking-wide",
+								children: "House icon"
+							}),
+							/* @__PURE__ */ jsx(Input, {
+								className: "h-7 w-56 text-[10px]",
+								placeholder: "Icon URL or /api/assets/file?path=…",
+								value: buildingView.icon || "",
+								onChange: (e) => onUpdateBuilding?.(settlement, buildingView, { icon: e.target.value })
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-7 text-[10px]",
+								onClick: () => onUpdateBuilding?.(settlement, buildingView, { rotation: ((Number(buildingView.rotation) || 0) + 45) % 360 }),
+								children: "Rotate +45°"
+							}),
+							/* @__PURE__ */ jsx(Input, {
+								type: "number",
+								step: 45,
+								min: 0,
+								max: 315,
+								className: "h-7 w-16 text-[10px]",
+								value: Number(buildingView.rotation) || 0,
+								onChange: (e) => onUpdateBuilding?.(settlement, buildingView, { rotation: (Math.round((Number(e.target.value) || 0) / 45) * 45 % 360 + 360) % 360 })
+							}),
+							/* @__PURE__ */ jsxs("span", { children: [Number(buildingView.rotation) || 0, "°"] })
+						]
 					}),
 					/* @__PURE__ */ jsxs("div", {
 						className: "mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
@@ -74674,6 +74728,20 @@ function WorldBuilder({ onExit }) {
 		};
 		saveWorld(nextWorld);
 	};
+	const updateBuilding = (settlement, building, patch) => {
+		if (!settlement || !building) return;
+		const nextWorld = {
+			...world,
+			settlements: (world.settlements || []).map((item) => item.id !== settlement.id ? item : {
+				...item,
+				buildings: (item.buildings || []).map((candidate) => candidate.id === building.id ? {
+					...candidate,
+					...patch
+				} : candidate)
+			})
+		};
+		saveWorld(nextWorld);
+	};
 	const rerollInterior = (settlement, building) => {
 		if (!settlement || !building) return;
 		const seed = `${building.id || building.name}:${Date.now().toString(36)}`;
@@ -75506,7 +75574,8 @@ function WorldBuilder({ onExit }) {
 						onRegenerateLayout: rebuildSettlementPlan,
 						onUpdateRoomStickers: setRoomStickers,
 						onUseRoomTemplate: useRoomAsTemplate,
-						onRerollInterior: rerollInterior
+						onRerollInterior: rerollInterior,
+						onUpdateBuilding: updateBuilding
 					}),
 					tab === "developments" && /* @__PURE__ */ jsx(DevelopmentsPanel, {
 						world,

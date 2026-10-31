@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -57,6 +58,7 @@ export function SettlementView({
   onUpdateRoomStickers,
   onUseRoomTemplate,
   onRerollInterior,
+  onUpdateBuilding,
 }) {
   const [buildingId, setBuildingId] = useState("");
   const [floor, setFloor] = useState(1);
@@ -638,6 +640,21 @@ export function SettlementView({
                         {item.name} · {item.type} · footprint {entry.w}×{entry.h} spaces
                       </title>
                     </rect>
+                    {item.icon && (
+                      <image
+                        href={item.icon}
+                        x={entry.x * MAP_TILE + 1}
+                        y={entry.y * MAP_TILE + 1}
+                        width={Math.max(1, entry.w * MAP_TILE - 2)}
+                        height={Math.max(1, entry.h * MAP_TILE - 2)}
+                        opacity={0.92}
+                        preserveAspectRatio="xMidYMid meet"
+                        pointerEvents="none"
+                        transform={`rotate(${Number(item.rotation) || 0} ${
+                          (entry.x + entry.w / 2) * MAP_TILE
+                        } ${(entry.y + entry.h / 2) * MAP_TILE})`}
+                      />
+                    )}
                     {entry.doorX != null && entry.doorY != null && (
                       <rect
                         x={entry.doorX * MAP_TILE + MAP_TILE * 0.3}
@@ -820,6 +837,46 @@ export function SettlementView({
                 </Button>
               )}
             </div>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wide">House icon</span>
+            <Input
+              className="h-7 w-56 text-[10px]"
+              placeholder="Icon URL or /api/assets/file?path=…"
+              value={buildingView.icon || ""}
+              onChange={(e) =>
+                onUpdateBuilding?.(settlement, buildingView, { icon: e.target.value })
+              }
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[10px]"
+              onClick={() =>
+                onUpdateBuilding?.(settlement, buildingView, {
+                  rotation: ((Number(buildingView.rotation) || 0) + 45) % 360,
+                })
+              }
+            >
+              Rotate +45°
+            </Button>
+            <Input
+              type="number"
+              step={45}
+              min={0}
+              max={315}
+              className="h-7 w-16 text-[10px]"
+              value={Number(buildingView.rotation) || 0}
+              onChange={(e) =>
+                onUpdateBuilding?.(settlement, buildingView, {
+                  rotation:
+                    ((Math.round((Number(e.target.value) || 0) / 45) * 45) % 360 + 360) %
+                    360,
+                })
+              }
+            />
+            <span>{Number(buildingView.rotation) || 0}°</span>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
