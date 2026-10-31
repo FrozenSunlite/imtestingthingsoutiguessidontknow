@@ -32,7 +32,6 @@ import {
   flattenSubtreeForPlay,
   setSubtreePoint,
   subtreeChainHasNode,
-  makeHostCopy,
   nextSubtreeId,
   stripLegacyAutoGrants,
 } from "@/lib/subtrees";
@@ -2741,11 +2740,39 @@ export function effectiveChoices(character, tree) {
 
 export function attributeBonuses(tree) {
   const out = {};
-  tree?.nodes.forEach((n) => {
-    if ((n.currentPoints || 0) > 0 && n.nodeType === "attribute" && n.attributeStat) {
-      out[n.attributeStat] = (out[n.attributeStat] || 0) + (n.currentPoints || 0);
-    }
-  });
+  const statKey = (name) => {
+    const s = String(name || "").trim().toUpperCase();
+    if (["STR", "DEX", "CON", "INT", "WIS", "CHA"].includes(s)) return s;
+    return (
+      {
+        STRENGTH: "STR",
+        DEXTERITY: "DEX",
+        CONSTITUTION: "CON",
+        INTELLIGENCE: "INT",
+        WISDOM: "WIS",
+        CHARISMA: "CHA",
+      }[s] || ""
+    );
+  };
+  const walk = (nodes) => {
+    (nodes || []).forEach((n) => {
+      if ((n.currentPoints || 0) > 0 && n.nodeType === "attribute" && n.attributeStat) {
+        out[n.attributeStat] = (out[n.attributeStat] || 0) + (n.currentPoints || 0);
+      }
+      if ((n.currentPoints || 0) > 0) {
+        (n.benefits || [])
+          .filter((b) => b?.category === "attribute")
+          .forEach((b) => {
+            const key = statKey(b.name);
+            if (!key) return;
+            const amount = Number(b.value);
+            out[key] = (out[key] || 0) + (Number.isFinite(amount) ? amount : 1);
+          });
+      }
+      (n.subtrees || []).forEach((st) => walk(st.nodes));
+    });
+  };
+  walk(tree?.nodes);
   return out;
 }
 

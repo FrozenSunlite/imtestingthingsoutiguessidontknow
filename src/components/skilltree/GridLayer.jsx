@@ -19,7 +19,7 @@ export function GridLayer({ bounds, grid, zoom }) {
     !!bounds && bounds.maxX > bounds.minX && bounds.maxY > bounds.minY;
   const g = useMemo(
     () => (drawn ? gridPaths(bounds, grid) : { paths: [], dots: [], subDots: [] }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [boundsKey, grid]
   );
   const gridSig = `${boundsKey}|${grid?.type}|${grid?.snapSize}|${grid?.hexOrientation}|${grid?.opacity}`;

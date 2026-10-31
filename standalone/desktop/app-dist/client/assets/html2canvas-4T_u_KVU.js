@@ -1,0 +1,1 @@
+import{g as e}from"./routes-KZXXS6Xe.js";export default e();

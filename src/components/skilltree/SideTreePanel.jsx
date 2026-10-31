@@ -219,7 +219,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
       });
     }
     setSelectedId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [sig]);
 
   // Double-click jump from the Character tab: when this panel holds the
@@ -236,7 +236,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     });
     setSelectedId(n.id);
     clearTreeFocus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [treeFocus, nodesById]);
 
   // Pan and wheel-zoom, mirroring the main canvas.

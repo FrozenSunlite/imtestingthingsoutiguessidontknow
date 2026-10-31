@@ -39,7 +39,7 @@ export function benefitOptions(settings, category) {
   const lib = settings?.library || {};
   switch (category) {
     case "spell":
-      return names(lib.spells);
+      return names(benefitSpells(settings));
     case "equipment":
       return [
         ...names(lib.weapons),
@@ -90,6 +90,25 @@ export const BENEFIT_CATEGORY_FOR_5E = {
   conditions: "other",
   actions: "other",
 };
+
+// The spell library plus any 5eTools spells imported into the project. This
+// makes spell-table filters work even when the character's own spell list is
+// empty.
+export function benefitSpells(settings) {
+  const lib = settings?.library || {};
+  const merged = [
+    ...(Array.isArray(lib.spells) ? lib.spells : []),
+    ...(Array.isArray(lib.fiveETools?.spells) ? lib.fiveETools.spells : []),
+  ];
+  const seen = new Set();
+  return merged.filter((spell) => {
+    const name =
+      typeof spell === "string" ? spell : String(spell?.name || "");
+    if (!name || seen.has(name.toLowerCase())) return false;
+    seen.add(name.toLowerCase());
+    return true;
+  });
+}
 
 export const LEVEL_MODES = [
   { id: "any", label: "Any level" },

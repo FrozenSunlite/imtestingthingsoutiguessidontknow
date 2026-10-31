@@ -238,7 +238,7 @@ export function evalResource(value, vars = {}) {
     const vals = Object.values(vars);
     const expr = s.replace(/[^-+*/().,\w\s]/g, "");
     if (!expr || !/[-+*/]/.test(expr)) return s;
-    // eslint-disable-next-line no-new-func
+     
     const fn = new Function(...names, `"use strict"; return (${expr});`);
     const result = fn(...vals);
     if (result == null || (typeof result === "number" && isNaN(result))) return s;

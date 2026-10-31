@@ -11,7 +11,7 @@ import {
   talentPurchaseLimit,
 } from "@/lib/treeStore";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
-import { collectNodeBenefits, BENEFIT_CATEGORIES, tableSummary, tableOptions } from "@/lib/benefits";
+import { collectNodeBenefits, BENEFIT_CATEGORIES, tableSummary, tableOptions, benefitSpells } from "@/lib/benefits";
 import SkillTestRow from "./SkillTestRow";
 import { HitPointsCard } from "./HitPointsCard";
 import { ActiveEffects } from "./ActiveEffects";
@@ -150,6 +150,7 @@ export function CharacterTab() {
     ...cat,
     items: collectNodeBenefits(tree).filter((b) => b.category === cat.id),
   })).filter((g) => g.items.length);
+  const benefitSpellList = benefitSpells(settings);
 
   // Test add/remove: a raw point change plus the proficiency side effects the
   // normal invest flow applies — no prerequisite, pool or level gates.
@@ -592,10 +593,10 @@ export function CharacterTab() {
                 <div className="flex flex-wrap gap-1">
                   {g.items.map((b) => {
                     const summary = b.table
-                      ? tableSummary(b.table, settings?.library?.spells)
+                      ? tableSummary(b.table, benefitSpellList)
                       : b.description || b.name;
                     const options = b.table
-                      ? tableOptions(b.table, settings?.library?.spells)
+                      ? tableOptions(b.table, benefitSpellList)
                       : [];
                     return (
                       <span

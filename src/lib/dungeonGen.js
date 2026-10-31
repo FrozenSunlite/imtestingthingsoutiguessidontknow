@@ -511,6 +511,24 @@ const link = (from, to, type = "Doorway", floor = 0) => ({
   door: true,
 });
 
+// Give each connection concrete door points taken from the ingress zones of
+// the two rooms, so a map can draw its doorways rather than only a centre line.
+const attachDoorPoints = (rooms, connections) => {
+  const byId = new Map((rooms || []).map((room) => [room.id, room]));
+  return (connections || []).map((connection) => {
+    const from = byId.get(connection.from);
+    const to = byId.get(connection.to);
+    if (!from || !to) return connection;
+    const fromPoint = from.ingressPoints?.[0] || { x: 0, y: 0 };
+    const toPoint = to.ingressPoints?.[0] || { x: 0, y: 0 };
+    return {
+      ...connection,
+      doorFrom: { x: Number(fromPoint.x) || 0, y: Number(fromPoint.y) || 0 },
+      doorTo: { x: Number(toPoint.x) || 0, y: Number(toPoint.y) || 0 },
+    };
+  });
+};
+
 function makeMissionStart() {
   const w = 4;
   const h = 4;
@@ -1045,6 +1063,7 @@ export function generateDungeon({
   }
 
   const routes = buildRoutes(rooms, connections);
+  const linkedConnections = attachDoorPoints(rooms, connections);
   return {
     id: uid("dungeon"),
     name: title,
@@ -1052,7 +1071,7 @@ export function generateDungeon({
     rank,
     seed,
     rooms,
-    connections,
+    connections: linkedConnections,
     routes,
     chosenRouteId: routes[0]?.id || "",
     notes: `${info.nickname} · ${info.downtime} downtime · ${rooms.filter((r) => !r.hall && !r.side).length} rooms`,

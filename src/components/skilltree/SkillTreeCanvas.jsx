@@ -533,7 +533,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         !hiddenIds?.has(n.id) &&
         n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [tree, region.key, hiddenIds, editable]);
 
   const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);

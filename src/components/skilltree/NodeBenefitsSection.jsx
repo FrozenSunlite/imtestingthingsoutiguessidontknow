@@ -10,6 +10,7 @@ import {
   BENEFIT_CATEGORY_FOR_5E,
   benefitId,
   benefitOptions,
+  benefitSpells,
   tableSummary,
 } from "@/lib/benefits";
 
@@ -35,6 +36,7 @@ export function NodeBenefitsSection({ node, set }) {
           description: extra.description || "",
           image: extra.image || "",
           table: extra.table || null,
+          ...(extra.value != null ? { value: Number(extra.value) || 0 } : {}),
         },
       ],
     });
@@ -121,7 +123,9 @@ export function NodeBenefitsSection({ node, set }) {
                       }
                       onKeyDown={(e) => {
                         if (e.key !== "Enter") return;
-                        add(cat.id, drafts[cat.id]);
+                        add(cat.id, drafts[cat.id], {
+                          value: drafts[`${cat.id}:value`],
+                        });
                         setDrafts((d) => ({ ...d, [cat.id]: "" }));
                       }}
                     />
@@ -132,13 +136,29 @@ export function NodeBenefitsSection({ node, set }) {
                         ))}
                       </datalist>
                     )}
+                    {cat.id === "attribute" && (
+                      <Input
+                        className="h-7 w-12 text-[11px]"
+                        type="number"
+                        title="Attribute bonus amount"
+                        value={drafts[`${cat.id}:value`] ?? 1}
+                        onChange={(e) =>
+                          setDrafts((d) => ({
+                            ...d,
+                            [`${cat.id}:value`]: e.target.value,
+                          }))
+                        }
+                      />
+                    )}
                     <Button
                       size="icon"
                       variant="ghost"
                       className="h-7 w-7 shrink-0"
                       title={`Add ${cat.label.toLowerCase()}`}
                       onClick={() => {
-                        add(cat.id, drafts[cat.id]);
+                        add(cat.id, drafts[cat.id], {
+                          value: drafts[`${cat.id}:value`],
+                        });
                         setDrafts((d) => ({ ...d, [cat.id]: "" }));
                       }}
                     >
@@ -154,12 +174,17 @@ export function NodeBenefitsSection({ node, set }) {
                       key={b.id}
                       title={
                         b.table
-                          ? tableSummary(b.table, settings?.library?.spells)
+                          ? tableSummary(b.table, benefitSpells(settings))
                           : b.description || b.name
                       }
                       className="inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]"
                     >
-                      <span className="truncate">{b.name}</span>
+                      <span className="truncate">
+                        {b.name}
+                        {b.category === "attribute"
+                          ? ` +${Number(b.value) || 1}`
+                          : ""}
+                      </span>
                       <button
                         type="button"
                         className="text-muted-foreground hover:text-destructive"
@@ -180,7 +205,7 @@ export function NodeBenefitsSection({ node, set }) {
         open={tableOpen}
         onClose={() => setTableOpen(false)}
         onSave={({ name, table }) => add("table", name, { table })}
-        spells={settings?.library?.spells || []}
+        spells={benefitSpells(settings)}
         schools={settings?.library?.spellSchools || []}
       />
     </div>

@@ -18,7 +18,7 @@ import {
   loadPlots, savePlots, newPlot,
 } from "@/lib/homesteadStore";
 import {
-  PLOT_KINDS, STATIONS, COMFORT_LEVELS, OWNERSHIP, FACILITY_TYPES,
+  PLOT_KINDS, STATIONS, COMFORT_LEVELS, OWNERSHIP,
   furnishingByName, plotTotals, plotKinds, plotBoundary, containingFacility,
   overlaps, uid,
 } from "@/lib/homestead";
@@ -86,7 +86,7 @@ export default function Homebuilder({ onExit }) {
       setActiveId(first.id);
       setFloorId(first.floors[0]?.id || null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   useEffect(() => savePlots(plots), [plots]);
 

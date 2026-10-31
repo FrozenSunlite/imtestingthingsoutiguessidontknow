@@ -92,7 +92,7 @@ export function DungeonMap({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [drag?.id, drag?.kind, drag?.sx, drag?.sy, drag?.ox, drag?.oy, drag?.ow, drag?.oh]);
 
   // Drag empty map space to pan; the scroll container keeps the map usable at

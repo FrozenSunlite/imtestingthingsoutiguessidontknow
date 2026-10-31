@@ -777,6 +777,20 @@ export function WorldBuilder({ onExit }) {
     });
   };
 
+  const rollBuildingIcon = (settlement, building) => {
+    const urls = (importedImages || []).map((image) => image.url).filter(Boolean);
+    if (!urls.length) {
+      toast.error("Import some sticker images before rolling house artwork.");
+      return;
+    }
+    const url = urls[Math.floor(Math.random() * urls.length)];
+    updateBuilding(settlement, building, {
+      icon: url,
+      rotation: Math.floor(Math.random() * 8) * 45,
+    });
+    toast.success("Rolled house artwork and rotation.");
+  };
+
   const rerollInterior = (settlement, building) => {
     if (!settlement || !building) return;
     const seed = `${building.id || building.name}:${Date.now().toString(36)}`;
@@ -1354,6 +1368,7 @@ export function WorldBuilder({ onExit }) {
             onRerollInterior={rerollInterior}
             onUpdateBuilding={updateBuilding}
             onMoveBuilding={moveBuilding}
+            onRollBuildingIcon={rollBuildingIcon}
           />
         )}
 

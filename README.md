@@ -5,9 +5,10 @@ attach benefits and costs, build a character against them, manage point pools,
 run a DM screen, and keep a multi-book rulebook — all in the browser.
 
 The app is a client-side React 19 / [TanStack Start](https://tanstack.com/start)
-project (plain JavaScript). There is no backend: project saves, the rulebook and
-settings live in `localStorage`, and imported artwork is stored as files on the
-local machine when running through the bundled desktop launcher.
+project (plain JavaScript). Project saves, the rulebook and settings live in
+IndexedDB (`talent-tree`) with legacy `localStorage` copies migrated on first
+launch. Imported artwork is stored as files on the local machine when running
+through the bundled desktop launcher.
 
 ## Running it
 
@@ -67,9 +68,62 @@ changing app code, then restart the launcher.
 - **Backups:** the JSON export is the durable, portable format — use it to move
   trees or characters between machines.
 
+## Feature notes
+
+- **Reference Index** reads local, downloaded or homebrew 5eTools data. Books
+  have a chapter reader in the Preview pane; backgrounds, feats, species and
+  actions show their 5eTools fields; Weapon Masteries are a seeded 2024 list.
+- **Benefits** on a node can be dropped in from Reference Index entries or
+  picked from the library, grouped by category. Spell tables support school,
+  level, subschool, casting time, duration, save/attack, range, target, area,
+  effect and material filters; custom choose/roll tables are also supported.
+- **Subtree limits:** each subtree has a repeat-purchase limit (`0` = unlimited);
+  the first open counts as the first purchase and later purchases add another
+  batch of its granted points.
+- **Levels from nodes:** a node can grant character levels while invested. The
+  effective level drives tier gates, subtree unlocks, proficiency bonus and the
+  per-level talent purchase cap in Levels & Rules.
+- **World Builder:** generated buildings can use house artwork with 45° rotation,
+  expand their footprint only when neighbouring lots are free, and be nudged to a
+  free lot before expanding.
+- **Architect:** rented properties cannot add facilities/Bastion rooms or enlarge
+  the footprint; business-only rooms need the landlord allowance.
+- **Dungeon Builder:** rooms and halls track floors and door connections; the
+  front-page **Dungeon Rooms** editor creates/imports room templates, and imported
+  objects render on the battle map.
+
+## Development proxy
+
+`npm run dev` serves the UI on `:5173` and proxies `/api` and `/images` to the
+local server. Set `TTT_API_TARGET` before starting Vite when that server runs
+elsewhere:
+
+```powershell
+$env:TTT_API_TARGET = "http://192.168.1.50:4173"
+npm run dev
+```
+
+The packaged app does not use this proxy: `Serve.ps1` serves the UI and API from
+the same origin.
+
+## Data safety
+
+- Take a **Save / Load → export** backup before major edits. Autosave writes to
+  IndexedDB; the export is the portable, durable copy.
+- Runtime project files, backups and imported images are under
+  `standalone/desktop/userdata` (gitignored).
+- The app has no cloud account or sync: the project stays on the machine running
+  the launcher.
+
+
+
 ## Linting
 
 ```bash
 npm run lint
 npm run lint:fix
 ```
+
+`eslint-plugin-react` is installed so JSX usage counts as variable use. The
+remaining warnings are genuine unused imports/arguments; there are no lint
+errors.

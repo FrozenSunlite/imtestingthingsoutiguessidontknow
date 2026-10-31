@@ -369,7 +369,7 @@ export function ReferenceIndexTab() {
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [root]);
 
   useEffect(() => {
@@ -385,7 +385,7 @@ export function ReferenceIndexTab() {
     // Load the first source file so the entry list and preview are populated
     // immediately; later file clicks replace it.
     if (files[0]) loadFile(files[0].path);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [categoryId, root, index.length, catalog.length, partneredOnly]);
 
   const fetchFiveFile = async (path, { force = false } = {}) => {
@@ -428,7 +428,7 @@ export function ReferenceIndexTab() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeCategoryId, root, isRemote]);
 
   const loadFile = async (path) => {

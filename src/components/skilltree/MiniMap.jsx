@@ -40,7 +40,7 @@ export function MiniMap({ nodes, gridBounds, view, vp, onJump }) {
         ...toMap(n.x, n.y),
         taken: (n.currentPoints || 0) > 0,
       })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [nodes, bounds.minX, bounds.minY, scale, ox, oy]
   );
 

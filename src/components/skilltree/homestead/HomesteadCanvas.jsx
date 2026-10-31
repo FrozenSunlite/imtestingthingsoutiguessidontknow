@@ -127,7 +127,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // R while a placement tool is active rotates the ghost 90°; a new tool
@@ -424,7 +424,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
   // canvas is (re)sized.
   useEffect(() => {
     centerCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [plot?.id, size.w, size.h]);
 
   // Right-click menu for any placed item; kept inside the canvas edges.
@@ -745,7 +745,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [gesturing]);
 
   const onPointerMove = (e) => {

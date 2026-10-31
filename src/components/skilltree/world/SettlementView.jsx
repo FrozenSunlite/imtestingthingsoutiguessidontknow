@@ -61,6 +61,7 @@ export function SettlementView({
   onRerollInterior,
   onUpdateBuilding,
   onMoveBuilding,
+  onRollBuildingIcon,
 }) {
   const [buildingId, setBuildingId] = useState("");
   const [floor, setFloor] = useState(1);
@@ -946,6 +947,15 @@ export function SettlementView({
               title="Pick house artwork from the sticker library"
             >
               Pick icon
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[10px]"
+              onClick={() => onRollBuildingIcon?.(settlement, buildingView)}
+              title="Roll a random imported house icon and 45° rotation"
+            >
+              Random icon
             </Button>
             <Button
               size="sm"

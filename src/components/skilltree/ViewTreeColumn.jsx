@@ -35,7 +35,7 @@ export function ViewTreeColumn() {
 
   useEffect(() => {
     if (width > maxWidth) setWidth(maxWidth);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [maxWidth, width]);
 
   const left = !!sideTrees?.left && !sideTrees.left.closed;

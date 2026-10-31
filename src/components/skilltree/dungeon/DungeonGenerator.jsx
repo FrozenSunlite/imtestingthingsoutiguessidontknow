@@ -1073,7 +1073,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     }
     // Only follow selection changes; edits inside the maker are local until
     // Apply/Upload.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [selectedId]);
 
   useEffect(() => {

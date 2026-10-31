@@ -887,21 +887,6 @@ const lootDetails = (entry) => ({
   sections: [tableBlock(entry.table), textSection("Description", entry.entries)].filter(Boolean),
 });
 
-const recipeDetails = (entry) => ({
-  fields: [
-    ["Type", clean(entry.type)],
-    ["Makes", clean(entry.makes)],
-    ["Diet", join(entry.diet)],
-    ["Allergens", join(entry.allergenGroups)],
-    ["Source", clean(entry.source)],
-  ],
-  sections: [
-    textSection("Ingredients", entry.ingredients),
-    textSection("Instructions", entry.instructions),
-    textSection("Notes", entry.noteCook || entry.notes),
-  ].filter(Boolean),
-});
-
 const ruleDetails = (entry) => ({
   fields: [
     ["Type", clean(entry.ruleType)],

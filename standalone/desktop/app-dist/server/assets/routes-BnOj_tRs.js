@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DsCxDbaw.js";
+import { n as Button, r as cn } from "./router-C4N5YIYQ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3894,6 +3894,33 @@ var link = (from, to, type = "Doorway", floor = 0) => ({
 	floor: Number(floor) || 0,
 	door: true
 });
+var attachDoorPoints = (rooms, connections) => {
+	const byId = new Map((rooms || []).map((room) => [room.id, room]));
+	return (connections || []).map((connection) => {
+		const from = byId.get(connection.from);
+		const to = byId.get(connection.to);
+		if (!from || !to) return connection;
+		const fromPoint = from.ingressPoints?.[0] || {
+			x: 0,
+			y: 0
+		};
+		const toPoint = to.ingressPoints?.[0] || {
+			x: 0,
+			y: 0
+		};
+		return {
+			...connection,
+			doorFrom: {
+				x: Number(fromPoint.x) || 0,
+				y: Number(fromPoint.y) || 0
+			},
+			doorTo: {
+				x: Number(toPoint.x) || 0,
+				y: Number(toPoint.y) || 0
+			}
+		};
+	});
+};
 function makeMissionStart() {
 	const w = 4;
 	const h = 4;
@@ -4351,6 +4378,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), t
 		}
 	}
 	const routes = buildRoutes(rooms, connections);
+	const linkedConnections = attachDoorPoints(rooms, connections);
 	return {
 		id: uid("dungeon"),
 		name: title,
@@ -4358,7 +4386,7 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), t
 		rank,
 		seed,
 		rooms,
-		connections,
+		connections: linkedConnections,
 		routes,
 		chosenRouteId: routes[0]?.id || "",
 		notes: `${info.nickname} · ${info.downtime} downtime · ${rooms.filter((r) => !r.hall && !r.side).length} rooms`,
@@ -9680,9 +9708,38 @@ function effectiveChoices(character, tree) {
 }
 function attributeBonuses(tree) {
 	const out = {};
-	tree?.nodes.forEach((n) => {
-		if ((n.currentPoints || 0) > 0 && n.nodeType === "attribute" && n.attributeStat) out[n.attributeStat] = (out[n.attributeStat] || 0) + (n.currentPoints || 0);
-	});
+	const statKey = (name) => {
+		const s = String(name || "").trim().toUpperCase();
+		if ([
+			"STR",
+			"DEX",
+			"CON",
+			"INT",
+			"WIS",
+			"CHA"
+		].includes(s)) return s;
+		return {
+			STRENGTH: "STR",
+			DEXTERITY: "DEX",
+			CONSTITUTION: "CON",
+			INTELLIGENCE: "INT",
+			WISDOM: "WIS",
+			CHARISMA: "CHA"
+		}[s] || "";
+	};
+	const walk = (nodes) => {
+		(nodes || []).forEach((n) => {
+			if ((n.currentPoints || 0) > 0 && n.nodeType === "attribute" && n.attributeStat) out[n.attributeStat] = (out[n.attributeStat] || 0) + (n.currentPoints || 0);
+			if ((n.currentPoints || 0) > 0) (n.benefits || []).filter((b) => b?.category === "attribute").forEach((b) => {
+				const key = statKey(b.name);
+				if (!key) return;
+				const amount = Number(b.value);
+				out[key] = (out[key] || 0) + (Number.isFinite(amount) ? amount : 1);
+			});
+			(n.subtrees || []).forEach((st) => walk(st.nodes));
+		});
+	};
+	walk(tree?.nodes);
 	return out;
 }
 function pushActivityLog(character, text) {
@@ -28681,7 +28738,7 @@ var STAT_OPTIONS = [
 function benefitOptions(settings, category) {
 	const lib = settings?.library || {};
 	switch (category) {
-		case "spell": return names(lib.spells);
+		case "spell": return names(benefitSpells(settings));
 		case "equipment": return [
 			...names(lib.weapons),
 			...names(lib.armor),
@@ -28719,6 +28776,17 @@ var BENEFIT_CATEGORY_FOR_5E = {
 	conditions: "other",
 	actions: "other"
 };
+function benefitSpells(settings) {
+	const lib = settings?.library || {};
+	const merged = [...Array.isArray(lib.spells) ? lib.spells : [], ...Array.isArray(lib.fiveETools?.spells) ? lib.fiveETools.spells : []];
+	const seen = /* @__PURE__ */ new Set();
+	return merged.filter((spell) => {
+		const name = typeof spell === "string" ? spell : String(spell?.name || "");
+		if (!name || seen.has(name.toLowerCase())) return false;
+		seen.add(name.toLowerCase());
+		return true;
+	});
+}
 var LEVEL_MODES = [
 	{
 		id: "any",
@@ -29247,7 +29315,8 @@ function NodeBenefitsSection({ node, set }) {
 			source: extra.source || "",
 			description: extra.description || "",
 			image: extra.image || "",
-			table: extra.table || null
+			table: extra.table || null,
+			...extra.value != null ? { value: Number(extra.value) || 0 } : {}
 		}] });
 	};
 	const remove = (id) => set({ benefits: benefits.filter((b) => b.id !== id) });
@@ -29331,7 +29400,7 @@ function NodeBenefitsSection({ node, set }) {
 										})),
 										onKeyDown: (e) => {
 											if (e.key !== "Enter") return;
-											add(cat.id, drafts[cat.id]);
+											add(cat.id, drafts[cat.id], { value: drafts[`${cat.id}:value`] });
 											setDrafts((d) => ({
 												...d,
 												[cat.id]: ""
@@ -29342,13 +29411,23 @@ function NodeBenefitsSection({ node, set }) {
 										id: list,
 										children: [...new Set(options)].map((name) => /* @__PURE__ */ jsx("option", { value: name }, name))
 									}),
+									cat.id === "attribute" && /* @__PURE__ */ jsx(Input, {
+										className: "h-7 w-12 text-[11px]",
+										type: "number",
+										title: "Attribute bonus amount",
+										value: drafts[`${cat.id}:value`] ?? 1,
+										onChange: (e) => setDrafts((d) => ({
+											...d,
+											[`${cat.id}:value`]: e.target.value
+										}))
+									}),
 									/* @__PURE__ */ jsx(Button, {
 										size: "icon",
 										variant: "ghost",
 										className: "h-7 w-7 shrink-0",
 										title: `Add ${cat.label.toLowerCase()}`,
 										onClick: () => {
-											add(cat.id, drafts[cat.id]);
+											add(cat.id, drafts[cat.id], { value: drafts[`${cat.id}:value`] });
 											setDrafts((d) => ({
 												...d,
 												[cat.id]: ""
@@ -29361,11 +29440,11 @@ function NodeBenefitsSection({ node, set }) {
 							mine.length > 0 && /* @__PURE__ */ jsx("div", {
 								className: "mt-1 flex flex-wrap gap-1",
 								children: mine.map((b) => /* @__PURE__ */ jsxs("span", {
-									title: b.table ? tableSummary(b.table, settings?.library?.spells) : b.description || b.name,
+									title: b.table ? tableSummary(b.table, benefitSpells(settings)) : b.description || b.name,
 									className: "inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]",
-									children: [/* @__PURE__ */ jsx("span", {
+									children: [/* @__PURE__ */ jsxs("span", {
 										className: "truncate",
-										children: b.name
+										children: [b.name, b.category === "attribute" ? ` +${Number(b.value) || 1}` : ""]
 									}), /* @__PURE__ */ jsx("button", {
 										type: "button",
 										className: "text-muted-foreground hover:text-destructive",
@@ -29383,7 +29462,7 @@ function NodeBenefitsSection({ node, set }) {
 				open: tableOpen,
 				onClose: () => setTableOpen(false),
 				onSave: ({ name, table }) => add("table", name, { table }),
-				spells: settings?.library?.spells || [],
+				spells: benefitSpells(settings),
 				schools: settings?.library?.spellSchools || []
 			})
 		]
@@ -33809,6 +33888,7 @@ function CharacterTab() {
 		...cat,
 		items: collectNodeBenefits(tree).filter((b) => b.category === cat.id)
 	})).filter((g) => g.items.length);
+	const benefitSpellList = benefitSpells(settings);
 	const testAdjust = (n, delta) => {
 		if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
 			const max = Math.max(1, Number(n.maxPoints) || 1);
@@ -34242,8 +34322,8 @@ function CharacterTab() {
 					}), /* @__PURE__ */ jsx("div", {
 						className: "flex flex-wrap gap-1",
 						children: g.items.map((b) => {
-							const summary = b.table ? tableSummary(b.table, settings?.library?.spells) : b.description || b.name;
-							const options = b.table ? tableOptions(b.table, settings?.library?.spells) : [];
+							const summary = b.table ? tableSummary(b.table, benefitSpellList) : b.description || b.name;
+							const options = b.table ? tableOptions(b.table, benefitSpellList) : [];
 							return /* @__PURE__ */ jsxs("span", {
 								title: [summary, options.slice(0, 20).join(", ")].filter(Boolean).join("\n"),
 								className: "rounded border bg-accent/40 px-2 py-0.5 text-[10px]",
@@ -69064,7 +69144,7 @@ var CATEGORY_COLOR = {
 var MAP_TILE = 14;
 var CITY_GRID_COLOR = "#2a2d34";
 var clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSettlement, onFindAssets, onSetFloorTexture, onOpenKingdom, onBuildHere, onRegenerateLayout, onUpdateRoomStickers, onUseRoomTemplate, onRerollInterior, onUpdateBuilding, onMoveBuilding }) {
+function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSettlement, onFindAssets, onSetFloorTexture, onOpenKingdom, onBuildHere, onRegenerateLayout, onUpdateRoomStickers, onUseRoomTemplate, onRerollInterior, onUpdateBuilding, onMoveBuilding, onRollBuildingIcon }) {
 	const [buildingId, setBuildingId] = useState("");
 	const [floor, setFloor] = useState(1);
 	const [stickerRoomId, setStickerRoomId] = useState("");
@@ -70068,6 +70148,14 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 								onClick: () => onFindAssets?.({ type: "house" }, buildingView, "buildingIcon"),
 								title: "Pick house artwork from the sticker library",
 								children: "Pick icon"
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-7 text-[10px]",
+								onClick: () => onRollBuildingIcon?.(settlement, buildingView),
+								title: "Roll a random imported house icon and 45° rotation",
+								children: "Random icon"
 							}),
 							/* @__PURE__ */ jsx(Button, {
 								size: "sm",
@@ -74998,6 +75086,19 @@ function WorldBuilder({ onExit }) {
 			} : item)
 		});
 	};
+	const rollBuildingIcon = (settlement, building) => {
+		const urls = (importedImages || []).map((image) => image.url).filter(Boolean);
+		if (!urls.length) {
+			toast.error("Import some sticker images before rolling house artwork.");
+			return;
+		}
+		const url = urls[Math.floor(Math.random() * urls.length)];
+		updateBuilding(settlement, building, {
+			icon: url,
+			rotation: Math.floor(Math.random() * 8) * 45
+		});
+		toast.success("Rolled house artwork and rotation.");
+	};
 	const rerollInterior = (settlement, building) => {
 		if (!settlement || !building) return;
 		const seed = `${building.id || building.name}:${Date.now().toString(36)}`;
@@ -75832,7 +75933,8 @@ function WorldBuilder({ onExit }) {
 						onUseRoomTemplate: useRoomAsTemplate,
 						onRerollInterior: rerollInterior,
 						onUpdateBuilding: updateBuilding,
-						onMoveBuilding: moveBuilding
+						onMoveBuilding: moveBuilding,
+						onRollBuildingIcon: rollBuildingIcon
 					}),
 					tab === "developments" && /* @__PURE__ */ jsx(DevelopmentsPanel, {
 						world,

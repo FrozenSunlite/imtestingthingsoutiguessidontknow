@@ -82,7 +82,7 @@ export function CombatStage({ world, character, derived, monsters = [], seed = n
     if (!combat) return;
     const active = activeCombatant(combat);
     if (active && active.side === "party" && !selectedId) setSelectedId(active.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [combat?.id, combat?.activeId]);
 
   const apply = (nextCombat) => onChange?.({ ...world, combat: nextCombat });

@@ -54,7 +54,7 @@ export function NodeImagePicker({
     if (!open) return;
     load({ q: "", dir: folder });
     fetchAssetFolders("icon", 40).then(setFolders);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, folder]);
 
   const applyFolder = () => {
