@@ -24,6 +24,9 @@ import {
   useView,
   useViewSet,
   statVars,
+  effectiveCharacterLevel,
+  talentPurchaseLimit,
+  talentPurchasesUsed,
 } from "@/lib/treeStore";
 import { abilityReqStatus } from "@/lib/skills";
 import { comboMatches } from "@/lib/hotkeys";
@@ -510,7 +513,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   // aren't met — and, optionally, whose level requirement exceeds the level.
   const hiddenIds = useMemo(() => {
     if (editable || !character?.hideLockedNodes || !tree) return null;
-    const level = character.level || 1;
+    const level = effectiveCharacterLevel(character, mergedTree);
     const includeLevel = !!character.hideLockedIncludeLevel;
     const ids = new Set();
     for (const n of tree.nodes) {
@@ -519,7 +522,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
     }
     return ids;
-  }, [editable, character, tree, nodesById, unlockedNames]);
+  }, [editable, character, tree, nodesById, unlockedNames, mergedTree]);
 
   const visibleNodes = useMemo(() => {
     if (!tree) return [];
@@ -1046,7 +1049,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   const openSubtreeForNode = useCallback(
     (node) => {
       if (!node) return;
-      const level = Math.max(1, Number(character?.level) || 1);
+      const level = Math.max(1, effectiveCharacterLevel(character, mergedTree));
       const eligible = (node.subtrees || [])
         .map((subtree, index) => ({ subtree, index }))
         .filter(
@@ -1082,10 +1085,25 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         toast.error("Already at max points.");
         return;
       }
-      const gate = tierGate(n, character.level || 1);
+      const level = effectiveCharacterLevel(character, mergedTree);
+      const gate = tierGate(n, level);
       if (!gate.ok) {
         toast.error(gate.reason);
         return;
+      }
+      if (
+        cur === 0 &&
+        poolForNode(n) === "talent" &&
+        (n.nodeType || "") !== "informative"
+      ) {
+        const limit = talentPurchaseLimit(level, settings);
+        const used = talentPurchasesUsed(mergedTree);
+        if (Number.isFinite(limit) && used >= limit) {
+          toast.error(
+            `Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`
+          );
+          return;
+        }
       }
       if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
         const other = tree.nodes.find(

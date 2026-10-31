@@ -1,0 +1,1 @@
+import{g as e}from"./routes-DzcCPLt4.js";export default e();

@@ -307,6 +307,22 @@ export function NodeEditorPanel() {
               />
             </div>
           </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <InfoTip label="Character levels this node grants while invested. They count for tier gates, subtree unlock levels and the per-level talent purchase limit; refunding removes them.">
+                <Label>Levels Granted</Label>
+              </InfoTip>
+              <Input
+                type="number"
+                min={0}
+                value={node.levelGain ?? 0}
+                onChange={(e) => set({ levelGain: Math.max(0, Number(e.target.value) || 0) })}
+              />
+            </div>
+            <p className="self-end pb-1 text-[10px] text-muted-foreground">
+              Adds this many character levels while the node is invested.
+            </p>
+          </div>
           <p className="text-[10px] text-muted-foreground">
             Node Cost: pool points per invested point, 0 to make it free. Prerequisite Points: 0
             defaults to auto — however many it takes to get to the prerequisite node.

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-p3r2KW3T.js";
+import { n as Button, r as cn } from "./router-D9ipVuKF.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6510,6 +6510,7 @@ function normalizeTree(data) {
 			y: typeof pos.y === "number" ? pos.y : 0,
 			maxPoints,
 			currentPoints: s["Skill Current Points"] ?? 0,
+			levelGain: Math.max(0, Number(s["Skill Level Gain"]) || 0),
 			image: s["Skill Image"] || "",
 			description: s["Skill Description"] || "",
 			dependencyNames: s["Skill Dependencies"] || [],
@@ -6693,6 +6694,7 @@ function denormalizeTree(tree) {
 			"Skill Description": n.description,
 			"Skill Max Points": n.maxPoints,
 			"Skill Current Points": n.currentPoints,
+			"Skill Level Gain": n.levelGain || 0,
 			"Skill Image": n.image,
 			"Skill Dependencies": tree.nodes.filter((m) => (m.dependencies || []).includes(n.id)).map((m) => m.name),
 			"Skill Prerequisite": n.prerequisite || "-",
@@ -7450,7 +7452,7 @@ function useViewSet() {
 }
 var DEFAULT_POOLS = {
 	heritage: { total: 12 },
-	talent: { total: 8 },
+	talent: { total: 2 },
 	attribute: { total: 72 }
 };
 var DEFAULT_GRID = {
@@ -7590,7 +7592,10 @@ var DEFAULT_SETTINGS = {
 	levelRules: {
 		talentPoints: 1,
 		heritagePoints: 0,
-		attributePoints: 0
+		attributePoints: 0,
+		talentLimit: 1,
+		talentLimitEnabled: true,
+		levelZeroTalentPoints: 2
 	},
 	library: DEFAULT_LIBRARY
 };
@@ -9818,8 +9823,50 @@ function levelGains(level, settings) {
 	return {
 		talentPoints: pick("talentPoints"),
 		heritagePoints: pick("heritagePoints"),
-		attributePoints: pick("attributePoints")
+		attributePoints: pick("attributePoints"),
+		talentLimit: pick("talentLimit")
 	};
+}
+function grantedLevels(tree) {
+	const walk = (nodes) => {
+		let sum = 0;
+		for (const n of nodes || []) {
+			if ((Number(n.currentPoints) || 0) > 0) sum += Math.max(0, Number(n.levelGain) || 0);
+			(n.subtrees || []).forEach((st) => {
+				sum += walk(st.nodes);
+			});
+			if (n.subtree) sum += walk(n.subtree.nodes);
+		}
+		return sum;
+	};
+	return walk(tree?.nodes);
+}
+function effectiveCharacterLevel(character, tree) {
+	return Math.max(0, (Number(character?.level) || 1) + grantedLevels(tree));
+}
+function talentPurchasesUsed(tree) {
+	const seen = /* @__PURE__ */ new Set();
+	let count = 0;
+	const walk = (nodes, inSubtree = false) => {
+		for (const n of nodes || []) {
+			(n.subtrees || []).forEach((st) => walk(st.nodes, true));
+			if (inSubtree) continue;
+			if ((Number(n.currentPoints) || 0) <= 0) continue;
+			if ((n.nodeType || "") === "informative") continue;
+			if ((n.poolOverride || (n.nodeType === "heritage" ? "heritage" : n.nodeType === "attribute" ? "attribute" : "talent")) !== "talent") continue;
+			const key = `${String(n.name || "").toLowerCase()}|${String(n.source || "")}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			count += 1;
+		}
+	};
+	walk(tree?.nodes);
+	return count;
+}
+function talentPurchaseLimit(level, settings) {
+	if ((settings?.levelRules || DEFAULT_SETTINGS.levelRules).talentLimitEnabled === false) return Infinity;
+	const limit = Math.max(0, Number(levelGains(level, settings).talentLimit) || 0);
+	return Math.max(0, Math.floor((Number(level) || 0) * limit));
 }
 function effectivePools(pools, character, tree, levels = []) {
 	const profBonus = profBonusFor(character?.level || 1, levels);
@@ -15129,7 +15176,10 @@ function LevelsTab() {
 	const rules = settings?.levelRules || {
 		talentPoints: 1,
 		heritagePoints: 0,
-		attributePoints: 0
+		attributePoints: 0,
+		talentLimit: 1,
+		levelZeroTalentPoints: 2,
+		talentLimitEnabled: true
 	};
 	const setLevels = (next) => setSettings((s) => ({
 		...s,
@@ -15185,6 +15235,17 @@ function LevelsTab() {
 							numField("Attribute", rules.attributePoints, (e) => setRules({ attributePoints: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }))
 						]
 					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "mt-1.5 grid grid-cols-2 gap-1.5",
+						children: [numField("Talents/level", rules.talentLimit, (e) => setRules({ talentLimit: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }), "How many talents may be purchased per character level (cumulative: level × this number)"), numField("Level 0 Talent", rules.levelZeroTalentPoints, (e) => setRules({ levelZeroTalentPoints: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }), "Talent Points a fresh character starts with before any level-ups")]
+					}),
+					/* @__PURE__ */ jsxs("label", {
+						className: "mt-2 flex items-center gap-2 text-xs",
+						children: [/* @__PURE__ */ jsx(Switch, {
+							checked: rules.talentLimitEnabled !== false,
+							onCheckedChange: (v) => setRules({ talentLimitEnabled: v })
+						}), "Limit talents purchased per level"]
+					}),
 					/* @__PURE__ */ jsx("p", {
 						className: "mt-1 text-[10px] text-muted-foreground",
 						children: "Proficiency Bonus defaults to D&D scaling (+2 at levels 1-4, then +1 every 4 levels); set it per level below to override."
@@ -15211,7 +15272,7 @@ function LevelsTab() {
 				className: "text-xs text-muted-foreground",
 				children: "No levels defined yet."
 			}) : /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs("div", {
-				className: "grid grid-cols-[70px_1fr_1fr_1fr_1fr_1fr_28px] items-center gap-1.5 px-2 text-[10px] font-semibold uppercase text-muted-foreground",
+				className: "grid grid-cols-[70px_repeat(6,1fr)_28px] items-center gap-1.5 px-2 text-[10px] font-semibold uppercase text-muted-foreground",
 				children: [
 					/* @__PURE__ */ jsx("span", { children: "Level" }),
 					/* @__PURE__ */ jsx("span", { children: "Talent" }),
@@ -15219,13 +15280,14 @@ function LevelsTab() {
 					/* @__PURE__ */ jsx("span", { children: "Hit Dice" }),
 					/* @__PURE__ */ jsx("span", { children: "Heritage" }),
 					/* @__PURE__ */ jsx("span", { children: "Attribute" }),
+					/* @__PURE__ */ jsx("span", { children: "Talents" }),
 					/* @__PURE__ */ jsx("span", {})
 				]
 			}), sorted.map((l) => {
 				const i = levels.indexOf(l);
 				const setNum = (key) => (e) => patch(i, { [key]: e.target.value === "" ? "" : Math.max(0, Number(e.target.value) || 0) });
 				return /* @__PURE__ */ jsxs("div", {
-					className: "grid grid-cols-[70px_1fr_1fr_1fr_1fr_1fr_28px] items-center gap-1.5 rounded-md border p-2",
+					className: "grid grid-cols-[70px_repeat(6,1fr)_28px] items-center gap-1.5 rounded-md border p-2",
 					children: [
 						/* @__PURE__ */ jsx(InfoTip, {
 							label: "The level this row applies to.",
@@ -15241,6 +15303,7 @@ function LevelsTab() {
 						numField("Hit Dice", l.hitDice, setNum("hitDice"), "Hit Dice gained at this level"),
 						numField("Heritage", l.heritagePoints, setNum("heritagePoints"), "Heritage Points at this level"),
 						numField("Attribute", l.attributePoints, setNum("attributePoints"), "Attribute Points at this level"),
+						numField("Talents", l.talentLimit, setNum("talentLimit"), "Talents purchasable per level at this level"),
 						/* @__PURE__ */ jsx(Button, {
 							size: "sm",
 							variant: "ghost",
@@ -25778,9 +25841,9 @@ function AbilityChoiceDialog({ node, nodesById, choices, perTake = 1, onPick, on
 //#endregion
 //#region src/components/skilltree/SubtreePickerDialog.jsx
 function SubtreePickerDialog({ node, onPick, onClose }) {
-	const { character } = useTree();
+	const { character, mergedTree } = useTree();
 	if (!node) return null;
-	const level = Math.max(1, Number(character?.level) || 1);
+	const level = Math.max(1, effectiveCharacterLevel(character, mergedTree));
 	const subtrees = (node.subtrees || []).map((subtree, index) => ({
 		subtree,
 		index
@@ -26302,7 +26365,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
 	const hiddenIds = useMemo(() => {
 		if (editable || !character?.hideLockedNodes || !tree) return null;
-		const level = character.level || 1;
+		const level = effectiveCharacterLevel(character, mergedTree);
 		const includeLevel = !!character.hideLockedIncludeLevel;
 		const ids = /* @__PURE__ */ new Set();
 		for (const n of tree.nodes) {
@@ -26316,7 +26379,8 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		character,
 		tree,
 		nodesById,
-		unlockedNames
+		unlockedNames,
+		mergedTree
 	]);
 	const visibleNodes = useMemo(() => {
 		if (!tree) return [];
@@ -26821,7 +26885,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	};
 	const openSubtreeForNode = useCallback((node) => {
 		if (!node) return;
-		const level = Math.max(1, Number(character?.level) || 1);
+		const level = Math.max(1, effectiveCharacterLevel(character, mergedTree));
 		const eligible = (node.subtrees || []).map((subtree, index) => ({
 			subtree,
 			index
@@ -26850,10 +26914,19 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				toast.error("Already at max points.");
 				return;
 			}
-			const gate = tierGate(n, character.level || 1);
+			const level = effectiveCharacterLevel(character, mergedTree);
+			const gate = tierGate(n, level);
 			if (!gate.ok) {
 				toast.error(gate.reason);
 				return;
+			}
+			if (cur === 0 && poolForNode(n) === "talent" && (n.nodeType || "") !== "informative") {
+				const limit = talentPurchaseLimit(level, settings);
+				const used = talentPurchasesUsed(mergedTree);
+				if (Number.isFinite(limit) && used >= limit) {
+					toast.error(`Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`);
+					return;
+				}
 			}
 			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
 				const other = tree.nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && ((n.exclusiveWith || []).includes(m.id) || (m.exclusiveWith || []).includes(n.id)));
@@ -30057,6 +30130,24 @@ function NodeEditorPanel() {
 									})
 								]
 							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "mt-2 grid grid-cols-2 gap-2",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(InfoTip, {
+										label: "Character levels this node grants while invested. They count for tier gates, subtree unlock levels and the per-level talent purchase limit; refunding removes them.",
+										children: /* @__PURE__ */ jsx(Label, { children: "Levels Granted" })
+									}), /* @__PURE__ */ jsx(Input, {
+										type: "number",
+										min: 0,
+										value: node.levelGain ?? 0,
+										onChange: (e) => set({ levelGain: Math.max(0, Number(e.target.value) || 0) })
+									})]
+								}), /* @__PURE__ */ jsx("p", {
+									className: "self-end pb-1 text-[10px] text-muted-foreground",
+									children: "Adds this many character levels while the node is invested."
+								})]
+							}),
 							/* @__PURE__ */ jsx("p", {
 								className: "text-[10px] text-muted-foreground",
 								children: "Node Cost: pool points per invested point, 0 to make it free. Prerequisite Points: 0 defaults to auto — however many it takes to get to the prerequisite node."
@@ -32752,7 +32843,10 @@ function CharacterTab() {
 		}[s] || s;
 	};
 	const nodeSaveProfs = new Set((tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0).flatMap((n) => (n.proficiencies || []).filter((p) => p.type === "savingThrow").map((p) => abilityKey(p.name))));
-	const profBonus = profBonusFor(character.level || 1, levels);
+	const effectiveLevel = effectiveCharacterLevel(character, tree);
+	const talentLimit = talentPurchaseLimit(effectiveLevel, settings);
+	const talentsUsed = talentPurchasesUsed(tree);
+	const profBonus = profBonusFor(effectiveLevel, levels);
 	const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
 	const customs = customResourceList(aggregated, settings?.library).filter((e) => !e.name.endsWith(" Speed") && !DEFAULT_SENSES.includes(e.name)).map((e) => {
 		const lib = (settings?.library?.resources || []).find((r) => String(r?.name || "").toLowerCase() === e.name.toLowerCase());
@@ -32878,7 +32972,18 @@ function CharacterTab() {
 									character.alignment
 								].filter(Boolean).join(" · ") || "—",
 								"  ·  Level ",
-								character.level || 1
+								effectiveLevel,
+								effectiveLevel !== (character.level || 1) && /* @__PURE__ */ jsxs("span", {
+									className: "text-[10px]",
+									children: [
+										" ",
+										"(",
+										character.level || 1,
+										" + ",
+										effectiveLevel - (character.level || 1),
+										" from nodes)"
+									]
+								})
 							]
 						})]
 					})]
@@ -33030,9 +33135,9 @@ function CharacterTab() {
 			}),
 			/* @__PURE__ */ jsx(SaveDCsSection, {}),
 			/* @__PURE__ */ jsx(DamageAffinitiesSection, {}),
-			/* @__PURE__ */ jsx(SectionCard, {
+			/* @__PURE__ */ jsxs(SectionCard, {
 				title: "Point Pools",
-				children: /* @__PURE__ */ jsx("div", {
+				children: [/* @__PURE__ */ jsx("div", {
 					className: "grid grid-cols-1 gap-3 sm:grid-cols-3",
 					children: [
 						[
@@ -33070,7 +33175,18 @@ function CharacterTab() {
 							className: "h-2"
 						})]
 					}, label))
-				})
+				}), /* @__PURE__ */ jsxs("p", {
+					className: "mt-2 text-[10px] text-muted-foreground",
+					children: [
+						"Talents purchased: ",
+						talentsUsed,
+						Number.isFinite(talentLimit) ? ` / ${talentLimit}` : " (unlimited)",
+						" at level",
+						" ",
+						effectiveLevel,
+						"."
+					]
+				})]
 			}),
 			/* @__PURE__ */ jsx(SpeedSection, {
 				sheet,
@@ -39425,7 +39541,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
 	const hiddenIds = useMemo(() => {
 		if (!character?.hideLockedNodes) return null;
-		const level = character.level || 1;
+		const level = effectiveCharacterLevel(character, mergedTree);
 		const includeLevel = !!character.hideLockedIncludeLevel;
 		const ids = /* @__PURE__ */ new Set();
 		for (const n of nodes) {
@@ -39438,7 +39554,8 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		character,
 		nodes,
 		nodesById,
-		unlockedNames
+		unlockedNames,
+		mergedTree
 	]);
 	const region = useMemo(() => {
 		const z = view.zoom || .1;
@@ -39719,10 +39836,19 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 				toast.error("Already at max points.");
 				return;
 			}
-			const gate = tierGate(n, character.level || 1);
+			const level = effectiveCharacterLevel(character, mergedTree);
+			const gate = tierGate(n, level);
 			if (!gate.ok) {
 				toast.error(gate.reason);
 				return;
+			}
+			if (!isSub && cur === 0 && poolForNode(n) === "talent" && (n.nodeType || "") !== "informative") {
+				const limit = talentPurchaseLimit(level, settings);
+				const used = talentPurchasesUsed(mergedTree);
+				if (Number.isFinite(limit) && used >= limit) {
+					toast.error(`Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`);
+					return;
+				}
 			}
 			if (isSub && st.exclusive && cur === 0) {
 				const inSet = new Set(nodes.map((m) => m.id));

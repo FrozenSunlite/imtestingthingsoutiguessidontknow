@@ -7,16 +7,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ListTree } from "lucide-react";
-import { useTree } from "@/lib/treeStore";
+import { useTree, effectiveCharacterLevel } from "@/lib/treeStore";
 
 // Shown when the player unlocks (or clicks the subtree chevron on) a talent
 // that owns its own skill trees: pick which tree to open in a side panel and
 // spend its granted pool in. Trees already open in a panel are greyed out —
 // one tree, one panel — as are trees with no nodes to invest in.
 export function SubtreePickerDialog({ node, onPick, onClose }) {
-  const { character } = useTree();
+  const { character, mergedTree } = useTree();
   if (!node) return null;
-  const level = Math.max(1, Number(character?.level) || 1);
+  const level = Math.max(1, effectiveCharacterLevel(character, mergedTree));
   const subtrees = (node.subtrees || [])
     .map((subtree, index) => ({ subtree, index }))
     .filter(({ subtree }) => !Number(subtree.level) || Number(subtree.level) <= level)

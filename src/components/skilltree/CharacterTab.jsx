@@ -6,6 +6,9 @@ import {
   aggregateResources,
   profBonusFor,
   applyNodeProficiencies,
+  effectiveCharacterLevel,
+  talentPurchasesUsed,
+  talentPurchaseLimit,
 } from "@/lib/treeStore";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
 import SkillTestRow from "./SkillTestRow";
@@ -112,7 +115,10 @@ export function CharacterTab() {
           .map((p) => abilityKey(p.name))
       )
   );
-  const profBonus = profBonusFor(character.level || 1, levels);
+  const effectiveLevel = effectiveCharacterLevel(character, tree);
+  const talentLimit = talentPurchaseLimit(effectiveLevel, settings);
+  const talentsUsed = talentPurchasesUsed(tree);
+  const profBonus = profBonusFor(effectiveLevel, levels);
   const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
   const customs = customResourceList(aggregated, settings?.library)
     .filter(
@@ -261,7 +267,14 @@ export function CharacterTab() {
               {[character.class, character.race, character.background, character.alignment]
                 .filter(Boolean)
                 .join(" · ") || "—"}
-              {"  ·  Level "}{character.level || 1}
+              {"  ·  Level "}
+              {effectiveLevel}
+              {effectiveLevel !== (character.level || 1) && (
+                <span className="text-[10px]">
+                  {" "}
+                  ({character.level || 1} + {effectiveLevel - (character.level || 1)} from nodes)
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -453,6 +466,11 @@ export function CharacterTab() {
             </div>
           ))}
         </div>
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Talents purchased: {talentsUsed}
+          {Number.isFinite(talentLimit) ? ` / ${talentLimit}` : " (unlimited)"} at level{" "}
+          {effectiveLevel}.
+        </p>
       </SectionCard>
 
       {/* Speed in spaces, jumps and encumbrance; then senses */}

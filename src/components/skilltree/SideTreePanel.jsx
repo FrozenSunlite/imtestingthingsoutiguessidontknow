@@ -13,6 +13,9 @@ import {
   normalizeTree,
   statVars,
   subtreeAtChain,
+  effectiveCharacterLevel,
+  talentPurchaseLimit,
+  talentPurchasesUsed,
 } from "@/lib/treeStore";
 import { abilityReqStatus } from "@/lib/skills";
 import { tierGate, nodeMaxPoints } from "@/lib/nodeTiers";
@@ -118,7 +121,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   // hides nodes gated behind a higher character level.
   const hiddenIds = useMemo(() => {
     if (!character?.hideLockedNodes) return null;
-    const level = character.level || 1;
+    const level = effectiveCharacterLevel(character, mergedTree);
     const includeLevel = !!character.hideLockedIncludeLevel;
     const ids = new Set();
     for (const n of nodes) {
@@ -127,7 +130,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
       else if (includeLevel && Number(n.levelReq) > level) ids.add(n.id);
     }
     return ids;
-  }, [character, nodes, nodesById, unlockedNames]);
+  }, [character, nodes, nodesById, unlockedNames, mergedTree]);
   // Viewport culling, like the main canvas: only render what's near the
   // camera, quantized so panning doesn't rebuild the list every frame.
   const region = useMemo(() => {
@@ -410,10 +413,26 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
       }
       // Tiered nodes gate each later tier behind its own character level, just
       // like the main canvas.
-      const gate = tierGate(n, character.level || 1);
+      const level = effectiveCharacterLevel(character, mergedTree);
+      const gate = tierGate(n, level);
       if (!gate.ok) {
         toast.error(gate.reason);
         return;
+      }
+      if (
+        !isSub &&
+        cur === 0 &&
+        poolForNode(n) === "talent" &&
+        (n.nodeType || "") !== "informative"
+      ) {
+        const limit = talentPurchaseLimit(level, settings);
+        const used = talentPurchasesUsed(mergedTree);
+        if (Number.isFinite(limit) && used >= limit) {
+          toast.error(
+            `Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`
+          );
+          return;
+        }
       }
       if (isSub && st.exclusive && cur === 0) {
         const inSet = new Set(nodes.map((m) => m.id));

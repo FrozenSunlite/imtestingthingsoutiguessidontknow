@@ -71,6 +71,7 @@ export function normalizeTree(data) {
       y: typeof pos.y === "number" ? pos.y : 0,
       maxPoints,
       currentPoints: s["Skill Current Points"] ?? 0,
+      levelGain: Math.max(0, Number(s["Skill Level Gain"]) || 0),
       image: s["Skill Image"] || "",
       description: s["Skill Description"] || "",
       dependencyNames: s["Skill Dependencies"] || [],
@@ -264,6 +265,7 @@ export function denormalizeTree(tree) {
     "Skill Description": n.description,
     "Skill Max Points": n.maxPoints,
     "Skill Current Points": n.currentPoints,
+    "Skill Level Gain": n.levelGain || 0,
     "Skill Image": n.image,
     // The RPG format stores the inverse list here: the skills that depend on this one.
     "Skill Dependencies": tree.nodes

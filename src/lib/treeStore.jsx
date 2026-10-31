@@ -365,7 +365,7 @@ export function useViewSet() {
 
 const DEFAULT_POOLS = {
   heritage: { total: 12 },
-  talent: { total: 8 },
+  talent: { total: 2 },
   attribute: { total: 72 },
 };
 const DEFAULT_GRID = {
@@ -459,7 +459,14 @@ const DEFAULT_SETTINGS = {
   rewardCurrency: "gp",
   tourDone: false,
   // Per-level defaults used when a level has no row in the Reference Library.
-  levelRules: { talentPoints: 1, heritagePoints: 0, attributePoints: 0 },
+  levelRules: {
+    talentPoints: 1,
+    heritagePoints: 0,
+    attributePoints: 0,
+    talentLimit: 1,
+    talentLimitEnabled: true,
+    levelZeroTalentPoints: 2,
+  },
   library: DEFAULT_LIBRARY,
 };
 
@@ -2949,7 +2956,67 @@ export function levelGains(level, settings) {
     talentPoints: pick("talentPoints"),
     heritagePoints: pick("heritagePoints"),
     attributePoints: pick("attributePoints"),
+    talentLimit: pick("talentLimit"),
   };
+}
+
+// Starting talent budget at character level 0 (used for fresh characters).
+export function levelZeroTalentPoints(settings) {
+  const rules = settings?.levelRules || DEFAULT_SETTINGS.levelRules;
+  return Math.max(0, Number(rules.levelZeroTalentPoints ?? 2) || 0);
+}
+
+// Levels granted by invested nodes (including nodes inside host subtrees).
+export function grantedLevels(tree) {
+  const walk = (nodes) => {
+    let sum = 0;
+    for (const n of nodes || []) {
+      if ((Number(n.currentPoints) || 0) > 0) sum += Math.max(0, Number(n.levelGain) || 0);
+      (n.subtrees || []).forEach((st) => {
+        sum += walk(st.nodes);
+      });
+      if (n.subtree) sum += walk(n.subtree.nodes);
+    }
+    return sum;
+  };
+  return walk(tree?.nodes);
+}
+
+// The level used for tier gates, subtree unlock checks and purchase limits.
+export function effectiveCharacterLevel(character, tree) {
+  return Math.max(0, (Number(character?.level) || 1) + grantedLevels(tree));
+}
+
+// Total talents already bought (each talent counts once, however many points
+// are invested). Informative nodes and subtree points are not talent purchases.
+export function talentPurchasesUsed(tree) {
+  const seen = new Set();
+  let count = 0;
+  const walk = (nodes, inSubtree = false) => {
+    for (const n of nodes || []) {
+      (n.subtrees || []).forEach((st) => walk(st.nodes, true));
+      if (inSubtree) continue;
+      if ((Number(n.currentPoints) || 0) <= 0) continue;
+      if ((n.nodeType || "") === "informative") continue;
+      const pool =
+        n.poolOverride || (n.nodeType === "heritage" ? "heritage" : n.nodeType === "attribute" ? "attribute" : "talent");
+      if (pool !== "talent") continue;
+      const key = `${String(n.name || "").toLowerCase()}|${String(n.source || "")}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      count += 1;
+    }
+  };
+  walk(tree?.nodes);
+  return count;
+}
+
+// Talents purchasable at a character level: level × the per-level talent limit.
+export function talentPurchaseLimit(level, settings) {
+  const rules = settings?.levelRules || DEFAULT_SETTINGS.levelRules;
+  if (rules.talentLimitEnabled === false) return Infinity;
+  const limit = Math.max(0, Number(levelGains(level, settings).talentLimit) || 0);
+  return Math.max(0, Math.floor((Number(level) || 0) * limit));
 }
 
 // Effective point pools: base + character-sheet rules + points granted by nodes.
