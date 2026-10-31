@@ -20,15 +20,6 @@ export const DEFAULT_SUBTREE = {
   purchases: 0,
 };
 
-// The first playable node of a subtree: the first root (a node with no
-// dependency inside the subtree). The starter host copy is skipped.
-export function firstSubtreeNode(subtree) {
-  const nodes = (subtree?.nodes || []).filter((n) => !n.__hostCopy);
-  if (!nodes.length) return null;
-  const ids = new Set(nodes.map((n) => n.id));
-  return nodes.find((n) => !(n.dependencies || []).some((d) => ids.has(d))) || nodes[0];
-}
-
 // Older projects granted every subtree's first node for free when its host was
 // purchased. That mechanism is gone: clear the one free point (keeping any
 // points the player added afterwards) and drop the legacy flag/field.
@@ -73,7 +64,7 @@ export function stripLegacyAutoGrants(tree) {
     const maxPurchases = Math.max(0, Number(st.maxPurchases) || 0);
     const needsDefaults = !Number.isFinite(purchasesRaw) || st.maxPurchases == null;
     if (!subChanged && !hadFlag && !needsDefaults) return st;
-    const { autoGrantFirst, ...rest } = st;
+    const { autoGrantFirst: _autoGrantFirst, ...rest } = st;
     return { ...rest, maxPurchases, purchases, nodes };
   };
 

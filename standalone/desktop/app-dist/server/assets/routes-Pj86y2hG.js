@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CARbXIG_.js";
+import { n as Button, r as cn } from "./router-DsCxDbaw.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6033,7 +6033,7 @@ function stripLegacyAutoGrants(tree) {
 		const maxPurchases = Math.max(0, Number(st.maxPurchases) || 0);
 		const needsDefaults = !Number.isFinite(purchasesRaw) || st.maxPurchases == null;
 		if (!subChanged && !hadFlag && !needsDefaults) return st;
-		const { autoGrantFirst, ...rest } = st;
+		const { autoGrantFirst: _autoGrantFirst, ...rest } = st;
 		return {
 			...rest,
 			maxPurchases,
