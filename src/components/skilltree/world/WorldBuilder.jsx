@@ -737,6 +737,9 @@ export function WorldBuilder({ onExit }) {
           ? item
           : {
               ...item,
+              // A footprint change invalidates the cached street grid; the
+              // layout is regenerated from the new building sizes.
+              ...(patch?.footprint ? { mapLayout: null } : {}),
               buildings: (item.buildings || []).map((candidate) =>
                 candidate.id === building.id ? { ...candidate, ...patch } : candidate
               ),

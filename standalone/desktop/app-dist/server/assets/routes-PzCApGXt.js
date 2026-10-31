@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BZTFzcJA.js";
+import { n as Button, r as cn } from "./router-CoWmzLze.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -69217,6 +69217,54 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 		openBuilding(id);
 		return true;
 	};
+	const growBuilding = () => {
+		if (!buildingView || !layout) return;
+		const entry = (layout.buildings || []).find((row) => row.id === buildingView.id);
+		if (!entry) {
+			toast.error("This building has no map lot.");
+			return;
+		}
+		const current = buildingView.footprint || {
+			w: entry.w,
+			h: entry.h
+		};
+		const w = Math.min(6, Math.max(entry.w, Number(current.w) || 1) + 1);
+		const h = Math.min(6, Math.max(entry.h, Number(current.h) || 1) + 1);
+		if (w === entry.w && h === entry.h) {
+			toast("This building is already at the largest supported footprint.");
+			return;
+		}
+		const rect = {
+			x: entry.x,
+			y: entry.y,
+			w,
+			h
+		};
+		const clash = (layout.buildings || []).some((other) => other.id !== entry.id && rect.x < other.x + other.w && rect.x + rect.w > other.x && rect.y < other.y + other.h && rect.y + rect.h > other.y);
+		const outside = rect.x + w > layout.width || rect.y + h > layout.height;
+		if (clash || outside) {
+			toast.error("Not enough room to expand — neighbouring buildings block the new footprint. Move the home to a larger lot first.");
+			return;
+		}
+		onUpdateBuilding?.(settlement, buildingView, {
+			footprint: {
+				w,
+				h
+			},
+			size: {
+				w,
+				h
+			}
+		});
+		onRerollInterior?.(settlement, {
+			...buildingView,
+			footprint: {
+				w,
+				h
+			}
+		});
+		toast.success(`Footprint expanded to ${w}×${h} spaces.`);
+	};
 	const stickerRoom = (interior?.rooms || []).find((room) => room.id === stickerRoomId) || null;
 	const stickerList = stickerRoom ? roomStickerList(stickerRoom, assetsForRoom(stickerRoom)) : [];
 	const patchSticker = (stickerId, patch) => {
@@ -69850,6 +69898,14 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 									className: "h-7 text-xs",
 									onClick: () => onBuildHere?.(settlement, buildingView),
 									children: "Build / lease here"
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "outline",
+									className: "h-7 text-xs",
+									onClick: growBuilding,
+									title: "Expand the building footprint by one map space if the neighbouring lots allow it.",
+									children: "Expand +1"
 								}),
 								onRerollInterior && /* @__PURE__ */ jsxs(Button, {
 									size: "sm",
@@ -74780,6 +74836,7 @@ function WorldBuilder({ onExit }) {
 			...world,
 			settlements: (world.settlements || []).map((item) => item.id !== settlement.id ? item : {
 				...item,
+				...patch?.footprint ? { mapLayout: null } : {},
 				buildings: (item.buildings || []).map((candidate) => candidate.id === building.id ? {
 					...candidate,
 					...patch

@@ -1,0 +1,1 @@
+import{g as e}from"./routes-CoyAs09U.js";export default e();

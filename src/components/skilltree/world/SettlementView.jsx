@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -292,6 +293,46 @@ export function SettlementView({
     if (!id) return false;
     openBuilding(id);
     return true;
+  };
+
+  // Grow the selected building by one map space in each direction. The lot is
+  // checked against its neighbours first so a home can't silently overwrite one.
+  const growBuilding = () => {
+    if (!buildingView || !layout) return;
+    const entry = (layout.buildings || []).find((row) => row.id === buildingView.id);
+    if (!entry) {
+      toast.error("This building has no map lot.");
+      return;
+    }
+    const current = buildingView.footprint || { w: entry.w, h: entry.h };
+    const w = Math.min(6, Math.max(entry.w, Number(current.w) || 1) + 1);
+    const h = Math.min(6, Math.max(entry.h, Number(current.h) || 1) + 1);
+    if (w === entry.w && h === entry.h) {
+      toast("This building is already at the largest supported footprint.");
+      return;
+    }
+    const rect = { x: entry.x, y: entry.y, w, h };
+    const clash = (layout.buildings || []).some(
+      (other) =>
+        other.id !== entry.id &&
+        rect.x < other.x + other.w &&
+        rect.x + rect.w > other.x &&
+        rect.y < other.y + other.h &&
+        rect.y + rect.h > other.y
+    );
+    const outside = rect.x + w > layout.width || rect.y + h > layout.height;
+    if (clash || outside) {
+      toast.error(
+        "Not enough room to expand — neighbouring buildings block the new footprint. Move the home to a larger lot first."
+      );
+      return;
+    }
+    onUpdateBuilding?.(settlement, buildingView, {
+      footprint: { w, h },
+      size: { w, h },
+    });
+    onRerollInterior?.(settlement, { ...buildingView, footprint: { w, h } });
+    toast.success(`Footprint expanded to ${w}×${h} spaces.`);
   };
 
   const stickerRoom =
@@ -825,6 +866,15 @@ export function SettlementView({
                   Build / lease here
                 </Button>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={growBuilding}
+                title="Expand the building footprint by one map space if the neighbouring lots allow it."
+              >
+                Expand +1
+              </Button>
               {onRerollInterior && (
                 <Button
                   size="sm"
