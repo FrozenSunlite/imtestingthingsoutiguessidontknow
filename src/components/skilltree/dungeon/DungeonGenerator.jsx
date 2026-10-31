@@ -17,6 +17,14 @@ import { roomThreat } from "@/lib/roomThreat";
 import { DungeonMap } from "@/components/skilltree/dungeon/DungeonMap";
 import { RoomBattleMap } from "@/components/skilltree/dungeon/RoomBattleMap";
 import { RoomShapeBuilder } from "@/components/skilltree/dungeon/RoomShapeBuilder";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DungeonRoomsTab } from "@/components/skilltree/library/DungeonRoomsTab";
 import { DungeonDangerPanel } from "@/components/skilltree/dungeon/DungeonDangerPanel";
 import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
 import { rollEncounter } from "@/lib/dmLoot";
@@ -109,6 +117,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const [makerOpen, setMakerOpen] = useState(true);
   const [makerMax, setMakerMax] = useState(false);
   const [makerRoom, setMakerRoom] = useState(null);
+  const [roomsLibOpen, setRoomsLibOpen] = useState(false);
   const [makerTemplateId, setMakerTemplateId] = useState("");
   const [ctxMenu, setCtxMenu] = useState(null);
   const pastRef = useRef([]);
@@ -1132,6 +1141,9 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           <Button size="sm" variant="ghost" onClick={() => setMakerOpen((open) => !open)}>
             Room Maker
           </Button>
+          <Button size="sm" variant="ghost" onClick={() => setRoomsLibOpen(true)}>
+            Dungeon Rooms
+          </Button>
           <Button size="sm" variant="outline" onClick={generate}>
             <Dices className="mr-1 h-4 w-4" /> Generate
           </Button>
@@ -1967,6 +1979,18 @@ export function DungeonGenerator({ onExit, embedded = false }) {
           </div>
         </div>
       )}
+      <Dialog open={roomsLibOpen} onOpenChange={setRoomsLibOpen}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Dungeon Rooms</DialogTitle>
+            <DialogDescription>
+              Create, edit, enable or import room templates. The procedural generator draws from
+              the enabled rooms; traps, spawns, loot and imported objects travel with the template.
+            </DialogDescription>
+          </DialogHeader>
+          <DungeonRoomsTab />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

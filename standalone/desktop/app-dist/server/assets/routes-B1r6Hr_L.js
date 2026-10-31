@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BYd3xnoN.js";
+import { n as Button, r as cn } from "./router-Dj7a9_K2.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3878,6 +3878,7 @@ function instantiate(template, category, rng, rank, { monsters, lootPools, playe
 		spawns,
 		loot,
 		harvest: [...template.harvest || []],
+		objects: [...template.objects || []],
 		side: !!template.side,
 		notes: template.notes || "",
 		cr0Only: !!template.cr0Only,
@@ -15793,6 +15794,7 @@ function DungeonRoomsTab() {
 					spawns: [],
 					loot: [],
 					harvest: [],
+					objects: [],
 					tags: [],
 					description: "",
 					environmentEffect: "",
@@ -15908,7 +15910,8 @@ function DungeonRoomsTab() {
 						["traps", "Traps (one per line)"],
 						["spawns", "Spawns / placement (one per line)"],
 						["loot", "Loot (one per line)"],
-						["harvest", "Harvestable materials (one per line)"]
+						["harvest", "Harvestable materials (one per line)"],
+						["objects", "Imported objects (one per line)"]
 					].map(([key, label]) => /* @__PURE__ */ jsxs("div", {
 						className: "mt-1.5",
 						children: [/* @__PURE__ */ jsx(Label, {
@@ -44593,6 +44596,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const [makerOpen, setMakerOpen] = useState(true);
 	const [makerMax, setMakerMax] = useState(false);
 	const [makerRoom, setMakerRoom] = useState(null);
+	const [roomsLibOpen, setRoomsLibOpen] = useState(false);
 	const [makerTemplateId, setMakerTemplateId] = useState("");
 	const [ctxMenu, setCtxMenu] = useState(null);
 	const pastRef = useRef([]);
@@ -45597,6 +45601,12 @@ function DungeonGenerator({ onExit, embedded = false }) {
 								variant: "ghost",
 								onClick: () => setMakerOpen((open) => !open),
 								children: "Room Maker"
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								onClick: () => setRoomsLibOpen(true),
+								children: "Dungeon Rooms"
 							}),
 							/* @__PURE__ */ jsxs(Button, {
 								size: "sm",
@@ -46692,6 +46702,14 @@ function DungeonGenerator({ onExit, embedded = false }) {
 						onClick: () => addRoomAt(ctxMenu.world),
 						children: "Add room here"
 					})
+				})
+			}),
+			/* @__PURE__ */ jsx(Dialog, {
+				open: roomsLibOpen,
+				onOpenChange: setRoomsLibOpen,
+				children: /* @__PURE__ */ jsxs(DialogContent, {
+					className: "max-h-[85vh] max-w-3xl overflow-y-auto",
+					children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Dungeon Rooms" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Create, edit, enable or import room templates. The procedural generator draws from the enabled rooms; traps, spawns, loot and imported objects travel with the template." })] }), /* @__PURE__ */ jsx(DungeonRoomsTab, {})]
 				})
 			})
 		]

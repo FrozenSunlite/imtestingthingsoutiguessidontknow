@@ -492,6 +492,7 @@ function instantiate(template, category, rng, rank, { monsters, lootPools, playe
     spawns,
     loot,
     harvest: [...(template.harvest || [])],
+    objects: [...(template.objects || [])],
     side: !!template.side,
     notes: template.notes || "",
     cr0Only: !!template.cr0Only,
