@@ -34,7 +34,7 @@ import {
   subtreeChainHasNode,
   makeHostCopy,
   nextSubtreeId,
-  autoGrantFirstNode,
+  stripLegacyAutoGrants,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
 import { nodeMaxPoints } from "@/lib/nodeTiers";
@@ -323,11 +323,27 @@ export function migrateSubtrees(tree) {
 }
 
 export function migrateTree(tree) {
-  return migrateSubtrees(
-    migrateOptionRequires(
-      migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(tree)))
-    )
-  );
+  const migrateOne = (t) =>
+    stripLegacyAutoGrants(
+      migrateSubtrees(
+        migrateOptionRequires(
+          migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t)))
+        )
+      )
+    );
+  const out = migrateOne(tree);
+  // Tabs keep their own node lists; ensureTabs() later promotes the active
+  // tab's nodes, so every tab has to be migrated too or the cleanup is lost.
+  if (Array.isArray(out?.tabs) && out.tabs.length) {
+    let changed = false;
+    const tabs = out.tabs.map((tab) => {
+      const next = migrateOne(tab);
+      if (next !== tab) changed = true;
+      return next;
+    });
+    return changed ? { ...out, tabs } : out;
+  }
+  return out;
 }
 
 const TreeContext = createContext(null);
@@ -974,13 +990,6 @@ export function TreeProvider({ children }) {
       let nodes = prev.nodes || [];
       let resolved = subtreeAtChain(nodes, chain);
       if (!resolved) return prev;
-      // A purchased talent grants its tree's first node for free. Granting on
-      // open also covers trees authored after the talent was bought.
-      if ((resolved.host.currentPoints || 0) > 0) {
-        nodes = updateSubtreeAtChain(nodes, chain, (st) => autoGrantFirstNode(st));
-        resolved = subtreeAtChain(nodes, chain);
-        if (!resolved) return prev;
-      }
       const finalIndex = chain[chain.length - 1].subIndex ?? 0;
       const flat = flattenSubtreeForPlay(
         resolved.host,
@@ -1068,7 +1077,6 @@ export function TreeProvider({ children }) {
         grantedPoints: 3,
         poolName: "",
         exclusive: false,
-        autoGrantFirst: true,
       };
       // Every subtree is seeded with a copy of its host node; new arrivals
       // are connected to it.
@@ -1239,7 +1247,6 @@ export function TreeProvider({ children }) {
           grantedPoints: 3,
           poolName: "",
           exclusive: false,
-          autoGrantFirst: true,
         };
         const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
         const clones = [];
@@ -1932,15 +1939,9 @@ export function TreeProvider({ children }) {
             const max = nodeMaxPoints(n);
             const cur = Number(n.currentPoints) || 0;
             const next = Math.max(0, Math.min(max, cur + delta));
-            // First purchase of a talent with its own trees: grant each
-            // subtree's first node for free (no pool is charged for it).
-            const granted =
-              cur === 0 && next > 0 && (n.subtrees || []).length
-                ? { subtrees: n.subtrees.map(autoGrantFirstNode) }
-                : {};
             if (cur === 0 && next > 0 && !n.acquiredOrder)
-              return { ...n, ...granted, currentPoints: next, acquiredOrder: seq };
-            return { ...n, ...granted, currentPoints: next };
+              return { ...n, currentPoints: next, acquiredOrder: seq };
+            return { ...n, currentPoints: next };
           }),
         };
       });

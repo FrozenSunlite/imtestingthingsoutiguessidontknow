@@ -182,7 +182,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-BI7lYToo.js");
+var $$splitComponentImporter = () => import("./routes-B7MjKdms.js");
 //#endregion
 //#region src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({

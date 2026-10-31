@@ -16,9 +16,6 @@ export const DEFAULT_SUBTREE = {
   grantedPoints: 3,
   poolName: "",
   exclusive: false,
-  // The first node of a freshly created subtree is granted for free when the
-  // host talent is first purchased (see autoGrantFirstNode).
-  autoGrantFirst: true,
 };
 
 // The first playable node of a subtree: the first root (a node with no
@@ -30,26 +27,58 @@ export function firstSubtreeNode(subtree) {
   return nodes.find((n) => !(n.dependencies || []).some((d) => ids.has(d))) || nodes[0];
 }
 
-// Grant the first node without charging any point pool. The node is flagged
-// `__autoGranted` so the subtree panel excludes it from its spend count and
-// the sheet can show it once (host copies are never listed).
-export function autoGrantFirstNode(subtree) {
-  if (!subtree || subtree.autoGrantFirst === false) return subtree;
-  const first = firstSubtreeNode(subtree);
-  if (!first || Number(first.currentPoints) > 0) return subtree;
-  return {
-    ...subtree,
-    nodes: (subtree.nodes || []).map((n) =>
-      n.id === first.id
-        ? {
-            ...n,
-            currentPoints: 1,
-            __autoGranted: true,
-            acquiredOrder: n.acquiredOrder || Date.now(),
-          }
-        : n
-    ),
+// Older projects granted every subtree's first node for free when its host was
+// purchased. That mechanism is gone: clear the one free point (keeping any
+// points the player added afterwards) and drop the legacy flag/field.
+export function stripLegacyAutoGrants(tree) {
+  if (!tree?.nodes) return tree;
+  let changed = false;
+
+  const stripSubtree = (st) => {
+    if (!st) return st;
+    let subChanged = false;
+    const nodes = (st.nodes || []).map((n) => {
+      let next = n;
+      if (n.__autoGranted) {
+        const { __autoGranted, ...rest } = n;
+        next = {
+          ...rest,
+          currentPoints: Math.max(0, (Number(n.currentPoints) || 0) - 1),
+        };
+        subChanged = true;
+      }
+      const nested = Array.isArray(next.subtrees)
+        ? next.subtrees
+        : next.subtree
+          ? [next.subtree]
+          : [];
+      if (nested.length) {
+        const mapped = nested.map(stripSubtree);
+        if (mapped.some((s, i) => s !== nested[i])) {
+          next = Array.isArray(next.subtrees)
+            ? { ...next, subtrees: mapped }
+            : { ...next, subtrees: mapped, subtree: undefined };
+          subChanged = true;
+        }
+      }
+      return next;
+    });
+    const hadFlag = Object.prototype.hasOwnProperty.call(st, "autoGrantFirst");
+    if (!subChanged && !hadFlag) return st;
+    const { autoGrantFirst, ...rest } = st;
+    return { ...rest, nodes };
   };
+
+  const nodes = tree.nodes.map((n) => {
+    if (!Array.isArray(n.subtrees) || !n.subtrees.length) return n;
+    const next = n.subtrees.map(stripSubtree);
+    if (next.some((s, i) => s !== n.subtrees[i])) {
+      changed = true;
+      return { ...n, subtrees: next };
+    }
+    return n;
+  });
+  return changed ? { ...tree, nodes } : tree;
 }
 
 let subSeq = 0;

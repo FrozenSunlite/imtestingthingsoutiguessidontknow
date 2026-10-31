@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C7QKpxt-.js";
+import { n as Button, r as cn } from "./router-BHKLGmMd.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5963,28 +5963,65 @@ var DEFAULT_SUBTREE = {
 	connections: [],
 	grantedPoints: 3,
 	poolName: "",
-	exclusive: false,
-	autoGrantFirst: true
+	exclusive: false
 };
-function firstSubtreeNode(subtree) {
-	const nodes = (subtree?.nodes || []).filter((n) => !n.__hostCopy);
-	if (!nodes.length) return null;
-	const ids = new Set(nodes.map((n) => n.id));
-	return nodes.find((n) => !(n.dependencies || []).some((d) => ids.has(d))) || nodes[0];
-}
-function autoGrantFirstNode(subtree) {
-	if (!subtree || subtree.autoGrantFirst === false) return subtree;
-	const first = firstSubtreeNode(subtree);
-	if (!first || Number(first.currentPoints) > 0) return subtree;
-	return {
-		...subtree,
-		nodes: (subtree.nodes || []).map((n) => n.id === first.id ? {
-			...n,
-			currentPoints: 1,
-			__autoGranted: true,
-			acquiredOrder: n.acquiredOrder || Date.now()
-		} : n)
+function stripLegacyAutoGrants(tree) {
+	if (!tree?.nodes) return tree;
+	let changed = false;
+	const stripSubtree = (st) => {
+		if (!st) return st;
+		let subChanged = false;
+		const nodes = (st.nodes || []).map((n) => {
+			let next = n;
+			if (n.__autoGranted) {
+				const { __autoGranted, ...rest } = n;
+				next = {
+					...rest,
+					currentPoints: Math.max(0, (Number(n.currentPoints) || 0) - 1)
+				};
+				subChanged = true;
+			}
+			const nested = Array.isArray(next.subtrees) ? next.subtrees : next.subtree ? [next.subtree] : [];
+			if (nested.length) {
+				const mapped = nested.map(stripSubtree);
+				if (mapped.some((s, i) => s !== nested[i])) {
+					next = Array.isArray(next.subtrees) ? {
+						...next,
+						subtrees: mapped
+					} : {
+						...next,
+						subtrees: mapped,
+						subtree: void 0
+					};
+					subChanged = true;
+				}
+			}
+			return next;
+		});
+		const hadFlag = Object.prototype.hasOwnProperty.call(st, "autoGrantFirst");
+		if (!subChanged && !hadFlag) return st;
+		const { autoGrantFirst, ...rest } = st;
+		return {
+			...rest,
+			nodes
+		};
 	};
+	const nodes = tree.nodes.map((n) => {
+		if (!Array.isArray(n.subtrees) || !n.subtrees.length) return n;
+		const next = n.subtrees.map(stripSubtree);
+		if (next.some((s, i) => s !== n.subtrees[i])) {
+			changed = true;
+			return {
+				...n,
+				subtrees: next
+			};
+		}
+		return n;
+	});
+	return changed ? {
+		...tree,
+		nodes
+	} : tree;
 }
 var subSeq = 0;
 function nextSubtreeId() {
@@ -7373,7 +7410,21 @@ function migrateSubtrees(tree) {
 	} : tree;
 }
 function migrateTree(tree) {
-	return migrateSubtrees(migrateOptionRequires(migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(tree)))));
+	const migrateOne = (t) => stripLegacyAutoGrants(migrateSubtrees(migrateOptionRequires(migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t))))));
+	const out = migrateOne(tree);
+	if (Array.isArray(out?.tabs) && out.tabs.length) {
+		let changed = false;
+		const tabs = out.tabs.map((tab) => {
+			const next = migrateOne(tab);
+			if (next !== tab) changed = true;
+			return next;
+		});
+		return changed ? {
+			...out,
+			tabs
+		} : out;
+	}
+	return out;
 }
 var TreeContext = createContext(null);
 var ViewContext = createContext(null);
@@ -7994,11 +8045,6 @@ function TreeProvider({ children }) {
 			let nodes = prev.nodes || [];
 			let resolved = subtreeAtChain(nodes, chain);
 			if (!resolved) return prev;
-			if ((resolved.host.currentPoints || 0) > 0) {
-				nodes = updateSubtreeAtChain(nodes, chain, (st) => autoGrantFirstNode(st));
-				resolved = subtreeAtChain(nodes, chain);
-				if (!resolved) return prev;
-			}
 			const finalIndex = chain[chain.length - 1].subIndex ?? 0;
 			const flat = flattenSubtreeForPlay(resolved.host, finalIndex, !!devModeRef.current);
 			const tab = {
@@ -8084,8 +8130,7 @@ function TreeProvider({ children }) {
 				connections: [],
 				grantedPoints: 3,
 				poolName: "",
-				exclusive: false,
-				autoGrantFirst: true
+				exclusive: false
 			};
 			const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
 			const clones = c.nodes.map((n, i) => {
@@ -8230,8 +8275,7 @@ function TreeProvider({ children }) {
 					connections: [],
 					grantedPoints: 3,
 					poolName: "",
-					exclusive: false,
-					autoGrantFirst: true
+					exclusive: false
 				};
 				const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
 				const clones = [];
@@ -8797,16 +8841,13 @@ function TreeProvider({ children }) {
 					const max = nodeMaxPoints(n);
 					const cur = Number(n.currentPoints) || 0;
 					const next = Math.max(0, Math.min(max, cur + delta));
-					const granted = cur === 0 && next > 0 && (n.subtrees || []).length ? { subtrees: n.subtrees.map(autoGrantFirstNode) } : {};
 					if (cur === 0 && next > 0 && !n.acquiredOrder) return {
 						...n,
-						...granted,
 						currentPoints: next,
 						acquiredOrder: seq
 					};
 					return {
 						...n,
-						...granted,
 						currentPoints: next
 					};
 				})
@@ -28984,7 +29025,6 @@ function SubtreesSection({ node, set }) {
 		grantedPoints: 3,
 		poolName: "",
 		exclusive: false,
-		autoGrantFirst: true,
 		abilityReqs: []
 	}] });
 	const patch = (i, up) => set({ subtrees: subtrees.map((st, j) => j === i ? {
@@ -29105,13 +29145,6 @@ function SubtreesSection({ node, set }) {
 							checked: !!st.exclusive,
 							onCheckedChange: (v) => patch(i, { exclusive: v })
 						}), "Mutually exclusive (only one root branch)"]
-					}),
-					/* @__PURE__ */ jsxs("label", {
-						className: "flex items-center gap-1.5 text-xs",
-						children: [/* @__PURE__ */ jsx(Switch, {
-							checked: st.autoGrantFirst !== false,
-							onCheckedChange: (v) => patch(i, { autoGrantFirst: v })
-						}), "Grant the first node free when this talent is bought"]
 					}),
 					/* @__PURE__ */ jsx(AbilityReqEditor, {
 						reqs: st.abilityReqs || [],
