@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Dj7a9_K2.js";
+import { n as Button, r as cn } from "./router-CARbXIG_.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3861,6 +3861,7 @@ function instantiate(template, category, rng, rank, { monsters, lootPools, playe
 		elevation,
 		cover,
 		connector: template.connector || "Doorway",
+		externalDoor: category === "Entrance" || category === "Start" || !!template.externalDoor,
 		shape,
 		cells,
 		heights: surface.heights,
@@ -3919,6 +3920,7 @@ function makeMissionStart() {
 		elevation: "Flat",
 		cover: "Open",
 		connector: "Trail",
+		externalDoor: true,
 		traps: [],
 		spawns: [],
 		loot: [],
@@ -3984,6 +3986,21 @@ function positionSingle(rooms, rng) {
 		const parent = rooms.find((r) => r.id === room.parentId) || spine[0];
 		room.x = (parent?.x || 0) + Math.max(0, ((parent?.w || room.w || 9) - (room.w || 9)) / 2);
 		room.y = (parent?.y || 0) + Math.max(12, parent?.h || 12) + 26 + index * (Math.max(12, room.h || 12) + 22);
+	});
+	const placed = [];
+	const clashes = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+	rooms.forEach((room) => {
+		let guard = 0;
+		while (placed.some((other) => clashes(room, other)) && guard < 200) {
+			room.y += 14;
+			guard += 1;
+		}
+		placed.push({
+			x: room.x,
+			y: room.y,
+			w: room.w,
+			h: room.h
+		});
 	});
 }
 var HALL_TYPES = [
@@ -43230,6 +43247,7 @@ function RoomBattleMap({ room }) {
 	const spawns = room.spawns || [];
 	const loot = room.loot || [];
 	const harvest = room.harvest || [];
+	const objects = room.objects || [];
 	const spawnPoints = (room.spawnPoints || []).filter((p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)));
 	const ingressPoints = (room.ingressPoints || []).filter((p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)));
 	const pointList = (arr, keys = ["x", "y"]) => (arr || []).map((p) => Array.isArray(p) ? {
@@ -43501,6 +43519,26 @@ function RoomBattleMap({ room }) {
 							fillOpacity: "0.75"
 						}), label((cx + .5) * cell, (cy + .5) * cell + 2, String(i + 1), "hsl(var(--primary-foreground))", 5)] }, `s${i}`);
 					}),
+					objects.map((object, i) => {
+						const [cx, cy] = at(5 + i * 9);
+						const x = (cx + .5) * cell;
+						const y = (cy + .5) * cell;
+						return /* @__PURE__ */ jsxs("g", { children: [
+							/* @__PURE__ */ jsx("title", { children: String(object) }),
+							/* @__PURE__ */ jsx("rect", {
+								x: x - cell * .24,
+								y: y - cell * .24,
+								width: cell * .48,
+								height: cell * .48,
+								rx: 1.5,
+								fill: "hsl(38 90% 55%)",
+								fillOpacity: "0.9",
+								stroke: "hsl(var(--background))",
+								strokeWidth: "0.6"
+							}),
+							label(x, y + 2, "O", "hsl(var(--background))", 5)
+						] }, `obj${i}`);
+					}),
 					ingressPoints.map((point, i) => {
 						const cx = point.x + ox;
 						const cy = point.y + oy;
@@ -43547,6 +43585,7 @@ function RoomBattleMap({ room }) {
 					/* @__PURE__ */ jsx("span", { children: "● player ingress" }),
 					/* @__PURE__ */ jsx("span", { children: "◆ loot" }),
 					/* @__PURE__ */ jsx("span", { children: "◆ harvest" }),
+					/* @__PURE__ */ jsx("span", { children: "▣ imported object" }),
 					/* @__PURE__ */ jsx("span", { children: "▭ cover (½ / ¾ / F)" }),
 					/* @__PURE__ */ jsx("span", { children: "↕ stairs" }),
 					/* @__PURE__ */ jsx("span", {

@@ -28,6 +28,7 @@ export function RoomBattleMap({ room }) {
   const spawns = room.spawns || [];
   const loot = room.loot || [];
   const harvest = room.harvest || [];
+  const objects = room.objects || [];
   const spawnPoints = (room.spawnPoints || []).filter(
     (p) => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y))
   );
@@ -379,6 +380,29 @@ export function RoomBattleMap({ room }) {
               );
             })}
 
+        {objects.map((object, i) => {
+          const [cx, cy] = at(5 + i * 9);
+          const x = (cx + 0.5) * cell;
+          const y = (cy + 0.5) * cell;
+          return (
+            <g key={`obj${i}`}>
+              <title>{String(object)}</title>
+              <rect
+                x={x - cell * 0.24}
+                y={y - cell * 0.24}
+                width={cell * 0.48}
+                height={cell * 0.48}
+                rx={1.5}
+                fill="hsl(38 90% 55%)"
+                fillOpacity="0.9"
+                stroke="hsl(var(--background))"
+                strokeWidth="0.6"
+              />
+              {label(x, y + 2, "O", "hsl(var(--background))", 5)}
+            </g>
+          );
+        })}
+
         {ingressPoints.map((point, i) => {
           const cx = point.x + ox;
           const cy = point.y + oy;
@@ -445,6 +469,7 @@ export function RoomBattleMap({ room }) {
         <span>● player ingress</span>
         <span>◆ loot</span>
         <span>◆ harvest</span>
+        <span>▣ imported object</span>
         <span>▭ cover (½ / ¾ / F)</span>
         <span>↕ stairs</span>
         <span className="text-sky-600 dark:text-sky-400">■ water</span>

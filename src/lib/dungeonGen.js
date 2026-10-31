@@ -471,6 +471,8 @@ function instantiate(template, category, rng, rank, { monsters, lootPools, playe
     elevation,
     cover,
     connector: template.connector || "Doorway",
+    externalDoor:
+      category === "Entrance" || category === "Start" || !!template.externalDoor,
     shape,
     cells,
     heights: surface.heights,
@@ -531,6 +533,7 @@ function makeMissionStart() {
     elevation: "Flat",
     cover: "Open",
     connector: "Trail",
+    externalDoor: true,
     traps: [],
     spawns: [],
     loot: [],
@@ -618,6 +621,22 @@ function positionSingle(rooms, rng) {
       Math.max(12, parent?.h || 12) +
       26 +
       index * (Math.max(12, room.h || 12) + 22);
+  });
+  // Final no-overlap pass: nudge rooms downward until every footprint is free.
+  // Halls are generated after this, so connectors follow the resolved layout.
+  const placed = [];
+  const clashes = (a, b) =>
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y;
+  rooms.forEach((room) => {
+    let guard = 0;
+    while (placed.some((other) => clashes(room, other)) && guard < 200) {
+      room.y += 14;
+      guard += 1;
+    }
+    placed.push({ x: room.x, y: room.y, w: room.w, h: room.h });
   });
 }
 
