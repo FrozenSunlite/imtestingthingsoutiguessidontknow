@@ -11,6 +11,7 @@ import {
   talentPurchaseLimit,
 } from "@/lib/treeStore";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
+import { collectNodeBenefits, BENEFIT_CATEGORIES } from "@/lib/benefits";
 import SkillTestRow from "./SkillTestRow";
 import { HitPointsCard } from "./HitPointsCard";
 import { ActiveEffects } from "./ActiveEffects";
@@ -145,6 +146,10 @@ export function CharacterTab() {
     : [...unlocked, ...subtreeUnlocked];
   const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } =
     groupUnlocked(sourceNodes, { includeAutoGranted: dev });
+  const benefitGroups = BENEFIT_CATEGORIES.map((cat) => ({
+    ...cat,
+    items: collectNodeBenefits(tree).filter((b) => b.category === cat.id),
+  })).filter((g) => g.items.length);
 
   // Test add/remove: a raw point change plus the proficiency side effects the
   // normal invest flow applies — no prerequisite, pool or level gates.
@@ -572,6 +577,31 @@ export function CharacterTab() {
                 </div>
               </div>
             )}
+          </div>
+        </SectionCard>
+      )}
+
+      {benefitGroups.length > 0 && (
+        <SectionCard title="Benefits">
+          <div className="space-y-2">
+            {benefitGroups.map((g) => (
+              <div key={g.id}>
+                <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {g.label}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {g.items.map((b) => (
+                    <span
+                      key={b.id}
+                      title={b.description || b.name}
+                      className="rounded border bg-accent/40 px-2 py-0.5 text-[10px]"
+                    >
+                      {b.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </SectionCard>
       )}

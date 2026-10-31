@@ -39,6 +39,7 @@ export function FiveEToolsCategoryTab({ categoryId }) {
       flavor: `${label} · ${entrySource(entry)}`.trim(),
       description: entryDetailsMarkdown(d),
       image,
+      category: categoryId,
     });
   };
 

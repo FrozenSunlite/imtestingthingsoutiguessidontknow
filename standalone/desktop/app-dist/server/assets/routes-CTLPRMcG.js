@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DRzXtyT1.js";
+import { n as Button, r as cn } from "./router-0v4wGiY4.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -17483,7 +17483,8 @@ function FiveEToolsImportsTab() {
 			name: entryName$1(entry),
 			flavor: `${labelFor(active)} · ${entrySource(entry)}`.trim(),
 			description: entryDetailsMarkdown(d),
-			image
+			image,
+			category: active
 		});
 	};
 	if (!categories.length) return /* @__PURE__ */ jsx("p", {
@@ -17884,7 +17885,8 @@ function FiveEToolsCategoryTab({ categoryId }) {
 			name: entryName$1(entry),
 			flavor: `${label} · ${entrySource(entry)}`.trim(),
 			description: entryDetailsMarkdown(d),
-			image
+			image,
+			category: categoryId
 		});
 	};
 	const remove = () => {
@@ -28582,6 +28584,276 @@ function NodeResourcesSection({ node, set }) {
 	});
 }
 //#endregion
+//#region src/lib/benefits.js
+var BENEFIT_CATEGORIES = [
+	{
+		id: "spell",
+		label: "Spells"
+	},
+	{
+		id: "equipment",
+		label: "Equipment"
+	},
+	{
+		id: "upgrade",
+		label: "Upgrades"
+	},
+	{
+		id: "armor",
+		label: "Armor"
+	},
+	{
+		id: "attribute",
+		label: "Attributes"
+	},
+	{
+		id: "skill",
+		label: "Skill Proficiencies"
+	},
+	{
+		id: "tool",
+		label: "Tool Proficiencies"
+	},
+	{
+		id: "language",
+		label: "Languages"
+	},
+	{
+		id: "speed",
+		label: "Speeds"
+	},
+	{
+		id: "sense",
+		label: "Senses"
+	},
+	{
+		id: "resource",
+		label: "Resources"
+	},
+	{
+		id: "stat",
+		label: "Character Stats"
+	},
+	{
+		id: "table",
+		label: "Tables"
+	}
+];
+var names = (value) => (Array.isArray(value) ? value : []).map((item) => typeof item === "string" ? item : item?.name).filter(Boolean);
+var STAT_OPTIONS = [
+	"Hit Points",
+	"Armor Class",
+	"Exhaustion",
+	"Proficiency Bonus",
+	"Initiative",
+	"Speed",
+	"Saving Throws",
+	"Temp HP"
+];
+function benefitOptions(settings, category) {
+	const lib = settings?.library || {};
+	switch (category) {
+		case "spell": return names(lib.spells);
+		case "equipment": return [
+			...names(lib.weapons),
+			...names(lib.armor),
+			...names(lib.adventuringGear)
+		];
+		case "upgrade": return names(lib.weaponUpgrades);
+		case "armor": return names(lib.armor);
+		case "attribute": return names(lib.attributes);
+		case "skill": return names(lib.lists?.skills);
+		case "tool": return [
+			...names(lib.lists?.tools),
+			...names(lib.lists?.artisanTools),
+			...names(lib.lists?.gamingSets),
+			...names(lib.lists?.miscTools),
+			...names(lib.lists?.instruments)
+		];
+		case "language": return names(lib.lists?.languages);
+		case "speed": return names(lib.speedTypes);
+		case "sense": return names(lib.senses);
+		case "resource": return names(lib.resources);
+		case "stat": return STAT_OPTIONS;
+		default: return [];
+	}
+}
+var BENEFIT_CATEGORY_FOR_5E = {
+	spells: "spell",
+	items: "equipment",
+	languages: "language",
+	skills: "skill",
+	senses: "sense",
+	tables: "table",
+	backgrounds: "other",
+	species: "other",
+	feats: "other",
+	conditions: "other",
+	actions: "other"
+};
+function benefitId() {
+	return `bnf${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
+}
+function collectNodeBenefits(tree) {
+	const out = [];
+	const seen = /* @__PURE__ */ new Set();
+	const walk = (nodes) => {
+		for (const n of nodes || []) {
+			(n.subtrees || []).forEach((st) => walk(st.nodes));
+			if ((Number(n.currentPoints) || 0) <= 0) continue;
+			for (const b of n.benefits || []) {
+				const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
+				if (!b.name || seen.has(key)) continue;
+				seen.add(key);
+				out.push(b);
+			}
+		}
+	};
+	walk(tree?.nodes);
+	return out;
+}
+//#endregion
+//#region src/components/skilltree/NodeBenefitsSection.jsx
+function NodeBenefitsSection({ node, set }) {
+	const { settings } = useTree();
+	const [drafts, setDrafts] = useState({});
+	const benefits = node.benefits || [];
+	const add = (category, value, extra = {}) => {
+		const name = String(value || "").trim();
+		if (!name) return;
+		set({ benefits: [...benefits, {
+			id: benefitId(),
+			category,
+			name,
+			source: extra.source || "",
+			description: extra.description || "",
+			image: extra.image || ""
+		}] });
+	};
+	const remove = (id) => set({ benefits: benefits.filter((b) => b.id !== id) });
+	const onDrop = (e, category) => {
+		e.preventDefault();
+		let payload = null;
+		try {
+			const rawBenefit = e.dataTransfer.getData("application/x-benefit");
+			if (rawBenefit) payload = JSON.parse(rawBenefit);
+			else {
+				const raw5e = e.dataTransfer.getData("application/x-5etools-entry");
+				if (raw5e) {
+					const p = JSON.parse(raw5e);
+					payload = {
+						name: p.name,
+						description: p.description,
+						image: p.image,
+						source: p.flavor,
+						category: BENEFIT_CATEGORY_FOR_5E[p.category] || "other"
+					};
+				}
+			}
+		} catch {
+			payload = null;
+		}
+		if (!payload?.name) return;
+		add(category, payload.name, payload);
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "flex items-center justify-between",
+			children: [/* @__PURE__ */ jsx(Label, { children: "Granted Benefits" }), /* @__PURE__ */ jsx("span", {
+				className: "text-[10px] text-muted-foreground",
+				children: "Drop from the Reference Library or type a name"
+			})]
+		}), /* @__PURE__ */ jsx("div", {
+			className: "grid grid-cols-2 gap-1.5",
+			children: BENEFIT_CATEGORIES.map((cat) => {
+				const options = benefitOptions(settings, cat.id);
+				const list = `benefit-${cat.id}-${node.id}`;
+				const mine = benefits.filter((b) => b.category === cat.id);
+				return /* @__PURE__ */ jsxs("div", {
+					onDragOver: (e) => {
+						e.preventDefault();
+						e.dataTransfer.dropEffect = "copy";
+					},
+					onDrop: (e) => onDrop(e, cat.id),
+					className: "rounded-md border border-dashed p-1.5",
+					title: "Drop a Reference Library entry here",
+					children: [
+						/* @__PURE__ */ jsxs("div", {
+							className: "mb-1 flex items-center justify-between gap-1",
+							children: [/* @__PURE__ */ jsx("span", {
+								className: "truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+								children: cat.label
+							}), /* @__PURE__ */ jsx("span", {
+								className: "text-[10px] text-muted-foreground",
+								children: mine.length
+							})]
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "flex items-center gap-1",
+							children: [
+								/* @__PURE__ */ jsx(Input, {
+									className: "h-7 min-w-0 flex-1 text-[11px]",
+									list: options.length ? list : void 0,
+									placeholder: "Type or choose…",
+									value: drafts[cat.id] || "",
+									onChange: (e) => setDrafts((d) => ({
+										...d,
+										[cat.id]: e.target.value
+									})),
+									onKeyDown: (e) => {
+										if (e.key !== "Enter") return;
+										add(cat.id, drafts[cat.id]);
+										setDrafts((d) => ({
+											...d,
+											[cat.id]: ""
+										}));
+									}
+								}),
+								options.length > 0 && /* @__PURE__ */ jsx("datalist", {
+									id: list,
+									children: [...new Set(options)].map((name) => /* @__PURE__ */ jsx("option", { value: name }, name))
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "icon",
+									variant: "ghost",
+									className: "h-7 w-7 shrink-0",
+									title: `Add ${cat.label.toLowerCase()}`,
+									onClick: () => {
+										add(cat.id, drafts[cat.id]);
+										setDrafts((d) => ({
+											...d,
+											[cat.id]: ""
+										}));
+									},
+									children: /* @__PURE__ */ jsx(Plus, { className: "h-3.5 w-3.5" })
+								})
+							]
+						}),
+						mine.length > 0 && /* @__PURE__ */ jsx("div", {
+							className: "mt-1 flex flex-wrap gap-1",
+							children: mine.map((b) => /* @__PURE__ */ jsxs("span", {
+								title: b.description || b.name,
+								className: "inline-flex max-w-full items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px]",
+								children: [/* @__PURE__ */ jsx("span", {
+									className: "truncate",
+									children: b.name
+								}), /* @__PURE__ */ jsx("button", {
+									type: "button",
+									className: "text-muted-foreground hover:text-destructive",
+									title: "Remove benefit",
+									onClick: () => remove(b.id),
+									children: /* @__PURE__ */ jsx(X, { className: "h-2.5 w-2.5" })
+								})]
+							}, b.id))
+						})
+					]
+				}, cat.id);
+			})
+		})]
+	});
+}
+//#endregion
 //#region src/components/skilltree/BonusDiceEditor.jsx
 var SPELL_LEVELS$1 = [
 	["cantrip", "Cantrip"],
@@ -30615,6 +30887,10 @@ function NodeEditorPanel() {
 						label: "Benefits",
 						collapsible: true,
 						children: [
+							/* @__PURE__ */ jsx(NodeBenefitsSection, {
+								node,
+								set
+							}),
 							/* @__PURE__ */ jsx(FieldGroup, {
 								label: "Proficiencies",
 								sub: true,
@@ -32993,6 +33269,10 @@ function CharacterTab() {
 	const seenIds = new Set(unlocked.map((n) => n.id));
 	const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id));
 	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? [...tree?.nodes || [], ...subtreeUnlocked] : [...unlocked, ...subtreeUnlocked], { includeAutoGranted: dev });
+	const benefitGroups = BENEFIT_CATEGORIES.map((cat) => ({
+		...cat,
+		items: collectNodeBenefits(tree).filter((b) => b.category === cat.id)
+	})).filter((g) => g.items.length);
 	const testAdjust = (n, delta) => {
 		if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
 			const max = Math.max(1, Number(n.maxPoints) || 1);
@@ -33414,6 +33694,23 @@ function CharacterTab() {
 							}, n.id))
 						})] })
 					]
+				})
+			}),
+			benefitGroups.length > 0 && /* @__PURE__ */ jsx(SectionCard, {
+				title: "Benefits",
+				children: /* @__PURE__ */ jsx("div", {
+					className: "space-y-2",
+					children: benefitGroups.map((g) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
+						className: "mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground",
+						children: g.label
+					}), /* @__PURE__ */ jsx("div", {
+						className: "flex flex-wrap gap-1",
+						children: g.items.map((b) => /* @__PURE__ */ jsx("span", {
+							title: b.description || b.name,
+							className: "rounded border bg-accent/40 px-2 py-0.5 text-[10px]",
+							children: b.name
+						}, b.id))
+					})] }, g.id))
 				})
 			}),
 			/* @__PURE__ */ jsx(ActiveEffects, {}),

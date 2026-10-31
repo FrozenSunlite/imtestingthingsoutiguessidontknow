@@ -51,6 +51,7 @@ export function FiveEToolsImportsTab() {
       flavor: `${labelFor(active)} · ${entrySource(entry)}`.trim(),
       description: entryDetailsMarkdown(d),
       image,
+      category: active,
     });
   };
 

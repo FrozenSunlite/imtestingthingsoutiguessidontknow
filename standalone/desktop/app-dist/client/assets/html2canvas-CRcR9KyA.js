@@ -1,0 +1,1 @@
+import{g as e}from"./routes-Dx-B1pgG.js";export default e();

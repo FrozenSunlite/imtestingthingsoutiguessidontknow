@@ -33,6 +33,7 @@ import { matchesQuery } from "@/lib/textSearch";
 import { checkOptions, STATS } from "@/lib/skills";
 import { NodeActionsSection } from "@/components/skilltree/NodeActionsSection";
 import { NodeResourcesSection } from "@/components/skilltree/NodeResourcesSection";
+import { NodeBenefitsSection } from "@/components/skilltree/NodeBenefitsSection";
 import { BonusDiceEditor } from "@/components/skilltree/BonusDiceEditor";
 import { SubtreesSection } from "@/components/skilltree/SubtreesSection";
 import { ProficienciesEditor } from "@/components/skilltree/ProficienciesEditor";
@@ -647,6 +648,8 @@ export function NodeEditorPanel() {
 
         {/* ── Benefits ───────────────────────────────────────────────── */}
         <FieldGroup label="Benefits" collapsible>
+          <NodeBenefitsSection node={node} set={set} />
+
           {/* ── Proficiencies ────────────────────────────────────────── */}
           <FieldGroup label="Proficiencies" sub collapsible>
             <ProficienciesEditor node={node} set={set} />
