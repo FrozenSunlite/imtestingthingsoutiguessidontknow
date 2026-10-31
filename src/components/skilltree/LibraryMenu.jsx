@@ -165,6 +165,7 @@ export function LibraryMenu({ open, onClose }) {
   const [armorQuery, setArmorQuery] = useState("");
   const [armorSub, setArmorSub] = useState("__all__");
   const [tab, setTab] = useState("weapons");
+  const [navOpen, setNavOpen] = useState(true);
   const [search, setSearch] = useState("");
   useEffect(() => {
     const onTab = (event) => {
@@ -216,23 +217,54 @@ export function LibraryMenu({ open, onClose }) {
           />
         </InfoTip>
 
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="h-auto flex-wrap justify-start gap-1">
-            {TAB_GROUPS.map(([groupLabel, entries]) => (
-              <div key={groupLabel} className="flex w-full flex-wrap items-center gap-1">
-                <span className="w-full pt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {groupLabel}
-                </span>
-                {entries.map(([value, entryLabel]) => (
-                  <TabsTrigger key={value} value={value}>
-                    {entryLabel}
-                  </TabsTrigger>
+        <Tabs
+          value={tab}
+          onValueChange={setTab}
+          orientation="vertical"
+          className="flex flex-col gap-3 md:flex-row"
+        >
+          {navOpen && (
+            <div className="flex w-full shrink-0 flex-col gap-1 md:w-48">
+              <TabsList className="flex h-[55vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1">
+                {TAB_GROUPS.map(([groupLabel, entries]) => (
+                  <div key={groupLabel} className="w-full">
+                    <div className="px-2 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {groupLabel}
+                    </div>
+                    {entries.map(([value, entryLabel]) => (
+                      <TabsTrigger
+                        key={value}
+                        value={value}
+                        className="w-full justify-start px-2 py-1 text-left text-xs"
+                      >
+                        {entryLabel}
+                      </TabsTrigger>
+                    ))}
+                  </div>
                 ))}
-              </div>
-            ))}
-          </TabsList>
-
-          {q ? (
+              </TabsList>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="justify-start text-xs"
+                onClick={() => setNavOpen(false)}
+              >
+                Hide categories
+              </Button>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            {!navOpen && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mb-2"
+                onClick={() => setNavOpen(true)}
+              >
+                Show categories
+              </Button>
+            )}
+            {q ? (
             <div className="max-h-[50vh] space-y-2 overflow-y-auto pt-3">
               {results.length === 0 && (
                 <p className="text-xs text-muted-foreground">No matches.</p>
@@ -754,7 +786,8 @@ export function LibraryMenu({ open, onClose }) {
               <VehiclesTab />
             </TabsContent>
           </div>
-          )}
+            )}
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>

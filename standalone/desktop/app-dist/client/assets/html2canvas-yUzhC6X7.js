@@ -1,0 +1,1 @@
+import{g as e}from"./routes-xFm_ccug.js";export default e();
