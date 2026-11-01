@@ -27,7 +27,7 @@ import {
   runKingdomTurn,
 } from "@/lib/kingdom";
 import { addCaravan, advanceWorldTime } from "@/lib/worldSim";
-import { Dices, Handshake, Shield, Swords } from "lucide-react";
+import { Dices, Eye, EyeOff, Handshake, Shield, Swords } from "lucide-react";
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 
@@ -307,6 +307,22 @@ export function KingdomPanel({ world, kingdomId, onChange, onSelect }) {
           {nation?.name} · {nation?.government} · capital {capital?.name}
         </span>
         <div className="ml-auto flex gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            title="Toggle the kingdom border outlines on the World Map"
+            onClick={() =>
+              onChange?.({ ...world, showBorders: world?.showBorders === false })
+            }
+          >
+            {world?.showBorders === false ? (
+              <Eye className="mr-1 h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="mr-1 h-3.5 w-3.5" />
+            )}
+            Borders
+          </Button>
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={runTurn}>
             <Dices className="mr-1 h-3.5 w-3.5" /> Kingdom Turn
           </Button>

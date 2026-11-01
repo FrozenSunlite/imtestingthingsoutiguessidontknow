@@ -18,7 +18,12 @@ import {
   facilitySpacesForComfort,
   buildMonthsForComfort,
 } from "@/lib/cityLayout";
-import { generateInterior } from "@/lib/interiorGen";
+import {
+  buildingPopulation,
+  bedroomCount,
+  generateInterior,
+  roomsForBuilding,
+} from "@/lib/interiorGen";
 import { generateWorldDevelopments } from "@/lib/worldDevelopments";
 
 export { BIOMES };
@@ -330,11 +335,12 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
   const footprint = { w: footprintSize, h: footprintSize };
   const floors = rng.int(template.floors[0], template.floors[1]);
   const id = `bld_${settlement.id}_${index}_${Math.floor(rng.rand() * 1e6).toString(36)}`;
+  const roomTypes = roomsForBuilding(template.category, template.type, template.rooms);
   const interior = generateInterior({
     building: { id, type: template.type, floors, comfort },
     footprint,
     floors,
-    roomTypes: template.rooms,
+    roomTypes,
     facilityClass: facilityClassForComfort(comfort),
     settlementKind: settlement.kind,
     buildingType: template.type,
@@ -374,6 +380,8 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
     interiorSize: { w: interior.width, h: interior.height },
     workstations: [...(template.workstations || [])],
     rooms: interior.rooms,
+    bedrooms: bedroomCount(interior.rooms),
+    population: buildingPopulation(interior.rooms),
     floorTexture: interior.rooms[0]?.floorTexture || "stone",
     propertyValue: Math.round((footprint.w * footprint.h * floors * base) / 10) * 10,
     ownerId: "",
@@ -744,6 +752,8 @@ export function generateWorld({
   selectedBiomes = [],
   name = "",
   realmName = "",
+  mapSizeMode = "fixed",
+  mapSize = 256,
 } = {}) {
   const rng = makeRng(seed);
   const era = ERAS.find((e) => e.id === eraId) || ERAS[4];
@@ -878,10 +888,13 @@ export function generateWorld({
     if (a && b) routes.push(routeBetween(a, b, era, scale.widthKm, rng));
   }
 
-  // Map cells per realm after settlement positions are known. Use a square
-  // grid so one cell is always one square on screen instead of stretching the
-  // terrain into rectangles on the 1000×1000 world map.
-  const mapSide = Math.max(scale.cells[0], scale.cells[1]);
+  // Map cells per realm after settlement positions are known. The requested
+  // size is square; "random" draws it from the seed so the same seed always
+  // produces the same map.
+  const mapSide =
+    String(mapSizeMode) === "random"
+      ? rng.int(128, 512)
+      : Math.max(32, Math.min(1024, Number(mapSize) || 256));
   realms.forEach((realm) => {
     realm.map = buildMapCells({
       realm,
@@ -915,6 +928,8 @@ export function generateWorld({
     scaleId: scale.id,
     scaleLabel: scale.label,
     widthKm: scale.widthKm,
+    mapSize: mapSide,
+    mapSizeMode: String(mapSizeMode) === "random" ? "random" : "fixed",
     createdAt: new Date().toISOString(),
     calendar: { year: 1, month: 1, day: 1, hour: 8, season: "Spring" },
     realms,

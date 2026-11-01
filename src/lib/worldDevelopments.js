@@ -14,7 +14,12 @@ import {
   facilitySpacesForComfort,
   buildMonthsForComfort,
 } from "@/lib/cityLayout";
-import { generateInterior } from "@/lib/interiorGen";
+import {
+  buildingPopulation,
+  bedroomCount,
+  generateInterior,
+  roomsForBuilding,
+} from "@/lib/interiorGen";
 
 export const DEVELOPMENT_TERRAIN_LABELS = {
   Any: "Any",
@@ -597,11 +602,12 @@ function makeDevelopmentBuilding({ template, settlement, eraId, rng, index }) {
   const floors = template.type === "Town Hall" || template.type === "Temple" ? 2 : rng.int(1, 2);
   const footprint = { w: footprintSize, h: footprintSize };
   const id = `bld_${settlement.id}_${index}_${Math.floor(rng.rand() * 1e6).toString(36)}`;
+  const roomTypes = roomsForBuilding(template.category, template.type, template.rooms);
   const interior = generateInterior({
     building: { id, type: template.type, floors, comfort },
     footprint,
     floors,
-    roomTypes: template.rooms,
+    roomTypes,
     facilityClass: facilityClassForComfort(comfort),
     rng,
   });
@@ -620,6 +626,8 @@ function makeDevelopmentBuilding({ template, settlement, eraId, rng, index }) {
     buildMonths: buildMonthsForComfort(comfort),
     interior,
     rooms: interior.rooms,
+    bedrooms: bedroomCount(interior.rooms),
+    population: buildingPopulation(interior.rooms),
     workstations: [],
     floorTexture: interior.rooms[0]?.floorTexture || "stone",
     propertyValue: Math.round(footprint.w * footprint.h * floors * 120),

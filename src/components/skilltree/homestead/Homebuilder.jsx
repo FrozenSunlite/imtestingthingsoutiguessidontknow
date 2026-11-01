@@ -13,7 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteSelectionFromPlot, copySelection, pasteClipboard, selectionValid } from "@/lib/homesteadEdit";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Home, Store, Castle, Plus, Trash2, Pencil, Upload, Wrench } from "lucide-react";
+import { ArrowLeft, Boxes, Download, Home, Store, Castle, Plus, Trash2, Pencil, Upload, Wrench } from "lucide-react";
 import {
   loadPlots, savePlots, newPlot,
 } from "@/lib/homesteadStore";
@@ -54,7 +54,7 @@ const ordinal = (n) => `${n}${["th", "st", "nd", "rd"][n % 10 > 3 || Math.floor(
 // Each plot is a stack of floors holding facilities, furnishings and
 // connections on a grid of 5 ft spaces; the right panel totals gold, build
 // time and upkeep from the Bastions & Property homebrew.
-export default function Homebuilder({ onExit }) {
+export default function Homebuilder({ onExit, onRoomBuilder }) {
   const { settings } = useTree();
   const coin = currencyOf(settings);
   const [plots, setPlots] = useState(loadPlots);
@@ -448,10 +448,14 @@ export default function Homebuilder({ onExit }) {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        {onRoomBuilder && (
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onRoomBuilder}>
+            <Boxes className="mr-1 h-4 w-4" /> Room Builder
+          </Button>
+        )}
         {plot && (
           <>
-            <Input className="h-8 w-44" value={plot.name} onChange={(e) => update((p) => ({ ...p, name: e.target.value }))} />
-            <Select value={plot.kind} onValueChange={(v) => update((p) => ({ ...p, kind: v }))}>
+            <Input className="h-8 w-44" value={plot.name} onChange={(e) => update((p) => ({ ...p, name: e.target.value }))} />            <Select value={plot.kind} onValueChange={(v) => update((p) => ({ ...p, kind: v }))}>
               <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {PLOT_KINDS.map((k) => <SelectItem key={k.id} value={k.id}>{k.label}</SelectItem>)}

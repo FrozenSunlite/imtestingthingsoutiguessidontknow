@@ -1006,6 +1006,8 @@ export function SettlementView({
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
             <span>Workstations: {buildingView.workstations?.join(", ") || "—"}</span>
+            <span>Population: {(buildingView.population ?? 0).toLocaleString()}</span>
+            <span>Bedrooms: {buildingView.bedrooms ?? 0}</span>
             <span>Value: {buildingView.propertyValue?.toLocaleString()} gp</span>
             <span>Comfort: {buildingView.comfort || "Poor"}</span>
             <span>

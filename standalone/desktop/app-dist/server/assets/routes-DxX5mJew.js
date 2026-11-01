@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-D-rPiICh.js";
+import { n as Button, r as cn } from "./router-C-VG08K_.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -43114,7 +43114,7 @@ function PinnedNodeCard() {
 }
 //#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
-function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder }) {
+function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder, onRoomBuilder }) {
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [newConfirmOpen, setNewConfirmOpen] = useState(false);
@@ -43210,6 +43210,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 							children: [
 								menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked),
 								menuBtn(/* @__PURE__ */ jsx(Map$1, { className: "h-5 w-5" }), "Dungeon Builder", "Build or roll a dungeon or spire", () => onDungeon?.(), locked),
+								menuBtn(/* @__PURE__ */ jsx(Boxes, { className: "h-5 w-5" }), "Room Builder", "Design rooms shared by dungeons and kingdom houses", () => onRoomBuilder?.(), locked),
 								menuBtn(/* @__PURE__ */ jsx(Globe2, { className: "h-5 w-5" }), "World Builder", "Create a setting, kingdoms, settlements and people", () => onWorldbuilder?.(), false)
 							]
 						}),
@@ -56684,7 +56685,7 @@ var ordinal = (n) => `${n}${[
 	"nd",
 	"rd"
 ][n % 10 > 3 || Math.floor(n % 100 / 10) === 1 ? 0 : n % 10] || "th"}`;
-function Homebuilder({ onExit }) {
+function Homebuilder({ onExit, onRoomBuilder }) {
 	const { settings } = useTree();
 	const coin = currencyOf(settings);
 	const [plots, setPlots] = useState(loadPlots);
@@ -57117,6 +57118,13 @@ function Homebuilder({ onExit }) {
 							k.label
 						]
 					}, k.id)) })] }),
+					onRoomBuilder && /* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "outline",
+						className: "h-8 text-xs",
+						onClick: onRoomBuilder,
+						children: [/* @__PURE__ */ jsx(Boxes, { className: "mr-1 h-4 w-4" }), " Room Builder"]
+					}),
 					plot && /* @__PURE__ */ jsxs(Fragment, { children: [
 						/* @__PURE__ */ jsx(Input, {
 							className: "h-8 w-44",
@@ -57126,6 +57134,7 @@ function Homebuilder({ onExit }) {
 								name: e.target.value
 							}))
 						}),
+						"            ",
 						/* @__PURE__ */ jsxs(Select, {
 							value: plot.kind,
 							onValueChange: (v) => update((p) => ({
@@ -59596,10 +59605,15 @@ function roomTypePool({ templateRooms = [], buildingType = "", buildingCategory 
 		"Kitchen",
 		"Yard"
 	]);
-	if (/Tavern|Inn/.test(buildingType)) addAll([
+	if (/Inn/.test(buildingType)) addAll([
 		"Common Room",
 		"Kitchen",
 		"Bedroom",
+		"Storage"
+	]);
+	else if (/Tavern/.test(buildingType)) addAll([
+		"Common Room",
+		"Kitchen",
 		"Storage"
 	]);
 	if (/Castle|Manor|Palace/.test(buildingType)) addAll([
@@ -59636,7 +59650,23 @@ function roomTypePool({ templateRooms = [], buildingType = "", buildingCategory 
 	if (chance(.35)) add("Cellar");
 	if (chance(.25)) add("Attic");
 	if (chance(.2)) add("Gallery");
-	const fillers = floor === 0 ? [
+	const isInn = /Inn/.test(buildingType);
+	const fillers = business && !isInn ? floor === 0 ? [
+		"Common Room",
+		"Storage",
+		"Office",
+		"Kitchen",
+		"Hall",
+		"Shop",
+		"Meeting Hall"
+	] : [
+		"Storage",
+		"Living Room",
+		"Study",
+		"Bath",
+		"Privy",
+		"Office"
+	] : floor === 0 ? [
 		"Common Room",
 		"Storage",
 		"Office",
@@ -60242,6 +60272,26 @@ function generateInterior({ building = {}, footprint = null, floors = null, room
 		generatedAt: (/* @__PURE__ */ new Date()).toISOString()
 	};
 }
+var isBedroomRoom = (room) => /(^|\s)bedrooms?(\s|$)/i.test(String(room?.type ?? room ?? "").trim());
+function bedroomCount(rooms) {
+	return (rooms || []).filter((room) => isBedroomRoom(room)).length;
+}
+function buildingPopulation(rooms) {
+	return bedroomCount(rooms) * 2;
+}
+function roomsForBuilding(category, type, rooms) {
+	const list = Array.isArray(rooms) ? rooms : [];
+	const cat = String(category || "").toLowerCase();
+	const isBusiness = [
+		"commercial",
+		"industrial",
+		"service",
+		"food"
+	].includes(cat);
+	const isInn = /(^|\s)inn(\s|$)/i.test(String(type || ""));
+	if (!isBusiness || isInn) return list;
+	return list.filter((room) => !isBedroomRoom(room));
+}
 function ensureInterior(building, settlement = null, { seed = "", force = false } = {}) {
 	if (!building) return null;
 	const hasGrid = (building.rooms || []).every((room) => Number.isFinite(room.x) && Number.isFinite(room.y) && room.w && room.h);
@@ -60251,9 +60301,15 @@ function ensureInterior(building, settlement = null, { seed = "", force = false 
 			interior: {
 				...building.interior,
 				seed: `${building.id || "building"}:${building.floors || 1}:interior`
-			}
+			},
+			bedrooms: bedroomCount(building.rooms),
+			population: buildingPopulation(building.rooms)
 		};
-		return building;
+		return {
+			...building,
+			bedrooms: bedroomCount(building.rooms),
+			population: buildingPopulation(building.rooms)
+		};
 	}
 	const footprint = building.footprint || buildingFootprint(building, settlement);
 	const comfort = buildingComfort(building, settlement);
@@ -60263,7 +60319,7 @@ function ensureInterior(building, settlement = null, { seed = "", force = false 
 		building,
 		footprint,
 		floors: building.floors,
-		roomTypes: (building.rooms || []).map((room) => room.type).filter(Boolean),
+		roomTypes: roomsForBuilding(building.category, building.type, (building.rooms || []).map((room) => room.type).filter(Boolean)),
 		facilityClass,
 		settlementKind: settlement?.kind || building.settlementKind || "",
 		buildingType: building.type || "",
@@ -60285,7 +60341,9 @@ function ensureInterior(building, settlement = null, { seed = "", force = false 
 			w: interior.width,
 			h: interior.height
 		},
-		rooms: interior.rooms
+		rooms: interior.rooms,
+		bedrooms: bedroomCount(interior.rooms),
+		population: buildingPopulation(interior.rooms)
 	};
 }
 //#endregion
@@ -61152,6 +61210,7 @@ function makeDevelopmentBuilding({ template, settlement, eraId, rng, index }) {
 		h: footprintSize
 	};
 	const id = `bld_${settlement.id}_${index}_${Math.floor(rng.rand() * 1e6).toString(36)}`;
+	const roomTypes = roomsForBuilding(template.category, template.type, template.rooms);
 	const interior = generateInterior({
 		building: {
 			id,
@@ -61161,7 +61220,7 @@ function makeDevelopmentBuilding({ template, settlement, eraId, rng, index }) {
 		},
 		footprint,
 		floors,
-		roomTypes: template.rooms,
+		roomTypes,
 		facilityClass: facilityClassForComfort(comfort),
 		rng
 	});
@@ -61180,6 +61239,8 @@ function makeDevelopmentBuilding({ template, settlement, eraId, rng, index }) {
 		buildMonths: buildMonthsForComfort(comfort),
 		interior,
 		rooms: interior.rooms,
+		bedrooms: bedroomCount(interior.rooms),
+		population: buildingPopulation(interior.rooms),
 		workstations: [],
 		floorTexture: interior.rooms[0]?.floorTexture || "stone",
 		propertyValue: Math.round(footprint.w * footprint.h * floors * 120),
@@ -62760,6 +62821,7 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
 	};
 	const floors = rng.int(template.floors[0], template.floors[1]);
 	const id = `bld_${settlement.id}_${index}_${Math.floor(rng.rand() * 1e6).toString(36)}`;
+	const roomTypes = roomsForBuilding(template.category, template.type, template.rooms);
 	const interior = generateInterior({
 		building: {
 			id,
@@ -62769,7 +62831,7 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
 		},
 		footprint,
 		floors,
-		roomTypes: template.rooms,
+		roomTypes,
 		facilityClass: facilityClassForComfort(comfort),
 		settlementKind: settlement.kind,
 		buildingType: template.type,
@@ -62806,6 +62868,8 @@ function makeBuilding(template, settlement, era, rng, index, capitalSeat = false
 		},
 		workstations: [...template.workstations || []],
 		rooms: interior.rooms,
+		bedrooms: bedroomCount(interior.rooms),
+		population: buildingPopulation(interior.rooms),
 		floorTexture: interior.rooms[0]?.floorTexture || "stone",
 		propertyValue: Math.round(footprint.w * footprint.h * floors * base / 10) * 10,
 		ownerId: "",
@@ -63172,7 +63236,7 @@ function createKingdom(nation, settlements, era, rng) {
 		relations: {}
 	};
 }
-function generateWorld({ seed = "new-setting", eraId = "medieval", theme = "High Fantasy", scaleId = "kingdom", selectedBiomes = [], name = "", realmName = "" } = {}) {
+function generateWorld({ seed = "new-setting", eraId = "medieval", theme = "High Fantasy", scaleId = "kingdom", selectedBiomes = [], name = "", realmName = "", mapSizeMode = "fixed", mapSize = 256 } = {}) {
 	const rng = makeRng(seed);
 	const era = ERAS.find((e) => e.id === eraId) || ERAS[4];
 	const scale = SCALES.find((s) => s.id === scaleId) || SCALES[2];
@@ -63297,7 +63361,7 @@ function generateWorld({ seed = "new-setting", eraId = "medieval", theme = "High
 		const b = settlements.find((s) => s.id === nations[i + 1].capitalId);
 		if (a && b) routes.push(routeBetween(a, b, era, scale.widthKm, rng));
 	}
-	const mapSide = Math.max(scale.cells[0], scale.cells[1]);
+	const mapSide = String(mapSizeMode) === "random" ? rng.int(128, 512) : Math.max(32, Math.min(1024, Number(mapSize) || 256));
 	realms.forEach((realm) => {
 		realm.map = buildMapCells({
 			realm,
@@ -63328,6 +63392,8 @@ function generateWorld({ seed = "new-setting", eraId = "medieval", theme = "High
 		scaleId: scale.id,
 		scaleLabel: scale.label,
 		widthKm: scale.widthKm,
+		mapSize: mapSide,
+		mapSizeMode: String(mapSizeMode) === "random" ? "random" : "fixed",
 		createdAt: (/* @__PURE__ */ new Date()).toISOString(),
 		calendar: {
 			year: 1,
@@ -63384,6 +63450,8 @@ function SettingForm({ onCreate, compact = false }) {
 	const [eraId, setEraId] = useState("medieval");
 	const [theme, setTheme] = useState("High Fantasy");
 	const [scaleId, setScaleId] = useState("kingdom");
+	const [sizeMode, setSizeMode] = useState("fixed");
+	const [mapSize, setMapSize] = useState(256);
 	const [realmName, setRealmName] = useState("");
 	const [biomes, setBiomes] = useState([
 		"grassland",
@@ -63497,6 +63565,37 @@ function SettingForm({ onCreate, compact = false }) {
 						placeholder: "Auto-generated",
 						value: realmName,
 						onChange: (e) => setRealmName(e.target.value)
+					})] }),
+					/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+						className: "text-[10px] text-muted-foreground",
+						children: "Map size"
+					}), /* @__PURE__ */ jsxs(Select, {
+						value: sizeMode,
+						onValueChange: setSizeMode,
+						children: [/* @__PURE__ */ jsx(SelectTrigger, {
+							className: "h-8 text-xs",
+							children: /* @__PURE__ */ jsx(SelectValue, {})
+						}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+							value: "fixed",
+							children: "Fixed size"
+						}), /* @__PURE__ */ jsx(SelectItem, {
+							value: "random",
+							children: "Random from seed"
+						})] })]
+					})] }),
+					/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+						className: "text-[10px] text-muted-foreground",
+						children: sizeMode === "random" ? "Size range" : "Spaces per side"
+					}), sizeMode === "random" ? /* @__PURE__ */ jsx("div", {
+						className: "flex h-8 items-center rounded-md border px-2 text-xs text-muted-foreground",
+						children: "128 – 512 spaces (seeded)"
+					}) : /* @__PURE__ */ jsx(Input, {
+						className: "h-8",
+						type: "number",
+						min: 32,
+						max: 1024,
+						value: mapSize,
+						onChange: (e) => setMapSize(Math.max(32, Math.min(1024, Number(e.target.value) || 256)))
 					})] })
 				]
 			}),
@@ -63528,7 +63627,9 @@ function SettingForm({ onCreate, compact = false }) {
 					theme,
 					scaleId,
 					realmName: realmName.trim(),
-					selectedBiomes: biomes
+					selectedBiomes: biomes,
+					mapSizeMode: sizeMode,
+					mapSize: Number(mapSize) || 256
 				}),
 				children: [/* @__PURE__ */ jsx(Sparkles, { className: "mr-1 h-4 w-4" }), " Generate setting"]
 			})
@@ -64272,6 +64373,74 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		realmIndex,
 		world?.id
 	]);
+	const showBorders = world?.showBorders !== false;
+	const liveMap = realm?.map;
+	const nationById = useMemo(() => new Map(nations.map((nation) => [nation.id, nation])), [nations]);
+	const cellGroups = useMemo(() => {
+		if (!liveMap?.cells?.length) return [];
+		const w = 1e3 / (liveMap.width || 1);
+		const h = 1e3 / (liveMap.height || 1);
+		const groups = /* @__PURE__ */ new Map();
+		liveMap.cells.forEach((cell) => {
+			const nation = cell.nationId ? nationById.get(cell.nationId) : null;
+			const textured = !nation && useTextures && textures[cell.biome];
+			const key = nation ? `nation:${nation.id}` : `biome:${cell.biome}:${textured ? "tex" : "flat"}`;
+			let group = groups.get(key);
+			if (!group) {
+				group = {
+					key,
+					fill: nation ? nation.color : textured ? `url(#tex-${cell.biome})` : biomeColor(cell.biome),
+					d: ""
+				};
+				groups.set(key, group);
+			}
+			group.d += `M${cell.x * w} ${cell.y * h}h${w + .6}v${h + .6}h${-(w + .6)}Z`;
+		});
+		return [...groups.values()];
+	}, [
+		liveMap,
+		nationById,
+		useTextures,
+		textures
+	]);
+	const borderGroups = useMemo(() => {
+		if (!showBorders || !liveMap?.cells?.length) return [];
+		const w = 1e3 / (liveMap.width || 1);
+		const h = 1e3 / (liveMap.height || 1);
+		const lookup = new Map(liveMap.cells.map((cell) => [`${cell.x},${cell.y}`, cell]));
+		const groups = /* @__PURE__ */ new Map();
+		const add = (nationId, x1, y1, x2, y2) => {
+			const nation = nationById.get(nationId);
+			if (!nation) return;
+			let group = groups.get(nationId);
+			if (!group) {
+				group = {
+					id: nationId,
+					color: nation.color,
+					d: ""
+				};
+				groups.set(nationId, group);
+			}
+			group.d += `M${x1} ${y1}L${x2} ${y2}`;
+		};
+		liveMap.cells.forEach((cell) => {
+			if (!cell.nationId) return;
+			const { x, y, nationId } = cell;
+			const left = lookup.get(`${x - 1},${y}`);
+			if (!left || left.nationId !== nationId) add(nationId, x * w, y * h, x * w, (y + 1) * h);
+			const right = lookup.get(`${x + 1},${y}`);
+			if (!right || right.nationId !== nationId) add(nationId, (x + 1) * w, y * h, (x + 1) * w, (y + 1) * h);
+			const top = lookup.get(`${x},${y - 1}`);
+			if (!top || top.nationId !== nationId) add(nationId, x * w, y * h, (x + 1) * w, y * h);
+			const bottom = lookup.get(`${x},${y + 1}`);
+			if (!bottom || bottom.nationId !== nationId) add(nationId, x * w, (y + 1) * h, (x + 1) * w, (y + 1) * h);
+		});
+		return [...groups.values()];
+	}, [
+		liveMap,
+		showBorders,
+		nationById
+	]);
 	const size = 1e3 / zoom;
 	const centerX = (selected ? selected.x : 500) + pan.x;
 	const centerY = (selected ? selected.y : 500) + pan.y;
@@ -64345,7 +64514,7 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		try {
 			event.currentTarget.releasePointerCapture?.(event.pointerId);
 		} catch {}
-		if (editing && !dragMovedRef.current) {
+		if (!dragMovedRef.current) {
 			const point = mapPoint(event);
 			const hit = settlementAt(point);
 			if (hit) onSelect?.(hit.id);
@@ -64356,9 +64525,6 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		className: "text-xs text-muted-foreground",
 		children: "Generate a setting to see its map."
 	});
-	const map = realm.map;
-	const cellW = 1e3 / (map?.width || 1);
-	const cellH = 1e3 / (map?.height || 1);
 	const mapPoint = (event) => {
 		const svg = svgRef.current;
 		if (!svg) return {
@@ -64651,7 +64817,8 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 						children: [
 							realm.kind,
 							" · ",
-							realm.biomeLabels?.join(", ")
+							realm.biomeLabels?.join(", "),
+							liveMap ? ` · ${liveMap.width}×${liveMap.height}` : ""
 						]
 					}),
 					/* @__PURE__ */ jsxs("div", {
@@ -64667,6 +64834,28 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 									" ",
 									editing ? "Done editing" : "Edit map"
 								]
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-7 text-xs",
+								onClick: () => {
+									setEditing(true);
+									setTool("settlement");
+								},
+								title: "Place a new village, town or city on the map",
+								children: [/* @__PURE__ */ jsx(MapPinPlus, { className: "mr-1 h-3.5 w-3.5" }), " Add city"]
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-7 text-xs",
+								onClick: () => onChange?.({
+									...world,
+									showBorders: !showBorders
+								}),
+								title: "Toggle the outlines between kingdoms",
+								children: [showBorders ? /* @__PURE__ */ jsx(EyeOff, { className: "mr-1 h-3.5 w-3.5" }) : /* @__PURE__ */ jsx(Eye, { className: "mr-1 h-3.5 w-3.5" }), showBorders ? "Hide borders" : "Show borders"]
 							}),
 							/* @__PURE__ */ jsxs(Button, {
 								size: "sm",
@@ -65003,8 +65192,22 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 						paintStrokeRef.current = null;
 					},
 					onContextMenu: (event) => event.preventDefault(),
-					onDoubleClick: () => {
-						if (!editing) setPan({
+					onClick: (event) => {
+						if (editing) return;
+						const hit = settlementAt(mapPoint(event));
+						if (hit) onSelect?.(hit.id);
+					},
+					onDoubleClick: (event) => {
+						if (editing) {
+							setPan({
+								x: 0,
+								y: 0
+							});
+							return;
+						}
+						const hit = settlementAt(mapPoint(event));
+						if (hit) onOpenSettlement?.(hit.id);
+						else setPan({
 							x: 0,
 							y: 0
 						});
@@ -65033,20 +65236,19 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 							height: "1000",
 							fill: "#0b0d12"
 						}),
-						map?.cells?.map((cell) => {
-							const nation = nations.find((n) => n.id === cell.nationId);
-							const fill = nation ? nation.color : biomeColor(cell.biome);
-							return /* @__PURE__ */ jsx("rect", {
-								x: cell.x * cellW,
-								y: cell.y * cellH,
-								width: cellW + .6,
-								height: cellH + .6,
-								fill: useTextures && textures[cell.biome] ? `url(#tex-${cell.biome})` : fill,
-								fillOpacity: nation ? .72 : .72,
-								stroke: nation ? nation.color : "transparent",
-								strokeWidth: nation ? .6 : 0
-							}, `${cell.x}-${cell.y}`);
-						}),
+						cellGroups.map((group) => /* @__PURE__ */ jsx("path", {
+							d: group.d,
+							fill: group.fill,
+							fillOpacity: .72
+						}, group.key)),
+						borderGroups.map((group) => /* @__PURE__ */ jsx("path", {
+							d: group.d,
+							fill: "none",
+							stroke: group.color,
+							strokeOpacity: .85,
+							strokeWidth: 1.1,
+							strokeLinecap: "round"
+						}, `border-${group.id}`)),
 						routes.map((route) => {
 							const from = settlements.find((s) => s.id === route.from);
 							const to = settlements.find((s) => s.id === route.to);
@@ -71654,6 +71856,8 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 						className: "mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground",
 						children: [
 							/* @__PURE__ */ jsxs("span", { children: ["Workstations: ", buildingView.workstations?.join(", ") || "—"] }),
+							/* @__PURE__ */ jsxs("span", { children: ["Population: ", (buildingView.population ?? 0).toLocaleString()] }),
+							/* @__PURE__ */ jsxs("span", { children: ["Bedrooms: ", buildingView.bedrooms ?? 0] }),
 							/* @__PURE__ */ jsxs("span", { children: [
 								"Value: ",
 								buildingView.propertyValue?.toLocaleString(),
@@ -72445,6 +72649,17 @@ function KingdomPanel({ world, kingdomId, onChange, onSelect }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "ml-auto flex gap-1",
 						children: [
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-8 text-xs",
+								title: "Toggle the kingdom border outlines on the World Map",
+								onClick: () => onChange?.({
+									...world,
+									showBorders: world?.showBorders === false
+								}),
+								children: [world?.showBorders === false ? /* @__PURE__ */ jsx(Eye, { className: "mr-1 h-3.5 w-3.5" }) : /* @__PURE__ */ jsx(EyeOff, { className: "mr-1 h-3.5 w-3.5" }), "Borders"]
+							}),
 							/* @__PURE__ */ jsxs(Button, {
 								size: "sm",
 								variant: "outline",
@@ -78255,6 +78470,331 @@ function Metric({ icon: Icon, label, value }) {
 	});
 }
 //#endregion
+//#region src/components/skilltree/RoomBuilder.jsx
+var blankRoom = (index) => ({
+	id: `room_${Date.now().toString(36)}_${index}`,
+	name: `Room ${index + 1}`,
+	category: "Chamber",
+	w: 9,
+	h: 9,
+	minW: 9,
+	maxW: 16,
+	minH: 9,
+	maxH: 16,
+	shape: "Rectangle",
+	cells: [],
+	environment: "",
+	elevation: "Flat",
+	cover: "Open",
+	connector: "Doorway",
+	environmentEffect: "",
+	tags: [],
+	traps: [],
+	spawns: [],
+	loot: [],
+	harvest: [],
+	objects: [],
+	enabled: true
+});
+function RoomBuilder({ onExit, onArchitect }) {
+	const { settings, setSettings } = useTree();
+	const rooms = settings?.library?.dungeonRooms || [];
+	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [query, setQuery] = useState("");
+	const selected = rooms[selectedIndex] || rooms[0] || null;
+	const setRooms = (next) => setSettings((s) => ({
+		...s,
+		library: {
+			...s.library,
+			dungeonRooms: next
+		}
+	}));
+	const patchSelected = (patch) => {
+		if (!selected) return;
+		const next = [...rooms];
+		next[selectedIndex] = {
+			...selected,
+			...patch
+		};
+		setRooms(next);
+	};
+	const addRoom = () => {
+		const next = [...rooms, blankRoom(rooms.length)];
+		setRooms(next);
+		setSelectedIndex(next.length - 1);
+		toast.success("New room added.");
+	};
+	const duplicateRoom = () => {
+		if (!selected) return;
+		const copy = {
+			...JSON.parse(JSON.stringify(selected)),
+			id: `room_${Date.now().toString(36)}_${rooms.length}`,
+			name: `${selected.name || "Room"} copy`
+		};
+		setRooms([...rooms, copy]);
+		setSelectedIndex(rooms.length);
+		toast.success("Room duplicated.");
+	};
+	const removeRoom = () => {
+		if (!selected) return;
+		if (!window.confirm(`Delete “${selected.name || "this room"}” from the room library?`)) return;
+		const next = rooms.filter((_, i) => i !== selectedIndex);
+		setRooms(next);
+		setSelectedIndex(Math.max(0, Math.min(selectedIndex, next.length - 1)));
+	};
+	const shown = useMemo(() => rooms.map((room, index) => ({
+		room,
+		index
+	})).filter(({ room }) => `${room.name || ""} ${room.category || ""}`.toLowerCase().includes(query.trim().toLowerCase())), [rooms, query]);
+	const applyPayload = (payload) => {
+		if (!selected) return;
+		patchSelected(payload);
+		toast.success("Room saved to the library.");
+	};
+	const addFromPayload = (payload) => {
+		if (!selected) return;
+		const copy = {
+			...payload,
+			id: `room_${Date.now().toString(36)}_${rooms.length}`,
+			name: `${selected.name || "Room"} copy`,
+			category: selected.category || "Chamber",
+			w: selected.w || 9,
+			h: selected.h || 9,
+			enabled: true
+		};
+		setRooms([...rooms, copy]);
+		setSelectedIndex(rooms.length);
+		toast.success("Room uploaded to the library.");
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "flex h-screen flex-col bg-background text-foreground",
+		children: [/* @__PURE__ */ jsxs("header", {
+			className: "flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2",
+			children: [
+				/* @__PURE__ */ jsx(Button, {
+					size: "icon",
+					variant: "outline",
+					className: "h-8 w-8",
+					title: "Back to menu",
+					onClick: onExit,
+					children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "mr-2",
+					children: [/* @__PURE__ */ jsx("h1", {
+						className: "font-display text-sm font-semibold",
+						children: "Room Builder"
+					}), /* @__PURE__ */ jsx("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: "Design rooms once; dungeons and kingdom houses reuse them."
+					})]
+				}),
+				/* @__PURE__ */ jsxs(Button, {
+					size: "sm",
+					variant: "outline",
+					className: "h-8 text-xs",
+					onClick: addRoom,
+					children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " New room"]
+				}),
+				selected && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs(Button, {
+					size: "sm",
+					variant: "outline",
+					className: "h-8 text-xs",
+					onClick: duplicateRoom,
+					children: [/* @__PURE__ */ jsx(Copy, { className: "mr-1 h-4 w-4" }), " Duplicate"]
+				}), /* @__PURE__ */ jsxs(Button, {
+					size: "sm",
+					variant: "ghost",
+					className: "h-8 text-xs text-destructive",
+					onClick: removeRoom,
+					children: [/* @__PURE__ */ jsx(Trash2, { className: "mr-1 h-4 w-4" }), " Delete"]
+				})] }),
+				/* @__PURE__ */ jsxs("div", {
+					className: "ml-auto flex items-center gap-2",
+					children: [/* @__PURE__ */ jsx(Input, {
+						className: "h-8 w-48",
+						placeholder: "Search rooms…",
+						value: query,
+						onChange: (e) => setQuery(e.target.value)
+					}), /* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "outline",
+						className: "h-8 text-xs",
+						onClick: onArchitect,
+						children: [/* @__PURE__ */ jsx(Home, { className: "mr-1 h-4 w-4" }), " Open Architect"]
+					})]
+				})
+			]
+		}), /* @__PURE__ */ jsxs("div", {
+			className: "grid min-h-0 flex-1 gap-2 overflow-hidden p-2 lg:grid-cols-[240px_minmax(0,1fr)]",
+			children: [/* @__PURE__ */ jsx("div", {
+				className: "min-h-0 overflow-y-auto rounded-md border p-1",
+				children: shown.length === 0 ? /* @__PURE__ */ jsx("p", {
+					className: "p-2 text-xs text-muted-foreground",
+					children: rooms.length ? "No matches." : "No rooms yet. Add one to begin."
+				}) : shown.map(({ room, index }) => /* @__PURE__ */ jsxs("button", {
+					type: "button",
+					onClick: () => setSelectedIndex(index),
+					className: `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${index === selectedIndex ? "bg-accent font-medium" : "hover:bg-accent/50"}`,
+					children: [/* @__PURE__ */ jsx("span", {
+						className: "min-w-0 flex-1 truncate",
+						children: room.name || "Untitled room"
+					}), /* @__PURE__ */ jsx("span", {
+						className: "shrink-0 text-[10px] text-muted-foreground",
+						children: room.category || "Chamber"
+					})]
+				}, room.id || index))
+			}), /* @__PURE__ */ jsx("div", {
+				className: "min-h-0 overflow-y-auto rounded-md border p-2",
+				children: selected ? /* @__PURE__ */ jsxs("div", {
+					className: "space-y-3",
+					children: [
+						/* @__PURE__ */ jsxs("div", {
+							className: "grid grid-cols-2 gap-2 sm:grid-cols-4",
+							children: [
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Room name"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: selected.name || "",
+										onChange: (e) => patchSelected({ name: e.target.value })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Category"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: selected.category || "Chamber",
+										onValueChange: (v) => patchSelected({ category: v }),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: DUNGEON_CATEGORIES.map(([cat]) => /* @__PURE__ */ jsx(SelectItem, {
+											value: cat,
+											children: cat
+										}, cat)) })]
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Width (spaces)"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										type: "number",
+										min: 9,
+										max: 33,
+										value: selected.w ?? 9,
+										onChange: (e) => patchSelected({ w: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Height (spaces)"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										type: "number",
+										min: 9,
+										max: 33,
+										value: selected.h ?? 9,
+										onChange: (e) => patchSelected({ h: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Environment"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: selected.environment || "",
+										placeholder: "Damp stone",
+										onChange: (e) => patchSelected({ environment: e.target.value })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Effect"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: selected.environmentEffect || "",
+										placeholder: "Difficult terrain…",
+										onChange: (e) => patchSelected({ environmentEffect: e.target.value })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Tags"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										value: (selected.tags || []).join(", "),
+										placeholder: "crypt, flooded",
+										onChange: (e) => patchSelected({ tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
+									})]
+								}),
+								/* @__PURE__ */ jsxs("label", {
+									className: "flex items-end gap-2 pb-1 text-xs",
+									children: [/* @__PURE__ */ jsx(Switch, {
+										checked: selected.enabled !== false,
+										onCheckedChange: (v) => patchSelected({ enabled: v })
+									}), "Enabled in generation"]
+								})
+							]
+						}),
+						/* @__PURE__ */ jsx(RoomShapeBuilder, {
+							inline: true,
+							room: {
+								...selected,
+								w: selected.w || 9,
+								h: selected.h || 9
+							},
+							templates: rooms,
+							onLoadTemplate: (template) => {
+								const index = rooms.indexOf(template);
+								if (index >= 0) setSelectedIndex(index);
+							},
+							onSave: applyPayload,
+							onUpload: addFromPayload,
+							onAdd: addFromPayload
+						}),
+						/* @__PURE__ */ jsxs("p", {
+							className: "text-[10px] text-muted-foreground",
+							children: [
+								"Saved rooms are used by the Dungeon Builder's procedural generation. Use ",
+								/* @__PURE__ */ jsx("strong", { children: "Open Architect" }),
+								" to give kingdom houses a shared room appearance, then bring the look back here as a template."
+							]
+						})
+					]
+				}) : /* @__PURE__ */ jsxs("div", {
+					className: "flex h-full flex-col items-center justify-center gap-2 text-center",
+					children: [/* @__PURE__ */ jsx("p", {
+						className: "text-xs text-muted-foreground",
+						children: "No rooms yet. Create one to start painting a room."
+					}), /* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: addRoom,
+						children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " New room"]
+					})]
+				})
+			})]
+		})]
+	});
+}
+//#endregion
 //#region src/components/skilltree/ActivityLogPanel.jsx
 function ActivityLogPanel() {
 	const { character, setCharacter } = useTree();
@@ -80037,6 +80577,7 @@ function Workspace() {
 	const [homebuilder, setHomebuilder] = useState(false);
 	const [dmScreen, setDmScreen] = useState(false);
 	const [dungeon, setDungeon] = useState(false);
+	const [roomBuilder, setRoomBuilder] = useState(false);
 	const [worldbuilder, setWorldbuilder] = useState(false);
 	const [referenceIndex, setReferenceIndex] = useState(false);
 	const [sendRows, setSendRows] = useState(null);
@@ -80084,7 +80625,20 @@ function Workspace() {
 		collapsed: false
 	}]);
 	if (referenceIndex) return /* @__PURE__ */ jsx(ReferenceIndexPage, { onExit: () => setReferenceIndex(false) });
-	if (screen === "launch" && homebuilder) return /* @__PURE__ */ jsx(Homebuilder, { onExit: () => setHomebuilder(false) });
+	if (screen === "launch" && homebuilder) return /* @__PURE__ */ jsx(Homebuilder, {
+		onExit: () => setHomebuilder(false),
+		onRoomBuilder: () => {
+			setHomebuilder(false);
+			setRoomBuilder(true);
+		}
+	});
+	if (screen === "launch" && roomBuilder) return /* @__PURE__ */ jsx(RoomBuilder, {
+		onExit: () => setRoomBuilder(false),
+		onArchitect: () => {
+			setRoomBuilder(false);
+			setHomebuilder(true);
+		}
+	});
 	if (screen === "launch" && dungeon) return /* @__PURE__ */ jsx(DungeonGenerator, { onExit: () => setDungeon(false) });
 	if (screen === "launch" && worldbuilder) return /* @__PURE__ */ jsx(WorldBuilder, { onExit: () => setWorldbuilder(false) });
 	if (screen === "launch" && dmScreen) return /* @__PURE__ */ jsx(DMScreen, { onExit: () => setDmScreen(false) });
@@ -80094,7 +80648,8 @@ function Workspace() {
 			onDmScreen: () => setDmScreen(true),
 			onDungeon: () => setDungeon(true),
 			onReferenceIndex: () => setReferenceIndex(true),
-			onWorldbuilder: () => setWorldbuilder(true)
+			onWorldbuilder: () => setWorldbuilder(true),
+			onRoomBuilder: () => setRoomBuilder(true)
 		}),
 		/* @__PURE__ */ jsx(OnboardingTour, {}),
 		/* @__PURE__ */ jsx(CommandPalette, {})

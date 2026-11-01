@@ -27,11 +27,12 @@ import {
   Map,
   Database,
   Globe2,
+  Boxes,
 } from "lucide-react";
 
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
-export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder }) {
+export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder, onRoomBuilder }) {
   const { enterApp, startNewTree, tree, character, settings } = useTree();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
@@ -189,6 +190,13 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
               "Dungeon Builder",
               "Build or roll a dungeon or spire",
               () => onDungeon?.(),
+              locked
+            )}
+            {menuBtn(
+              <Boxes className="h-5 w-5" />,
+              "Room Builder",
+              "Design rooms shared by dungeons and kingdom houses",
+              () => onRoomBuilder?.(),
               locked
             )}
             {menuBtn(

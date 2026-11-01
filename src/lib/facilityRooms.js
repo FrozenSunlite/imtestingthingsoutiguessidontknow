@@ -334,7 +334,8 @@ export function roomTypePool({
   if (civic) addAll(["Office", "Archive", "Meeting Hall", "Hall"]);
   if (military) addAll(["Bunk Room", "Armory", "Mess Hall", "Watch Room", "Drill Hall"]);
   if (buildingCategory === "Food") addAll(["Garden", "Storage", "Kitchen", "Yard"]);
-  if (/Tavern|Inn/.test(buildingType)) addAll(["Common Room", "Kitchen", "Bedroom", "Storage"]);
+  if (/Inn/.test(buildingType)) addAll(["Common Room", "Kitchen", "Bedroom", "Storage"]);
+  else if (/Tavern/.test(buildingType)) addAll(["Common Room", "Kitchen", "Storage"]);
   if (/Castle|Manor|Palace/.test(buildingType)) addAll(["Great Hall", "Bedroom", "Kitchen", "Armory", "Dungeon"]);
   if (/Temple|Sanctuary/.test(buildingType)) addAll(["Sanctuary", "Shrine", "Vestry", "Garden"]);
   if (/Library/.test(buildingType)) addAll(["Reading Room", "Archive", "Study", "Office"]);
@@ -347,10 +348,15 @@ export function roomTypePool({
   if (chance(0.25)) add("Attic");
   if (chance(0.2)) add("Gallery");
 
+  const isInn = /Inn/.test(buildingType);
   const fillers =
-    floor === 0
-      ? ["Common Room", "Storage", "Office", "Kitchen", "Bedroom", "Hall", "Shop", "Meeting Hall"]
-      : ["Bedroom", "Storage", "Living Room", "Study", "Bath", "Guest Room", "Privy"];
+    business && !isInn
+      ? floor === 0
+        ? ["Common Room", "Storage", "Office", "Kitchen", "Hall", "Shop", "Meeting Hall"]
+        : ["Storage", "Living Room", "Study", "Bath", "Privy", "Office"]
+      : floor === 0
+        ? ["Common Room", "Storage", "Office", "Kitchen", "Bedroom", "Hall", "Shop", "Meeting Hall"]
+        : ["Bedroom", "Storage", "Living Room", "Study", "Bath", "Guest Room", "Privy"];
   let index = 0;
   while (types.length < count && index < 60) {
     add(fillers[index % fillers.length], true);

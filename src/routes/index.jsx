@@ -16,6 +16,7 @@ import { ReferenceIndexPage } from "@/components/skilltree/ReferenceIndexPage";
 import Homebuilder from "@/components/skilltree/homestead/Homebuilder";
 import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
 import { WorldBuilder } from "@/components/skilltree/world/WorldBuilder";
+import { RoomBuilder } from "@/components/skilltree/RoomBuilder";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
@@ -29,6 +30,7 @@ function Workspace() {
   const [homebuilder, setHomebuilder] = useState(false);
   const [dmScreen, setDmScreen] = useState(false);
   const [dungeon, setDungeon] = useState(false);
+  const [roomBuilder, setRoomBuilder] = useState(false);
   const [worldbuilder, setWorldbuilder] = useState(false);
   const [referenceIndex, setReferenceIndex] = useState(false);
   const [sendRows, setSendRows] = useState(null); // "send to subtree" chooser
@@ -83,7 +85,27 @@ function Workspace() {
   if (referenceIndex)
     return <ReferenceIndexPage onExit={() => setReferenceIndex(false)} />;
 
-  if (screen === "launch" && homebuilder) return <Homebuilder onExit={() => setHomebuilder(false)} />;
+  if (screen === "launch" && homebuilder)
+    return (
+      <Homebuilder
+        onExit={() => setHomebuilder(false)}
+        onRoomBuilder={() => {
+          setHomebuilder(false);
+          setRoomBuilder(true);
+        }}
+      />
+    );
+
+  if (screen === "launch" && roomBuilder)
+    return (
+      <RoomBuilder
+        onExit={() => setRoomBuilder(false)}
+        onArchitect={() => {
+          setRoomBuilder(false);
+          setHomebuilder(true);
+        }}
+      />
+    );
 
   if (screen === "launch" && dungeon)
     return <DungeonGenerator onExit={() => setDungeon(false)} />;
@@ -102,6 +124,7 @@ function Workspace() {
           onDungeon={() => setDungeon(true)}
           onReferenceIndex={() => setReferenceIndex(true)}
           onWorldbuilder={() => setWorldbuilder(true)}
+          onRoomBuilder={() => setRoomBuilder(true)}
         />
         <OnboardingTour />
         <CommandPalette />

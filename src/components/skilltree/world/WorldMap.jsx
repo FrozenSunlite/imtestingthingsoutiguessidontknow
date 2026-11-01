@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +42,8 @@ import {
   MousePointerClick,
   Wand2,
   Crown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 const biomeColor = (id) => BIOMES.find((b) => b.id === id)?.color || "#3b3b45";
@@ -185,6 +187,80 @@ export function WorldMap({
     setDrag(null);
   }, [selected?.id, realmIndex, world?.id]);
 
+  // Kingdom borders are a toggle, and the map can be very large (256×256 by
+  // default), so terrain is grouped into one path per biome/nation instead of
+  // one <rect> per cell.
+  const showBorders = world?.showBorders !== false;
+  const liveMap = realm?.map;
+  const nationById = useMemo(
+    () => new Map(nations.map((nation) => [nation.id, nation])),
+    [nations]
+  );
+  const cellGroups = useMemo(() => {
+    if (!liveMap?.cells?.length) return [];
+    const w = 1000 / (liveMap.width || 1);
+    const h = 1000 / (liveMap.height || 1);
+    const groups = new Map();
+    liveMap.cells.forEach((cell) => {
+      const nation = cell.nationId ? nationById.get(cell.nationId) : null;
+      const textured = !nation && useTextures && textures[cell.biome];
+      const key = nation
+        ? `nation:${nation.id}`
+        : `biome:${cell.biome}:${textured ? "tex" : "flat"}`;
+      let group = groups.get(key);
+      if (!group) {
+        group = {
+          key,
+          fill: nation
+            ? nation.color
+            : textured
+              ? `url(#tex-${cell.biome})`
+              : biomeColor(cell.biome),
+          d: "",
+        };
+        groups.set(key, group);
+      }
+      group.d += `M${cell.x * w} ${cell.y * h}h${w + 0.6}v${h + 0.6}h${-(w + 0.6)}Z`;
+    });
+    return [...groups.values()];
+  }, [liveMap, nationById, useTextures, textures]);
+  const borderGroups = useMemo(() => {
+    if (!showBorders || !liveMap?.cells?.length) return [];
+    const w = 1000 / (liveMap.width || 1);
+    const h = 1000 / (liveMap.height || 1);
+    const lookup = new Map(
+      liveMap.cells.map((cell) => [`${cell.x},${cell.y}`, cell])
+    );
+    const groups = new Map();
+    const add = (nationId, x1, y1, x2, y2) => {
+      const nation = nationById.get(nationId);
+      if (!nation) return;
+      let group = groups.get(nationId);
+      if (!group) {
+        group = { id: nationId, color: nation.color, d: "" };
+        groups.set(nationId, group);
+      }
+      group.d += `M${x1} ${y1}L${x2} ${y2}`;
+    };
+    liveMap.cells.forEach((cell) => {
+      if (!cell.nationId) return;
+      const { x, y, nationId } = cell;
+      const left = lookup.get(`${x - 1},${y}`);
+      if (!left || left.nationId !== nationId)
+        add(nationId, x * w, y * h, x * w, (y + 1) * h);
+      const right = lookup.get(`${x + 1},${y}`);
+      if (!right || right.nationId !== nationId)
+        add(nationId, (x + 1) * w, y * h, (x + 1) * w, (y + 1) * h);
+      const top = lookup.get(`${x},${y - 1}`);
+      if (!top || top.nationId !== nationId)
+        add(nationId, x * w, y * h, (x + 1) * w, y * h);
+      const bottom = lookup.get(`${x},${y + 1}`);
+      if (!bottom || bottom.nationId !== nationId)
+        add(nationId, x * w, (y + 1) * h, (x + 1) * w, (y + 1) * h);
+    });
+    return [...groups.values()];
+  }, [liveMap, showBorders, nationById]);
+
   const size = 1000 / zoom;
   const centerX = (selected ? selected.x : 500) + pan.x;
   const centerY = (selected ? selected.y : 500) + pan.y;
@@ -266,7 +342,7 @@ export function WorldMap({
     } catch {
       /* pointer capture may already have been released */
     }
-    if (editing && !dragMovedRef.current) {
+    if (!dragMovedRef.current) {
       const point = mapPoint(event);
       const hit = settlementAt(point);
       if (hit) onSelect?.(hit.id);
@@ -276,9 +352,6 @@ export function WorldMap({
 
   if (!realm) return <p className="text-xs text-muted-foreground">Generate a setting to see its map.</p>;
 
-  const map = realm.map;
-  const cellW = 1000 / (map?.width || 1);
-  const cellH = 1000 / (map?.height || 1);
 
   const mapPoint = (event) => {
     const svg = svgRef.current;
@@ -610,6 +683,7 @@ export function WorldMap({
         )}
         <span className="text-[10px] text-muted-foreground">
           {realm.kind} · {realm.biomeLabels?.join(", ")}
+          {liveMap ? ` · ${liveMap.width}×${liveMap.height}` : ""}
         </span>
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -619,6 +693,32 @@ export function WorldMap({
             onClick={() => setEditing((value) => !value)}
           >
             <Pencil className="mr-1 h-3.5 w-3.5" /> {editing ? "Done editing" : "Edit map"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => {
+              setEditing(true);
+              setTool("settlement");
+            }}
+            title="Place a new village, town or city on the map"
+          >
+            <MapPinPlus className="mr-1 h-3.5 w-3.5" /> Add city
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => onChange?.({ ...world, showBorders: !showBorders })}
+            title="Toggle the outlines between kingdoms"
+          >
+            {showBorders ? (
+              <EyeOff className="mr-1 h-3.5 w-3.5" />
+            ) : (
+              <Eye className="mr-1 h-3.5 w-3.5" />
+            )}
+            {showBorders ? "Hide borders" : "Show borders"}
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={loadTextures} disabled={loadingTextures}>
             <ImageIcon className="mr-1 h-3.5 w-3.5" />
@@ -885,8 +985,19 @@ export function WorldMap({
             paintStrokeRef.current = null;
           }}
           onContextMenu={(event) => event.preventDefault()}
-          onDoubleClick={() => {
-            if (!editing) setPan({ x: 0, y: 0 });
+          onClick={(event) => {
+            if (editing) return;
+            const hit = settlementAt(mapPoint(event));
+            if (hit) onSelect?.(hit.id);
+          }}
+          onDoubleClick={(event) => {
+            if (editing) {
+              setPan({ x: 0, y: 0 });
+              return;
+            }
+            const hit = settlementAt(mapPoint(event));
+            if (hit) onOpenSettlement?.(hit.id);
+            else setPan({ x: 0, y: 0 });
           }}
         >
           <defs>
@@ -901,23 +1012,25 @@ export function WorldMap({
             </filter>
           </defs>
           <rect width="1000" height="1000" fill="#0b0d12" />
-          {map?.cells?.map((cell) => {
-            const nation = nations.find((n) => n.id === cell.nationId);
-            const fill = nation ? nation.color : biomeColor(cell.biome);
-            return (
-              <rect
-                key={`${cell.x}-${cell.y}`}
-                x={cell.x * cellW}
-                y={cell.y * cellH}
-                width={cellW + 0.6}
-                height={cellH + 0.6}
-                fill={useTextures && textures[cell.biome] ? `url(#tex-${cell.biome})` : fill}
-                fillOpacity={nation ? 0.72 : 0.72}
-                stroke={nation ? nation.color : "transparent"}
-                strokeWidth={nation ? 0.6 : 0}
-              />
-            );
-          })}
+          {cellGroups.map((group) => (
+            <path
+              key={group.key}
+              d={group.d}
+              fill={group.fill}
+              fillOpacity={0.72}
+            />
+          ))}
+          {borderGroups.map((group) => (
+            <path
+              key={`border-${group.id}`}
+              d={group.d}
+              fill="none"
+              stroke={group.color}
+              strokeOpacity={0.85}
+              strokeWidth={1.1}
+              strokeLinecap="round"
+            />
+          ))}
           {routes.map((route) => {
             const from = settlements.find((s) => s.id === route.from);
             const to = settlements.find((s) => s.id === route.to);

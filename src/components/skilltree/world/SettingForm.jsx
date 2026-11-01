@@ -21,6 +21,8 @@ export function SettingForm({ onCreate, compact = false }) {
   const [eraId, setEraId] = useState("medieval");
   const [theme, setTheme] = useState("High Fantasy");
   const [scaleId, setScaleId] = useState("kingdom");
+  const [sizeMode, setSizeMode] = useState("fixed");
+  const [mapSize, setMapSize] = useState(256);
   const [realmName, setRealmName] = useState("");
   const [biomes, setBiomes] = useState(["grassland", "forest", "hills", "mountains", "coast"]);
 
@@ -100,6 +102,37 @@ export function SettingForm({ onCreate, compact = false }) {
           <Label className="text-[10px] text-muted-foreground">Primary realm / planet / plane</Label>
           <Input className="h-8" placeholder="Auto-generated" value={realmName} onChange={(e) => setRealmName(e.target.value)} />
         </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Map size</Label>
+          <Select value={sizeMode} onValueChange={setSizeMode}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fixed">Fixed size</SelectItem>
+              <SelectItem value="random">Random from seed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">
+            {sizeMode === "random" ? "Size range" : "Spaces per side"}
+          </Label>
+          {sizeMode === "random" ? (
+            <div className="flex h-8 items-center rounded-md border px-2 text-xs text-muted-foreground">
+              128 – 512 spaces (seeded)
+            </div>
+          ) : (
+            <Input
+              className="h-8"
+              type="number"
+              min={32}
+              max={1024}
+              value={mapSize}
+              onChange={(e) =>
+                setMapSize(Math.max(32, Math.min(1024, Number(e.target.value) || 256)))
+              }
+            />
+          )}
+        </div>
       </div>
 
       <div>
@@ -136,6 +169,8 @@ export function SettingForm({ onCreate, compact = false }) {
             scaleId,
             realmName: realmName.trim(),
             selectedBiomes: biomes,
+            mapSizeMode: sizeMode,
+            mapSize: Number(mapSize) || 256,
           })
         }
       >

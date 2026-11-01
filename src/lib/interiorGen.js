@@ -591,6 +591,29 @@ export function generateInterior({
   };
 }
 
+// A generated building's population is two people per Bedroom. Businesses are
+// not given Bedrooms unless they are an Inn, so they normally have no residents
+// living on site.
+export const isBedroomRoom = (room) =>
+  /(^|\s)bedrooms?(\s|$)/i.test(String(room?.type ?? room ?? "").trim());
+
+export function bedroomCount(rooms) {
+  return (rooms || []).filter((room) => isBedroomRoom(room)).length;
+}
+
+export function buildingPopulation(rooms) {
+  return bedroomCount(rooms) * 2;
+}
+
+export function roomsForBuilding(category, type, rooms) {
+  const list = Array.isArray(rooms) ? rooms : [];
+  const cat = String(category || "").toLowerCase();
+  const isBusiness = ["commercial", "industrial", "service", "food"].includes(cat);
+  const isInn = /(^|\s)inn(\s|$)/i.test(String(type || ""));
+  if (!isBusiness || isInn) return list;
+  return list.filter((room) => !isBedroomRoom(room));
+}
+
 // Returns a building with a usable grid interior. Old saves have rooms without
 // x/y; they are laid out deterministically and keep their ids, textures and
 // imported assets.
@@ -607,9 +630,15 @@ export function ensureInterior(building, settlement = null, { seed = "", force =
           ...building.interior,
           seed: `${building.id || "building"}:${building.floors || 1}:interior`,
         },
+        bedrooms: bedroomCount(building.rooms),
+        population: buildingPopulation(building.rooms),
       };
     }
-    return building;
+    return {
+      ...building,
+      bedrooms: bedroomCount(building.rooms),
+      population: buildingPopulation(building.rooms),
+    };
   }
   const footprint = building.footprint || buildingFootprint(building, settlement);
   const comfort = buildingComfort(building, settlement);
@@ -622,7 +651,11 @@ export function ensureInterior(building, settlement = null, { seed = "", force =
     building,
     footprint,
     floors: building.floors,
-    roomTypes: (building.rooms || []).map((room) => room.type).filter(Boolean),
+    roomTypes: roomsForBuilding(
+      building.category,
+      building.type,
+      (building.rooms || []).map((room) => room.type).filter(Boolean)
+    ),
     facilityClass,
     settlementKind: settlement?.kind || building.settlementKind || "",
     buildingType: building.type || "",
@@ -642,6 +675,8 @@ export function ensureInterior(building, settlement = null, { seed = "", force =
     interior,
     interiorSize: { w: interior.width, h: interior.height },
     rooms: interior.rooms,
+    bedrooms: bedroomCount(interior.rooms),
+    population: buildingPopulation(interior.rooms),
   };
 }
 

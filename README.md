@@ -101,7 +101,14 @@ changing app code, then restart the launcher.
   per-level talent purchase cap in Levels & Rules.
 - **World Builder:** generated buildings can use house artwork with 45° rotation,
   expand their footprint only when neighbouring lots are free, and be nudged to a
-  free lot before expanding.
+  free lot before expanding. Generated maps default to 256×256 spaces, can use a
+  fixed size or a seed-driven random size, and kingdom borders can be hidden.
+  The map supports selecting settlements, adding new ones, painting, moving and
+  deleting with the Edit map tools. Building population is twice its Bedroom
+  rooms; businesses have no Bedrooms unless they are an Inn.
+- **Room Builder:** a front-page section for designing room shapes and battlefield
+  terrain. Saved rooms feed procedural dungeons and kingdom house interiors, and
+  the page links both ways with the Architect.
 - **Architect:** rented properties cannot add facilities/Bastion rooms or enlarge
   the footprint; business-only rooms need the landlord allowance.
 - **Dungeon Builder:** rooms and halls track floors and door connections; the
