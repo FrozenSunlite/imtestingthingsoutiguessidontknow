@@ -23,7 +23,7 @@ const yesNo = (v) => (v ? "Yes" : "");
 const SIZE_LABEL = {
   T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan", V: "Varies",
 };
-const sizeText = (value) => {
+export const sizeText = (value) => {
   if (value == null) return "";
   if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
   return SIZE_LABEL[value] || clean(value);
@@ -34,7 +34,7 @@ const feet = (n) => {
   return Number.isFinite(v) ? `${v} ${v === 1 ? "space" : "spaces"}` : "";
 };
 
-const speedText = (speed) => {
+export const speedText = (speed) => {
   if (speed == null) return "";
   if (typeof speed === "string") return clean(speed);
   if (typeof speed === "number") return feet(speed);
@@ -93,7 +93,7 @@ const chooseText = (choose) => {
   return "";
 };
 
-const proficiencyText = (value) => {
+export const proficiencyText = (value) => {
   if (value == null || value === "") return "";
   if (typeof value === "string") return clean(value);
   if (typeof value === "number") return String(value);
@@ -127,15 +127,37 @@ const proficiencyText = (value) => {
 
 // Background/feat ability choices: ["int", "wis"] or [{choose: {from, amount}}]
 // or weighted 2024 choices (+2 to one, +1 to another). Missing means "Any".
-const abilityText = (value) => {
+export const abilityText = (value) => {
   if (value == null || value === "") return "Any";
+  if (typeof value === "string" && /[,;]/.test(value)) {
+    return value
+      .split(/[,;]/)
+      .map((part) => abilityText(part.trim()))
+      .filter((part) => part && part !== "Any")
+      .join(", ");
+  }
   const list = Array.isArray(value) ? value : [value];
   const choices = [];
   const plain = [];
   list.forEach((item) => {
     if (item == null || item === false) return;
     if (typeof item === "string") {
-      plain.push(abilityLabel(item));
+      const parsed = item
+        .trim()
+        .match(
+          /^(str|dex|con|int|wis|cha|strength|dexterity|constitution|intelligence|wisdom|charisma)\s*([+-]\s*\d+)?$/i
+        );
+      if (parsed) {
+        const key = parsed[1].slice(0, 3).toLowerCase();
+        const bonus = parsed[2] ? Number(parsed[2].replace(/\s+/g, "")) : null;
+        plain.push(
+          bonus != null
+            ? `${abilityLabel(key)} ${bonus > 0 ? `+${bonus}` : bonus}`
+            : abilityLabel(key)
+        );
+      } else {
+        plain.push(abilityLabel(item));
+      }
       return;
     }
     if (typeof item !== "object") return;
@@ -170,7 +192,7 @@ const featLabel = (key) => {
   const [name, variant] = namePart.split(";").map((v) => v.trim());
   return [titleCase(name), variant ? `(${titleCase(variant)})` : ""].filter(Boolean).join(" ");
 };
-const featsText = (value) => {
+export const featsText = (value) => {
   if (!value) return "";
   if (typeof value === "string") return featLabel(value);
   if (Array.isArray(value)) return value.map(featsText).filter(Boolean).join(", ");
@@ -214,7 +236,7 @@ const equipmentGroupText = (value) =>
     .map(equipmentItemText)
     .filter(Boolean)
     .join(", ");
-const startingEquipmentText = (value) => {
+export const startingEquipmentText = (value) => {
   if (!value) return "";
   if (typeof value === "string") return clean(value);
   const groups = Array.isArray(value) ? value : [value];

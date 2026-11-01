@@ -193,6 +193,192 @@ export function migrateReturnNodes(tree) {
   return changed ? { ...tree, nodes } : tree;
 }
 
+// ---- Shared subtree definitions ------------------------------------------
+// A shared subtree is stored once in `tree.sharedSubtrees[sharedId]`. Every
+// host node keeps an instance whose node ids match the definition, so edits to
+// the structure can propagate to every instance. Play state — current points,
+// purchases and the per-host exclusivity toggle — stays local to each host.
+
+export const SHARED_STRUCTURAL_KEYS = [
+  "name",
+  "nodes",
+  "connections",
+  "grantedPoints",
+  "poolName",
+  "maxPurchases",
+  "abilityReqs",
+];
+
+const PLAY_KEYS = ["currentPoints", "acquiredOrder", "__autoGranted"];
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+// The canonical structure of a subtree: no play state, no per-host settings.
+export function sharedDefinition(subtree) {
+  const copy = subtree || {};
+  const stripNodes = (nodes) =>
+    (nodes || []).map((n) => {
+      const out = cloneJson(n);
+      PLAY_KEYS.forEach((key) => delete out[key]);
+      if (Array.isArray(out.subtrees)) {
+        out.subtrees = out.subtrees.map((st) => ({
+          ...st,
+          purchases: 0,
+          nodes: stripNodes(st.nodes),
+        }));
+      }
+      return out;
+    });
+  return {
+    name: String(copy.name || "Shared subtree"),
+    grantedPoints: Math.max(0, Number(copy.grantedPoints) || 0),
+    poolName: String(copy.poolName || ""),
+    maxPurchases: Math.max(0, Number(copy.maxPurchases) || 0),
+    abilityReqs: cloneJson(copy.abilityReqs || []),
+    nodes: stripNodes(copy.nodes),
+    connections: cloneJson(copy.connections || []),
+  };
+}
+
+// Clone canonical nodes and copy each host's play state back in by node id.
+export function overlayPlayState(sourceNodes, targetNodes = []) {
+  const byId = new Map((targetNodes || []).map((n) => [n.id, n]));
+  return (sourceNodes || []).map((source) => {
+    const target = byId.get(source.id);
+    const node = cloneJson(source);
+    node.currentPoints = Math.max(0, Number(target?.currentPoints) || 0);
+    if (target?.acquiredOrder != null) node.acquiredOrder = target.acquiredOrder;
+    else delete node.acquiredOrder;
+    if (target?.__autoGranted) node.__autoGranted = true;
+    else delete node.__autoGranted;
+    if (Array.isArray(node.subtrees)) {
+      const targetNested = target?.subtrees || [];
+      node.subtrees = node.subtrees.map((st, i) => {
+        const tst =
+          targetNested.find((candidate) => candidate.id === st.id) ||
+          targetNested[i];
+        const next = {
+          ...st,
+          purchases: Math.max(0, Number(tst?.purchases) || 0),
+          exclusive: tst ? !!tst.exclusive : !!st.exclusive,
+          level: Math.max(0, Number(tst?.level ?? st.level) || 0),
+          default: tst ? !!tst.default : !!st.default,
+          nodes: overlayPlayState(st.nodes, tst?.nodes),
+        };
+        if (tst?.sharedId || st.sharedId) next.sharedId = tst?.sharedId || st.sharedId;
+        return next;
+      });
+    }
+    return node;
+  });
+}
+
+// Build a host's instance of a shared definition: fresh instance id, reset
+// play state, per-host settings taken from the template.
+export function instantiateSharedSubtree(definition, sharedId) {
+  const def = sharedDefinition(definition);
+  return {
+    id: nextSubtreeId(),
+    sharedId,
+    name: def.name,
+    nodes: overlayPlayState(def.nodes, []),
+    connections: cloneJson(def.connections),
+    grantedPoints: def.grantedPoints,
+    poolName: def.poolName,
+    maxPurchases: def.maxPurchases,
+    abilityReqs: def.abilityReqs,
+    purchases: 0,
+    exclusive: !!definition.exclusive,
+    level: Math.max(0, Number(definition.level) || 0),
+    default: !!definition.default,
+  };
+}
+
+function applySharedDefinition(target, definition, sharedId) {
+  return {
+    ...target,
+    sharedId,
+    name: definition.name,
+    grantedPoints: definition.grantedPoints,
+    poolName: definition.poolName,
+    maxPurchases: definition.maxPurchases,
+    abilityReqs: cloneJson(definition.abilityReqs),
+    nodes: overlayPlayState(definition.nodes, target.nodes),
+    connections: cloneJson(definition.connections),
+  };
+}
+
+// Push one edited instance's structure into the canonical definition and every
+// other host instance of the same shared subtree, preserving local play state.
+export function syncSharedSubtree(tree, sharedId, source, seen = new Set()) {
+  if (!tree || !sharedId || !source || seen.has(sharedId)) return tree;
+  seen.add(sharedId);
+  const definition = sharedDefinition(source);
+  let changed = false;
+
+  const walk = (nodes) => {
+    let touched = false;
+    const out = (nodes || []).map((node) => {
+      if (!Array.isArray(node.subtrees) || !node.subtrees.length) return node;
+      let nodeTouched = false;
+      const subtrees = node.subtrees.map((st) => {
+        let next = st;
+        if (st.sharedId === sharedId) {
+          next = applySharedDefinition(st, definition, sharedId);
+          nodeTouched = true;
+        }
+        const nested = walk(next.nodes || []);
+        if (nested !== next.nodes) {
+          next = { ...next, nodes: nested };
+          nodeTouched = true;
+        }
+        return next;
+      });
+      if (!nodeTouched) return node;
+      touched = true;
+      return { ...node, subtrees };
+    });
+    return touched ? out : nodes;
+  };
+
+  const nodes = walk(tree.nodes || []);
+  if (nodes !== tree.nodes) changed = true;
+  const previous = tree.sharedSubtrees?.[sharedId];
+  if (JSON.stringify(previous) !== JSON.stringify(definition)) changed = true;
+  // Nested instances may live inside the source too, so recurse even when the
+  // top-level list is unchanged.
+  if (!changed) return tree;
+  let next = {
+    ...tree,
+    nodes,
+    sharedSubtrees: { ...(tree.sharedSubtrees || {}), [sharedId]: definition },
+  };
+  // A shared tree can contain nested subtrees that are themselves shared.
+  // Push their structure out too, so a nested edit is not lost on the next
+  // parent sync.
+  const nestedShared = [];
+  const collect = (list) =>
+    (list || []).forEach((node) =>
+      (node.subtrees || []).forEach((st) => {
+        if (st.sharedId && st.sharedId !== sharedId) nestedShared.push(st);
+        collect(st.nodes);
+      })
+    );
+  collect(source.nodes);
+  nestedShared.forEach((st) => {
+    next = syncSharedSubtree(next, st.sharedId, st, seen);
+  });
+  return next;
+}
+
+export function unlinkSharedSubtree(subtree) {
+  if (!subtree?.sharedId) return subtree;
+  const { sharedId: _sharedId, ...rest } = subtree;
+  return rest;
+}
+
 // Deep-clone a subtree definition for a new host, resetting play state and
 // giving every node/connection a fresh id. Shared trees loaded twice never
 // share node ids, purchase counts or exclusivity settings.

@@ -81,8 +81,12 @@ changing app code, then restart the launcher.
   the first open counts as the first purchase and later purchases add another
   batch of its granted points.
 - **Shared subtrees:** any subtree can be saved to a reusable library and loaded
-  into another node. Loads are independent clones, so each node keeps its own
-  mutual-exclusivity and purchase state; new subtrees can still be created.
+  into another node as a linked shared subtree. Structural edits (nodes,
+  connections, names, grants) propagate to every node using that definition,
+  while points, purchases and mutual exclusivity stay per node. Unlink makes a
+  private copy, and new subtrees can still be created normally.
+- **Editable Lore & Creatures:** Backgrounds, Species, Deities, Objects and
+  Traps & Hazards can be added, edited and removed from the Reference Library.
 - **Return nodes:** every subtree starts with a non-investable node named
   “double click to return to the parent node” (only its name is editable).
   Double-clicking it returns to the node the subtree was entered through, at any

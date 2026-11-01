@@ -17,13 +17,11 @@ import { AbilityReqEditor } from "@/components/skilltree/AbilityReqEditor";
 import { SubtreeNodeEditor } from "@/components/skilltree/SubtreeNodeEditor";
 import { SubtreePreview } from "@/components/skilltree/SubtreePreview";
 import {
-  cloneSubtreeForNode,
   makeReturnNode,
   nextSubtreeId,
-  snapshotSubtree,
 } from "@/lib/subtrees";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, FolderOpen, Plus, Network, Share2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, Plus, Network, Share2, Trash2, Unlink } from "lucide-react";
 
 // A node's subtrees: its own skill trees, each with its own pool and edited
 // in the full subtree editor. The section is a drop target: dropping carried
@@ -34,7 +32,17 @@ import { ChevronDown, ChevronRight, FolderOpen, Plus, Network, Share2, Trash2 } 
 // editors (cost, ability gates, proficiencies, bonus dice, actions,
 // resources) for quick access without leaving this panel.
 export function SubtreesSection({ node, set }) {
-  const { enterSubtreeEditor, carry, dropCarriedOnSubtree, settings, setSettings } = useTree();
+  const {
+    enterSubtreeEditor,
+    carry,
+    dropCarriedOnSubtree,
+    settings,
+    setSettings,
+    updateSubtreeInstance,
+    loadSharedSubtree,
+    unlinkSubtree,
+    saveSharedSubtree,
+  } = useTree();
   const [dropKey, setDropKey] = useState(null);
   const [expanded, setExpanded] = useState(null); // "subtreeIndex:nodeIndex"
   const [shareIndex, setShareIndex] = useState(null);
@@ -70,28 +78,20 @@ export function SubtreesSection({ node, set }) {
   const saveShared = () => {
     const st = subtrees[shareIndex];
     if (!st) return;
-    const snap = snapshotSubtree(st, shareName);
-    if (!snap) return;
-    setSettings((s) => ({
-      ...s,
-      library: {
-        ...(s.library || {}),
-        sharedSubtrees: [...(s.library?.sharedSubtrees || []), snap],
-      },
-    }));
-    toast.success(`Saved "${snap.name}" to the shared subtree library.`);
+    saveSharedSubtree(node.id, shareIndex, shareName || st.name);
+    toast.success(
+      `Saved "${String(shareName || st.name || "Shared subtree").trim()}" to the shared subtree library.`
+    );
     setShareIndex(null);
     setShareName("");
   };
 
   const loadShared = (entry) => {
-    const clone = cloneSubtreeForNode(entry);
-    if (!clone) return;
-    // Per-node settings stay per-node: exclusivity, points and purchase limits
-    // come from the clone, never from a global shared definition.
-    set({ subtrees: [...subtrees, clone] });
+    loadSharedSubtree(node.id, entry);
     setLibraryOpen(false);
-    toast.success(`Loaded "${clone.name}" into this node.`);
+    toast.success(
+      `Loaded "${entry.name || "Shared subtree"}" as a shared subtree.`
+    );
   };
 
   const removeShared = (id) =>
@@ -103,8 +103,7 @@ export function SubtreesSection({ node, set }) {
       },
     }));
 
-  const patch = (i, up) =>
-    set({ subtrees: subtrees.map((st, j) => (j === i ? { ...st, ...up } : st)) });
+  const patch = (i, up) => updateSubtreeInstance(node.id, i, up);
 
   const remove = (i) => set({ subtrees: subtrees.filter((_, j) => j !== i) });
 
@@ -156,6 +155,17 @@ export function SubtreesSection({ node, set }) {
             >
               <Share2 className="h-4 w-4" />
             </Button>
+            {st.sharedId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-1.5"
+                title="Unlink from the shared definition, keeping a local copy"
+                onClick={() => unlinkSubtree(node.id, i)}
+              >
+                <Unlink className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -166,6 +176,12 @@ export function SubtreesSection({ node, set }) {
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+          {st.sharedId && (
+            <p className="text-[10px] text-primary">
+              Shared tree — structural edits update every node using it. Points,
+              purchases and exclusivity stay per node.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-[10px]">Pool name</Label>
@@ -332,8 +348,9 @@ export function SubtreesSection({ node, set }) {
           <DialogHeader>
             <DialogTitle>Save subtree to the shared library</DialogTitle>
             <DialogDescription>
-              The saved copy keeps every node, connection and its own exclusivity setting. Loading
-              it into a node creates an independent clone.
+              Save a reusable template of this subtree. Loading it into other nodes
+              shares the same node structure, while each node keeps its own points,
+              purchases and exclusivity setting.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -359,8 +376,9 @@ export function SubtreesSection({ node, set }) {
           <DialogHeader>
             <DialogTitle>Shared subtree library</DialogTitle>
             <DialogDescription>
-              Load a saved subtree into this node. Each load is cloned, so its points, purchases
-              and mutual-exclusivity settings stay specific to this node.
+              Loading links this node to the shared definition. Structural edits
+              update every node using it; points, purchases and mutual exclusivity
+              stay specific to each node. Use Unlink for a private copy.
             </DialogDescription>
           </DialogHeader>
           {shared.length === 0 ? (

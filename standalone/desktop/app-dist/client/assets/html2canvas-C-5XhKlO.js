@@ -1,0 +1,1 @@
+import{g as e}from"./routes-AHCbbLnZ.js";export default e();

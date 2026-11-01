@@ -4,10 +4,14 @@ import { nodeMaxPoints, tierGate, tierPlan } from "../src/lib/nodeTiers.js";
 import {
   RETURN_NODE_NAME,
   cloneSubtreeForNode,
+  instantiateSharedSubtree,
   makeReturnNode,
   migrateReturnNodes,
+  sharedDefinition,
   snapshotSubtree,
   stripLegacyAutoGrants,
+  syncSharedSubtree,
+  unlinkSharedSubtree,
 } from "../src/lib/subtrees.js";
 import { filterSpells, tableOptions, tableSummary } from "../src/lib/benefits.js";
 
@@ -134,7 +138,7 @@ test("legacy host-copy anchors migrate to return nodes", () => {
   assert.equal(second.nodes[1].id, "plain");
 });
 
-test("shared subtrees clone independently for every host", () => {
+test("cloning a subtree creates an unlinked private copy", () => {
   const source = {
     id: "shared",
     name: "Fighting Styles",
@@ -182,4 +186,65 @@ test("snapshots drop play state but keep the subtree structure", () => {
   assert.equal(snap.exclusive, false);
   assert.equal(snap.nodes[0].__returnNode, true);
   assert.equal(snap.nodes[1].currentPoints, 0);
+});
+
+test("shared subtree edits propagate to every host but keep local state", () => {
+  const definition = sharedDefinition({
+    name: "Fighting Styles",
+    grantedPoints: 3,
+    exclusive: true,
+    nodes: [
+      makeReturnNode(),
+      { id: "n1", name: "Old name", maxPoints: 1, currentPoints: 2 },
+    ],
+    connections: [],
+  });
+  const first = instantiateSharedSubtree(definition, "shared-1");
+  const second = instantiateSharedSubtree(definition, "shared-1");
+  assert.equal(first.nodes[1].currentPoints, 0);
+  assert.notEqual(first.id, second.id);
+
+  // Host-local state: points, purchases and the exclusivity toggle.
+  first.exclusive = false;
+  second.purchases = 3;
+  second.exclusive = true;
+  second.nodes[1].currentPoints = 1;
+
+  // A structural edit on the first host.
+  first.nodes[1].name = "New name";
+  first.grantedPoints = 5;
+  first.nodes.push({ id: "n2", name: "Added", maxPoints: 1 });
+
+  const tree = {
+    nodes: [
+      { id: "host-a", subtrees: [first] },
+      { id: "host-b", subtrees: [second] },
+    ],
+    sharedSubtrees: { "shared-1": definition },
+  };
+  const synced = syncSharedSubtree(tree, "shared-1", first);
+  const a = synced.nodes[0].subtrees[0];
+  const b = synced.nodes[1].subtrees[0];
+
+  assert.equal(a.nodes[1].name, "New name");
+  assert.equal(b.nodes[1].name, "New name");
+  assert.equal(b.grantedPoints, 5);
+  assert.equal(b.nodes[2].name, "Added");
+  // Local state survives the structural sync.
+  assert.equal(b.purchases, 3);
+  assert.equal(b.exclusive, true);
+  assert.equal(b.nodes[1].currentPoints, 1);
+  assert.equal(a.exclusive, false);
+  assert.equal(synced.sharedSubtrees["shared-1"].nodes[1].name, "New name");
+});
+
+test("unlinking a shared subtree keeps a local copy", () => {
+  const instance = instantiateSharedSubtree(
+    { name: "Shared", nodes: [makeReturnNode()], connections: [] },
+    "shared-1"
+  );
+  const local = unlinkSharedSubtree(instance);
+  assert.equal(local.sharedId, undefined);
+  assert.equal(local.id, instance.id);
+  assert.equal(local.nodes.length, 1);
 });

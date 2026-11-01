@@ -35,6 +35,11 @@ import {
   makeReturnNode,
   stripLegacyAutoGrants,
   migrateReturnNodes,
+  sharedDefinition,
+  instantiateSharedSubtree,
+  syncSharedSubtree,
+  unlinkSharedSubtree,
+  SHARED_STRUCTURAL_KEYS,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
 import { nodeMaxPoints } from "@/lib/nodeTiers";
@@ -291,30 +296,52 @@ export function unwrapSubtreeEditing(tree) {
   if (!tree || !Array.isArray(tree.subtreeEditing?.stack) || !tree.subtreeEditing.stack.length)
     return tree;
   const stack = [...tree.subtreeEditing.stack];
-  let nodes = tree.nodes || [];
-  let connections = tree.connections || [];
+  let out = { ...tree, nodes: tree.nodes || [], connections: tree.connections || [] };
   while (stack.length) {
     const frame = stack.pop();
-    const saved = (frame.nodes || []).map((n) =>
-      n.id === frame.hostId
-        ? frame.subtreeIndex != null
-          ? {
-              ...n,
-              subtrees: (n.subtrees || []).map((st, i) =>
-                i === frame.subtreeIndex ? { ...st, nodes, connections } : st
-              ),
-            }
-          : // Saved mid-edit before subtrees were migrated: the old single field.
-            { ...n, subtree: { ...(n.subtree || {}), nodes, connections } }
-        : n
-    );
-    nodes = saved;
-    connections = frame.connections || [];
+    let sharedId = null;
+    let sharedSource = null;
+    const saved = (frame.nodes || []).map((n) => {
+      if (n.id !== frame.hostId) return n;
+      if (frame.subtreeIndex != null) {
+        const subtrees = (n.subtrees || []).map((st, i) => {
+          if (i !== frame.subtreeIndex) return st;
+          const next = {
+            ...st,
+            nodes: out.nodes,
+            connections: out.connections,
+          };
+          if (st.sharedId) {
+            sharedId = st.sharedId;
+            sharedSource = next;
+          }
+          return next;
+        });
+        return { ...n, subtrees };
+      }
+      // Saved mid-edit before subtrees were migrated: the old single field.
+      return {
+        ...n,
+        subtree: { ...(n.subtree || {}), nodes: out.nodes, connections: out.connections },
+      };
+    });
+    out = { ...out, nodes: saved, connections: frame.connections || [] };
+    if (sharedId && sharedSource) {
+      out = syncSharedSubtree(out, sharedId, sharedSource);
+    }
   }
   const tabs = (tree.tabs || []).map((tab) =>
-    tab.id === tree.activeTabId ? { ...tab, nodes, connections } : tab
+    tab.id === tree.activeTabId
+      ? { ...tab, nodes: out.nodes, connections: out.connections }
+      : tab
   );
-  return { ...tree, nodes, connections, tabs, subtreeEditing: null };
+  return {
+    ...out,
+    nodes: out.nodes,
+    connections: out.connections,
+    tabs,
+    subtreeEditing: null,
+  };
 }
 
 // One-time migration: a node's single `subtree` becomes a list of subtrees,
@@ -959,24 +986,31 @@ export function TreeProvider({ children }) {
       if (!t?.subtreeEditing?.stack?.length) return t;
       const stack = [...t.subtreeEditing.stack];
       const frame = stack.pop();
-      const nodes = (frame.nodes || []).map((n) =>
-        n.id === frame.hostId
-          ? {
-              ...n,
-              subtrees: (n.subtrees || []).map((st, i) =>
-                i === (frame.subtreeIndex ?? 0)
-                  ? { ...st, nodes: t.nodes, connections: t.connections }
-                  : st
-              ),
-            }
-          : n
-      );
-      return {
+      let sharedId = null;
+      let sharedSource = null;
+      const nodes = (frame.nodes || []).map((n) => {
+        if (n.id !== frame.hostId) return n;
+        const subtrees = (n.subtrees || []).map((st, i) => {
+          if (i !== (frame.subtreeIndex ?? 0)) return st;
+          const next = { ...st, nodes: t.nodes, connections: t.connections };
+          if (st.sharedId) {
+            sharedId = st.sharedId;
+            sharedSource = next;
+          }
+          return next;
+        });
+        return { ...n, subtrees };
+      });
+      const next = {
         ...t,
         nodes,
         connections: frame.connections || [],
         subtreeEditing: { stack },
       };
+      // Editing a shared subtree updates every other host that uses it.
+      return sharedId && sharedSource
+        ? syncSharedSubtree(next, sharedId, sharedSource)
+        : next;
     });
     setUi((u) => ({
       ...u,
@@ -998,6 +1032,83 @@ export function TreeProvider({ children }) {
           ...st,
           nodes: setSubtreePoint(st.nodes || [], path, points),
         })),
+      };
+    });
+  }, []);
+
+  // Patch one subtree instance. Structural edits on a shared subtree also
+  // update its canonical definition and every other host using it; per-host
+  // settings (exclusive, level, default) and play state stay local.
+  const updateSubtreeInstance = useCallback((hostId, subIndex, patch) => {
+    setTree((t) => {
+      if (!t) return t;
+      const host = (t.nodes || []).find((n) => n.id === hostId);
+      const current = (host?.subtrees || [])[subIndex];
+      if (!current) return t;
+      const nextSt = { ...current, ...patch };
+      const nodes = t.nodes.map((n) =>
+        n.id !== hostId
+          ? n
+          : {
+              ...n,
+              subtrees: (n.subtrees || []).map((st, i) =>
+                i === subIndex ? nextSt : st
+              ),
+            }
+      );
+      const next = { ...t, nodes };
+      const structural = Object.keys(patch).some((key) =>
+        SHARED_STRUCTURAL_KEYS.includes(key)
+      );
+      return current.sharedId && structural
+        ? syncSharedSubtree(next, current.sharedId, nextSt)
+        : next;
+    });
+  }, []);
+
+  // Load a saved library subtree as a shared instance. Re-loading the same
+  // entry reuses the project's canonical definition, so every host stays in
+  // sync while keeping its own purchases and exclusivity toggle.
+  const loadSharedSubtree = useCallback((hostId, entry) => {
+    if (!entry?.id) return;
+    setTree((t) => {
+      if (!t) return t;
+      const host = (t.nodes || []).find((n) => n.id === hostId);
+      if (!host) return t;
+      const definition = t.sharedSubtrees?.[entry.id] || sharedDefinition(entry);
+      const instance = instantiateSharedSubtree(definition, entry.id);
+      return {
+        ...t,
+        nodes: t.nodes.map((n) =>
+          n.id !== hostId
+            ? n
+            : { ...n, subtrees: [...(n.subtrees || []), instance] }
+        ),
+        sharedSubtrees: { ...(t.sharedSubtrees || {}), [entry.id]: definition },
+      };
+    });
+  }, []);
+
+  // Detach one instance from its shared definition; it becomes a local copy.
+  const unlinkSubtree = useCallback((hostId, subIndex) => {
+    setTree((t) => {
+      if (!t) return t;
+      const host = (t.nodes || []).find((n) => n.id === hostId);
+      const current = (host?.subtrees || [])[subIndex];
+      if (!current?.sharedId) return t;
+      const nextSt = unlinkSharedSubtree(current);
+      return {
+        ...t,
+        nodes: t.nodes.map((n) =>
+          n.id !== hostId
+            ? n
+            : {
+                ...n,
+                subtrees: (n.subtrees || []).map((st, i) =>
+                  i === subIndex ? nextSt : st
+                ),
+              }
+        ),
       };
     });
   }, []);
@@ -1187,7 +1298,10 @@ export function TreeProvider({ children }) {
                 : [...(n.subtrees || []), nextSt],
             }
       );
-      return { ...prev, nodes };
+      const next = { ...prev, nodes };
+      return nextSt.sharedId
+        ? syncSharedSubtree(next, nextSt.sharedId, nextSt)
+        : next;
     });
   }, []);
 
@@ -1375,7 +1489,11 @@ export function TreeProvider({ children }) {
               }
         );
       });
-      return { ...prev, nodes, connections };
+      let next = { ...prev, nodes, connections };
+      hostUpdates.forEach(({ nextSt }) => {
+        if (nextSt.sharedId) next = syncSharedSubtree(next, nextSt.sharedId, nextSt);
+      });
+      return next;
     });
   }, []);
 
@@ -1400,6 +1518,71 @@ export function TreeProvider({ children }) {
   devModeRef.current = !!character.devMode;
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+
+  // Save a subtree as a reusable library template and link the source instance
+  // to it, so edits on this node and every other linked host stay in sync.
+  const saveSharedSubtree = useCallback((hostId, subIndex, name) => {
+    const host = (tree?.nodes || []).find((n) => n.id === hostId);
+    const current = (host?.subtrees || [])[subIndex];
+    if (!current) return;
+    const sharedId = nextSubtreeId();
+    const sharedName = String(name || current.name || "Shared subtree").trim();
+    const definition = { ...sharedDefinition(current), name: sharedName };
+    setTree((t) => {
+      if (!t) return t;
+      return {
+        ...t,
+        nodes: t.nodes.map((n) =>
+          n.id !== hostId
+            ? n
+            : {
+                ...n,
+                subtrees: (n.subtrees || []).map((st, i) =>
+                  i === subIndex ? { ...st, sharedId, name: sharedName } : st
+                ),
+              }
+        ),
+        sharedSubtrees: { ...(t.sharedSubtrees || {}), [sharedId]: definition },
+      };
+    });
+    setSettings((s) => ({
+      ...s,
+      library: {
+        ...(s.library || {}),
+        sharedSubtrees: [
+          ...(s.library?.sharedSubtrees || []),
+          { ...definition, id: sharedId, name: sharedName },
+        ],
+      },
+    }));
+  }, [tree, setSettings]);
+
+  // Keep reusable library templates in step with edits made to linked
+  // instances, so loading one later yields the current structure.
+  useEffect(() => {
+    const definitions = tree?.sharedSubtrees;
+    if (!definitions) return;
+    setSettings((s) => {
+      const entries = s.library?.sharedSubtrees || [];
+      let changed = false;
+      const next = entries.map((entry) => {
+        const definition = definitions[entry.id];
+        if (!definition) return entry;
+        const merged = {
+          ...entry,
+          ...definition,
+          id: entry.id,
+          name: definition.name || entry.name,
+        };
+        if (JSON.stringify(merged) === JSON.stringify(entry)) return entry;
+        changed = true;
+        return merged;
+      });
+      return changed
+        ? { ...s, library: { ...s.library, sharedSubtrees: next } }
+        : s;
+    });
+  }, [tree?.sharedSubtrees, setSettings]);
   // Double-click jump from the Character tab: a node id plus a sequence so
   // repeated jumps to the same node still fire. The panel that holds the
   // node centres its camera on it and claims the request.
@@ -1421,6 +1604,7 @@ export function TreeProvider({ children }) {
           name: "New Skill Tree",
           nodes: [],
           connections: [],
+          sharedSubtrees: {},
           tabs: [{ id: "tab-main", name: "Main", nodes: [], connections: [] }],
           activeTabId: "tab-main",
         })
@@ -2602,6 +2786,10 @@ export function TreeProvider({ children }) {
     openSubtreePanel,
     purchaseSubtree,
     setSubtreeNodePoints,
+    updateSubtreeInstance,
+    loadSharedSubtree,
+    unlinkSubtree,
+    saveSharedSubtree,
     carry,
     startCarry,
     endCarry,
