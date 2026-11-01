@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DAt1HdL1.js";
+import { n as Button, r as cn } from "./router-oGDmkdnJ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -50358,6 +50358,7 @@ function ReferenceIndexTab() {
 		let tabTotal = 0;
 		let errors = 0;
 		const total = chosen.length;
+		const pause = Math.max(0, Math.min(5e3, Number(delay) || 0));
 		setBulk({
 			total,
 			done: 0,
@@ -50413,11 +50414,12 @@ function ReferenceIndexTab() {
 					}
 				}));
 				const newTabs = [];
-				results.forEach((r) => {
+				for (const r of results) {
 					done += 1;
 					if (r.error) {
 						errors += 1;
-						return;
+						if (pause) await sleep(pause);
+						continue;
 					}
 					try {
 						authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
@@ -50440,7 +50442,8 @@ function ReferenceIndexTab() {
 					} catch {
 						errors += 1;
 					}
-				});
+					if (pause) await sleep(pause);
+				}
 				if (newTabs.length) {
 					const ids = addImportedTabs(newTabs, { activate: false });
 					importTabIdsRef.current.push(...ids || []);
@@ -50625,6 +50628,21 @@ function ReferenceIndexTab() {
 								disabled: updating,
 								title: "Download the newest 5eTools release from GitHub into this app's data folder",
 								children: updating ? "Downloading…" : "Update from GitHub"
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex items-center gap-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px] text-muted-foreground",
+									children: "Delay ms"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-7 w-14 text-xs",
+									type: "number",
+									min: 0,
+									max: 5e3,
+									value: delay,
+									onChange: (e) => setDelay(Math.max(0, Math.min(5e3, Number(e.target.value) || 0))),
+									title: "Pause between imported entries/files (0–5000 ms)"
+								})]
 							}),
 							/* @__PURE__ */ jsx(Button, {
 								size: "sm",
@@ -50986,7 +51004,7 @@ function ReferenceIndexTab() {
 										children: [
 											/* @__PURE__ */ jsx(Label, {
 												className: "text-[10px] text-muted-foreground",
-												children: "Delay ms"
+												children: "Delay ms/entry"
 											}),
 											/* @__PURE__ */ jsx(Input, {
 												className: "h-7 w-14 text-xs",

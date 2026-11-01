@@ -1055,6 +1055,7 @@ export function ReferenceIndexTab() {
     let tabTotal = 0;
     let errors = 0;
     const total = chosen.length;
+    const pause = Math.max(0, Math.min(5000, Number(delay) || 0));
     setBulk({ total, done: 0, entries: 0, tabs: 0, errors: 0, current: "" });
     try {
       const batchSize = 8;
@@ -1091,11 +1092,12 @@ export function ReferenceIndexTab() {
           })
         );
         const newTabs = [];
-        results.forEach((r) => {
+        for (const r of results) {
           done += 1;
           if (r.error) {
             errors += 1;
-            return;
+            if (pause) await sleep(pause);
+            continue;
           }
           try {
             authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
@@ -1120,7 +1122,8 @@ export function ReferenceIndexTab() {
           } catch {
             errors += 1;
           }
-        });
+          if (pause) await sleep(pause);
+        }
         if (newTabs.length) {
           const ids = addImportedTabs(newTabs, { activate: false });
           importTabIdsRef.current.push(...(ids || []));
@@ -1337,6 +1340,18 @@ export function ReferenceIndexTab() {
               {updating ? "Downloading…" : "Update from GitHub"}
             </Button>
           )}
+          <div className="flex items-center gap-1">
+            <Label className="text-[10px] text-muted-foreground">Delay ms</Label>
+            <Input
+              className="h-7 w-14 text-xs"
+              type="number"
+              min={0}
+              max={5000}
+              value={delay}
+              onChange={(e) => setDelay(Math.max(0, Math.min(5000, Number(e.target.value) || 0)))}
+              title="Pause between imported entries/files (0–5000 ms)"
+            />
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -1663,7 +1678,7 @@ export function ReferenceIndexTab() {
             </Button>
             <span className="text-[10px] text-muted-foreground">{selected.size} selected</span>
             <div className="ml-auto flex items-center gap-1">
-              <Label className="text-[10px] text-muted-foreground">Delay ms</Label>
+              <Label className="text-[10px] text-muted-foreground">Delay ms/entry</Label>
               <Input
                 className="h-7 w-14 text-xs"
                 type="number"
