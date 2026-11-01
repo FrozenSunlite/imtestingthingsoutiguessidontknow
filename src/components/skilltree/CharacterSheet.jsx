@@ -7,6 +7,7 @@ import {
   aggregateResources,
   profBonusFor,
 } from "@/lib/treeStore";
+import { pointTypesFor } from "@/lib/pointTypes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -50,9 +51,14 @@ export function CharacterSheet({ onExport, fill = false }) {
   const { mergedTree: tree, character, setCharacter, pools, settings } = useTree();
   const levels = settings?.library?.levels || [];
   const [panelWidth] = usePanelWidth();
-  const usage = poolUsage(tree);
-  const eff = effectivePools(pools, character, tree, levels);
-  const granted = grantedPoolBonus(tree, character, levels);
+  const usage = poolUsage(tree, settings?.library?.pointTypes);
+  const eff = effectivePools(pools, character, tree, levels, settings);
+  const granted = grantedPoolBonus(
+    tree,
+    character,
+    levels,
+    settings?.library?.pointTypes
+  );
   const derivedStats = statVars(character, tree);
   const charSheet = derivedSheet(
     character,
@@ -103,9 +109,10 @@ export function CharacterSheet({ onExport, fill = false }) {
   // the previous size, but is blocked while every Heritage Point is spent.
   const toggleSmallRace = (on) => {
     if (!on) {
-      if (usage.heritage >= eff.heritage.total) {
+      const heritageTotal = eff.heritage?.total ?? 0;
+      if ((usage.heritage || 0) >= heritageTotal) {
         toast.error(
-          `You're using all ${eff.heritage.total} Heritage Points — the Small race bonus is one of them. Remove one Heritage point first.`
+          `You're using all ${heritageTotal} Heritage Points — the Small race bonus is one of them. Remove one Heritage point first.`
         );
         return;
       }
@@ -290,47 +297,50 @@ export function CharacterSheet({ onExport, fill = false }) {
         <div>
           <Label className="mb-1.5 block">Point Pools</Label>
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
-              <div className="text-xs font-medium text-amber-700 dark:text-amber-400">Heritage</div>
-              <div className="text-lg font-bold">{usage.heritage} / {eff.heritage.total}</div>
-            </div>
-            <div className="rounded-md border border-sky-300 bg-sky-50 p-2 dark:bg-sky-950/30">
-              <div className="text-xs font-medium text-sky-700 dark:text-sky-400">Talent</div>
-              <div className="text-lg font-bold">{usage.talent} / {eff.talent.total}</div>
-            </div>
-            <div className="rounded-md border border-violet-300 bg-violet-50 p-2 dark:bg-violet-950/30">
-              <div className="text-xs font-medium text-violet-700 dark:text-violet-400">Attribute</div>
-              <div className="text-lg font-bold">{usage.attribute} / {eff.attribute.total}</div>
-            </div>
+            {pointTypesFor(settings).map((pt) => (
+              <div
+                key={pt.id}
+                className="rounded-md border border-border bg-accent/40 p-2"
+              >
+                <div className="text-xs font-medium">{pt.label}</div>
+                <div className="text-lg font-bold">
+                  {usage[pt.id] || 0} / {eff[pt.id]?.total ?? 0}
+                </div>
+              </div>
+            ))}
           </div>
-          {(granted.talent.specific.length > 0 || granted.heritage.specific.length > 0) && (
+          {pointTypesFor(settings).some(
+            (pt) => (granted[pt.id]?.specific || []).length > 0
+          ) && (
             <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-              {granted.talent.specific.map((s, i) => (
-                <div key={"t" + i}>+{s.amount} Talent Points (skill: {s.name})</div>
-              ))}
-              {granted.heritage.specific.map((s, i) => (
-                <div key={"h" + i}>+{s.amount} Heritage Points ({s.name})</div>
-              ))}
-              {granted.attribute.specific.map((s, i) => (
-                <div key={"a" + i}>+{s.amount} Attribute Points ({s.name})</div>
-              ))}
+              {pointTypesFor(settings).flatMap((pt) =>
+                (granted[pt.id]?.specific || []).map((s, i) => (
+                  <div key={`${pt.id}-${i}`}>
+                    +{s.amount} {pt.currency} ({s.name})
+                  </div>
+                ))
+              )}
             </div>
           )}
           <div className="mt-2 space-y-1.5 text-xs">
-            <label className="flex items-center gap-2">
-              <Switch
-                checked={!!character.smallRaceHeritage}
-                onCheckedChange={toggleSmallRace}
-              />
-              Small race: 13th Heritage Point (−5 speed, size drops one step)
-            </label>
-            <label className="flex items-center gap-2">
-              <Switch
-                checked={!!character.bonusTalentFromProf}
-                onCheckedChange={(v) => set({ bonusTalentFromProf: v })}
-              />
-              Talent Points rise with proficiency (+{eff.profBonus} at level {character.level})
-            </label>
+            {eff.heritage && (
+              <label className="flex items-center gap-2">
+                <Switch
+                  checked={!!character.smallRaceHeritage}
+                  onCheckedChange={toggleSmallRace}
+                />
+                Small race: 13th Heritage Point (−5 speed, size drops one step)
+              </label>
+            )}
+            {eff.talent && (
+              <label className="flex items-center gap-2">
+                <Switch
+                  checked={!!character.bonusTalentFromProf}
+                  onCheckedChange={(v) => set({ bonusTalentFromProf: v })}
+                />
+                Talent Points rise with proficiency (+{eff.profBonus} at level {character.level})
+              </label>
+            )}
           </div>
         </div>
 

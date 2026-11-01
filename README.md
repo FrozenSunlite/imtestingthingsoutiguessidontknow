@@ -80,6 +80,11 @@ changing app code, then restart the launcher.
 - **Subtree limits:** each subtree has a repeat-purchase limit (`0` = unlimited);
   the first open counts as the first purchase and later purchases add another
   batch of its granted points.
+- **Node types & point types:** the Reference Library's Character & Progression
+  section lets you add Node Types (including standalone ones like Dilettante) and
+  Point Types. Each point type maps a node type to a currency, adds its own pool
+  to the sheet and its own field throughout the Levels tab. Level 0 starting
+  values are configured separately from the per-level defaults.
 - **Shared subtrees:** any subtree can be saved to a reusable library and loaded
   into another node as a linked shared subtree. Structural edits (nodes,
   connections, names, grants) propagate to every node using that definition,

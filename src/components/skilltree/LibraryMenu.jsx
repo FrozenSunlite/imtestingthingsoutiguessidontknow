@@ -49,6 +49,8 @@ import { WeaponPropertiesTab } from "./library/WeaponPropertiesTab";
 import { WeaponMasteriesTab } from "./library/WeaponMasteriesTab";
 import { benefitDragProps } from "@/lib/benefits";
 import { LevelsTab } from "./library/LevelsTab";
+import { PointTypesTab } from "./library/PointTypesTab";
+import { NodeTypesTab } from "./library/NodeTypesTab";
 import { CreatureTypesTab } from "./library/CreatureTypesTab";
 import { SpeedTypesTab, SensesLibraryTab } from "./library/SpeedSensesTabs";
 import { ResourcesTab } from "./library/ResourcesTab";
@@ -71,7 +73,8 @@ const DIE_SIZES = ["d4", "d6", "d8", "d10", "d12", "d20"];
 // Tabs grouped into themed sections instead of one flat list.
 const TAB_GROUPS = [
   ["Character & Progression", [
-    ["levels", "Levels"], ["attributes", "Attributes"], ["skills", "Skills"], ["tools", "Tools"],
+    ["levels", "Levels"], ["pointTypes", "Point Types"], ["nodeTypes", "Node Types"],
+    ["attributes", "Attributes"], ["skills", "Skills"], ["tools", "Tools"],
     ["languages", "Languages"], ["speedTypes", "Speed Types"], ["senses", "Senses"],
     ["resources", "Resources"], ["dieScaling", "Die Scaling"],
   ]],
@@ -732,6 +735,12 @@ export function LibraryMenu({ open, onClose }) {
             </TabsContent>
             <TabsContent value="levels" className="mt-0">
               <LevelsTab />
+            </TabsContent>
+            <TabsContent value="pointTypes" className="mt-0">
+              <PointTypesTab />
+            </TabsContent>
+            <TabsContent value="nodeTypes" className="mt-0">
+              <NodeTypesTab />
             </TabsContent>
             <TabsContent value="attributes" className="mt-0">
               <NameList

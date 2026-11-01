@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTree, poolUsage, effectivePools, statVars, aggregateResources, profBonusFor, carryCapacity, totalCoins } from "@/lib/treeStore";
+import { pointTypesFor } from "@/lib/pointTypes";
 import { groupUnlocked } from "@/lib/unlocked";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "./PanelResizer";
@@ -64,8 +65,8 @@ export function PresentationSheet({ innerRef, onExport }) {
   const [actOpen, setActOpen] = useState(false);
   const [diceOpen, setDiceOpen] = useState(false);
   const levels = settings?.library?.levels || [];
-  const usage = poolUsage(tree);
-  const eff = effectivePools(pools, character, tree, levels);
+  const usage = poolUsage(tree, settings?.library?.pointTypes);
+  const eff = effectivePools(pools, character, tree, levels, settings);
   const stats = statVars(character, tree);
   const aggregated = aggregateResources(tree, character, levels);
   const profBonus = profBonusFor(character.level || 1, levels);
@@ -89,8 +90,15 @@ export function PresentationSheet({ innerRef, onExport }) {
   const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
   // Heritage-purchased nodes first, then Talent-pool nodes grouped by Talent
   // Type (alphabetized), each in acquisition order.
-  const { heritage: heritageNodes, talentGroups, attributes: attributeNodes } =
-    groupUnlocked(unlocked, { includeAutoGranted: !!character.devMode });
+  const {
+    heritage: heritageNodes,
+    talentGroups,
+    attributes: attributeNodes,
+    pointGroups,
+  } = groupUnlocked(unlocked, {
+    includeAutoGranted: !!character.devMode,
+    pointTypes: settings?.library?.pointTypes,
+  });
   const profGroups = [
     ["Skill", (character.proficiencies || {}).skills],
     ["Tool", (character.proficiencies || {}).tools],
@@ -247,15 +255,17 @@ export function PresentationSheet({ innerRef, onExport }) {
         {/* Point pools */}
         <Section title="Point Pools">
           <div className="grid grid-cols-3 gap-2">
-            {[
-              ["Heritage", usage.heritage, eff.heritage.total],
-              ["Talent", usage.talent, eff.talent.total],
-              ["Attribute", usage.attribute, eff.attribute.total],
-            ].map(([label, used, total]) => (
-              <div key={label} className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2">
-                <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{label} Points</div>
+            {pointTypesFor(settings).map((pt) => (
+              <div
+                key={pt.id}
+                className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-2"
+              >
+                <div className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                  {pt.label} Points
+                </div>
                 <div className="text-sm font-bold">
-                  {used} <span className="text-slate-400">/ {total}</span>
+                  {usage[pt.id] || 0}{" "}
+                  <span className="text-slate-400">/ {eff[pt.id]?.total ?? 0}</span>
                 </div>
               </div>
             ))}
@@ -482,6 +492,21 @@ export function PresentationSheet({ innerRef, onExport }) {
                           {n.description || "No description."}
                         </p>
                       </details>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {(pointGroups || []).map((g) => (
+                <div key={g.pool} className="mb-2">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                    {g.label}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-1.5">
+                    {g.nodes.map((n) => (
+                      <span key={n.id} className="rounded-full border border-slate-300 px-2 py-0.5 text-[11px]">
+                        {n.name}
+                        {n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}
+                      </span>
                     ))}
                   </div>
                 </div>

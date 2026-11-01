@@ -1,4 +1,5 @@
 import { useTree, levelGains } from "@/lib/treeStore";
+import { levelZeroPointsFor } from "@/lib/pointTypes";
 import {
   Dialog,
   DialogContent,
@@ -35,12 +36,19 @@ export function LevelUpDialog({ open, onClose }) {
       hitPoints: (Number(character.hitPoints) || 0) + gain,
       hitDiceCount: hdBlank ? nextLevel : (Number(character.hitDiceCount) || 0) + 1,
     });
-    setPools((p) => ({
-      ...p,
-      talent: { ...p.talent, total: (p.talent.total || 0) + g.talentPoints },
-      heritage: { ...p.heritage, total: (p.heritage.total || 0) + g.heritagePoints },
-      attribute: { ...p.attribute, total: (p.attribute?.total ?? 72) + g.attributePoints },
-    }));
+    setPools((p) => {
+      const next = { ...p };
+      const zero = levelZeroPointsFor(settings);
+      Object.entries(g.points || {}).forEach(([id, amount]) => {
+        const base = Number(p[id]?.total);
+        next[id] = {
+          ...(p[id] || {}),
+          total:
+            (Number.isFinite(base) ? base : zero[id] ?? 0) + (Number(amount) || 0),
+        };
+      });
+      return next;
+    });
     onClose();
   };
 

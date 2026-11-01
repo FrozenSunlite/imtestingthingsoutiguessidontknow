@@ -42,6 +42,17 @@ import {
   SHARED_STRUCTURAL_KEYS,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
+import {
+  DEFAULT_NODE_TYPES,
+  DEFAULT_POINT_TYPES,
+  normalizeNodeTypes,
+  normalizePointTypes,
+  pointTypesFor,
+  pointTypeForNodeType,
+  poolForNodeType,
+  pointDefaultsFor,
+  levelZeroPointsFor,
+} from "@/lib/pointTypes";
 import { nodeMaxPoints } from "@/lib/nodeTiers";
 import {
   LEGACY_KEYS,
@@ -167,6 +178,8 @@ export const DEFAULT_LIBRARY = {
   weapons: [],
   weaponUpgrades: [],
   sharedSubtrees: [],
+  nodeTypes: DEFAULT_NODE_TYPES,
+  pointTypes: DEFAULT_POINT_TYPES,
   armor: [],
   currencies: [
     { name: "Copper", key: "copper" },
@@ -244,16 +257,15 @@ export {
 import { normalizeTree } from "@/lib/treeFormat";
 
 // Which point pool a node is spent from: the node's own currency override when
-// set, otherwise what its node type normally spends.
-export function poolForNode(node) {
+// set, otherwise the point type assigned to its node type.
+export function poolForNode(node, pointTypes) {
   const o = node?.poolOverride;
   // Subtree nodes draw from their tree's own pool, never the global ones.
   if (o === "__subtree") return "__subtree";
-  if (o === "talent" || o === "heritage" || o === "attribute") return o;
+  const list = normalizePointTypes(pointTypes);
+  if (o && list.some((pt) => pt.id === o)) return o;
   const t = node?.nodeType || (node?.pointType === "heritage" ? "heritage" : "skill");
-  if (t === "heritage") return "heritage";
-  if (t === "attribute") return "attribute";
-  return "talent";
+  return poolForNodeType(t, list);
 }
 
 // One-time migration: existing nodes gain a nodeType from their point type.
@@ -505,6 +517,8 @@ const DEFAULT_SETTINGS = {
     talentPoints: 1,
     heritagePoints: 0,
     attributePoints: 0,
+    pointDefaults: { talent: 1, heritage: 0, attribute: 0 },
+    levelZeroPoints: { talent: 2, heritage: 12, attribute: 72 },
     talentLimit: 1,
     talentLimitEnabled: true,
     levelZeroTalentPoints: 2,
@@ -558,6 +572,8 @@ function mergeLibrary(lib) {
       : d.weaponMasteries
     ).map((m) => (typeof m === "string" ? { name: m, description: "" } : m)),
     sharedSubtrees: Array.isArray(lib?.sharedSubtrees) ? lib.sharedSubtrees : [],
+    nodeTypes: normalizeNodeTypes(lib?.nodeTypes),
+    pointTypes: normalizePointTypes(lib?.pointTypes),
     weaponCategories: lib?.weaponCategories?.length ? lib.weaponCategories : d.weaponCategories,
     armorTypes: lib?.armorTypes?.length ? lib.armorTypes : d.armorTypes,
     spellSchools: lib?.spellSchools?.length ? lib.spellSchools : d.spellSchools,
@@ -2666,9 +2682,15 @@ export function TreeProvider({ children }) {
       projectStarted: true,
       library: { ...s.library, dungeonDraft: null },
     }));
+    const zero = levelZeroPointsFor(settings);
+    setPools(
+      Object.fromEntries(
+        Object.entries(zero).map(([id, total]) => [id, { total }])
+      )
+    );
     clearDirty();
     enterApp("edit");
-  }, [enterApp, clearDirty, backupProject]);
+  }, [enterApp, clearDirty, backupProject, settings]);
 
   // Load a saved character bundle (tree + character + pools + library).
   const applyLoadedSave = useCallback(
@@ -2687,6 +2709,14 @@ export function TreeProvider({ children }) {
           ...(entry.character.speed === 30 ? { speed: 6 } : {}),
         });
       if (entry.pools) setPools({ ...DEFAULT_POOLS, ...entry.pools });
+      else {
+        const zero = levelZeroPointsFor(settings);
+        setPools(
+          Object.fromEntries(
+            Object.entries(zero).map(([id, total]) => [id, { total }])
+          )
+        );
+      }
       if (entry.library) setSettings((s) => ({ ...s, library: mergeLibrary(entry.library) }));
       if (entry.referenceSources) restoreFiveEToolsSources(entry.referenceSources);
       // Homebuilder plots ride with the save: fold them back into the store.
@@ -2704,7 +2734,7 @@ export function TreeProvider({ children }) {
       clearDirty();
       enterApp(nextMode || "sheet");
     },
-    [enterApp, clearDirty, backupProject]
+    [enterApp, clearDirty, backupProject, settings]
   );
 
   // Edits made from the interface mark the project dirty. Loading, New and the
@@ -3176,13 +3206,12 @@ export function aggregateResources(tree, character, levels = []) {
   }));
 }
 
-// Talent/Heritage Points granted by invested nodes' "grant" resources (scaled).
-export function grantedPoolBonus(tree, character, levels = []) {
-  const out = {
-    talent: { general: 0, specific: [] },
-    heritage: { general: 0, specific: [] },
-    attribute: { general: 0, specific: [] },
-  };
+// Point currencies granted by invested nodes' "grant" resources (scaled).
+export function grantedPoolBonus(tree, character, levels = [], pointTypes = DEFAULT_POINT_TYPES) {
+  const types = normalizePointTypes(pointTypes);
+  const out = Object.fromEntries(
+    types.map((pt) => [pt.id, { general: 0, specific: [] }])
+  );
   const profBonus = profBonusFor(character?.level || 1, levels);
   const vars = { level: character.level || 1, ...statVars(character, tree) };
   const tagCounts = tagCountsFor(tree);
@@ -3193,15 +3222,17 @@ export function grantedPoolBonus(tree, character, levels = []) {
       // Toggleable grants apply only while their effect is switched on.
       if (r.toggle && !(character.activeToggles || []).includes(`${n.id}:${i}`)) return;
       const amt = Number(scaledValue(r, n, vars, profBonus, tagCounts)) || 0;
-      const pool =
-        r.grantPool === "heritage" ? "heritage" : r.grantPool === "attribute" ? "attribute" : "talent";
+      const requested = r.grantPool || "talent";
+      const pool = out[requested]
+        ? requested
+        : pointTypeForNodeType(types, requested).id;
       if ((r.grantVariant || "general") === "general") out[pool].general += amt;
       else out[pool].specific.push({ name: r.grantName || "?", amount: amt });
     });
   });
-  out.talent.specific = out.talent.specific.filter((s) => s.amount !== 0);
-  out.heritage.specific = out.heritage.specific.filter((s) => s.amount !== 0);
-  out.attribute.specific = out.attribute.specific.filter((s) => s.amount !== 0);
+  types.forEach((pt) => {
+    out[pt.id].specific = out[pt.id].specific.filter((s) => s.amount !== 0);
+  });
   return out;
 }
 
@@ -3215,7 +3246,7 @@ export function profBonusFor(level, levels = []) {
 }
 
 // Points gained on reaching a level: the library row's values when set,
-// otherwise the level defaults from settings.levelRules.
+// otherwise the per-level defaults for each configured point type.
 export function levelGains(level, settings) {
   const rules = settings?.levelRules || DEFAULT_SETTINGS.levelRules;
   const entry = (settings?.library?.levels || []).find(
@@ -3223,23 +3254,27 @@ export function levelGains(level, settings) {
   );
   const num = (v) =>
     v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v);
-  const pick = (key) => {
-    const v = num(entry?.[key]);
-    if (v != null) return v;
-    return Math.max(0, Number(rules[key]) || 0);
-  };
+  const defaults = pointDefaultsFor(settings);
+  const points = {};
+  pointTypesFor(settings).forEach((pt) => {
+    const v = num(entry?.points?.[pt.id] ?? entry?.[`${pt.id}Points`]);
+    points[pt.id] = v != null ? v : defaults[pt.id] ?? 0;
+  });
+  const limit = num(entry?.talentLimit);
   return {
-    talentPoints: pick("talentPoints"),
-    heritagePoints: pick("heritagePoints"),
-    attributePoints: pick("attributePoints"),
-    talentLimit: pick("talentLimit"),
+    points,
+    talentLimit: limit != null ? limit : Math.max(0, Number(rules.talentLimit) || 0),
   };
 }
 
-// Starting talent budget at character level 0 (used for fresh characters).
+// Starting point totals at character level 0.
+export function levelZeroPoints(settings) {
+  return levelZeroPointsFor(settings);
+}
+
+// Starting talent budget at character level 0 (legacy helper).
 export function levelZeroTalentPoints(settings) {
-  const rules = settings?.levelRules || DEFAULT_SETTINGS.levelRules;
-  return Math.max(0, Number(rules.levelZeroTalentPoints ?? 2) || 0);
+  return Math.max(0, Number(levelZeroPointsFor(settings).talent) || 0);
 }
 
 // Levels granted by invested nodes (including nodes inside host subtrees).
@@ -3265,7 +3300,7 @@ export function effectiveCharacterLevel(character, tree) {
 
 // Total talents already bought (each talent counts once, however many points
 // are invested). Informative nodes and subtree points are not talent purchases.
-export function talentPurchasesUsed(tree) {
+export function talentPurchasesUsed(tree, pointTypes = DEFAULT_POINT_TYPES) {
   const seen = new Set();
   let count = 0;
   const walk = (nodes, inSubtree = false) => {
@@ -3274,9 +3309,7 @@ export function talentPurchasesUsed(tree) {
       if (inSubtree) continue;
       if ((Number(n.currentPoints) || 0) <= 0) continue;
       if ((n.nodeType || "") === "informative") continue;
-      const pool =
-        n.poolOverride || (n.nodeType === "heritage" ? "heritage" : n.nodeType === "attribute" ? "attribute" : "talent");
-      if (pool !== "talent") continue;
+      if (poolForNode(n, pointTypes) !== "talent") continue;
       const key = `${String(n.name || "").toLowerCase()}|${String(n.source || "")}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -3295,40 +3328,48 @@ export function talentPurchaseLimit(level, settings) {
   return Math.max(0, Math.floor((Number(level) || 0) * limit));
 }
 
-// Effective point pools: base + character-sheet rules + points granted by nodes.
-export function effectivePools(pools, character, tree, levels = []) {
+// Effective point pools: level-0 starting values + character-sheet rules +
+// points granted by nodes, for every configured point type.
+export function effectivePools(pools, character, tree, levels = [], settings = null) {
   const profBonus = profBonusFor(character?.level || 1, levels);
-  let heritage =
-    (pools?.heritage?.total ?? 12) + (character?.smallRaceHeritage ? 1 : 0);
-  let talent =
-    (pools?.talent?.total ?? 8) + (character?.bonusTalentFromProf ? profBonus : 0);
-  let attribute = pools?.attribute?.total ?? 72;
+  const types = pointTypesFor(settings);
+  const zero = levelZeroPointsFor(settings);
+  const out = {};
+  types.forEach((pt) => {
+    const explicit = Number(pools?.[pt.id]?.total);
+    out[pt.id] = {
+      total: Number.isFinite(explicit) ? explicit : zero[pt.id] ?? 0,
+    };
+  });
+  if (out.heritage) out.heritage.total += character?.smallRaceHeritage ? 1 : 0;
+  if (out.talent) {
+    out.talent.total += character?.bonusTalentFromProf ? profBonus : 0;
+  }
   if (tree) {
-    const g = grantedPoolBonus(tree, character);
-    heritage += g.heritage.general;
-    talent += g.talent.general;
-    attribute += g.attribute.general;
-    // Plain resource adds that target a point pool by name (mode add, numeric).
+    const g = grantedPoolBonus(tree, character, levels, types);
+    types.forEach((pt) => {
+      out[pt.id].total += g[pt.id]?.general || 0;
+    });
+    // Plain resource adds that target a point pool by its currency name.
     tree.nodes.forEach((n) => {
       if ((n.currentPoints || 0) <= 0) return;
       (n.resources || []).forEach((r) => {
         if (r.type === "grant" || r.mode === "replace") return;
-        const name = String(r?.name || "").trim();
+        const name = String(r?.name || "").trim().toLowerCase();
         const raw = String(r.uses ?? r.value ?? "").trim();
         const num = parseFloat(raw);
         if (!Number.isFinite(num) || !/^-?\d+(\.\d+)?$/.test(raw)) return;
-        if (name === "Talent Points") talent += num;
-        else if (name === "Heritage Points") heritage += num;
-        else if (name === "Attribute Points") attribute += num;
+        const pt = types.find(
+          (type) =>
+            type.currency.toLowerCase() === name ||
+            `${type.label} points`.toLowerCase() === name
+        );
+        if (pt) out[pt.id].total += num;
       });
     });
   }
-  return {
-    heritage: { total: heritage },
-    talent: { total: talent },
-    attribute: { total: attribute },
-    profBonus,
-  };
+  out.profBonus = profBonus;
+  return out;
 }
 
 // Apply a node's proficiency grants to the sheet; repeats stack via "times".
@@ -3394,12 +3435,14 @@ export function shopDiscount(tree) {
 
 // Compute spent points per pool. Each node has a cost (0 = free) per invested
 // point; the pool comes from its node type unless overridden on the node.
-export function poolUsage(tree) {
-  const usage = { heritage: 0, talent: 0, attribute: 0 };
+export function poolUsage(tree, pointTypes = DEFAULT_POINT_TYPES) {
+  const types = normalizePointTypes(pointTypes);
+  const usage = Object.fromEntries(types.map((pt) => [pt.id, 0]));
   tree?.nodes.forEach((n) => {
     if ((n.currentPoints || 0) > 0) {
-      const pool = poolForNode(n);
-      if (pool) usage[pool] += (n.currentPoints || 0) * Math.max(0, Number(n.cost ?? 1) || 0);
+      const pool = poolForNode(n, types);
+      if (pool && usage[pool] != null)
+        usage[pool] += (n.currentPoints || 0) * Math.max(0, Number(n.cost ?? 1) || 0);
     }
   });
   return usage;

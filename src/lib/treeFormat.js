@@ -114,10 +114,8 @@ export function normalizeTree(data) {
         },
       })),
       cost: Number(s["Skill Cost"] ?? 1),
-      poolOverride: ["talent", "heritage", "attribute"].includes(s["Skill Pool"])
-        ? s["Skill Pool"]
-        : "",
-      nodeType: NODE_TYPE_VALUES.includes(s["Skill Node Type"]) ? s["Skill Node Type"] : "skill",
+      poolOverride: String(s["Skill Pool"] || "").trim(),
+      nodeType: String(s["Skill Node Type"] || "").trim() || "skill",
       attributeStat: s["Skill Attribute"] || "",
       requirementMode: "all",
       requiredPoints: 1,

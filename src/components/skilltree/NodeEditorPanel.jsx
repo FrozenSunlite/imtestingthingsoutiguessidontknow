@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
+import { nodeTypesFor, pointTypesFor, poolForNodeType } from "@/lib/pointTypes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -219,17 +220,19 @@ export function NodeEditorPanel() {
               <Select
                 value={node.nodeType || "skill"}
                 onValueChange={(v) =>
-                  set({ nodeType: v, pointType: v === "heritage" ? "heritage" : "talent" })
+                  set({
+                    nodeType: v,
+                    pointType: poolForNodeType(v, pointTypesFor(settings)),
+                  })
                 }
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="skill">Skill</SelectItem>
-                  <SelectItem value="heritage">Heritage</SelectItem>
-                  <SelectItem value="dilettante">Dilettante</SelectItem>
-                  <SelectItem value="expertise">Expertise</SelectItem>
-                  <SelectItem value="mundane">Mundane (Talent)</SelectItem>
-                  <SelectItem value="attribute">Attribute</SelectItem>
+                  {nodeTypesFor(settings).map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -244,9 +247,11 @@ export function NodeEditorPanel() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">Auto (by node type)</SelectItem>
-                  <SelectItem value="talent">Talent Points</SelectItem>
-                  <SelectItem value="heritage">Heritage Points</SelectItem>
-                  <SelectItem value="attribute">Attribute Points</SelectItem>
+                  {pointTypesFor(settings).map((pt) => (
+                    <SelectItem key={pt.id} value={pt.id}>
+                      {pt.currency}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -264,9 +269,9 @@ export function NodeEditorPanel() {
             </div>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Auto currency: Skill, Dilettante, Expertise and Mundane spend Talent, Heritage spends
-            Heritage, Attribute spends Attribute. An override wins over the type. Mundane nodes
-            additionally require their listed proficiency prerequisites.
+            Auto currency follows the Point Types mapping in the Reference Library.
+            An override wins over the type. Mundane nodes additionally require their
+            listed proficiency prerequisites.
           </p>
           {node.nodeType === "attribute" && (
             <div className="space-y-1">

@@ -10,6 +10,7 @@ import {
   talentPurchasesUsed,
   talentPurchaseLimit,
 } from "@/lib/treeStore";
+import { pointTypesFor } from "@/lib/pointTypes";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
 import { collectNodeBenefits, BENEFIT_CATEGORIES, tableSummary, tableOptions, benefitSpells } from "@/lib/benefits";
 import SkillTestRow from "./SkillTestRow";
@@ -87,8 +88,8 @@ export function CharacterTab() {
     setSubtreeNodePoints,
   } = useTree();
   const levels = settings?.library?.levels || [];
-  const usage = poolUsage(tree);
-  const eff = effectivePools(pools, character, tree, levels);
+  const usage = poolUsage(tree, settings?.library?.pointTypes);
+  const eff = effectivePools(pools, character, tree, levels, settings);
   const stats = statVars(character, tree);
   const aggregated = aggregateResources(tree, character, levels);
   const saveBonus = Number((aggregated.find((e) => e.name === "Saving Throws") || {}).uses) || 0;
@@ -118,7 +119,7 @@ export function CharacterTab() {
   );
   const effectiveLevel = effectiveCharacterLevel(character, tree);
   const talentLimit = talentPurchaseLimit(effectiveLevel, settings);
-  const talentsUsed = talentPurchasesUsed(tree);
+  const talentsUsed = talentPurchasesUsed(tree, settings?.library?.pointTypes);
   const statBenefit = (label) =>
     collectNodeBenefits(tree)
       .filter(
@@ -162,8 +163,16 @@ export function CharacterTab() {
   const sourceNodes = dev
     ? [...(tree?.nodes || []), ...subtreeUnlocked]
     : [...unlocked, ...subtreeUnlocked];
-  const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } =
-    groupUnlocked(sourceNodes, { includeAutoGranted: dev });
+  const {
+    heritage: heritageNodes,
+    talentGroups,
+    attributes: attributeNodes,
+    subtreeGroups,
+    pointGroups,
+  } = groupUnlocked(sourceNodes, {
+    includeAutoGranted: dev,
+    pointTypes: settings?.library?.pointTypes,
+  });
   const benefitGroups = BENEFIT_CATEGORIES.map((cat) => ({
     ...cat,
     items: collectNodeBenefits(tree).filter((b) => b.category === cat.id),
@@ -474,21 +483,21 @@ export function CharacterTab() {
       {/* Point pools */}
       <SectionCard title="Point Pools">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[
-            ["Heritage", usage.heritage, eff.heritage.total],
-            ["Talent", usage.talent, eff.talent.total],
-            ["Attribute", usage.attribute, eff.attribute.total],
-          ].map(([label, used, total]) => (
-            <div key={label} className="rounded-xl border bg-accent/40 p-3">
-              <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="font-semibold">{label} Points</span>
-                <span className="font-mono text-muted-foreground">
-                  {used} / {total}
-                </span>
+          {pointTypesFor(settings).map((pt) => {
+            const used = usage[pt.id] || 0;
+            const total = eff[pt.id]?.total ?? 0;
+            return (
+              <div key={pt.id} className="rounded-xl border bg-accent/40 p-3">
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="font-semibold">{pt.label} Points</span>
+                  <span className="font-mono text-muted-foreground">
+                    {used} / {total}
+                  </span>
+                </div>
+                <Progress value={total ? (used / total) * 100 : 0} className="h-2" />
               </div>
-              <Progress value={total ? (used / total) * 100 : 0} className="h-2" />
-            </div>
-          ))}
+            );
+          })}
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground">
           Talents purchased: {talentsUsed}
@@ -560,7 +569,10 @@ export function CharacterTab() {
           </div>
         </SectionCard>
       )}
-      {(talentGroups.length > 0 || attributeNodes.length > 0 || (subtreeGroups || []).length > 0) && (
+      {(talentGroups.length > 0 ||
+        attributeNodes.length > 0 ||
+        (subtreeGroups || []).length > 0 ||
+        (pointGroups || []).length > 0) && (
         <SectionCard title="Unlocked Talents">
           <div className="space-y-2">
             {dev && (
@@ -583,6 +595,18 @@ export function CharacterTab() {
             ))}
             {(subtreeGroups || []).map((g) => (
               <div key={g.label}>
+                <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {g.label}
+                </div>
+                <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {g.nodes.map((n) => (
+                    <SkillTestRow key={n.id} node={n} onAdjust={testAdjust} onJump={jumpToNode} />
+                  ))}
+                </div>
+              </div>
+            ))}
+            {(pointGroups || []).map((g) => (
+              <div key={g.pool}>
                 <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
                   {g.label}
                 </div>

@@ -1,4 +1,5 @@
 import { useTree } from "@/lib/treeStore";
+import { pointTypesFor } from "@/lib/pointTypes";
 import { resourceCatalog } from "@/lib/resources";
 import { ResourcePicker } from "@/components/skilltree/ResourcePicker";
 import { Input } from "@/components/ui/input";
@@ -126,9 +127,11 @@ export function NodeResourcesSection({ node, set }) {
                   <Select value={res.grantPool || "talent"} onValueChange={(v) => setRes({ grantPool: v })}>
                     <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="talent">Talent Points</SelectItem>
-                      <SelectItem value="heritage">Heritage Points</SelectItem>
-                      <SelectItem value="attribute">Attribute Points</SelectItem>
+                      {pointTypesFor(settings).map((pt) => (
+                        <SelectItem key={pt.id} value={pt.id}>
+                          {pt.currency}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { useTree, NODE_TYPES, POOL_LABELS, poolForNode } from "@/lib/treeStore";
+import { useTree, poolForNode } from "@/lib/treeStore";
+import { pointTypesFor, poolLabel } from "@/lib/pointTypes";
 import { isAvailable } from "@/lib/geometry";
 import { ChevronDown, ChevronRight, GripHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,13 @@ const REST_LABEL = { none: "", short: "short rest", long: "long rest" };
 // locked children are left out of the card too. Shared by the floating pinned
 // cards and the Values-mode collection at the bottom of the canvas.
 export function NodeDetailBody({ node, nodesById, blind = false }) {
+  const { settings } = useTree();
+  const types = pointTypesFor(settings);
   const typeLabel =
-    NODE_TYPES.find((t) => t.value === (node.nodeType || "skill"))?.label || "Skill";
-  const pool = poolForNode(node);
+    (settings?.library?.nodeTypes || []).find(
+      (t) => t.value === (node.nodeType || "skill")
+    )?.label || "Skill";
+  const pool = poolForNode(node, types);
   const children = Object.values(nodesById || {}).filter((n) =>
     (n.dependencies || []).includes(node.id)
   );
@@ -33,7 +38,7 @@ export function NodeDetailBody({ node, nodesById, blind = false }) {
         {typeLabel}
         {node.maxPoints > 1 ? ` · ${node.currentPoints || 0}/${node.maxPoints}` : ""}
         {" · "}
-        {POOL_LABELS[pool]} pool
+        {poolLabel(types, pool)} pool
         {Number(node.cost ?? 1) === 0 ? " · free" : ` · ${node.cost ?? 1} pt/point`}
       </div>
 

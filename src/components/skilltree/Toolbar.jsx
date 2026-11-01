@@ -11,6 +11,7 @@ import {
   statVars,
 } from "@/lib/treeStore";
 import { statOr10 } from "@/lib/skills";
+import { pointTypesFor, pointTypeById, levelZeroPointsFor } from "@/lib/pointTypes";
 import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 import {
   Dialog,
@@ -137,24 +138,32 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
         : {}),
       ...(hd !== "" ? { hitDiceCount: hd } : {}),
     });
-    setPools((p) => ({
-      ...p,
-      talent: { ...p.talent, total: Math.max(0, (p.talent.total || 0) - g.talentPoints) },
-      heritage: { ...p.heritage, total: Math.max(0, (p.heritage.total || 0) - g.heritagePoints) },
-      attribute: {
-        ...p.attribute,
-        total: Math.max(0, (p.attribute?.total ?? 72) - g.attributePoints),
-      },
-    }));
+    setPools((p) => {
+      const next = { ...p };
+      const zero = levelZeroPointsFor(settings);
+      Object.entries(g.points || {}).forEach(([id, amount]) => {
+        const base = Number(p[id]?.total);
+        next[id] = {
+          ...(p[id] || {}),
+          total: Math.max(
+            0,
+            (Number.isFinite(base) ? base : zero[id] ?? 0) - (Number(amount) || 0)
+          ),
+        };
+      });
+      return next;
+    });
   };
 
   const gainsLabel = (level, sign) => {
     const g = levelGains(level, settings);
-    const parts = [
-      g.talentPoints ? `${sign}${g.talentPoints} Talent` : null,
-      g.heritagePoints ? `${sign}${g.heritagePoints} Heritage` : null,
-      g.attributePoints ? `${sign}${g.attributePoints} Attribute` : null,
-    ].filter(Boolean);
+    const types = pointTypesFor(settings);
+    const parts = Object.entries(g.points || {})
+      .filter(([, amount]) => amount)
+      .map(([id, amount]) => {
+        const pt = pointTypeById(types, id);
+        return `${sign}${amount} ${pt?.label || id}`;
+      });
     return parts.length ? parts.join(", ") : "no points";
   };
   const upLevel = (Number(character.level) || 1) + 1;
@@ -164,8 +173,8 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 
   // Pool chips count points spent on the main tree and both side-tree panels —
   // the limits are global across every tree.
-  const usage = poolUsage(mergedTree);
-  const eff = effectivePools(pools, character, mergedTree, levels);
+  const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
+  const eff = effectivePools(pools, character, mergedTree, levels, settings);
 
   const onImport = (e) => {
     const file = e.target.files?.[0];
@@ -457,48 +466,30 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
       </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
-          <span className="text-amber-600">Heritage</span>
-          <span className="text-muted-foreground">{usage.heritage}/{eff.heritage.total}</span>
-          <InfoTip label="Maximum Heritage Points (type to override)">
-            <input
-              type="number"
-              value={pools.heritage.total}
-              onChange={(e) =>
-                setPools({ ...pools, heritage: { ...pools.heritage, total: Number(e.target.value) } })
-              }
-              className="w-10 bg-transparent text-center outline-none"
-            />
-          </InfoTip>
-        </div>
-        <div className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
-          <span className="text-violet-600">Attribute</span>
-          <span className="text-muted-foreground">{usage.attribute}/{eff.attribute.total}</span>
-          <InfoTip label="Maximum Attribute Points (type to override)">
-            <input
-              type="number"
-              value={pools.attribute?.total ?? 72}
-              onChange={(e) =>
-                setPools({ ...pools, attribute: { total: Number(e.target.value) } })
-              }
-              className="w-10 bg-transparent text-center outline-none"
-            />
-          </InfoTip>
-        </div>
-        <div className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs">
-          <span className="text-sky-600">Talent</span>
-          <span className="text-muted-foreground">{usage.talent}/{eff.talent.total}</span>
-          <InfoTip label="Maximum Talent Points (type to override)">
-            <input
-              type="number"
-              value={pools.talent.total}
-              onChange={(e) =>
-                setPools({ ...pools, talent: { ...pools.talent, total: Number(e.target.value) } })
-              }
-              className="w-10 bg-transparent text-center outline-none"
-            />
-          </InfoTip>
-        </div>
+        {pointTypesFor(settings).map((pt) => (
+          <div
+            key={pt.id}
+            className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs"
+          >
+            <span className="text-primary">{pt.label}</span>
+            <span className="text-muted-foreground">
+              {usage[pt.id] || 0}/{eff[pt.id]?.total ?? 0}
+            </span>
+            <InfoTip label={`Maximum ${pt.currency} (type to override)`}>
+              <input
+                type="number"
+                value={pools?.[pt.id]?.total ?? eff[pt.id]?.total ?? 0}
+                onChange={(e) =>
+                  setPools({
+                    ...pools,
+                    [pt.id]: { ...(pools[pt.id] || {}), total: Number(e.target.value) },
+                  })
+                }
+                className="w-10 bg-transparent text-center outline-none"
+              />
+            </InfoTip>
+          </div>
+        ))}
 
         {character.devMode && (
           <InfoTip label="Open a floating point-pool window (dev mode)">

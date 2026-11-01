@@ -1,12 +1,17 @@
 import { isExclusiveBlocked } from "@/lib/geometry";
-import { POOL_LABELS, poolForNode } from "@/lib/treeStore";
-
-const poolForNodeType = poolForNode;
+import { poolForNode, useTree } from "@/lib/treeStore";
+import { pointTypesFor, poolLabel } from "@/lib/pointTypes";
 
 // The contents of the node hover card, without the fixed positioning wrapper.
 // Reused by the canvas tooltip and by the subtree previews in Edit Node.
 export function NodeHoverCard({ node, nodesById, extra = null }) {
+  const { settings } = useTree();
   if (!node) return null;
+  const types = pointTypesFor(settings);
+  const typeLabel =
+    (settings?.library?.nodeTypes || []).find(
+      (t) => t.value === (node.nodeType || "skill")
+    )?.label || node.nodeType || node.pointType;
   const exclusiveNames = (node.exclusiveWith || [])
     .map((id) => nodesById?.[id]?.name)
     .filter(Boolean);
@@ -17,9 +22,9 @@ export function NodeHoverCard({ node, nodesById, extra = null }) {
         {(node.currentPoints || 0)}/{node.maxPoints} points ·{" "}
         {node.nodeType === "attribute"
           ? `Attribute (${node.attributeStat || "?"})`
-          : node.nodeType || node.pointType}
+          : typeLabel}
         {" · costs "}
-        {POOL_LABELS[node.poolOverride || poolForNodeType(node)] || "Talent"}
+        {poolLabel(types, node.poolOverride || poolForNode(node, types))}
       </p>
       {(node.requiredProficiencies || []).length > 0 && (
         <p className="mt-1 text-[10px] text-amber-500">

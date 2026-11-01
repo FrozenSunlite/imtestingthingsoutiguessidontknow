@@ -19,7 +19,6 @@ import {
   effectivePools,
   applyNodeProficiencies,
   poolForNode,
-  POOL_LABELS,
   effectiveChoices,
   useView,
   useViewSet,
@@ -28,6 +27,7 @@ import {
   talentPurchaseLimit,
   talentPurchasesUsed,
 } from "@/lib/treeStore";
+import { poolLabel } from "@/lib/pointTypes";
 import { abilityReqStatus } from "@/lib/skills";
 import { comboMatches } from "@/lib/hotkeys";
 import { searchNodes } from "@/lib/treeSearch";
@@ -1094,11 +1094,11 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       }
       if (
         cur === 0 &&
-        poolForNode(n) === "talent" &&
+        poolForNode(n, settings?.library?.pointTypes) === "talent" &&
         (n.nodeType || "") !== "informative"
       ) {
         const limit = talentPurchaseLimit(level, settings);
-        const used = talentPurchasesUsed(mergedTree);
+        const used = talentPurchasesUsed(mergedTree, settings?.library?.pointTypes);
         if (Number.isFinite(limit) && used >= limit) {
           toast.error(
             `Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`
@@ -1155,14 +1155,20 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       }
       // Per-node cost: 0 = free, otherwise pool points per invested point.
       // Pool limits are global: side-tree panels share these pools.
-      const usage = poolUsage(mergedTree);
+      const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
       const cost = Math.max(0, Number(n.cost ?? 1) || 0);
-      const poolKey = poolForNode(n);
+      const poolKey = poolForNode(n, settings?.library?.pointTypes);
       if (cost > 0 && poolKey) {
-        const eff = effectivePools(pools, character, mergedTree, settings?.library?.levels);
+        const eff = effectivePools(
+          pools,
+          character,
+          mergedTree,
+          settings?.library?.levels,
+          settings
+        );
         if (usage[poolKey] + cost > eff[poolKey].total) {
           toast.error(
-            `No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`
+            `No ${poolLabel(settings?.library?.pointTypes, poolKey)} Points remaining — raise the limit or refund points.`
           );
           return;
         }

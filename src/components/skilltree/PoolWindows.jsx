@@ -1,4 +1,5 @@
-import { useTree, poolUsage, effectivePools, POOL_LABELS } from "@/lib/treeStore";
+import { useTree, poolUsage, effectivePools } from "@/lib/treeStore";
+import { pointTypesFor, poolLabel } from "@/lib/pointTypes";
 import {
   Select,
   SelectContent,
@@ -14,7 +15,7 @@ const POOL_COLORS = {
   attribute: "bg-violet-500",
 };
 
-function PoolWindow({ win, patch, remove, usage, eff }) {
+function PoolWindow({ win, patch, remove, usage, eff, types }) {
   const pool = win.pool;
   const used = usage[pool] || 0;
   const total = eff[pool]?.total ?? 0;
@@ -46,7 +47,7 @@ function PoolWindow({ win, patch, remove, usage, eff }) {
       >
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="flex-1 truncate text-xs font-medium">
-          {POOL_LABELS[pool]} Points
+          {poolLabel(types, pool)} Points
         </span>
         <button
           className="rounded p-0.5 hover:bg-accent"
@@ -74,9 +75,11 @@ function PoolWindow({ win, patch, remove, usage, eff }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="talent">Talent</SelectItem>
-              <SelectItem value="heritage">Heritage</SelectItem>
-              <SelectItem value="attribute">Attribute</SelectItem>
+              {types.map((pt) => (
+                <SelectItem key={pt.id} value={pt.id}>
+                  {pt.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
@@ -99,18 +102,27 @@ function PoolWindow({ win, patch, remove, usage, eff }) {
 // toolbar. Any number can be open at once, each watching its own currency.
 export function PoolWindows({ wins, setWins }) {
   const { pools, character, mergedTree: tree, settings } = useTree();
-  const usage = poolUsage(tree);
-  const eff = effectivePools(pools, character, tree, settings?.library?.levels);
+  const usage = poolUsage(tree, settings?.library?.pointTypes);
+  const eff = effectivePools(pools, character, tree, settings?.library?.levels, settings);
 
   const patch = (id, p) =>
     setWins((ws) => ws.map((w) => (w.id === id ? { ...w, ...p } : w)));
   const remove = (id) => setWins((ws) => ws.filter((w) => w.id !== id));
 
   if (!wins.length) return null;
+  const types = pointTypesFor(settings);
   return (
     <>
       {wins.map((w) => (
-        <PoolWindow key={w.id} win={w} patch={patch} remove={remove} usage={usage} eff={eff} />
+        <PoolWindow
+          key={w.id}
+          win={w}
+          patch={patch}
+          remove={remove}
+          usage={usage}
+          eff={eff}
+          types={types}
+        />
       ))}
     </>
   );

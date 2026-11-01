@@ -37,11 +37,15 @@ function profLines(character) {
   return out;
 }
 
-function buildText(character, tree, pools, usage, resources, raw, levels) {
-  const eff = effectivePools(pools, character, tree, levels);
-  const { heritage: heritageNodes, talentGroups } = groupUnlocked(
+function buildText(character, tree, pools, usage, resources, raw, levels, settings) {
+  const eff = effectivePools(pools, character, tree, levels, settings);
+  const pointTypes = settings?.library?.pointTypes || [];
+  const { heritage: heritageNodes, talentGroups, pointGroups } = groupUnlocked(
     tree.nodes.filter((n) => (n.currentPoints || 0) > 0),
-    { includeAutoGranted: !!character.devMode }
+    {
+      includeAutoGranted: !!character.devMode,
+      pointTypes: settings?.library?.pointTypes,
+    }
   );
   const L = [];
   if (raw) {
@@ -55,9 +59,9 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
     STATS.forEach((s) => L.push(`${s}=${character.stats[s]}`));
     L.push(`size=${character.size || ""}`);
     L.push(`size_count_as=${character.sizeCountAs || "medium"}`);
-    L.push(`heritage_points=${usage.heritage}/${eff.heritage.total}`);
-    L.push(`talent_points=${usage.talent}/${eff.talent.total}`);
-    L.push(`attribute_points=${usage.attribute}/${eff.attribute.total}`);
+    pointTypes.forEach((pt) => {
+      L.push(`${pt.id}_points=${usage[pt.id] || 0}/${eff[pt.id]?.total ?? 0}`);
+    });
     profLines(character).forEach((l) => L.push(`proficiency:${l}`));
     resources.forEach((r) => L.push(`resource:${r.name}=${r.value}`));
     heritageNodes.forEach((n) => L.push(`heritage:${n.name}=${n.currentPoints}/${n.maxPoints}`));
@@ -73,9 +77,9 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
   L.push(STATS.map((s) => `${s} ${character.stats[s]}`).join("   "));
   L.push("");
   L.push("POINT POOLS");
-  L.push(`Heritage: ${usage.heritage} / ${eff.heritage.total}`);
-  L.push(`Talent:   ${usage.talent} / ${eff.talent.total}`);
-  L.push(`Attribute:${usage.attribute} / ${eff.attribute.total}`);
+  pointTypes.forEach((pt) => {
+    L.push(`${pt.label}: ${usage[pt.id] || 0} / ${eff[pt.id]?.total ?? 0}`);
+  });
   if (character.size) L.push(`Size: ${character.size}`);
   const profs = profLines(character);
   if (profs.length) {
@@ -103,6 +107,12 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
       L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`)
     );
   });
+  (pointGroups || []).forEach((g) => {
+    L.push(`  ${g.label}:`);
+    g.nodes.forEach((n) =>
+      L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`)
+    );
+  });
   return L.join("\n");
 }
 
@@ -114,7 +124,7 @@ export function ExportPanel({ open, onClose }) {
   const refs = [useRef(null), useRef(null), useRef(null), useRef(null)];
   const [busy, setBusy] = useState("");
 
-  const usage = poolUsage(tree);
+  const usage = poolUsage(tree, settings?.library?.pointTypes);
   const resources = aggregateResources(tree, character, settings?.library?.levels || []);
 
   const download = (blob, filename) => {
@@ -236,7 +246,8 @@ export function ExportPanel({ open, onClose }) {
       usage,
       resources,
       raw,
-      settings?.library?.levels || []
+      settings?.library?.levels || [],
+      settings
     );
     download(new Blob([text], { type: "text/plain" }), `${(character.name || "character").replace(/\s+/g, "-")}.${raw ? "txt" : "txt"}`);
   };

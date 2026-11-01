@@ -1,4 +1,5 @@
 import { poolForNode, talentTypesOf } from "@/lib/treeStore";
+import { DEFAULT_POINT_TYPES, poolLabel } from "@/lib/pointTypes";
 
 // Grouping for the View screen's unlocked list: nodes bought with Heritage
 // Points (Heritage Traits) come first; Talent-pool nodes are grouped by their
@@ -57,20 +58,24 @@ export function collectSubtreeUnlocked(tree) {
   return out;
 }
 
-export function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
+export function groupUnlocked(
+  nodes,
+  { includeAutoGranted = false, pointTypes = DEFAULT_POINT_TYPES } = {}
+) {
   // Starter copies inside a subtree represent their host node — listing them
   // would show that talent twice on the sheet. Auto-granted starter nodes are
   // structural and only appear in dev mode.
   const list = (nodes || []).filter(
     (n) => !n.__hostCopy && !n.__returnNode && (includeAutoGranted || !n.__autoGranted)
   );
+  const poolOf = (n) => poolForNode(n, pointTypes);
   const byAcquired = (a, b) =>
     (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
-  const heritage = list.filter((n) => poolForNode(n) === "heritage").sort(byAcquired);
-  const attributes = list.filter((n) => poolForNode(n) === "attribute").sort(byAcquired);
+  const heritage = list.filter((n) => poolOf(n) === "heritage").sort(byAcquired);
+  const attributes = list.filter((n) => poolOf(n) === "attribute").sort(byAcquired);
   const groups = {};
   list.forEach((n) => {
-    if (poolForNode(n) !== "talent" || (n.nodeType || "") === "informative") return;
+    if (poolOf(n) !== "talent" || (n.nodeType || "") === "informative") return;
     const types = talentTypesOf(n);
     if (!types.length) {
       (groups[""] = groups[""] || []).push(n);
@@ -88,11 +93,25 @@ export function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
       return a.localeCompare(b);
     })
     .map(([type, ns]) => ({ type, nodes: ns.sort(byAcquired) }));
+  // Nodes invested in any other configured point type, grouped by currency.
+  const pointGroups = Object.entries(
+    list.reduce((acc, n) => {
+      const pool = poolOf(n);
+      if (!pool || ["talent", "heritage", "attribute", "__subtree"].includes(pool))
+        return acc;
+      (acc[pool] = acc[pool] || []).push(n);
+      return acc;
+    }, {})
+  ).map(([pool, ns]) => ({
+    pool,
+    label: poolLabel(pointTypes, pool),
+    nodes: ns.sort(byAcquired),
+  }));
   // Nodes invested inside a host node's subtree: grouped by that subtree's
   // label (e.g. "Fighting Styles"), each in acquisition order.
   const subtreeGroups = Object.entries(
     list.reduce((acc, n) => {
-      if (poolForNode(n) !== "__subtree") return acc;
+      if (poolOf(n) !== "__subtree") return acc;
       const key = String(n.__subtreeLabel || "Subtree");
       (acc[key] = acc[key] || []).push(n);
       return acc;
@@ -104,5 +123,5 @@ export function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
         (Number(a.nodes[0]?.acquiredOrder) || Infinity) -
         (Number(b.nodes[0]?.acquiredOrder) || Infinity)
     );
-  return { heritage, talentGroups, attributes, subtreeGroups };
+  return { heritage, talentGroups, attributes, subtreeGroups, pointGroups };
 }

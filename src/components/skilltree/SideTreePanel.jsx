@@ -5,7 +5,6 @@ import {
   effectivePools,
   applyNodeProficiencies,
   poolForNode,
-  POOL_LABELS,
   effectiveChoices,
   listCharacterSaves,
   ensureTabs,
@@ -17,6 +16,7 @@ import {
   talentPurchaseLimit,
   talentPurchasesUsed,
 } from "@/lib/treeStore";
+import { pointTypesFor, poolLabel } from "@/lib/pointTypes";
 import { abilityReqStatus } from "@/lib/skills";
 import { tierGate, nodeMaxPoints } from "@/lib/nodeTiers";
 import { isAvailable, isExclusiveBlocked, collectUnlockedNames } from "@/lib/geometry";
@@ -160,8 +160,8 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   const title = isMain ? tree?.name || "Main tree" : st?.name || "Tree";
   const levels = settings?.library?.levels || [];
 
-  const usage = poolUsage(mergedTree);
-  const eff = effectivePools(pools, character, mergedTree, levels);
+  const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
+  const eff = effectivePools(pools, character, mergedTree, levels, settings);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -423,11 +423,11 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
       if (
         !isSub &&
         cur === 0 &&
-        poolForNode(n) === "talent" &&
+        poolForNode(n, settings?.library?.pointTypes) === "talent" &&
         (n.nodeType || "") !== "informative"
       ) {
         const limit = talentPurchaseLimit(level, settings);
-        const used = talentPurchasesUsed(mergedTree);
+        const used = talentPurchasesUsed(mergedTree, settings?.library?.pointTypes);
         if (Number.isFinite(limit) && used >= limit) {
           toast.error(
             `Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`
@@ -515,12 +515,18 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
           }
         }
       } else {
-        const poolKey = poolForNode(n);
+        const poolKey = poolForNode(n, settings?.library?.pointTypes);
         if (cost > 0 && poolKey) {
-          const effPools = effectivePools(pools, character, mergedTree, levels);
+          const effPools = effectivePools(
+            pools,
+            character,
+            mergedTree,
+            levels,
+            settings
+          );
           if (usage[poolKey] + cost > effPools[poolKey].total) {
             toast.error(
-              `No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`
+              `No ${poolLabel(settings?.library?.pointTypes, poolKey)} Points remaining — raise the limit or refund points.`
             );
             return;
           }
@@ -801,18 +807,14 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
           className="flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]"
           title="Shared by every tree — points invested in any panel draw from these pools"
         >
-          <span>
-            <span className="text-amber-600">Heritage</span>{" "}
-            <span className="font-mono">{usage.heritage}/{eff.heritage.total}</span>
-          </span>
-          <span>
-            <span className="text-sky-600">Talent</span>{" "}
-            <span className="font-mono">{usage.talent}/{eff.talent.total}</span>
-          </span>
-          <span>
-            <span className="text-violet-600">Attribute</span>{" "}
-            <span className="font-mono">{usage.attribute}/{eff.attribute.total}</span>
-          </span>
+          {pointTypesFor(settings).map((pt) => (
+            <span key={pt.id}>
+              <span className="text-primary">{pt.label}</span>{" "}
+              <span className="font-mono">
+                {usage[pt.id] || 0}/{eff[pt.id]?.total ?? 0}
+              </span>
+            </span>
+          ))}
         </div>
       )}
 

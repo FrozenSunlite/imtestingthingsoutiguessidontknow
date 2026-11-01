@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BYjc8OBQ.js";
+import { n as Button, r as cn } from "./router-D-rPiICh.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3295,7 +3295,7 @@ var HARVEST = {
 		"Fire crystal"
 	]
 };
-var slug$1 = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+var slug$2 = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 function makeRoom(category, name, index) {
 	const layout = LAYOUTS[index % LAYOUTS.length];
 	const [min, max] = SIZE_BY_CATEGORY[category] || [9, 20];
@@ -3305,7 +3305,7 @@ function makeRoom(category, name, index) {
 	const loot = category === "Loot" ? ["Rank-appropriate treasure cache"] : [];
 	const environmentEffect = index === 8 ? "Unstable ground: difficult terrain in the marked half of the room." : index === 9 ? "Unnatural gloom: lightly obscured beyond the room's center." : "";
 	return {
-		id: `starter-${slug$1(category)}-${slug$1(name)}`,
+		id: `starter-${slug$2(category)}-${slug$2(name)}`,
 		name,
 		category,
 		minW: min,
@@ -4891,189 +4891,6 @@ function withTiers(node, tiers) {
 	};
 }
 //#endregion
-//#region src/lib/projectStore.js
-var DB_NAME = "talent-tree";
-var DB_VERSION = 1;
-var KV_STORE = "kv";
-var SAVES_STORE = "saves";
-var LEGACY_KEYS = {
-	tree: "skilltree:tree",
-	character: "skilltree:character",
-	settings: "skilltree:settings",
-	saves: "skilltree:characterSaves"
-};
-var dbPromise = null;
-function openDb() {
-	if (dbPromise) return dbPromise;
-	dbPromise = new Promise((resolve, reject) => {
-		if (typeof indexedDB === "undefined") {
-			reject(/* @__PURE__ */ new Error("IndexedDB is unavailable in this browser."));
-			return;
-		}
-		const req = indexedDB.open(DB_NAME, DB_VERSION);
-		req.onupgradeneeded = () => {
-			const db = req.result;
-			if (!db.objectStoreNames.contains(KV_STORE)) db.createObjectStore(KV_STORE);
-			if (!db.objectStoreNames.contains(SAVES_STORE)) db.createObjectStore(SAVES_STORE, { keyPath: "id" });
-		};
-		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error || /* @__PURE__ */ new Error("Could not open the project database."));
-		req.onblocked = () => reject(/* @__PURE__ */ new Error("The project database is open in another tab — close it and try again."));
-	});
-	return dbPromise;
-}
-function settled(tx) {
-	return new Promise((resolve, reject) => {
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error || /* @__PURE__ */ new Error("Project write failed."));
-		tx.onabort = () => reject(tx.error || /* @__PURE__ */ new Error("Project write was cancelled."));
-	});
-}
-function asked(request) {
-	return new Promise((resolve, reject) => {
-		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error);
-	});
-}
-async function kvGet(key) {
-	return asked((await openDb()).transaction(KV_STORE, "readonly").objectStore(KV_STORE).get(key));
-}
-async function kvPut(key, value) {
-	const tx = (await openDb()).transaction(KV_STORE, "readwrite");
-	tx.objectStore(KV_STORE).put(value, key);
-	await settled(tx);
-	return value;
-}
-async function readProjectValue(key, fallback = null) {
-	try {
-		const value = await kvGet(key);
-		if (value !== void 0) return value;
-	} catch {}
-	try {
-		const raw = localStorage.getItem(key);
-		return raw == null ? fallback : JSON.parse(raw);
-	} catch {
-		return fallback;
-	}
-}
-async function writeProjectValue(key, value) {
-	return kvPut(key, value);
-}
-async function listSaves() {
-	try {
-		const rows = await asked((await openDb()).transaction(SAVES_STORE, "readonly").objectStore(SAVES_STORE).getAll());
-		return (Array.isArray(rows) ? rows : []).sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
-	} catch {
-		try {
-			const legacy = JSON.parse(localStorage.getItem(LEGACY_KEYS.saves) || "[]");
-			return Array.isArray(legacy) ? legacy : [];
-		} catch {
-			return [];
-		}
-	}
-}
-async function putSave(entry) {
-	const tx = (await openDb()).transaction(SAVES_STORE, "readwrite");
-	tx.objectStore(SAVES_STORE).put(entry);
-	await settled(tx);
-	return entry;
-}
-async function removeSave(id) {
-	const tx = (await openDb()).transaction(SAVES_STORE, "readwrite");
-	tx.objectStore(SAVES_STORE).delete(id);
-	await settled(tx);
-}
-async function migrateLegacyStorage() {
-	const moved = [];
-	for (const key of [
-		LEGACY_KEYS.tree,
-		LEGACY_KEYS.character,
-		LEGACY_KEYS.settings
-	]) {
-		let raw = null;
-		try {
-			raw = localStorage.getItem(key);
-		} catch {}
-		if (raw == null) continue;
-		try {
-			await kvPut(key, JSON.parse(raw));
-			localStorage.removeItem(key);
-			moved.push(key);
-		} catch {}
-	}
-	try {
-		const raw = localStorage.getItem(LEGACY_KEYS.saves);
-		if (raw != null) {
-			const rows = JSON.parse(raw);
-			if (Array.isArray(rows)) {
-				for (const row of rows) if (row && row.id) await putSave(row);
-			}
-			localStorage.removeItem(LEGACY_KEYS.saves);
-			moved.push(LEGACY_KEYS.saves);
-		}
-	} catch {}
-	return moved;
-}
-//#endregion
-//#region src/lib/projectFiles.js
-async function saveProjectToDisk(payload, { name = "", manual = false } = {}) {
-	if (!payload) return null;
-	const safeName = String(name || payload.name || "Terrific Talent Tree Project");
-	try {
-		const res = await fetch(`/api/project/save?name=${encodeURIComponent(safeName)}&mode=${manual ? "manual" : "auto"}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload)
-		});
-		if (!res.ok) return null;
-		return await res.json();
-	} catch {
-		return null;
-	}
-}
-async function listProjectFiles() {
-	try {
-		const res = await fetch("/api/project/list");
-		if (!res.ok) return [];
-		const data = await res.json();
-		return Array.isArray(data.projects) ? data.projects : [];
-	} catch {
-		return [];
-	}
-}
-async function listProjectBackups() {
-	try {
-		const res = await fetch("/api/project/backups", { cache: "no-store" });
-		if (!res.ok) return [];
-		const data = await res.json();
-		return Array.isArray(data.projects) ? data.projects : [];
-	} catch {
-		return [];
-	}
-}
-async function loadProjectFile(file, { backup = false } = {}) {
-	if (!file) return null;
-	try {
-		const params = new URLSearchParams({ name: file });
-		if (backup) params.set("backup", "1");
-		const res = await fetch(`/api/project/load?${params.toString()}`);
-		if (!res.ok) return null;
-		return await res.json();
-	} catch {
-		return null;
-	}
-}
-async function deleteProjectFile(file, { backup = false } = {}) {
-	if (!file) return false;
-	try {
-		const params = new URLSearchParams({ name: file });
-		if (backup) params.set("backup", "1");
-		return (await fetch(`/api/project/delete?${params.toString()}`, { method: "POST" })).ok;
-	} catch {
-		return false;
-	}
-}
-//#endregion
 //#region src/lib/treeFormat.js
 var parseList = (value) => Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : String(value || "").split(/[,;]/).map((item) => item.trim()).filter(Boolean);
 var NODE_TYPES = [
@@ -5113,13 +4930,7 @@ var NODE_TYPES = [
 		pool: "talent"
 	}
 ];
-var NODE_TYPE_VALUES = NODE_TYPES.map((t) => t.value);
-var POOL_LABELS = {
-	talent: "Talent",
-	heritage: "Heritage",
-	attribute: "Attribute",
-	__subtree: "Subtree"
-};
+NODE_TYPES.map((t) => t.value);
 function normalizeTree(data) {
 	if (!data || typeof data !== "object") throw new Error("That file is empty or does not contain a skill tree.");
 	const source = data.tree && typeof data.tree === "object" && !data.Skills && !data.skills ? data.tree : data;
@@ -5190,12 +5001,8 @@ function normalizeTree(data) {
 				}
 			})),
 			cost: Number(s["Skill Cost"] ?? 1),
-			poolOverride: [
-				"talent",
-				"heritage",
-				"attribute"
-			].includes(s["Skill Pool"]) ? s["Skill Pool"] : "",
-			nodeType: NODE_TYPE_VALUES.includes(s["Skill Node Type"]) ? s["Skill Node Type"] : "skill",
+			poolOverride: String(s["Skill Pool"] || "").trim(),
+			nodeType: String(s["Skill Node Type"] || "").trim() || "skill",
 			attributeStat: s["Skill Attribute"] || "",
 			requirementMode: "all",
 			requiredPoints: 1,
@@ -5435,6 +5242,320 @@ function denormalizeTree(tree) {
 			showStatsSummary: true
 		}
 	};
+}
+//#endregion
+//#region src/lib/pointTypes.js
+var DEFAULT_NODE_TYPES = NODE_TYPES.map(({ value, label }) => ({
+	value,
+	label
+}));
+var DEFAULT_POINT_TYPES = [
+	{
+		id: "talent",
+		label: "Talent",
+		nodeType: "skill",
+		currency: "Talent Points"
+	},
+	{
+		id: "heritage",
+		label: "Heritage",
+		nodeType: "heritage",
+		currency: "Heritage Points"
+	},
+	{
+		id: "attribute",
+		label: "Attribute",
+		nodeType: "attribute",
+		currency: "Attribute Points"
+	}
+];
+var DEFAULT_ZERO = {
+	talent: 2,
+	heritage: 12,
+	attribute: 72
+};
+var DEFAULT_PER_LEVEL = {
+	talent: 1,
+	heritage: 0,
+	attribute: 0
+};
+var slug$1 = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+function normalizeNodeTypes(list) {
+	const source = Array.isArray(list) && list.length ? list : DEFAULT_NODE_TYPES;
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	source.forEach((entry) => {
+		const raw = typeof entry === "string" ? {
+			value: entry,
+			label: entry
+		} : entry || {};
+		const label = String(raw.label || raw.name || raw.value || "").trim();
+		const value = String(raw.value || raw.id || slug$1(label)).trim();
+		if (!value || seen.has(value)) return;
+		seen.add(value);
+		out.push({
+			value,
+			label: label || value
+		});
+	});
+	return out.length ? out : DEFAULT_NODE_TYPES.map((t) => ({ ...t }));
+}
+function normalizePointTypes(list) {
+	const source = Array.isArray(list) && list.length ? list : DEFAULT_POINT_TYPES;
+	const seen = /* @__PURE__ */ new Set();
+	const out = [];
+	source.forEach((entry, index) => {
+		const raw = entry || {};
+		const label = String(raw.label || raw.name || raw.id || `Type ${index + 1}`).trim();
+		let id = slug$1(raw.id || raw.pool || label);
+		if (!id) id = `type-${index + 1}`;
+		while (seen.has(id)) id = `${id}-${index + 1}`;
+		seen.add(id);
+		out.push({
+			id,
+			label: label || id,
+			nodeType: String(raw.nodeType || raw.type || "skill"),
+			currency: String(raw.currency || `${label || id} Points`)
+		});
+	});
+	return out.length ? out : DEFAULT_POINT_TYPES.map((t) => ({ ...t }));
+}
+function pointTypesFor(settings) {
+	return normalizePointTypes(settings?.library?.pointTypes);
+}
+function nodeTypesFor(settings) {
+	return normalizeNodeTypes(settings?.library?.nodeTypes);
+}
+function pointTypeForNodeType(pointTypes, nodeType) {
+	const list = normalizePointTypes(pointTypes);
+	const type = String(nodeType || "skill");
+	const exact = list.find((pt) => pt.nodeType === type);
+	if (exact) return exact;
+	const legacy = list.find((pt) => pt.id === type);
+	if (legacy) return legacy;
+	return list.find((pt) => pt.id === "talent") || list[0];
+}
+function poolForNodeType(nodeType, pointTypes) {
+	return pointTypeForNodeType(pointTypes, nodeType).id;
+}
+function pointTypeById(pointTypes, id) {
+	return normalizePointTypes(pointTypes).find((pt) => pt.id === id) || null;
+}
+function poolLabel(pointTypes, id) {
+	return pointTypeById(pointTypes, id)?.label || (id === "__subtree" ? "Subtree" : id);
+}
+function legacyPointLevelValue(id) {
+	return DEFAULT_PER_LEVEL[id] ?? 0;
+}
+function legacyPointZeroValue(id) {
+	return DEFAULT_ZERO[id] ?? 0;
+}
+function pointDefaultsFor(settings) {
+	const rules = settings?.levelRules || {};
+	const types = pointTypesFor(settings);
+	const out = {};
+	types.forEach((pt) => {
+		const explicit = rules.pointDefaults?.[pt.id];
+		const legacy = rules[`${pt.id}Points`];
+		const value = explicit ?? legacy ?? legacyPointLevelValue(pt.id);
+		out[pt.id] = Math.max(0, Number(value) || 0);
+	});
+	return out;
+}
+function levelZeroPointsFor(settings) {
+	const rules = settings?.levelRules || {};
+	const types = pointTypesFor(settings);
+	const out = {};
+	types.forEach((pt) => {
+		const explicit = rules.levelZeroPoints?.[pt.id];
+		const legacy = pt.id === "talent" ? rules.levelZeroTalentPoints : rules[`levelZero${pt.id}Points`];
+		const value = explicit ?? legacy ?? legacyPointZeroValue(pt.id);
+		out[pt.id] = Math.max(0, Number(value) || 0);
+	});
+	return out;
+}
+//#endregion
+//#region src/lib/projectStore.js
+var DB_NAME = "talent-tree";
+var DB_VERSION = 1;
+var KV_STORE = "kv";
+var SAVES_STORE = "saves";
+var LEGACY_KEYS = {
+	tree: "skilltree:tree",
+	character: "skilltree:character",
+	settings: "skilltree:settings",
+	saves: "skilltree:characterSaves"
+};
+var dbPromise = null;
+function openDb() {
+	if (dbPromise) return dbPromise;
+	dbPromise = new Promise((resolve, reject) => {
+		if (typeof indexedDB === "undefined") {
+			reject(/* @__PURE__ */ new Error("IndexedDB is unavailable in this browser."));
+			return;
+		}
+		const req = indexedDB.open(DB_NAME, DB_VERSION);
+		req.onupgradeneeded = () => {
+			const db = req.result;
+			if (!db.objectStoreNames.contains(KV_STORE)) db.createObjectStore(KV_STORE);
+			if (!db.objectStoreNames.contains(SAVES_STORE)) db.createObjectStore(SAVES_STORE, { keyPath: "id" });
+		};
+		req.onsuccess = () => resolve(req.result);
+		req.onerror = () => reject(req.error || /* @__PURE__ */ new Error("Could not open the project database."));
+		req.onblocked = () => reject(/* @__PURE__ */ new Error("The project database is open in another tab — close it and try again."));
+	});
+	return dbPromise;
+}
+function settled(tx) {
+	return new Promise((resolve, reject) => {
+		tx.oncomplete = () => resolve();
+		tx.onerror = () => reject(tx.error || /* @__PURE__ */ new Error("Project write failed."));
+		tx.onabort = () => reject(tx.error || /* @__PURE__ */ new Error("Project write was cancelled."));
+	});
+}
+function asked(request) {
+	return new Promise((resolve, reject) => {
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error);
+	});
+}
+async function kvGet(key) {
+	return asked((await openDb()).transaction(KV_STORE, "readonly").objectStore(KV_STORE).get(key));
+}
+async function kvPut(key, value) {
+	const tx = (await openDb()).transaction(KV_STORE, "readwrite");
+	tx.objectStore(KV_STORE).put(value, key);
+	await settled(tx);
+	return value;
+}
+async function readProjectValue(key, fallback = null) {
+	try {
+		const value = await kvGet(key);
+		if (value !== void 0) return value;
+	} catch {}
+	try {
+		const raw = localStorage.getItem(key);
+		return raw == null ? fallback : JSON.parse(raw);
+	} catch {
+		return fallback;
+	}
+}
+async function writeProjectValue(key, value) {
+	return kvPut(key, value);
+}
+async function listSaves() {
+	try {
+		const rows = await asked((await openDb()).transaction(SAVES_STORE, "readonly").objectStore(SAVES_STORE).getAll());
+		return (Array.isArray(rows) ? rows : []).sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
+	} catch {
+		try {
+			const legacy = JSON.parse(localStorage.getItem(LEGACY_KEYS.saves) || "[]");
+			return Array.isArray(legacy) ? legacy : [];
+		} catch {
+			return [];
+		}
+	}
+}
+async function putSave(entry) {
+	const tx = (await openDb()).transaction(SAVES_STORE, "readwrite");
+	tx.objectStore(SAVES_STORE).put(entry);
+	await settled(tx);
+	return entry;
+}
+async function removeSave(id) {
+	const tx = (await openDb()).transaction(SAVES_STORE, "readwrite");
+	tx.objectStore(SAVES_STORE).delete(id);
+	await settled(tx);
+}
+async function migrateLegacyStorage() {
+	const moved = [];
+	for (const key of [
+		LEGACY_KEYS.tree,
+		LEGACY_KEYS.character,
+		LEGACY_KEYS.settings
+	]) {
+		let raw = null;
+		try {
+			raw = localStorage.getItem(key);
+		} catch {}
+		if (raw == null) continue;
+		try {
+			await kvPut(key, JSON.parse(raw));
+			localStorage.removeItem(key);
+			moved.push(key);
+		} catch {}
+	}
+	try {
+		const raw = localStorage.getItem(LEGACY_KEYS.saves);
+		if (raw != null) {
+			const rows = JSON.parse(raw);
+			if (Array.isArray(rows)) {
+				for (const row of rows) if (row && row.id) await putSave(row);
+			}
+			localStorage.removeItem(LEGACY_KEYS.saves);
+			moved.push(LEGACY_KEYS.saves);
+		}
+	} catch {}
+	return moved;
+}
+//#endregion
+//#region src/lib/projectFiles.js
+async function saveProjectToDisk(payload, { name = "", manual = false } = {}) {
+	if (!payload) return null;
+	const safeName = String(name || payload.name || "Terrific Talent Tree Project");
+	try {
+		const res = await fetch(`/api/project/save?name=${encodeURIComponent(safeName)}&mode=${manual ? "manual" : "auto"}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) return null;
+		return await res.json();
+	} catch {
+		return null;
+	}
+}
+async function listProjectFiles() {
+	try {
+		const res = await fetch("/api/project/list");
+		if (!res.ok) return [];
+		const data = await res.json();
+		return Array.isArray(data.projects) ? data.projects : [];
+	} catch {
+		return [];
+	}
+}
+async function listProjectBackups() {
+	try {
+		const res = await fetch("/api/project/backups", { cache: "no-store" });
+		if (!res.ok) return [];
+		const data = await res.json();
+		return Array.isArray(data.projects) ? data.projects : [];
+	} catch {
+		return [];
+	}
+}
+async function loadProjectFile(file, { backup = false } = {}) {
+	if (!file) return null;
+	try {
+		const params = new URLSearchParams({ name: file });
+		if (backup) params.set("backup", "1");
+		const res = await fetch(`/api/project/load?${params.toString()}`);
+		if (!res.ok) return null;
+		return await res.json();
+	} catch {
+		return null;
+	}
+}
+async function deleteProjectFile(file, { backup = false } = {}) {
+	if (!file) return false;
+	try {
+		const params = new URLSearchParams({ name: file });
+		if (backup) params.set("backup", "1");
+		return (await fetch(`/api/project/delete?${params.toString()}`, { method: "POST" })).ok;
+	} catch {
+		return false;
+	}
 }
 var DEFAULT_LIBRARY = {
 	levels: [],
@@ -5858,6 +5979,8 @@ var DEFAULT_LIBRARY = {
 	weapons: [],
 	weaponUpgrades: [],
 	sharedSubtrees: [],
+	nodeTypes: DEFAULT_NODE_TYPES,
+	pointTypes: DEFAULT_POINT_TYPES,
 	armor: [],
 	currencies: [
 		{
@@ -5980,14 +6103,12 @@ var DEFAULT_LIBRARY = {
 	fiveETools: {},
 	fiveEToolsBooks: []
 };
-function poolForNode(node) {
+function poolForNode(node, pointTypes) {
 	const o = node?.poolOverride;
 	if (o === "__subtree") return "__subtree";
-	if (o === "talent" || o === "heritage" || o === "attribute") return o;
-	const t = node?.nodeType || (node?.pointType === "heritage" ? "heritage" : "skill");
-	if (t === "heritage") return "heritage";
-	if (t === "attribute") return "attribute";
-	return "talent";
+	const list = normalizePointTypes(pointTypes);
+	if (o && list.some((pt) => pt.id === o)) return o;
+	return poolForNodeType(node?.nodeType || (node?.pointType === "heritage" ? "heritage" : "skill"), list);
 }
 function migrateNodeTypes(tree) {
 	if (!tree?.nodes) return tree;
@@ -6290,6 +6411,16 @@ var DEFAULT_SETTINGS = {
 		talentPoints: 1,
 		heritagePoints: 0,
 		attributePoints: 0,
+		pointDefaults: {
+			talent: 1,
+			heritage: 0,
+			attribute: 0
+		},
+		levelZeroPoints: {
+			talent: 2,
+			heritage: 12,
+			attribute: 72
+		},
 		talentLimit: 1,
 		talentLimitEnabled: true,
 		levelZeroTalentPoints: 2
@@ -6344,6 +6475,8 @@ function mergeLibrary(lib) {
 			description: ""
 		} : m),
 		sharedSubtrees: Array.isArray(lib?.sharedSubtrees) ? lib.sharedSubtrees : [],
+		nodeTypes: normalizeNodeTypes(lib?.nodeTypes),
+		pointTypes: normalizePointTypes(lib?.pointTypes),
 		weaponCategories: lib?.weaponCategories?.length ? lib.weaponCategories : d.weaponCategories,
 		armorTypes: lib?.armorTypes?.length ? lib.armorTypes : d.armorTypes,
 		spellSchools: lib?.spellSchools?.length ? lib.spellSchools : d.spellSchools,
@@ -8216,12 +8349,15 @@ function TreeProvider({ children }) {
 				dungeonDraft: null
 			}
 		}));
+		const zero = levelZeroPointsFor(settings);
+		setPools(Object.fromEntries(Object.entries(zero).map(([id, total]) => [id, { total }])));
 		clearDirty();
 		enterApp("edit");
 	}, [
 		enterApp,
 		clearDirty,
-		backupProject
+		backupProject,
+		settings
 	]);
 	const applyLoadedSave = useCallback((entry, nextMode) => {
 		if (!entry) return;
@@ -8245,6 +8381,10 @@ function TreeProvider({ children }) {
 			...DEFAULT_POOLS,
 			...entry.pools
 		});
+		else {
+			const zero = levelZeroPointsFor(settings);
+			setPools(Object.fromEntries(Object.entries(zero).map(([id, total]) => [id, { total }])));
+		}
 		if (entry.library) setSettings((s) => ({
 			...s,
 			library: mergeLibrary(entry.library)
@@ -8269,7 +8409,8 @@ function TreeProvider({ children }) {
 	}, [
 		enterApp,
 		clearDirty,
-		backupProject
+		backupProject,
+		settings
 	]);
 	const editCharacter = useCallback((next) => {
 		markDirty();
@@ -8663,21 +8804,12 @@ function aggregateResources(tree, character, levels = []) {
 		value: e.replaced != null ? String(e.replaced) : e.diceParts.length ? e.diceParts.join(" + ") : e.uses !== 0 || !e.text ? String(e.uses) : e.text
 	}));
 }
-function grantedPoolBonus(tree, character, levels = []) {
-	const out = {
-		talent: {
-			general: 0,
-			specific: []
-		},
-		heritage: {
-			general: 0,
-			specific: []
-		},
-		attribute: {
-			general: 0,
-			specific: []
-		}
-	};
+function grantedPoolBonus(tree, character, levels = [], pointTypes = DEFAULT_POINT_TYPES) {
+	const types = normalizePointTypes(pointTypes);
+	const out = Object.fromEntries(types.map((pt) => [pt.id, {
+		general: 0,
+		specific: []
+	}]));
 	const profBonus = profBonusFor(character?.level || 1, levels);
 	const vars = {
 		level: character.level || 1,
@@ -8690,7 +8822,8 @@ function grantedPoolBonus(tree, character, levels = []) {
 			if (r.type !== "grant") return;
 			if (r.toggle && !(character.activeToggles || []).includes(`${n.id}:${i}`)) return;
 			const amt = Number(scaledValue(r, n, vars, profBonus, tagCounts)) || 0;
-			const pool = r.grantPool === "heritage" ? "heritage" : r.grantPool === "attribute" ? "attribute" : "talent";
+			const requested = r.grantPool || "talent";
+			const pool = out[requested] ? requested : pointTypeForNodeType(types, requested).id;
 			if ((r.grantVariant || "general") === "general") out[pool].general += amt;
 			else out[pool].specific.push({
 				name: r.grantName || "?",
@@ -8698,9 +8831,9 @@ function grantedPoolBonus(tree, character, levels = []) {
 			});
 		});
 	});
-	out.talent.specific = out.talent.specific.filter((s) => s.amount !== 0);
-	out.heritage.specific = out.heritage.specific.filter((s) => s.amount !== 0);
-	out.attribute.specific = out.attribute.specific.filter((s) => s.amount !== 0);
+	types.forEach((pt) => {
+		out[pt.id].specific = out[pt.id].specific.filter((s) => s.amount !== 0);
+	});
 	return out;
 }
 function profBonusFor(level, levels = []) {
@@ -8712,16 +8845,16 @@ function levelGains(level, settings) {
 	const rules = settings?.levelRules || DEFAULT_SETTINGS.levelRules;
 	const entry = (settings?.library?.levels || []).find((l) => Number(l.level) === Number(level));
 	const num = (v) => v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v);
-	const pick = (key) => {
-		const v = num(entry?.[key]);
-		if (v != null) return v;
-		return Math.max(0, Number(rules[key]) || 0);
-	};
+	const defaults = pointDefaultsFor(settings);
+	const points = {};
+	pointTypesFor(settings).forEach((pt) => {
+		const v = num(entry?.points?.[pt.id] ?? entry?.[`${pt.id}Points`]);
+		points[pt.id] = v != null ? v : defaults[pt.id] ?? 0;
+	});
+	const limit = num(entry?.talentLimit);
 	return {
-		talentPoints: pick("talentPoints"),
-		heritagePoints: pick("heritagePoints"),
-		attributePoints: pick("attributePoints"),
-		talentLimit: pick("talentLimit")
+		points,
+		talentLimit: limit != null ? limit : Math.max(0, Number(rules.talentLimit) || 0)
 	};
 }
 function grantedLevels(tree) {
@@ -8741,7 +8874,7 @@ function grantedLevels(tree) {
 function effectiveCharacterLevel(character, tree) {
 	return Math.max(0, (Number(character?.level) || 1) + grantedLevels(tree));
 }
-function talentPurchasesUsed(tree) {
+function talentPurchasesUsed(tree, pointTypes = DEFAULT_POINT_TYPES) {
 	const seen = /* @__PURE__ */ new Set();
 	let count = 0;
 	const walk = (nodes, inSubtree = false) => {
@@ -8750,7 +8883,7 @@ function talentPurchasesUsed(tree) {
 			if (inSubtree) continue;
 			if ((Number(n.currentPoints) || 0) <= 0) continue;
 			if ((n.nodeType || "") === "informative") continue;
-			if ((n.poolOverride || (n.nodeType === "heritage" ? "heritage" : n.nodeType === "attribute" ? "attribute" : "talent")) !== "talent") continue;
+			if (poolForNode(n, pointTypes) !== "talent") continue;
 			const key = `${String(n.name || "").toLowerCase()}|${String(n.source || "")}`;
 			if (seen.has(key)) continue;
 			seen.add(key);
@@ -8765,36 +8898,37 @@ function talentPurchaseLimit(level, settings) {
 	const limit = Math.max(0, Number(levelGains(level, settings).talentLimit) || 0);
 	return Math.max(0, Math.floor((Number(level) || 0) * limit));
 }
-function effectivePools(pools, character, tree, levels = []) {
+function effectivePools(pools, character, tree, levels = [], settings = null) {
 	const profBonus = profBonusFor(character?.level || 1, levels);
-	let heritage = (pools?.heritage?.total ?? 12) + (character?.smallRaceHeritage ? 1 : 0);
-	let talent = (pools?.talent?.total ?? 8) + (character?.bonusTalentFromProf ? profBonus : 0);
-	let attribute = pools?.attribute?.total ?? 72;
+	const types = pointTypesFor(settings);
+	const zero = levelZeroPointsFor(settings);
+	const out = {};
+	types.forEach((pt) => {
+		const explicit = Number(pools?.[pt.id]?.total);
+		out[pt.id] = { total: Number.isFinite(explicit) ? explicit : zero[pt.id] ?? 0 };
+	});
+	if (out.heritage) out.heritage.total += character?.smallRaceHeritage ? 1 : 0;
+	if (out.talent) out.talent.total += character?.bonusTalentFromProf ? profBonus : 0;
 	if (tree) {
-		const g = grantedPoolBonus(tree, character);
-		heritage += g.heritage.general;
-		talent += g.talent.general;
-		attribute += g.attribute.general;
+		const g = grantedPoolBonus(tree, character, levels, types);
+		types.forEach((pt) => {
+			out[pt.id].total += g[pt.id]?.general || 0;
+		});
 		tree.nodes.forEach((n) => {
 			if ((n.currentPoints || 0) <= 0) return;
 			(n.resources || []).forEach((r) => {
 				if (r.type === "grant" || r.mode === "replace") return;
-				const name = String(r?.name || "").trim();
+				const name = String(r?.name || "").trim().toLowerCase();
 				const raw = String(r.uses ?? r.value ?? "").trim();
 				const num = parseFloat(raw);
 				if (!Number.isFinite(num) || !/^-?\d+(\.\d+)?$/.test(raw)) return;
-				if (name === "Talent Points") talent += num;
-				else if (name === "Heritage Points") heritage += num;
-				else if (name === "Attribute Points") attribute += num;
+				const pt = types.find((type) => type.currency.toLowerCase() === name || `${type.label} points`.toLowerCase() === name);
+				if (pt) out[pt.id].total += num;
 			});
 		});
 	}
-	return {
-		heritage: { total: heritage },
-		talent: { total: talent },
-		attribute: { total: attribute },
-		profBonus
-	};
+	out.profBonus = profBonus;
+	return out;
 }
 function applyNodeProficiencies(profs, nodeProfs, delta) {
 	const next = {
@@ -8850,16 +8984,13 @@ function shopDiscount(tree) {
 	});
 	return Math.min(100, Math.max(0, disc));
 }
-function poolUsage(tree) {
-	const usage = {
-		heritage: 0,
-		talent: 0,
-		attribute: 0
-	};
+function poolUsage(tree, pointTypes = DEFAULT_POINT_TYPES) {
+	const types = normalizePointTypes(pointTypes);
+	const usage = Object.fromEntries(types.map((pt) => [pt.id, 0]));
 	tree?.nodes.forEach((n) => {
 		if ((n.currentPoints || 0) > 0) {
-			const pool = poolForNode(n);
-			if (pool) usage[pool] += (n.currentPoints || 0) * Math.max(0, Number(n.cost ?? 1) || 0);
+			const pool = poolForNode(n, types);
+			if (pool && usage[pool] != null) usage[pool] += (n.currentPoints || 0) * Math.max(0, Number(n.cost ?? 1) || 0);
 		}
 	});
 	return usage;
@@ -9106,21 +9237,18 @@ function LevelUpDialog({ open, onClose }) {
 			hitPoints: (Number(character.hitPoints) || 0) + gain,
 			hitDiceCount: hdBlank ? nextLevel : (Number(character.hitDiceCount) || 0) + 1
 		});
-		setPools((p) => ({
-			...p,
-			talent: {
-				...p.talent,
-				total: (p.talent.total || 0) + g.talentPoints
-			},
-			heritage: {
-				...p.heritage,
-				total: (p.heritage.total || 0) + g.heritagePoints
-			},
-			attribute: {
-				...p.attribute,
-				total: (p.attribute?.total ?? 72) + g.attributePoints
-			}
-		}));
+		setPools((p) => {
+			const next = { ...p };
+			const zero = levelZeroPointsFor(settings);
+			Object.entries(g.points || {}).forEach(([id, amount]) => {
+				const base = Number(p[id]?.total);
+				next[id] = {
+					...p[id] || {},
+					total: (Number.isFinite(base) ? base : zero[id] ?? 0) + (Number(amount) || 0)
+				};
+			});
+			return next;
+		});
 		onClose();
 	};
 	const roll = () => {
@@ -14610,17 +14738,14 @@ function WeaponMasteriesTab() {
 }
 //#endregion
 //#region src/components/skilltree/library/LevelsTab.jsx
+var legacyKey = (id) => id === "talent" ? "talentPoints" : id === "heritage" ? "heritagePoints" : id === "attribute" ? "attributePoints" : null;
 function LevelsTab() {
 	const { settings, setSettings } = useTree();
 	const levels = settings?.library?.levels || [];
-	const rules = settings?.levelRules || {
-		talentPoints: 1,
-		heritagePoints: 0,
-		attributePoints: 0,
-		talentLimit: 1,
-		levelZeroTalentPoints: 2,
-		talentLimitEnabled: true
-	};
+	const pointTypes = pointTypesFor(settings);
+	const rules = settings?.levelRules || {};
+	const pointDefaults = pointDefaultsFor(settings);
+	const levelZero = levelZeroPointsFor(settings);
 	const setLevels = (next) => setSettings((s) => ({
 		...s,
 		library: {
@@ -14647,6 +14772,38 @@ function LevelsTab() {
 		setLevels(next);
 	};
 	const remove = (i) => setLevels(levels.filter((_, j) => j !== i));
+	const setPointDefault = (id, value) => {
+		const nextDefaults = {
+			...rules.pointDefaults || pointDefaults,
+			[id]: value
+		};
+		const key = legacyKey(id);
+		setRules({
+			pointDefaults: nextDefaults,
+			...key ? { [key]: value } : {}
+		});
+	};
+	const setLevelZero = (id, value) => {
+		const nextZero = {
+			...rules.levelZeroPoints || levelZero,
+			[id]: value
+		};
+		setRules({
+			levelZeroPoints: nextZero,
+			...id === "talent" ? { levelZeroTalentPoints: value } : {}
+		});
+	};
+	const setLevelPoint = (i, id, value) => {
+		const points = {
+			...levels[i].points || {},
+			[id]: value
+		};
+		const key = legacyKey(id);
+		patch(i, {
+			points,
+			...key ? { [key]: value } : {}
+		});
+	};
 	const numField = (label, value, onChange, tip) => /* @__PURE__ */ jsx(InfoTip, {
 		label: tip || label,
 		children: /* @__PURE__ */ jsx(Input, {
@@ -14657,9 +14814,33 @@ function LevelsTab() {
 			onChange
 		})
 	});
+	const columns = `70px repeat(${pointTypes.length + 3}, minmax(0, 1fr)) 28px`;
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-3",
 		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "rounded-md border border-primary/30 bg-primary/5 p-2",
+				children: [
+					/* @__PURE__ */ jsx("p", {
+						className: "mb-1.5 text-xs font-semibold",
+						children: "Level 0 starting values"
+					}),
+					/* @__PURE__ */ jsx("div", {
+						className: "grid grid-cols-3 gap-1.5",
+						children: pointTypes.map((pt) => /* @__PURE__ */ jsxs("div", {
+							className: "space-y-0.5",
+							children: [/* @__PURE__ */ jsx("span", {
+								className: "text-[10px] text-muted-foreground",
+								children: pt.label
+							}), numField(pt.label, levelZero[pt.id], (e) => setLevelZero(pt.id, e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0)), `${pt.currency} a fresh character starts with at level 0`)]
+						}, pt.id))
+					}),
+					/* @__PURE__ */ jsx("p", {
+						className: "mt-1 text-[10px] text-muted-foreground",
+						children: "These are the pools a character begins with. They are separate from the per-level defaults below."
+					})
+				]
+			}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "rounded-md border p-2",
 				children: [
@@ -14667,17 +14848,19 @@ function LevelsTab() {
 						className: "mb-1.5 text-xs font-semibold",
 						children: "Defaults (used when a level isn't listed below)"
 					}),
-					/* @__PURE__ */ jsxs("div", {
+					/* @__PURE__ */ jsx("div", {
 						className: "grid grid-cols-3 gap-1.5",
-						children: [
-							numField("Talent", rules.talentPoints, (e) => setRules({ talentPoints: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) })),
-							numField("Heritage", rules.heritagePoints, (e) => setRules({ heritagePoints: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) })),
-							numField("Attribute", rules.attributePoints, (e) => setRules({ attributePoints: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }))
-						]
+						children: pointTypes.map((pt) => /* @__PURE__ */ jsxs("div", {
+							className: "space-y-0.5",
+							children: [/* @__PURE__ */ jsx("span", {
+								className: "text-[10px] text-muted-foreground",
+								children: pt.label
+							}), numField(pt.label, pointDefaults[pt.id], (e) => setPointDefault(pt.id, e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0)), `${pt.currency} gained per level when a level has no row`)]
+						}, pt.id))
 					}),
-					/* @__PURE__ */ jsxs("div", {
+					/* @__PURE__ */ jsx("div", {
 						className: "mt-1.5 grid grid-cols-2 gap-1.5",
-						children: [numField("Talents/level", rules.talentLimit, (e) => setRules({ talentLimit: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }), "How many talents may be purchased per character level (cumulative: level × this number)"), numField("Level 0 Talent", rules.levelZeroTalentPoints, (e) => setRules({ levelZeroTalentPoints: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }), "Talent Points a fresh character starts with before any level-ups")]
+						children: numField("Talents/level", rules.talentLimit ?? 1, (e) => setRules({ talentLimit: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) }), "How many talents may be purchased per character level (cumulative: level × this number)")
 					}),
 					/* @__PURE__ */ jsxs("label", {
 						className: "mt-2 flex items-center gap-2 text-xs",
@@ -14712,14 +14895,13 @@ function LevelsTab() {
 				className: "text-xs text-muted-foreground",
 				children: "No levels defined yet."
 			}) : /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs("div", {
-				className: "grid grid-cols-[70px_repeat(6,1fr)_28px] items-center gap-1.5 px-2 text-[10px] font-semibold uppercase text-muted-foreground",
+				className: "grid items-center gap-1.5 px-2 text-[10px] font-semibold uppercase text-muted-foreground",
+				style: { gridTemplateColumns: columns },
 				children: [
 					/* @__PURE__ */ jsx("span", { children: "Level" }),
-					/* @__PURE__ */ jsx("span", { children: "Talent" }),
+					pointTypes.map((pt) => /* @__PURE__ */ jsx("span", { children: pt.label }, pt.id)),
 					/* @__PURE__ */ jsx("span", { children: "Prof." }),
 					/* @__PURE__ */ jsx("span", { children: "Hit Dice" }),
-					/* @__PURE__ */ jsx("span", { children: "Heritage" }),
-					/* @__PURE__ */ jsx("span", { children: "Attribute" }),
 					/* @__PURE__ */ jsx("span", { children: "Talents" }),
 					/* @__PURE__ */ jsx("span", {})
 				]
@@ -14727,7 +14909,8 @@ function LevelsTab() {
 				const i = levels.indexOf(l);
 				const setNum = (key) => (e) => patch(i, { [key]: e.target.value === "" ? "" : Math.max(0, Number(e.target.value) || 0) });
 				return /* @__PURE__ */ jsxs("div", {
-					className: "grid grid-cols-[70px_repeat(6,1fr)_28px] items-center gap-1.5 rounded-md border p-2",
+					className: "grid items-center gap-1.5 rounded-md border p-2",
+					style: { gridTemplateColumns: columns },
 					children: [
 						/* @__PURE__ */ jsx(InfoTip, {
 							label: "The level this row applies to.",
@@ -14738,11 +14921,12 @@ function LevelsTab() {
 								onChange: (e) => patch(i, { level: Math.max(0, Number(e.target.value) || 0) })
 							})
 						}),
-						numField("Talent", l.talentPoints, setNum("talentPoints"), "Talent Points at this level"),
+						pointTypes.map((pt) => {
+							const value = l.points?.[pt.id] ?? l[`${pt.id}Points`] ?? "";
+							return /* @__PURE__ */ jsx("div", { children: numField(pt.label, value, (e) => setLevelPoint(i, pt.id, e.target.value === "" ? "" : Math.max(0, Number(e.target.value) || 0)), `${pt.currency} at this level`) }, pt.id);
+						}),
 						numField("Prof.", l.profBonus, setNum("profBonus"), "Proficiency Bonus at this level"),
 						numField("Hit Dice", l.hitDice, setNum("hitDice"), "Hit Dice gained at this level"),
-						numField("Heritage", l.heritagePoints, setNum("heritagePoints"), "Heritage Points at this level"),
-						numField("Attribute", l.attributePoints, setNum("attributePoints"), "Attribute Points at this level"),
 						numField("Talents", l.talentLimit, setNum("talentLimit"), "Talents purchasable per level at this level"),
 						/* @__PURE__ */ jsx(Button, {
 							size: "sm",
@@ -14753,6 +14937,246 @@ function LevelsTab() {
 					]
 				}, i);
 			})] })
+		]
+	});
+}
+//#endregion
+//#region src/components/skilltree/library/PointTypesTab.jsx
+function PointTypesTab() {
+	const { settings, setSettings } = useTree();
+	const pointTypes = pointTypesFor(settings);
+	const nodeTypes = nodeTypesFor(settings);
+	const setPointTypes = (next) => setSettings((s) => ({
+		...s,
+		library: {
+			...s.library,
+			pointTypes: next
+		}
+	}));
+	const patch = (index, update) => setPointTypes(pointTypes.map((pt, i) => i === index ? {
+		...pt,
+		...update
+	} : pt));
+	const add = () => {
+		const used = new Set(pointTypes.map((pt) => pt.id));
+		let n = pointTypes.length + 1;
+		let id = `type-${n}`;
+		while (used.has(id)) {
+			n += 1;
+			id = `type-${n}`;
+		}
+		setPointTypes([...pointTypes, {
+			id,
+			label: `Point Type ${n}`,
+			nodeType: nodeTypes[0]?.value || "skill",
+			currency: `Point Type ${n} Points`
+		}]);
+	};
+	const remove = (index) => {
+		if (pointTypes.length <= 1) return;
+		setPointTypes(pointTypes.filter((_, i) => i !== index));
+	};
+	const usedNodeTypes = pointTypes.map((pt) => pt.nodeType);
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [/* @__PURE__ */ jsxs("div", {
+			className: "flex items-start justify-between gap-2",
+			children: [/* @__PURE__ */ jsx("p", {
+				className: "text-xs text-muted-foreground",
+				children: "Each point type maps a node type to a currency. It adds a pool on the character sheet and a field in the Levels tab. Unmapped node types fall back to the first point type."
+			}), /* @__PURE__ */ jsxs(Button, {
+				size: "sm",
+				variant: "outline",
+				onClick: add,
+				children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add point type"]
+			})]
+		}), /* @__PURE__ */ jsx("div", {
+			className: "space-y-1.5",
+			children: pointTypes.map((pt, index) => {
+				const duplicate = usedNodeTypes.filter((t) => t === pt.nodeType).length > 1;
+				const known = nodeTypes.some((t) => t.value === pt.nodeType);
+				return /* @__PURE__ */ jsxs("div", {
+					className: "rounded-md border p-2",
+					children: [/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-2",
+						children: [
+							/* @__PURE__ */ jsxs("label", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx("span", {
+									className: "text-[10px] font-medium text-muted-foreground",
+									children: "Point Type"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									value: pt.label,
+									placeholder: "e.g. Prestige",
+									onChange: (e) => patch(index, { label: e.target.value })
+								})]
+							}),
+							/* @__PURE__ */ jsxs("label", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx("span", {
+									className: "text-[10px] font-medium text-muted-foreground",
+									children: "Point Currency"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									value: pt.currency,
+									placeholder: "e.g. Prestige Points",
+									onChange: (e) => patch(index, { currency: e.target.value })
+								})]
+							}),
+							/* @__PURE__ */ jsxs("label", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx("span", {
+									className: "text-[10px] font-medium text-muted-foreground",
+									children: "Node Type"
+								}), /* @__PURE__ */ jsxs(Select, {
+									value: pt.nodeType,
+									onValueChange: (v) => patch(index, { nodeType: v }),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-8",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsxs(SelectContent, { children: [nodeTypes.map((type) => /* @__PURE__ */ jsx(SelectItem, {
+										value: type.value,
+										children: type.label
+									}, type.value)), !known && /* @__PURE__ */ jsx(SelectItem, {
+										value: pt.nodeType,
+										children: pt.nodeType
+									})] })]
+								})]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex items-end justify-between gap-2",
+								children: [/* @__PURE__ */ jsx(InfoTip, {
+									label: "Internal pool key used by saved projects.",
+									children: /* @__PURE__ */ jsx("span", {
+										className: "rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground",
+										children: pt.id
+									})
+								}), /* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "ghost",
+									className: "text-destructive",
+									disabled: pointTypes.length <= 1,
+									title: pointTypes.length <= 1 ? "Keep at least one point type" : "Delete this point type",
+									onClick: () => remove(index),
+									children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+								})]
+							})
+						]
+					}), duplicate && /* @__PURE__ */ jsx("p", {
+						className: "mt-1 text-[10px] text-amber-600",
+						children: "Another point type already claims this node type; the first match wins."
+					})]
+				}, pt.id);
+			})
+		})]
+	});
+}
+//#endregion
+//#region src/components/skilltree/library/NodeTypesTab.jsx
+function NodeTypesTab() {
+	const { settings, setSettings, tree } = useTree();
+	const nodeTypes = nodeTypesFor(settings);
+	const pointTypes = settings?.library?.pointTypes || [];
+	const setNodeTypes = (next) => setSettings((s) => ({
+		...s,
+		library: {
+			...s.library,
+			nodeTypes: next
+		}
+	}));
+	const usage = (value) => {
+		let count = 0;
+		const walk = (nodes) => {
+			(nodes || []).forEach((n) => {
+				if ((n.nodeType || "skill") === value) count += 1;
+				(n.subtrees || []).forEach((st) => walk(st.nodes));
+			});
+		};
+		walk(tree?.nodes);
+		return count;
+	};
+	const patch = (index, update) => setNodeTypes(nodeTypes.map((type, i) => i === index ? {
+		...type,
+		...update
+	} : type));
+	const add = () => {
+		const used = new Set(nodeTypes.map((type) => type.value));
+		let n = nodeTypes.length + 1;
+		let value = `type-${n}`;
+		while (used.has(value)) {
+			n += 1;
+			value = `type-${n}`;
+		}
+		setNodeTypes([...nodeTypes, {
+			value,
+			label: `Node Type ${n}`
+		}]);
+	};
+	const remove = (index) => {
+		if (nodeTypes.length <= 1) return;
+		const type = nodeTypes[index];
+		if (usage(type.value) > 0) return;
+		if (pointTypes.some((pt) => pt.nodeType === type.value)) return;
+		setNodeTypes(nodeTypes.filter((_, i) => i !== index));
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-start justify-between gap-2",
+				children: [/* @__PURE__ */ jsx("p", {
+					className: "text-xs text-muted-foreground",
+					children: "Node types appear in the node editor's Node Type menu. Give each one a point type in the Point Types tab; unassigned types use the first point type. The key stays fixed so existing nodes keep working."
+				}), /* @__PURE__ */ jsxs(Button, {
+					size: "sm",
+					variant: "outline",
+					onClick: add,
+					children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add node type"]
+				})]
+			}),
+			/* @__PURE__ */ jsx("div", {
+				className: "space-y-1.5",
+				children: nodeTypes.map((type, index) => {
+					const count = usage(type.value);
+					const claimed = pointTypes.some((pt) => pt.nodeType === type.value);
+					return /* @__PURE__ */ jsxs("div", {
+						className: "flex items-center gap-2 rounded-md border p-2",
+						children: [
+							/* @__PURE__ */ jsx(Input, {
+								className: "h-8 flex-1",
+								value: type.label,
+								placeholder: "Node type name",
+								onChange: (e) => patch(index, { label: e.target.value })
+							}),
+							/* @__PURE__ */ jsx(InfoTip, {
+								label: "Stable key saved on nodes. Not editable so existing nodes keep their type.",
+								children: /* @__PURE__ */ jsx("span", {
+									className: "rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground",
+									children: type.value
+								})
+							}),
+							/* @__PURE__ */ jsxs("span", {
+								className: "w-24 shrink-0 text-[10px] text-muted-foreground",
+								children: [count ? `${count} node${count === 1 ? "" : "s"}` : "unused", claimed ? " · mapped" : ""]
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								className: "text-destructive",
+								disabled: nodeTypes.length <= 1 || count > 0 || claimed,
+								title: nodeTypes.length <= 1 ? "Keep at least one node type" : count > 0 ? "This node type is used by nodes" : claimed ? "A point type still maps this node type" : "Delete this node type",
+								onClick: () => remove(index),
+								children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+							})
+						]
+					}, type.value);
+				})
+			}),
+			nodeTypes.length < 1 && /* @__PURE__ */ jsx("p", {
+				className: "text-xs text-muted-foreground",
+				children: "No node types defined."
+			})
 		]
 	});
 }
@@ -23772,6 +24196,8 @@ var DIE_SIZES = [
 var TAB_GROUPS = [
 	["Character & Progression", [
 		["levels", "Levels"],
+		["pointTypes", "Point Types"],
+		["nodeTypes", "Node Types"],
 		["attributes", "Attributes"],
 		["skills", "Skills"],
 		["tools", "Tools"],
@@ -24714,6 +25140,16 @@ function LibraryMenu({ open, onClose }) {
 									children: /* @__PURE__ */ jsx(LevelsTab, {})
 								}),
 								/* @__PURE__ */ jsx(TabsContent, {
+									value: "pointTypes",
+									className: "mt-0",
+									children: /* @__PURE__ */ jsx(PointTypesTab, {})
+								}),
+								/* @__PURE__ */ jsx(TabsContent, {
+									value: "nodeTypes",
+									className: "mt-0",
+									children: /* @__PURE__ */ jsx(NodeTypesTab, {})
+								}),
+								/* @__PURE__ */ jsx(TabsContent, {
 									value: "attributes",
 									className: "mt-0",
 									children: /* @__PURE__ */ jsx(NameList, {
@@ -25636,37 +26072,33 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 			...character.currentHp != null ? { currentHp: Math.min(Number(character.currentHp) || 0, hp) } : {},
 			...hd !== "" ? { hitDiceCount: hd } : {}
 		});
-		setPools((p) => ({
-			...p,
-			talent: {
-				...p.talent,
-				total: Math.max(0, (p.talent.total || 0) - g.talentPoints)
-			},
-			heritage: {
-				...p.heritage,
-				total: Math.max(0, (p.heritage.total || 0) - g.heritagePoints)
-			},
-			attribute: {
-				...p.attribute,
-				total: Math.max(0, (p.attribute?.total ?? 72) - g.attributePoints)
-			}
-		}));
+		setPools((p) => {
+			const next = { ...p };
+			const zero = levelZeroPointsFor(settings);
+			Object.entries(g.points || {}).forEach(([id, amount]) => {
+				const base = Number(p[id]?.total);
+				next[id] = {
+					...p[id] || {},
+					total: Math.max(0, (Number.isFinite(base) ? base : zero[id] ?? 0) - (Number(amount) || 0))
+				};
+			});
+			return next;
+		});
 	};
 	const gainsLabel = (level, sign) => {
 		const g = levelGains(level, settings);
-		const parts = [
-			g.talentPoints ? `${sign}${g.talentPoints} Talent` : null,
-			g.heritagePoints ? `${sign}${g.heritagePoints} Heritage` : null,
-			g.attributePoints ? `${sign}${g.attributePoints} Attribute` : null
-		].filter(Boolean);
+		const types = pointTypesFor(settings);
+		const parts = Object.entries(g.points || {}).filter(([, amount]) => amount).map(([id, amount]) => {
+			return `${sign}${amount} ${pointTypeById(types, id)?.label || id}`;
+		});
 		return parts.length ? parts.join(", ") : "no points";
 	};
 	const upLevel = (Number(character.level) || 1) + 1;
 	const upTip = `Level ${character.level} → ${upLevel}: ${gainsLabel(upLevel, "+")} · Proficiency Bonus ${profBonusFor(upLevel, levels)}`;
 	const downLevel = Math.max(1, (Number(character.level) || 1) - 1);
 	const downTip = `Level ${character.level} → ${downLevel}: ${gainsLabel(Number(character.level) || 1, "−")} · Proficiency Bonus ${profBonusFor(downLevel, levels)}`;
-	const usage = poolUsage(mergedTree);
-	const eff = effectivePools(pools, character, mergedTree, levels);
+	const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
+	const eff = effectivePools(pools, character, mergedTree, levels, settings);
 	const onImport = (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
@@ -26044,30 +26476,30 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "ml-auto flex flex-wrap items-center gap-2",
 						children: [
-							/* @__PURE__ */ jsxs("div", {
+							pointTypesFor(settings).map((pt) => /* @__PURE__ */ jsxs("div", {
 								className: "flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
 								children: [
 									/* @__PURE__ */ jsx("span", {
-										className: "text-amber-600",
-										children: "Heritage"
+										className: "text-primary",
+										children: pt.label
 									}),
 									/* @__PURE__ */ jsxs("span", {
 										className: "text-muted-foreground",
 										children: [
-											usage.heritage,
+											usage[pt.id] || 0,
 											"/",
-											eff.heritage.total
+											eff[pt.id]?.total ?? 0
 										]
 									}),
 									/* @__PURE__ */ jsx(InfoTip, {
-										label: "Maximum Heritage Points (type to override)",
+										label: `Maximum ${pt.currency} (type to override)`,
 										children: /* @__PURE__ */ jsx("input", {
 											type: "number",
-											value: pools.heritage.total,
+											value: pools?.[pt.id]?.total ?? eff[pt.id]?.total ?? 0,
 											onChange: (e) => setPools({
 												...pools,
-												heritage: {
-													...pools.heritage,
+												[pt.id]: {
+													...pools[pt.id] || {},
 													total: Number(e.target.value)
 												}
 											}),
@@ -26075,68 +26507,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 										})
 									})
 								]
-							}),
-							/* @__PURE__ */ jsxs("div", {
-								className: "flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-								children: [
-									/* @__PURE__ */ jsx("span", {
-										className: "text-violet-600",
-										children: "Attribute"
-									}),
-									/* @__PURE__ */ jsxs("span", {
-										className: "text-muted-foreground",
-										children: [
-											usage.attribute,
-											"/",
-											eff.attribute.total
-										]
-									}),
-									/* @__PURE__ */ jsx(InfoTip, {
-										label: "Maximum Attribute Points (type to override)",
-										children: /* @__PURE__ */ jsx("input", {
-											type: "number",
-											value: pools.attribute?.total ?? 72,
-											onChange: (e) => setPools({
-												...pools,
-												attribute: { total: Number(e.target.value) }
-											}),
-											className: "w-10 bg-transparent text-center outline-none"
-										})
-									})
-								]
-							}),
-							/* @__PURE__ */ jsxs("div", {
-								className: "flex items-center gap-1 rounded-md border px-2 py-1 text-xs",
-								children: [
-									/* @__PURE__ */ jsx("span", {
-										className: "text-sky-600",
-										children: "Talent"
-									}),
-									/* @__PURE__ */ jsxs("span", {
-										className: "text-muted-foreground",
-										children: [
-											usage.talent,
-											"/",
-											eff.talent.total
-										]
-									}),
-									/* @__PURE__ */ jsx(InfoTip, {
-										label: "Maximum Talent Points (type to override)",
-										children: /* @__PURE__ */ jsx("input", {
-											type: "number",
-											value: pools.talent.total,
-											onChange: (e) => setPools({
-												...pools,
-												talent: {
-													...pools.talent,
-													total: Number(e.target.value)
-												}
-											}),
-											className: "w-10 bg-transparent text-center outline-none"
-										})
-									})
-								]
-							}),
+							}, pt.id)),
 							character.devMode && /* @__PURE__ */ jsx(InfoTip, {
 								label: "Open a floating point-pool window (dev mode)",
 								children: /* @__PURE__ */ jsx(Button, {
@@ -26233,9 +26604,11 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 }
 //#endregion
 //#region src/components/skilltree/NodeHoverCard.jsx
-var poolForNodeType = poolForNode;
 function NodeHoverCard({ node, nodesById, extra = null }) {
+	const { settings } = useTree();
 	if (!node) return null;
+	const types = pointTypesFor(settings);
+	const typeLabel = (settings?.library?.nodeTypes || []).find((t) => t.value === (node.nodeType || "skill"))?.label || node.nodeType || node.pointType;
 	const exclusiveNames = (node.exclusiveWith || []).map((id) => nodesById?.[id]?.name).filter(Boolean);
 	return /* @__PURE__ */ jsxs("div", {
 		className: "w-64 rounded-md border bg-popover p-3 text-xs shadow-lg",
@@ -26252,9 +26625,9 @@ function NodeHoverCard({ node, nodesById, extra = null }) {
 					node.maxPoints,
 					" points ·",
 					" ",
-					node.nodeType === "attribute" ? `Attribute (${node.attributeStat || "?"})` : node.nodeType || node.pointType,
+					node.nodeType === "attribute" ? `Attribute (${node.attributeStat || "?"})` : typeLabel,
 					" · costs ",
-					POOL_LABELS[node.poolOverride || poolForNodeType(node)] || "Talent"
+					poolLabel(types, node.poolOverride || poolForNode(node, types))
 				]
 			}),
 			(node.requiredProficiencies || []).length > 0 && /* @__PURE__ */ jsxs("p", {
@@ -28340,9 +28713,9 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				toast.error(gate.reason);
 				return;
 			}
-			if (cur === 0 && poolForNode(n) === "talent" && (n.nodeType || "") !== "informative") {
+			if (cur === 0 && poolForNode(n, settings?.library?.pointTypes) === "talent" && (n.nodeType || "") !== "informative") {
 				const limit = talentPurchaseLimit(level, settings);
-				const used = talentPurchasesUsed(mergedTree);
+				const used = talentPurchasesUsed(mergedTree, settings?.library?.pointTypes);
 				if (Number.isFinite(limit) && used >= limit) {
 					toast.error(`Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`);
 					return;
@@ -28370,13 +28743,13 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 					return;
 				}
 			}
-			const usage = poolUsage(mergedTree);
+			const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
 			const cost = Math.max(0, Number(n.cost ?? 1) || 0);
-			const poolKey = poolForNode(n);
+			const poolKey = poolForNode(n, settings?.library?.pointTypes);
 			if (cost > 0 && poolKey) {
-				const eff = effectivePools(pools, character, mergedTree, settings?.library?.levels);
+				const eff = effectivePools(pools, character, mergedTree, settings?.library?.levels, settings);
 				if (usage[poolKey] + cost > eff[poolKey].total) {
-					toast.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
+					toast.error(`No ${poolLabel(settings?.library?.pointTypes, poolKey)} Points remaining — raise the limit or refund points.`);
 					return;
 				}
 			}
@@ -29441,20 +29814,10 @@ function NodeResourcesSection({ node, set }) {
 										children: [/* @__PURE__ */ jsx(SelectTrigger, {
 											className: "h-8",
 											children: /* @__PURE__ */ jsx(SelectValue, {})
-										}), /* @__PURE__ */ jsxs(SelectContent, { children: [
-											/* @__PURE__ */ jsx(SelectItem, {
-												value: "talent",
-												children: "Talent Points"
-											}),
-											/* @__PURE__ */ jsx(SelectItem, {
-												value: "heritage",
-												children: "Heritage Points"
-											}),
-											/* @__PURE__ */ jsx(SelectItem, {
-												value: "attribute",
-												children: "Attribute Points"
-											})
-										] })]
+										}), /* @__PURE__ */ jsx(SelectContent, { children: pointTypesFor(settings).map((pt) => /* @__PURE__ */ jsx(SelectItem, {
+											value: pt.id,
+											children: pt.currency
+										}, pt.id)) })]
 									})]
 								}),
 								/* @__PURE__ */ jsxs("div", {
@@ -32105,34 +32468,12 @@ function NodeEditorPanel() {
 											value: node.nodeType || "skill",
 											onValueChange: (v) => set({
 												nodeType: v,
-												pointType: v === "heritage" ? "heritage" : "talent"
+												pointType: poolForNodeType(v, pointTypesFor(settings))
 											}),
-											children: [/* @__PURE__ */ jsx(SelectTrigger, { children: /* @__PURE__ */ jsx(SelectValue, {}) }), /* @__PURE__ */ jsxs(SelectContent, { children: [
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "skill",
-													children: "Skill"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "heritage",
-													children: "Heritage"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "dilettante",
-													children: "Dilettante"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "expertise",
-													children: "Expertise"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "mundane",
-													children: "Mundane (Talent)"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "attribute",
-													children: "Attribute"
-												})
-											] })]
+											children: [/* @__PURE__ */ jsx(SelectTrigger, { children: /* @__PURE__ */ jsx(SelectValue, {}) }), /* @__PURE__ */ jsx(SelectContent, { children: nodeTypesFor(settings).map((type) => /* @__PURE__ */ jsx(SelectItem, {
+												value: type.value,
+												children: type.label
+											}, type.value)) })]
 										})]
 									}),
 									/* @__PURE__ */ jsxs("div", {
@@ -32143,24 +32484,13 @@ function NodeEditorPanel() {
 										}), /* @__PURE__ */ jsxs(Select, {
 											value: node.poolOverride || "auto",
 											onValueChange: (v) => set({ poolOverride: v === "auto" ? "" : v }),
-											children: [/* @__PURE__ */ jsx(SelectTrigger, { children: /* @__PURE__ */ jsx(SelectValue, {}) }), /* @__PURE__ */ jsxs(SelectContent, { children: [
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "auto",
-													children: "Auto (by node type)"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "talent",
-													children: "Talent Points"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "heritage",
-													children: "Heritage Points"
-												}),
-												/* @__PURE__ */ jsx(SelectItem, {
-													value: "attribute",
-													children: "Attribute Points"
-												})
-											] })]
+											children: [/* @__PURE__ */ jsx(SelectTrigger, { children: /* @__PURE__ */ jsx(SelectValue, {}) }), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+												value: "auto",
+												children: "Auto (by node type)"
+											}), pointTypesFor(settings).map((pt) => /* @__PURE__ */ jsx(SelectItem, {
+												value: pt.id,
+												children: pt.currency
+											}, pt.id))] })]
 										})]
 									}),
 									/* @__PURE__ */ jsxs("div", {
@@ -32180,7 +32510,7 @@ function NodeEditorPanel() {
 							}),
 							/* @__PURE__ */ jsx("p", {
 								className: "text-[10px] text-muted-foreground",
-								children: "Auto currency: Skill, Dilettante, Expertise and Mundane spend Talent, Heritage spends Heritage, Attribute spends Attribute. An override wins over the type. Mundane nodes additionally require their listed proficiency prerequisites."
+								children: "Auto currency follows the Point Types mapping in the Reference Library. An override wins over the type. Mundane nodes additionally require their listed proficiency prerequisites."
 							}),
 							node.nodeType === "attribute" && /* @__PURE__ */ jsxs("div", {
 								className: "space-y-1",
@@ -33557,14 +33887,15 @@ function collectSubtreeUnlocked(tree) {
 	});
 	return out;
 }
-function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
+function groupUnlocked(nodes, { includeAutoGranted = false, pointTypes = DEFAULT_POINT_TYPES } = {}) {
 	const list = (nodes || []).filter((n) => !n.__hostCopy && !n.__returnNode && (includeAutoGranted || !n.__autoGranted));
+	const poolOf = (n) => poolForNode(n, pointTypes);
 	const byAcquired = (a, b) => (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
-	const heritage = list.filter((n) => poolForNode(n) === "heritage").sort(byAcquired);
-	const attributes = list.filter((n) => poolForNode(n) === "attribute").sort(byAcquired);
+	const heritage = list.filter((n) => poolOf(n) === "heritage").sort(byAcquired);
+	const attributes = list.filter((n) => poolOf(n) === "attribute").sort(byAcquired);
 	const groups = {};
 	list.forEach((n) => {
-		if (poolForNode(n) !== "talent" || (n.nodeType || "") === "informative") return;
+		if (poolOf(n) !== "talent" || (n.nodeType || "") === "informative") return;
 		const types = talentTypesOf(n);
 		if (!types.length) {
 			(groups[""] = groups[""] || []).push(n);
@@ -33574,26 +33905,43 @@ function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
 			(groups[type] = groups[type] || []).push(n);
 		});
 	});
+	const talentGroups = Object.entries(groups).sort(([a], [b]) => {
+		if (!a && b) return 1;
+		if (a && !b) return -1;
+		return a.localeCompare(b);
+	}).map(([type, ns]) => ({
+		type,
+		nodes: ns.sort(byAcquired)
+	}));
+	const pointGroups = Object.entries(list.reduce((acc, n) => {
+		const pool = poolOf(n);
+		if (!pool || [
+			"talent",
+			"heritage",
+			"attribute",
+			"__subtree"
+		].includes(pool)) return acc;
+		(acc[pool] = acc[pool] || []).push(n);
+		return acc;
+	}, {})).map(([pool, ns]) => ({
+		pool,
+		label: poolLabel(pointTypes, pool),
+		nodes: ns.sort(byAcquired)
+	}));
 	return {
 		heritage,
-		talentGroups: Object.entries(groups).sort(([a], [b]) => {
-			if (!a && b) return 1;
-			if (a && !b) return -1;
-			return a.localeCompare(b);
-		}).map(([type, ns]) => ({
-			type,
-			nodes: ns.sort(byAcquired)
-		})),
+		talentGroups,
 		attributes,
 		subtreeGroups: Object.entries(list.reduce((acc, n) => {
-			if (poolForNode(n) !== "__subtree") return acc;
+			if (poolOf(n) !== "__subtree") return acc;
 			const key = String(n.__subtreeLabel || "Subtree");
 			(acc[key] = acc[key] || []).push(n);
 			return acc;
 		}, {})).map(([label, ns]) => ({
 			label,
 			nodes: ns.sort(byAcquired)
-		})).sort((a, b) => (Number(a.nodes[0]?.acquiredOrder) || Infinity) - (Number(b.nodes[0]?.acquiredOrder) || Infinity))
+		})).sort((a, b) => (Number(a.nodes[0]?.acquiredOrder) || Infinity) - (Number(b.nodes[0]?.acquiredOrder) || Infinity)),
+		pointGroups
 	};
 }
 //#endregion
@@ -34953,8 +35301,8 @@ function SectionCard({ title, children }) {
 function CharacterTab() {
 	const { mergedTree: tree, character, setCharacter, pools, settings, investPoint, focusNode, openSubtreePanel, setSubtreeNodePoints } = useTree();
 	const levels = settings?.library?.levels || [];
-	const usage = poolUsage(tree);
-	const eff = effectivePools(pools, character, tree, levels);
+	const usage = poolUsage(tree, settings?.library?.pointTypes);
+	const eff = effectivePools(pools, character, tree, levels, settings);
 	const stats = statVars(character, tree);
 	const aggregated = aggregateResources(tree, character, levels);
 	const saveBonus = Number((aggregated.find((e) => e.name === "Saving Throws") || {}).uses) || 0;
@@ -34972,7 +35320,7 @@ function CharacterTab() {
 	const nodeSaveProfs = new Set((tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0).flatMap((n) => (n.proficiencies || []).filter((p) => p.type === "savingThrow").map((p) => abilityKey(p.name))));
 	const effectiveLevel = effectiveCharacterLevel(character, tree);
 	const talentLimit = talentPurchaseLimit(effectiveLevel, settings);
-	const talentsUsed = talentPurchasesUsed(tree);
+	const talentsUsed = talentPurchasesUsed(tree, settings?.library?.pointTypes);
 	const statBenefit = (label) => collectNodeBenefits(tree).filter((b) => b.category === "stat" && String(b.name || "").trim().toLowerCase() === label.toLowerCase()).reduce((sum, b) => sum + (Number(b.value) || 1), 0);
 	let profBonus = profBonusFor(effectiveLevel, levels) + statBenefit("Proficiency Bonus");
 	const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
@@ -34998,7 +35346,10 @@ function CharacterTab() {
 	const dev = !!character.devMode;
 	const seenIds = new Set(unlocked.map((n) => n.id));
 	const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id));
-	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups } = groupUnlocked(dev ? [...tree?.nodes || [], ...subtreeUnlocked] : [...unlocked, ...subtreeUnlocked], { includeAutoGranted: dev });
+	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups, pointGroups } = groupUnlocked(dev ? [...tree?.nodes || [], ...subtreeUnlocked] : [...unlocked, ...subtreeUnlocked], {
+		includeAutoGranted: dev,
+		pointTypes: settings?.library?.pointTypes
+	});
 	const benefitGroups = BENEFIT_CATEGORIES.map((cat) => ({
 		...cat,
 		items: collectNodeBenefits(tree).filter((b) => b.category === cat.id)
@@ -35282,42 +35633,30 @@ function CharacterTab() {
 				title: "Point Pools",
 				children: [/* @__PURE__ */ jsx("div", {
 					className: "grid grid-cols-1 gap-3 sm:grid-cols-3",
-					children: [
-						[
-							"Heritage",
-							usage.heritage,
-							eff.heritage.total
-						],
-						[
-							"Talent",
-							usage.talent,
-							eff.talent.total
-						],
-						[
-							"Attribute",
-							usage.attribute,
-							eff.attribute.total
-						]
-					].map(([label, used, total]) => /* @__PURE__ */ jsxs("div", {
-						className: "rounded-xl border bg-accent/40 p-3",
-						children: [/* @__PURE__ */ jsxs("div", {
-							className: "mb-1.5 flex items-center justify-between text-xs",
-							children: [/* @__PURE__ */ jsxs("span", {
-								className: "font-semibold",
-								children: [label, " Points"]
-							}), /* @__PURE__ */ jsxs("span", {
-								className: "font-mono text-muted-foreground",
-								children: [
-									used,
-									" / ",
-									total
-								]
+					children: pointTypesFor(settings).map((pt) => {
+						const used = usage[pt.id] || 0;
+						const total = eff[pt.id]?.total ?? 0;
+						return /* @__PURE__ */ jsxs("div", {
+							className: "rounded-xl border bg-accent/40 p-3",
+							children: [/* @__PURE__ */ jsxs("div", {
+								className: "mb-1.5 flex items-center justify-between text-xs",
+								children: [/* @__PURE__ */ jsxs("span", {
+									className: "font-semibold",
+									children: [pt.label, " Points"]
+								}), /* @__PURE__ */ jsxs("span", {
+									className: "font-mono text-muted-foreground",
+									children: [
+										used,
+										" / ",
+										total
+									]
+								})]
+							}), /* @__PURE__ */ jsx(Progress, {
+								value: total ? used / total * 100 : 0,
+								className: "h-2"
 							})]
-						}), /* @__PURE__ */ jsx(Progress, {
-							value: total ? used / total * 100 : 0,
-							className: "h-2"
-						})]
-					}, label))
+						}, pt.id);
+					})
 				}), /* @__PURE__ */ jsxs("p", {
 					className: "mt-2 text-[10px] text-muted-foreground",
 					children: [
@@ -35392,7 +35731,7 @@ function CharacterTab() {
 					}, n.id))
 				})
 			}),
-			(talentGroups.length > 0 || attributeNodes.length > 0 || (subtreeGroups || []).length > 0) && /* @__PURE__ */ jsx(SectionCard, {
+			(talentGroups.length > 0 || attributeNodes.length > 0 || (subtreeGroups || []).length > 0 || (pointGroups || []).length > 0) && /* @__PURE__ */ jsx(SectionCard, {
 				title: "Unlocked Talents",
 				children: /* @__PURE__ */ jsxs("div", {
 					className: "space-y-2",
@@ -35423,6 +35762,17 @@ function CharacterTab() {
 								onJump: jumpToNode
 							}, n.id))
 						})] }, g.label)),
+						(pointGroups || []).map((g) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
+							className: "mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground",
+							children: g.label
+						}), /* @__PURE__ */ jsx("div", {
+							className: "grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3",
+							children: g.nodes.map((n) => /* @__PURE__ */ jsx(SkillTestRow, {
+								node: n,
+								onAdjust: testAdjust,
+								onJump: jumpToNode
+							}, n.id))
+						})] }, g.pool)),
 						attributeNodes.length > 0 && /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
 							className: "mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground",
 							children: "Attributes"
@@ -39369,9 +39719,9 @@ function CharacterSheet({ onExport, fill = false }) {
 	const { mergedTree: tree, character, setCharacter, pools, settings } = useTree();
 	const levels = settings?.library?.levels || [];
 	const [panelWidth] = usePanelWidth();
-	const usage = poolUsage(tree);
-	const eff = effectivePools(pools, character, tree, levels);
-	const granted = grantedPoolBonus(tree, character, levels);
+	const usage = poolUsage(tree, settings?.library?.pointTypes);
+	const eff = effectivePools(pools, character, tree, levels, settings);
+	const granted = grantedPoolBonus(tree, character, levels, settings?.library?.pointTypes);
 	const derivedStats = statVars(character, tree);
 	const charSheet = derivedSheet(character, tree, levels, aggregateResources(tree, character, levels), profBonusFor(character.level || 1, levels), derivedStats, settings?.library);
 	const set = (patch) => setCharacter({
@@ -39404,8 +39754,9 @@ function CharacterSheet({ onExport, fill = false }) {
 	};
 	const toggleSmallRace = (on) => {
 		if (!on) {
-			if (usage.heritage >= eff.heritage.total) {
-				toast.error(`You're using all ${eff.heritage.total} Heritage Points — the Small race bonus is one of them. Remove one Heritage point first.`);
+			const heritageTotal = eff.heritage?.total ?? 0;
+			if ((usage.heritage || 0) >= heritageTotal) {
+				toast.error(`You're using all ${heritageTotal} Heritage Points — the Small race bonus is one of them. Remove one Heritage point first.`);
 				return;
 			}
 			const prev = character.sizeBeforeSmallRace;
@@ -39609,88 +39960,44 @@ function CharacterSheet({ onExport, fill = false }) {
 							className: "mb-1.5 block",
 							children: "Point Pools"
 						}),
-						/* @__PURE__ */ jsxs("div", {
+						/* @__PURE__ */ jsx("div", {
 							className: "grid grid-cols-3 gap-2",
-							children: [
-								/* @__PURE__ */ jsxs("div", {
-									className: "rounded-md border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30",
-									children: [/* @__PURE__ */ jsx("div", {
-										className: "text-xs font-medium text-amber-700 dark:text-amber-400",
-										children: "Heritage"
-									}), /* @__PURE__ */ jsxs("div", {
-										className: "text-lg font-bold",
-										children: [
-											usage.heritage,
-											" / ",
-											eff.heritage.total
-										]
-									})]
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "rounded-md border border-sky-300 bg-sky-50 p-2 dark:bg-sky-950/30",
-									children: [/* @__PURE__ */ jsx("div", {
-										className: "text-xs font-medium text-sky-700 dark:text-sky-400",
-										children: "Talent"
-									}), /* @__PURE__ */ jsxs("div", {
-										className: "text-lg font-bold",
-										children: [
-											usage.talent,
-											" / ",
-											eff.talent.total
-										]
-									})]
-								}),
-								/* @__PURE__ */ jsxs("div", {
-									className: "rounded-md border border-violet-300 bg-violet-50 p-2 dark:bg-violet-950/30",
-									children: [/* @__PURE__ */ jsx("div", {
-										className: "text-xs font-medium text-violet-700 dark:text-violet-400",
-										children: "Attribute"
-									}), /* @__PURE__ */ jsxs("div", {
-										className: "text-lg font-bold",
-										children: [
-											usage.attribute,
-											" / ",
-											eff.attribute.total
-										]
-									})]
-								})
-							]
+							children: pointTypesFor(settings).map((pt) => /* @__PURE__ */ jsxs("div", {
+								className: "rounded-md border border-border bg-accent/40 p-2",
+								children: [/* @__PURE__ */ jsx("div", {
+									className: "text-xs font-medium",
+									children: pt.label
+								}), /* @__PURE__ */ jsxs("div", {
+									className: "text-lg font-bold",
+									children: [
+										usage[pt.id] || 0,
+										" / ",
+										eff[pt.id]?.total ?? 0
+									]
+								})]
+							}, pt.id))
 						}),
-						(granted.talent.specific.length > 0 || granted.heritage.specific.length > 0) && /* @__PURE__ */ jsxs("div", {
+						pointTypesFor(settings).some((pt) => (granted[pt.id]?.specific || []).length > 0) && /* @__PURE__ */ jsx("div", {
 							className: "mt-1 space-y-0.5 text-[10px] text-muted-foreground",
-							children: [
-								granted.talent.specific.map((s, i) => /* @__PURE__ */ jsxs("div", { children: [
-									"+",
-									s.amount,
-									" Talent Points (skill: ",
-									s.name,
-									")"
-								] }, "t" + i)),
-								granted.heritage.specific.map((s, i) => /* @__PURE__ */ jsxs("div", { children: [
-									"+",
-									s.amount,
-									" Heritage Points (",
-									s.name,
-									")"
-								] }, "h" + i)),
-								granted.attribute.specific.map((s, i) => /* @__PURE__ */ jsxs("div", { children: [
-									"+",
-									s.amount,
-									" Attribute Points (",
-									s.name,
-									")"
-								] }, "a" + i))
-							]
+							children: pointTypesFor(settings).flatMap((pt) => (granted[pt.id]?.specific || []).map((s, i) => /* @__PURE__ */ jsxs("div", { children: [
+								"+",
+								s.amount,
+								" ",
+								pt.currency,
+								" (",
+								s.name,
+								")"
+							] }, `${pt.id}-${i}`)))
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "mt-2 space-y-1.5 text-xs",
-							children: [/* @__PURE__ */ jsxs("label", {
+							children: [eff.heritage && /* @__PURE__ */ jsxs("label", {
 								className: "flex items-center gap-2",
 								children: [/* @__PURE__ */ jsx(Switch, {
 									checked: !!character.smallRaceHeritage,
 									onCheckedChange: toggleSmallRace
 								}), "Small race: 13th Heritage Point (−5 speed, size drops one step)"]
-							}), /* @__PURE__ */ jsxs("label", {
+							}), eff.talent && /* @__PURE__ */ jsxs("label", {
 								className: "flex items-center gap-2",
 								children: [
 									/* @__PURE__ */ jsx(Switch, {
@@ -41770,8 +42077,8 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
 	const title = isMain ? tree?.name || "Main tree" : st?.name || "Tree";
 	const levels = settings?.library?.levels || [];
-	const usage = poolUsage(mergedTree);
-	const eff = effectivePools(pools, character, mergedTree, levels);
+	const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
+	const eff = effectivePools(pools, character, mergedTree, levels, settings);
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
@@ -42034,9 +42341,9 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 				toast.error(gate.reason);
 				return;
 			}
-			if (!isSub && cur === 0 && poolForNode(n) === "talent" && (n.nodeType || "") !== "informative") {
+			if (!isSub && cur === 0 && poolForNode(n, settings?.library?.pointTypes) === "talent" && (n.nodeType || "") !== "informative") {
 				const limit = talentPurchaseLimit(level, settings);
-				const used = talentPurchasesUsed(mergedTree);
+				const used = talentPurchasesUsed(mergedTree, settings?.library?.pointTypes);
 				if (Number.isFinite(limit) && used >= limit) {
 					toast.error(`Talent limit reached at level ${level}: ${used}/${limit} talents purchased.`);
 					return;
@@ -42083,11 +42390,11 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 					}
 				}
 			} else {
-				const poolKey = poolForNode(n);
+				const poolKey = poolForNode(n, settings?.library?.pointTypes);
 				if (cost > 0 && poolKey) {
-					const effPools = effectivePools(pools, character, mergedTree, levels);
+					const effPools = effectivePools(pools, character, mergedTree, levels, settings);
 					if (usage[poolKey] + cost > effPools[poolKey].total) {
-						toast.error(`No ${POOL_LABELS[poolKey]} Points remaining — raise the limit or refund points.`);
+						toast.error(`No ${poolLabel(settings?.library?.pointTypes, poolKey)} Points remaining — raise the limit or refund points.`);
 						return;
 					}
 				}
@@ -42331,56 +42638,24 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 						children: "Mutually exclusive"
 					})
 				]
-			}) : /* @__PURE__ */ jsxs("div", {
+			}) : /* @__PURE__ */ jsx("div", {
 				className: "flex items-center justify-around gap-1 border-b bg-muted/40 px-2 py-1 text-[10px]",
 				title: "Shared by every tree — points invested in any panel draw from these pools",
-				children: [
-					/* @__PURE__ */ jsxs("span", { children: [
-						/* @__PURE__ */ jsx("span", {
-							className: "text-amber-600",
-							children: "Heritage"
-						}),
-						" ",
-						/* @__PURE__ */ jsxs("span", {
-							className: "font-mono",
-							children: [
-								usage.heritage,
-								"/",
-								eff.heritage.total
-							]
-						})
-					] }),
-					/* @__PURE__ */ jsxs("span", { children: [
-						/* @__PURE__ */ jsx("span", {
-							className: "text-sky-600",
-							children: "Talent"
-						}),
-						" ",
-						/* @__PURE__ */ jsxs("span", {
-							className: "font-mono",
-							children: [
-								usage.talent,
-								"/",
-								eff.talent.total
-							]
-						})
-					] }),
-					/* @__PURE__ */ jsxs("span", { children: [
-						/* @__PURE__ */ jsx("span", {
-							className: "text-violet-600",
-							children: "Attribute"
-						}),
-						" ",
-						/* @__PURE__ */ jsxs("span", {
-							className: "font-mono",
-							children: [
-								usage.attribute,
-								"/",
-								eff.attribute.total
-							]
-						})
-					] })
-				]
+				children: pointTypesFor(settings).map((pt) => /* @__PURE__ */ jsxs("span", { children: [
+					/* @__PURE__ */ jsx("span", {
+						className: "text-primary",
+						children: pt.label
+					}),
+					" ",
+					/* @__PURE__ */ jsxs("span", {
+						className: "font-mono",
+						children: [
+							usage[pt.id] || 0,
+							"/",
+							eff[pt.id]?.total ?? 0
+						]
+					})
+				] }, pt.id))
 			}),
 			/* @__PURE__ */ jsxs("div", {
 				ref: containerRef,
@@ -42625,8 +42900,10 @@ var REST_LABEL$1 = {
 	long: "long rest"
 };
 function NodeDetailBody({ node, nodesById, blind = false }) {
-	const typeLabel = NODE_TYPES.find((t) => t.value === (node.nodeType || "skill"))?.label || "Skill";
-	const pool = poolForNode(node);
+	const { settings } = useTree();
+	const types = pointTypesFor(settings);
+	const typeLabel = (settings?.library?.nodeTypes || []).find((t) => t.value === (node.nodeType || "skill"))?.label || "Skill";
+	const pool = poolForNode(node, types);
 	const children = Object.values(nodesById || {}).filter((n) => (n.dependencies || []).includes(node.id));
 	const shownChildren = children.filter((c) => !blind || (c.currentPoints || 0) > 0 || isAvailable(c, nodesById));
 	const hiddenChildren = children.length - shownChildren.length;
@@ -42639,7 +42916,7 @@ function NodeDetailBody({ node, nodesById, blind = false }) {
 				typeLabel,
 				node.maxPoints > 1 ? ` · ${node.currentPoints || 0}/${node.maxPoints}` : "",
 				" · ",
-				POOL_LABELS[pool],
+				poolLabel(types, pool),
 				" pool",
 				Number(node.cost ?? 1) === 0 ? " · free" : ` · ${node.cost ?? 1} pt/point`
 			]
@@ -78075,8 +78352,8 @@ function PresentationSheet({ innerRef, onExport }) {
 	const [actOpen, setActOpen] = useState(false);
 	const [diceOpen, setDiceOpen] = useState(false);
 	const levels = settings?.library?.levels || [];
-	const usage = poolUsage(tree);
-	const eff = effectivePools(pools, character, tree, levels);
+	const usage = poolUsage(tree, settings?.library?.pointTypes);
+	const eff = effectivePools(pools, character, tree, levels, settings);
 	const stats = statVars(character, tree);
 	const aggregated = aggregateResources(tree, character, levels);
 	const profBonus = profBonusFor(character.level || 1, levels);
@@ -78094,7 +78371,10 @@ function PresentationSheet({ innerRef, onExport }) {
 	const capacity = carryCapacity(character, tree);
 	const spells = character.spellList || [];
 	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
-	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes } = groupUnlocked(unlocked, { includeAutoGranted: !!character.devMode });
+	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, pointGroups } = groupUnlocked(unlocked, {
+		includeAutoGranted: !!character.devMode,
+		pointTypes: settings?.library?.pointTypes
+	});
 	const profGroups = [
 		["Skill", (character.proficiencies || {}).skills],
 		["Tool", (character.proficiencies || {}).tools],
@@ -78294,39 +78574,23 @@ function PresentationSheet({ innerRef, onExport }) {
 						title: "Point Pools",
 						children: /* @__PURE__ */ jsx("div", {
 							className: "grid grid-cols-3 gap-2",
-							children: [
-								[
-									"Heritage",
-									usage.heritage,
-									eff.heritage.total
-								],
-								[
-									"Talent",
-									usage.talent,
-									eff.talent.total
-								],
-								[
-									"Attribute",
-									usage.attribute,
-									eff.attribute.total
-								]
-							].map(([label, used, total]) => /* @__PURE__ */ jsxs("div", {
+							children: pointTypesFor(settings).map((pt) => /* @__PURE__ */ jsxs("div", {
 								className: "rounded-lg border border-slate-300 bg-slate-50 px-3 py-2",
 								children: [/* @__PURE__ */ jsxs("div", {
 									className: "text-[9px] font-semibold uppercase tracking-wide text-slate-500",
-									children: [label, " Points"]
+									children: [pt.label, " Points"]
 								}), /* @__PURE__ */ jsxs("div", {
 									className: "text-sm font-bold",
 									children: [
-										used,
+										usage[pt.id] || 0,
 										" ",
 										/* @__PURE__ */ jsxs("span", {
 											className: "text-slate-400",
-											children: ["/ ", total]
+											children: ["/ ", eff[pt.id]?.total ?? 0]
 										})
 									]
 								})]
-							}, label))
+							}, pt.id))
 						})
 					}),
 					/* @__PURE__ */ jsxs(Section, {
@@ -78590,6 +78854,19 @@ function PresentationSheet({ innerRef, onExport }) {
 									}, n.id))
 								})]
 							}, g.type || "__untyped")),
+							(pointGroups || []).map((g) => /* @__PURE__ */ jsxs("div", {
+								className: "mb-2",
+								children: [/* @__PURE__ */ jsx("div", {
+									className: "text-[9px] font-bold uppercase tracking-wider text-slate-500",
+									children: g.label
+								}), /* @__PURE__ */ jsx("div", {
+									className: "mt-0.5 flex flex-wrap gap-1.5",
+									children: g.nodes.map((n) => /* @__PURE__ */ jsxs("span", {
+										className: "rounded-full border border-slate-300 px-2 py-0.5 text-[11px]",
+										children: [n.name, n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""]
+									}, n.id))
+								})]
+							}, g.pool)),
 							attributeNodes.length > 0 && /* @__PURE__ */ jsxs("div", {
 								className: "mb-2",
 								children: [/* @__PURE__ */ jsx("div", {
@@ -78671,9 +78948,13 @@ function profLines(character) {
 	});
 	return out;
 }
-function buildText(character, tree, pools, usage, resources, raw, levels) {
-	const eff = effectivePools(pools, character, tree, levels);
-	const { heritage: heritageNodes, talentGroups } = groupUnlocked(tree.nodes.filter((n) => (n.currentPoints || 0) > 0), { includeAutoGranted: !!character.devMode });
+function buildText(character, tree, pools, usage, resources, raw, levels, settings) {
+	const eff = effectivePools(pools, character, tree, levels, settings);
+	const pointTypes = settings?.library?.pointTypes || [];
+	const { heritage: heritageNodes, talentGroups, pointGroups } = groupUnlocked(tree.nodes.filter((n) => (n.currentPoints || 0) > 0), {
+		includeAutoGranted: !!character.devMode,
+		pointTypes: settings?.library?.pointTypes
+	});
 	const L = [];
 	if (raw) {
 		L.push(`name=${character.name || ""}`);
@@ -78686,9 +78967,9 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
 		STATS.forEach((s) => L.push(`${s}=${character.stats[s]}`));
 		L.push(`size=${character.size || ""}`);
 		L.push(`size_count_as=${character.sizeCountAs || "medium"}`);
-		L.push(`heritage_points=${usage.heritage}/${eff.heritage.total}`);
-		L.push(`talent_points=${usage.talent}/${eff.talent.total}`);
-		L.push(`attribute_points=${usage.attribute}/${eff.attribute.total}`);
+		pointTypes.forEach((pt) => {
+			L.push(`${pt.id}_points=${usage[pt.id] || 0}/${eff[pt.id]?.total ?? 0}`);
+		});
 		profLines(character).forEach((l) => L.push(`proficiency:${l}`));
 		resources.forEach((r) => L.push(`resource:${r.name}=${r.value}`));
 		heritageNodes.forEach((n) => L.push(`heritage:${n.name}=${n.currentPoints}/${n.maxPoints}`));
@@ -78702,9 +78983,9 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
 	L.push(STATS.map((s) => `${s} ${character.stats[s]}`).join("   "));
 	L.push("");
 	L.push("POINT POOLS");
-	L.push(`Heritage: ${usage.heritage} / ${eff.heritage.total}`);
-	L.push(`Talent:   ${usage.talent} / ${eff.talent.total}`);
-	L.push(`Attribute:${usage.attribute} / ${eff.attribute.total}`);
+	pointTypes.forEach((pt) => {
+		L.push(`${pt.label}: ${usage[pt.id] || 0} / ${eff[pt.id]?.total ?? 0}`);
+	});
 	if (character.size) L.push(`Size: ${character.size}`);
 	const profs = profLines(character);
 	if (profs.length) {
@@ -78728,6 +79009,10 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
 		if (g.type) L.push(`  ${g.type}:`);
 		g.nodes.forEach((n) => L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`));
 	});
+	(pointGroups || []).forEach((g) => {
+		L.push(`  ${g.label}:`);
+		g.nodes.forEach((n) => L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`));
+	});
 	return L.join("\n");
 }
 function ExportPanel({ open, onClose }) {
@@ -78745,7 +79030,7 @@ function ExportPanel({ open, onClose }) {
 		useRef(null)
 	];
 	const [busy, setBusy] = useState("");
-	const usage = poolUsage(tree);
+	const usage = poolUsage(tree, settings?.library?.pointTypes);
 	const resources = aggregateResources(tree, character, settings?.library?.levels || []);
 	const download = (blob, filename) => {
 		const url = URL.createObjectURL(blob);
@@ -78868,7 +79153,7 @@ function ExportPanel({ open, onClose }) {
 		setBusy("");
 	};
 	const exportText = (raw) => {
-		const text = buildText(character, tree, pools, usage, resources, raw, settings?.library?.levels || []);
+		const text = buildText(character, tree, pools, usage, resources, raw, settings?.library?.levels || [], settings);
 		download(new Blob([text], { type: "text/plain" }), `${(character.name || "character").replace(/\s+/g, "-")}.${raw ? "txt" : "txt"}`);
 	};
 	const formats = [
@@ -78967,7 +79252,7 @@ var POOL_COLORS = {
 	heritage: "bg-amber-500",
 	attribute: "bg-violet-500"
 };
-function PoolWindow({ win, patch, remove, usage, eff }) {
+function PoolWindow({ win, patch, remove, usage, eff, types }) {
 	const pool = win.pool;
 	const used = usage[pool] || 0;
 	const total = eff[pool]?.total ?? 0;
@@ -79001,7 +79286,7 @@ function PoolWindow({ win, patch, remove, usage, eff }) {
 				/* @__PURE__ */ jsx(GripVertical, { className: "h-3.5 w-3.5 text-muted-foreground" }),
 				/* @__PURE__ */ jsxs("span", {
 					className: "flex-1 truncate text-xs font-medium",
-					children: [POOL_LABELS[pool], " Points"]
+					children: [poolLabel(types, pool), " Points"]
 				}),
 				/* @__PURE__ */ jsx("button", {
 					className: "rounded p-0.5 hover:bg-accent",
@@ -79025,20 +79310,10 @@ function PoolWindow({ win, patch, remove, usage, eff }) {
 					children: [/* @__PURE__ */ jsx(SelectTrigger, {
 						className: "h-7 text-xs",
 						children: /* @__PURE__ */ jsx(SelectValue, {})
-					}), /* @__PURE__ */ jsxs(SelectContent, { children: [
-						/* @__PURE__ */ jsx(SelectItem, {
-							value: "talent",
-							children: "Talent"
-						}),
-						/* @__PURE__ */ jsx(SelectItem, {
-							value: "heritage",
-							children: "Heritage"
-						}),
-						/* @__PURE__ */ jsx(SelectItem, {
-							value: "attribute",
-							children: "Attribute"
-						})
-					] })]
+					}), /* @__PURE__ */ jsx(SelectContent, { children: types.map((pt) => /* @__PURE__ */ jsx(SelectItem, {
+						value: pt.id,
+						children: pt.label
+					}, pt.id)) })]
 				}),
 				/* @__PURE__ */ jsxs("p", {
 					className: "text-xs text-muted-foreground",
@@ -79069,20 +79344,22 @@ function PoolWindow({ win, patch, remove, usage, eff }) {
 }
 function PoolWindows({ wins, setWins }) {
 	const { pools, character, mergedTree: tree, settings } = useTree();
-	const usage = poolUsage(tree);
-	const eff = effectivePools(pools, character, tree, settings?.library?.levels);
+	const usage = poolUsage(tree, settings?.library?.pointTypes);
+	const eff = effectivePools(pools, character, tree, settings?.library?.levels, settings);
 	const patch = (id, p) => setWins((ws) => ws.map((w) => w.id === id ? {
 		...w,
 		...p
 	} : w));
 	const remove = (id) => setWins((ws) => ws.filter((w) => w.id !== id));
 	if (!wins.length) return null;
+	const types = pointTypesFor(settings);
 	return /* @__PURE__ */ jsx(Fragment, { children: wins.map((w) => /* @__PURE__ */ jsx(PoolWindow, {
 		win: w,
 		patch,
 		remove,
 		usage,
-		eff
+		eff,
+		types
 	}, w.id)) });
 }
 //#endregion
