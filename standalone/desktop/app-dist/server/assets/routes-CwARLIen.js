@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-oGDmkdnJ.js";
+import { n as Button, r as cn } from "./router-BUVRndKj.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -1889,10 +1889,11 @@ var DEFAULT_SKILL_ABILITIES = {
 	Perception: "WIS",
 	Performance: "CHA",
 	Persuasion: "CHA",
-	Religion: "INT",
+	Religion: "WIS",
 	"Sleight of Hand": "DEX",
 	Stealth: "DEX",
-	Survival: "WIS"
+	Survival: "WIS",
+	Technology: "INT"
 };
 var DC_LADDER = [
 	["Very easy", 5],
@@ -6495,6 +6496,13 @@ function mergeLibrary(lib) {
 			const norm = (key, kind) => (l[key] || []).map((e) => normalizeListEntry(e, kind));
 			l.skills = norm("skills", "skill");
 			if (!l.skills.length) l.skills = d.lists.skills;
+			const skillByName = new Map(l.skills.map((skill) => [String(skill.name || "").toLowerCase(), skill]));
+			const religion = skillByName.get("religion");
+			if (religion) religion.ability = "WIS";
+			if (!skillByName.has("technology")) l.skills.push({
+				name: "Technology",
+				ability: "INT"
+			});
 			l.tools = norm("tools", "tool");
 			l.artisanTools = norm("artisanTools", "tool");
 			l.gamingSets = norm("gamingSets", "tool");
@@ -18591,6 +18599,7 @@ function entryDetails(categoryId, entry, raw, context = {}) {
 		page: entry.page,
 		edition: clean(entry.edition),
 		image,
+		raw: entry,
 		book: body.book || null,
 		fields: (body.fields || []).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
 		sections: (body.sections || []).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
@@ -18842,6 +18851,16 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 						children: value
 					})]
 				}, label))
+			}),
+			details.raw && /* @__PURE__ */ jsxs("details", {
+				className: "rounded border bg-muted/20 p-2 text-[10px]",
+				children: [/* @__PURE__ */ jsx("summary", {
+					className: "cursor-pointer font-medium text-muted-foreground",
+					children: "All imported fields (JSON)"
+				}), /* @__PURE__ */ jsx("pre", {
+					className: "mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-background/60 p-2 font-mono text-[9px] leading-tight",
+					children: JSON.stringify(details.raw, null, 2)
+				})]
 			}),
 			details.sections.map((section, i) => /* @__PURE__ */ jsxs("section", {
 				className: "space-y-1 border-t pt-2",
@@ -19910,6 +19929,207 @@ function FiveEToolsCategoryTab({ categoryId }) {
 				})
 			})]
 		})]
+	});
+}
+//#endregion
+//#region src/components/skilltree/library/DuplicatesTab.jsx
+var LIBRARY_ARRAYS = [
+	"spells",
+	"monsters",
+	"actions",
+	"weapons",
+	"armor",
+	"wondrousItems",
+	"vehicles",
+	"siege",
+	"adventuringGear",
+	"trinkets",
+	"explosives",
+	"ammo",
+	"poisons",
+	"tradeGoods",
+	"shop",
+	"downtimeActions",
+	"statusEffects",
+	"rollTables",
+	"lootTables",
+	"lootPools",
+	"encounterTables",
+	"dungeonRooms"
+];
+var sourceOf$2 = (entry) => String(entry?.source || entry?.classSource || entry?.subclassSource || entry?.bookSource || entry?.monster?.source || "");
+var categoryLabel = (key) => key.replace(/([A-Z])/g, " $1").replace(/[-_]+/g, " ").replace(/^./, (char) => char.toUpperCase());
+var entryJson = (entry) => {
+	const copy = { ...entry };
+	Object.keys(copy).forEach((key) => {
+		if (key.startsWith("__")) delete copy[key];
+	});
+	return JSON.stringify(copy);
+};
+function DuplicatesTab() {
+	const { settings, setSettings } = useTree();
+	const library = settings?.library || {};
+	const groups = useMemo(() => {
+		const groups = /* @__PURE__ */ new Map();
+		const add = (sourceKey, index, entry, label) => {
+			if (!entry || typeof entry !== "object" || !entryName$1(entry)) return;
+			const name = String(entryName$1(entry)).trim();
+			const key = name.toLowerCase();
+			if (!groups.has(key)) groups.set(key, {
+				key,
+				name,
+				entries: []
+			});
+			groups.get(key).entries.push({
+				sourceKey,
+				index,
+				entry,
+				label,
+				source: sourceOf$2(entry),
+				json: entryJson(entry)
+			});
+		};
+		Object.entries(library.fiveETools || {}).forEach(([cat, list]) => {
+			if (!Array.isArray(list)) return;
+			list.forEach((entry, index) => add(`raw:${cat}`, index, entry, `5eTools · ${categoryLabel(cat)}`));
+		});
+		LIBRARY_ARRAYS.forEach((key) => {
+			const list = library[key];
+			if (!Array.isArray(list)) return;
+			list.forEach((entry, index) => add(key, index, entry, `Library · ${categoryLabel(key)}`));
+		});
+		return [...groups.values()].filter((group) => group.entries.length > 1).map((group) => {
+			const seen = /* @__PURE__ */ new Set();
+			return {
+				...group,
+				entries: group.entries.map((item) => {
+					const exact = seen.has(item.json);
+					seen.add(item.json);
+					return {
+						...item,
+						exact
+					};
+				})
+			};
+		}).sort((a, b) => a.name.localeCompare(b.name));
+	}, [library]);
+	const removeEntries = (targets) => {
+		if (!targets.length) return;
+		setSettings((s) => {
+			const raw = { ...s.library.fiveETools || {} };
+			const nextLibrary = { ...s.library };
+			const bySource = /* @__PURE__ */ new Map();
+			targets.forEach(({ sourceKey, index }) => {
+				if (!bySource.has(sourceKey)) bySource.set(sourceKey, []);
+				bySource.get(sourceKey).push(index);
+			});
+			bySource.forEach((indices, sourceKey) => {
+				const descending = [...indices].sort((a, b) => b - a);
+				if (sourceKey.startsWith("raw:")) {
+					const cat = sourceKey.slice(4);
+					const list = Array.isArray(raw[cat]) ? [...raw[cat]] : [];
+					descending.forEach((index) => {
+						if (index >= 0 && index < list.length) list.splice(index, 1);
+					});
+					if (list.length) raw[cat] = list;
+					else delete raw[cat];
+				} else {
+					const list = Array.isArray(nextLibrary[sourceKey]) ? [...nextLibrary[sourceKey]] : [];
+					descending.forEach((index) => {
+						if (index >= 0 && index < list.length) list.splice(index, 1);
+					});
+					nextLibrary[sourceKey] = list;
+				}
+			});
+			return {
+				...s,
+				library: {
+					...nextLibrary,
+					fiveETools: raw
+				}
+			};
+		});
+	};
+	const keepOnly = (group, keep) => {
+		const others = group.entries.filter((item) => !(item.sourceKey === keep.sourceKey && item.index === keep.index));
+		if (!window.confirm(`Remove ${others.length} other version(s) of “${group.name}”?`)) return;
+		removeEntries(others);
+		toast.success(`Kept one version of “${group.name}”.`);
+	};
+	const removeOne = (group, item) => {
+		if (!window.confirm(`Remove this version of “${group.name}”?`)) return;
+		removeEntries([item]);
+		toast.success(`Removed one version of “${group.name}”.`);
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [
+			/* @__PURE__ */ jsx("p", {
+				className: "text-xs text-muted-foreground",
+				children: "Entries with the same name are grouped here across every imported 5eTools category and library list. Keep the version you want, or remove individual copies. Classes are never removed automatically."
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between text-[10px] text-muted-foreground",
+				children: [/* @__PURE__ */ jsxs("span", { children: [
+					groups.length,
+					" duplicate name group",
+					groups.length === 1 ? "" : "s"
+				] }), /* @__PURE__ */ jsxs("span", { children: [groups.reduce((sum, group) => sum + group.entries.length, 0), " entries"] })]
+			}),
+			groups.length === 0 ? /* @__PURE__ */ jsx("p", {
+				className: "rounded border border-dashed p-3 text-xs text-muted-foreground",
+				children: "No same-name duplicates found."
+			}) : /* @__PURE__ */ jsx("div", {
+				className: "max-h-[58vh] space-y-2 overflow-y-auto pr-1",
+				children: groups.map((group) => /* @__PURE__ */ jsxs("div", {
+					className: "rounded-md border p-2",
+					children: [/* @__PURE__ */ jsxs("div", {
+						className: "flex items-center justify-between gap-2",
+						children: [/* @__PURE__ */ jsx("span", {
+							className: "truncate text-xs font-semibold",
+							children: group.name
+						}), /* @__PURE__ */ jsxs("span", {
+							className: "shrink-0 text-[10px] text-muted-foreground",
+							children: [group.entries.length, " versions"]
+						})]
+					}), /* @__PURE__ */ jsx("div", {
+						className: "mt-1 space-y-1",
+						children: group.entries.map((item) => /* @__PURE__ */ jsxs("div", {
+							className: "flex flex-wrap items-center gap-1 rounded border bg-muted/20 px-2 py-1 text-[10px]",
+							children: [
+								/* @__PURE__ */ jsx("span", {
+									className: "min-w-0 flex-1 truncate",
+									children: item.label
+								}),
+								/* @__PURE__ */ jsx("span", {
+									className: "shrink-0 text-muted-foreground",
+									children: item.source || "—"
+								}),
+								item.exact && /* @__PURE__ */ jsx("span", {
+									className: "rounded bg-amber-500/20 px-1 text-amber-700 dark:text-amber-300",
+									children: "exact copy"
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "outline",
+									className: "h-6 px-1.5 text-[10px]",
+									onClick: () => keepOnly(group, item),
+									children: "Keep this"
+								}),
+								/* @__PURE__ */ jsx(Button, {
+									size: "sm",
+									variant: "ghost",
+									className: "h-6 px-1.5 text-[10px] text-destructive",
+									onClick: () => removeOne(group, item),
+									title: "Remove this version",
+									children: /* @__PURE__ */ jsx(Trash2, { className: "h-3 w-3" })
+								})
+							]
+						}, `${item.sourceKey}:${item.index}`))
+					})]
+				}, group.key))
+			})
+		]
 	});
 }
 //#endregion
@@ -24514,7 +24734,7 @@ var TAB_GROUPS = [
 	]],
 	["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
 	["Imported", [["fiveETools", "5eTools Imports"]]],
-	["Project", [["media", "Project Media"]]]
+	["Project", [["media", "Project Media"], ["duplicates", "Duplicates"]]]
 ];
 var SEARCH_CATEGORIES = (lib) => [
 	[
@@ -24951,6 +25171,11 @@ function LibraryMenu({ open, onClose }) {
 									value: "media",
 									className: "mt-0",
 									children: /* @__PURE__ */ jsx(MediaTab, {})
+								}),
+								/* @__PURE__ */ jsx(TabsContent, {
+									value: "duplicates",
+									className: "mt-0",
+									children: /* @__PURE__ */ jsx(DuplicatesTab, {})
 								}),
 								/* @__PURE__ */ jsx(TabsContent, {
 									value: "encounterCalc",
@@ -49071,11 +49296,14 @@ var BulkLibrary = class {
 		const { arr, index } = this.arr(key);
 		const k = nameKey(value);
 		const i = index.get(k);
-		if (i != null) arr[i] = {
-			...arr[i],
-			...value
-		};
-		else {
+		if (i != null) {
+			const merged = {
+				...arr[i],
+				...value
+			};
+			if (JSON.stringify(merged) === JSON.stringify(arr[i])) return;
+			arr[i] = merged;
+		} else {
 			index.set(k, arr.length);
 			arr.push(value);
 		}
@@ -49128,8 +49356,10 @@ var BulkLibrary = class {
 		const { arr, index } = this.raw(catId);
 		const key = `${entryName$1(entry)}|${sourceOf$1(entry)}`;
 		const i = index.get(key);
-		if (i != null) arr[i] = entry;
-		else {
+		if (i != null) {
+			if (JSON.stringify(arr[i]) === JSON.stringify(entry)) return;
+			arr[i] = entry;
+		} else {
 			index.set(key, arr.length);
 			arr.push(entry);
 		}
@@ -49910,11 +50140,13 @@ function ReferenceIndexTab() {
 		setSettings((s) => {
 			const list = Array.isArray(s.library.monsters) ? [...s.library.monsters] : [];
 			const i = list.findIndex((x) => String(x.name || "").toLowerCase() === m.name.toLowerCase());
-			if (i >= 0) list[i] = {
-				...list[i],
-				...m
-			};
-			else list.push(m);
+			if (i >= 0) {
+				const merged = {
+					...list[i],
+					...m
+				};
+				if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+			} else list.push(m);
 			return {
 				...s,
 				library: {
@@ -49930,11 +50162,13 @@ function ReferenceIndexTab() {
 		setSettings((s) => {
 			const list = Array.isArray(s.library.spells) ? [...s.library.spells] : [];
 			const i = list.findIndex((x) => String(x.name || "").toLowerCase() === sp.name.toLowerCase());
-			if (i >= 0) list[i] = {
-				...list[i],
-				...sp
-			};
-			else list.push(sp);
+			if (i >= 0) {
+				const merged = {
+					...list[i],
+					...sp
+				};
+				if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+			} else list.push(sp);
 			return {
 				...s,
 				library: {
@@ -49953,11 +50187,13 @@ function ReferenceIndexTab() {
 			const i = list.findIndex((x) => String(typeof x === "string" ? x : x?.name || "").toLowerCase() === name);
 			if (typeof value === "string") {
 				if (i < 0) list.push(value);
-			} else if (i >= 0) list[i] = {
-				...list[i],
-				...value
-			};
-			else list.push(value);
+			} else if (i >= 0) {
+				const merged = {
+					...list[i],
+					...value
+				};
+				if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+			} else list.push(value);
 			return {
 				...s,
 				library: {
@@ -49974,11 +50210,13 @@ function ReferenceIndexTab() {
 			const lists = { ...s.library.lists || {} };
 			const list = Array.isArray(lists[listKey]) ? [...lists[listKey]] : [];
 			const i = list.findIndex((x) => String(typeof x === "string" ? x : x?.name || "").toLowerCase() === value.name.toLowerCase());
-			if (i >= 0) list[i] = {
-				...typeof list[i] === "object" ? list[i] : { name: list[i] },
-				...value
-			};
-			else list.push(value);
+			if (i >= 0) {
+				const merged = {
+					...typeof list[i] === "object" ? list[i] : { name: list[i] },
+					...value
+				};
+				if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+			} else list.push(value);
 			lists[listKey] = list;
 			return {
 				...s,
@@ -50015,8 +50253,10 @@ function ReferenceIndexTab() {
 			const list = Array.isArray(map[catId]) ? [...map[catId]] : [];
 			const key = `${entryName$1(entry)}|${sourceOf(entry)}`;
 			const i = list.findIndex((x) => `${entryName$1(x)}|${sourceOf(x)}` === key);
-			if (i >= 0) list[i] = entry;
-			else list.push(entry);
+			if (i >= 0) {
+				if (JSON.stringify(list[i]) === JSON.stringify(entry)) return s;
+				list[i] = entry;
+			} else list.push(entry);
 			map[catId] = list;
 			return {
 				...s,

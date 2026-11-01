@@ -591,6 +591,16 @@ function mergeLibrary(lib) {
       const norm = (key, kind) => (l[key] || []).map((e) => normalizeListEntry(e, kind));
       l.skills = norm("skills", "skill");
       if (!l.skills.length) l.skills = d.lists.skills;
+      // Religion is a Wisdom skill and Technology is an Intelligence skill.
+      // Add Technology to older libraries and correct the old Religion default.
+      const skillByName = new Map(
+        l.skills.map((skill) => [String(skill.name || "").toLowerCase(), skill])
+      );
+      const religion = skillByName.get("religion");
+      if (religion) religion.ability = "WIS";
+      if (!skillByName.has("technology")) {
+        l.skills.push({ name: "Technology", ability: "INT" });
+      }
       l.tools = norm("tools", "tool");
       l.artisanTools = norm("artisanTools", "tool");
       l.gamingSets = norm("gamingSets", "tool");

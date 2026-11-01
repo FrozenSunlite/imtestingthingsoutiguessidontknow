@@ -1,1 +1,0 @@
-import{n as e}from"./routes-Cvn2tN6I.js";export{e as default,e as jsPDF};

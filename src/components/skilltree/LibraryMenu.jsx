@@ -59,6 +59,7 @@ import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
 import { FiveEToolsImportsTab } from "./library/FiveEToolsImportsTab";
 import { MediaTab } from "./library/MediaTab";
 import { FiveEToolsCategoryTab } from "./library/FiveEToolsCategoryTab";
+import { DuplicatesTab } from "./library/DuplicatesTab";
 import { FIVE_CATEGORIES } from "@/lib/fiveETools";
 import { EncounterXpCalculator } from "./library/EncounterXpCalculator";
 import { ActionsTab } from "./library/ActionsTab";
@@ -122,7 +123,7 @@ const TAB_GROUPS = [
   ]],
   ["Dungeons", [["dungeonRooms", "Dungeon Rooms"]]],
   ["Imported", [["fiveETools", "5eTools Imports"]]],
-  ["Project", [["media", "Project Media"]]],
+  ["Project", [["media", "Project Media"], ["duplicates", "Duplicates"]]],
 ];
 
 // Every searchable library list, as [category label, tab value, entries].
@@ -388,6 +389,9 @@ export function LibraryMenu({ open, onClose }) {
             ))}
             <TabsContent value="media" className="mt-0">
               <MediaTab />
+            </TabsContent>
+            <TabsContent value="duplicates" className="mt-0">
+              <DuplicatesTab />
             </TabsContent>
             <TabsContent value="encounterCalc" className="mt-0">
               <EncounterXpCalculator />

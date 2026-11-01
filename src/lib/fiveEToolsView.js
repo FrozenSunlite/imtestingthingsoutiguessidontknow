@@ -1065,6 +1065,7 @@ export function entryDetails(categoryId, entry, raw, context = {}) {
     page: entry.page,
     edition: clean(entry.edition),
     image,
+    raw: entry,
     book: body.book || null,
     fields: (body.fields || [])
       .map(([label, value]) => [label, CleanField(value)])

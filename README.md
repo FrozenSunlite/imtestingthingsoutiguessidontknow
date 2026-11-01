@@ -95,11 +95,15 @@ changing app code, then restart the launcher.
 - **Imported 5eTools categories:** any imported 5eTools category without a
   dedicated tab (classes, feats, options, gifts, psionics, decks and so on) gets
   its own Reference Library section automatically. Entries keep every imported
-  field and can be edited in the form or as raw JSON. The Reference Index also
-  has an **Import by source** panel for importing every entry with a given
-  source/book abbreviation across a category or the whole repository, and the
-  Reference Library's **5eTools Imports** tab has a shortcut that opens it with
-  the source prefilled.
+  field and can be edited in the form or as raw JSON; every preview also has an
+  **All imported fields (JSON)** section. Exact duplicates are skipped on import.
+  A **Duplicates** tab groups same-name entries across every imported list so you
+  can keep one version or remove individual copies. The Reference Index also has
+  an **Import by source** panel for importing every entry with a given source/book
+  abbreviation across a category or the whole repository, and the Reference
+  Library's **5eTools Imports** tab has a shortcut that opens it with the source
+  prefilled.
+- **Skills:** Religion uses Wisdom and Technology uses Intelligence by default.
 - **Return nodes:** every subtree starts with a non-investable node named
   “double click to return to the parent node” (only its name is editable).
   Double-clicking it returns to the node the subtree was entered through, at any

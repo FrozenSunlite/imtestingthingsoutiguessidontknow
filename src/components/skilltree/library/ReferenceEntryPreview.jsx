@@ -77,6 +77,17 @@ export function ReferenceEntryPreview({ details, imageSrc, onImport, importingLa
         </dl>
       )}
 
+      {details.raw && (
+        <details className="rounded border bg-muted/20 p-2 text-[10px]">
+          <summary className="cursor-pointer font-medium text-muted-foreground">
+            All imported fields (JSON)
+          </summary>
+          <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-background/60 p-2 font-mono text-[9px] leading-tight">
+            {JSON.stringify(details.raw, null, 2)}
+          </pre>
+        </details>
+      )}
+
       {details.sections.map((section, i) => (
         <section key={`${section.title}-${i}`} className="space-y-1 border-t pt-2">
           <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

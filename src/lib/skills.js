@@ -19,10 +19,11 @@ export const DEFAULT_SKILL_ABILITIES = {
   Perception: "WIS",
   Performance: "CHA",
   Persuasion: "CHA",
-  Religion: "INT",
+  Religion: "WIS",
   "Sleight of Hand": "DEX",
   Stealth: "DEX",
   Survival: "WIS",
+  Technology: "INT",
 };
 
 // Standard DC ladder for the dice roller.

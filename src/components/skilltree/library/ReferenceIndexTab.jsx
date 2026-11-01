@@ -582,8 +582,10 @@ export function ReferenceIndexTab() {
     setSettings((s) => {
       const list = Array.isArray(s.library.monsters) ? [...s.library.monsters] : [];
       const i = list.findIndex((x) => String(x.name || "").toLowerCase() === m.name.toLowerCase());
-      if (i >= 0) list[i] = { ...list[i], ...m };
-      else list.push(m);
+      if (i >= 0) {
+        const merged = { ...list[i], ...m };
+        if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+      } else list.push(m);
       return { ...s, library: { ...s.library, monsters: list } };
     });
     return true;
@@ -594,8 +596,10 @@ export function ReferenceIndexTab() {
     setSettings((s) => {
       const list = Array.isArray(s.library.spells) ? [...s.library.spells] : [];
       const i = list.findIndex((x) => String(x.name || "").toLowerCase() === sp.name.toLowerCase());
-      if (i >= 0) list[i] = { ...list[i], ...sp };
-      else list.push(sp);
+      if (i >= 0) {
+        const merged = { ...list[i], ...sp };
+        if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+      } else list.push(sp);
       return { ...s, library: { ...s.library, spells: list } };
     });
     return true;
@@ -612,7 +616,8 @@ export function ReferenceIndexTab() {
       if (typeof value === "string") {
         if (i < 0) list.push(value);
       } else if (i >= 0) {
-        list[i] = { ...list[i], ...value };
+        const merged = { ...list[i], ...value };
+        if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
       } else {
         list.push(value);
       }
@@ -629,8 +634,10 @@ export function ReferenceIndexTab() {
       const i = list.findIndex(
         (x) => String(typeof x === "string" ? x : x?.name || "").toLowerCase() === value.name.toLowerCase()
       );
-      if (i >= 0) list[i] = { ...(typeof list[i] === "object" ? list[i] : { name: list[i] }), ...value };
-      else list.push(value);
+      if (i >= 0) {
+        const merged = { ...(typeof list[i] === "object" ? list[i] : { name: list[i] }), ...value };
+        if (JSON.stringify(merged) !== JSON.stringify(list[i])) list[i] = merged;
+      } else list.push(value);
       lists[listKey] = list;
       return { ...s, library: { ...s.library, lists } };
     });
@@ -659,8 +666,10 @@ export function ReferenceIndexTab() {
       const list = Array.isArray(map[catId]) ? [...map[catId]] : [];
       const key = `${entryName(entry)}|${sourceOf(entry)}`;
       const i = list.findIndex((x) => `${entryName(x)}|${sourceOf(x)}` === key);
-      if (i >= 0) list[i] = entry;
-      else list.push(entry);
+      if (i >= 0) {
+        if (JSON.stringify(list[i]) === JSON.stringify(entry)) return s;
+        list[i] = entry;
+      } else list.push(entry);
       map[catId] = list;
       return { ...s, library: { ...s.library, fiveETools: map } };
     });

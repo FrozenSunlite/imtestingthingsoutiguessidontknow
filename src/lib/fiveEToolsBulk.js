@@ -73,8 +73,11 @@ export class BulkLibrary {
     const { arr, index } = this.arr(key);
     const k = nameKey(value);
     const i = index.get(k);
-    if (i != null) arr[i] = { ...arr[i], ...value };
-    else {
+    if (i != null) {
+      const merged = { ...arr[i], ...value };
+      if (JSON.stringify(merged) === JSON.stringify(arr[i])) return;
+      arr[i] = merged;
+    } else {
       index.set(k, arr.length);
       arr.push(value);
     }
@@ -127,8 +130,10 @@ export class BulkLibrary {
     const { arr, index } = this.raw(catId);
     const key = `${entryName(entry)}|${sourceOf(entry)}`;
     const i = index.get(key);
-    if (i != null) arr[i] = entry;
-    else {
+    if (i != null) {
+      if (JSON.stringify(arr[i]) === JSON.stringify(entry)) return;
+      arr[i] = entry;
+    } else {
       index.set(key, arr.length);
       arr.push(entry);
     }
