@@ -95,6 +95,101 @@ export function paintTerritory(worldInput, realmId, cellX, cellY, radius, nation
   return world;
 }
 
+// Deterministic value noise used to make borders irregular instead of circular.
+const mapNoise = (x, y, seed) => {
+  const n = Math.sin(x * 127.1 + y * 311.7 + seed * 0.017) * 43758.5453;
+  return n - Math.floor(n);
+};
+const seedOf = (value) =>
+  [...String(value)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+
+const territoryCentroid = (cells) => {
+  const owned = (cells || []).filter((cell) => cell.nationId);
+  if (!owned.length) return null;
+  return {
+    x: owned.reduce((sum, cell) => sum + cell.x, 0) / owned.length,
+    y: owned.reduce((sum, cell) => sum + cell.y, 0) / owned.length,
+  };
+};
+
+// Grow or shrink one nation's territory around its centroid. Expansion claims
+// the nearest unclaimed cells; shrinking releases the outer cells. A little
+// noise keeps the edge organic rather than a perfect circle.
+export function scaleNationTerritory(worldInput, realmId, nationId, factor = 1, seed = "") {
+  if (!nationId) return worldInput;
+  const world = { ...worldInput };
+  const realmIndex = (world.realms || []).findIndex((item) => item.id === realmId);
+  const realm = realmIndex >= 0 ? world.realms[realmIndex] : null;
+  if (!realm?.map?.cells?.length) return world;
+  const cells = realm.map.cells;
+  const owned = cells.filter((cell) => cell.nationId === nationId);
+  if (!owned.length) return world;
+  const centroid = territoryCentroid(owned);
+  const target = Math.max(1, Math.round(owned.length * Math.max(0.1, Number(factor) || 1) ** 2));
+  if (target === owned.length) return world;
+  const noiseSeed = seedOf(`${nationId}:${seed}:${realm.id}`);
+  const score = (cell) =>
+    Math.hypot(cell.x - centroid.x, cell.y - centroid.y) +
+    (mapNoise(cell.x, cell.y, noiseSeed) - 0.5) * 3.2;
+  const keyOf = (cell) => `${cell.x},${cell.y}`;
+  const selected = new Set(
+    (target > owned.length
+      ? cells.filter((cell) => !cell.nationId).sort((a, b) => score(a) - score(b))
+      : [...owned].sort((a, b) => score(b) - score(a))
+    )
+      .slice(0, Math.abs(target - owned.length))
+      .map(keyOf)
+  );
+  const nextCells = cells.map((cell) => {
+    const key = keyOf(cell);
+    if (!selected.has(key)) return cell;
+    return { ...cell, nationId: target > owned.length ? nationId : "" };
+  });
+  world.realms = world.realms.map((item, index) =>
+    index === realmIndex ? { ...realm, map: { ...realm.map, cells: nextCells } } : item
+  );
+  return world;
+}
+
+// Keep the same rough area but push the border in and out in a noisy pattern.
+export function randomizeNationTerritory(worldInput, realmId, nationId, seed = "") {
+  if (!nationId) return worldInput;
+  const world = { ...worldInput };
+  const realmIndex = (world.realms || []).findIndex((item) => item.id === realmId);
+  const realm = realmIndex >= 0 ? world.realms[realmIndex] : null;
+  if (!realm?.map?.cells?.length) return world;
+  const cells = realm.map.cells;
+  const owned = cells.filter((cell) => cell.nationId === nationId);
+  if (owned.length < 2) return world;
+  const centroid = territoryCentroid(owned);
+  const noiseSeed = seedOf(`${nationId}:${seed}:${realm.id}`);
+  const score = (cell) =>
+    Math.hypot(cell.x - centroid.x, cell.y - centroid.y) +
+    (mapNoise(cell.x, cell.y, noiseSeed) - 0.5) * 4.5;
+  const keyOf = (cell) => `${cell.x},${cell.y}`;
+  const churn = Math.max(1, Math.round(owned.length * 0.16));
+  const release = new Set(
+    [...owned].sort((a, b) => score(b) - score(a)).slice(0, churn).map(keyOf)
+  );
+  const claim = new Set(
+    cells
+      .filter((cell) => !cell.nationId)
+      .sort((a, b) => score(a) - score(b))
+      .slice(0, churn)
+      .map(keyOf)
+  );
+  const nextCells = cells.map((cell) => {
+    const key = keyOf(cell);
+    if (release.has(key)) return { ...cell, nationId: "" };
+    if (claim.has(key)) return { ...cell, nationId };
+    return cell;
+  });
+  world.realms = world.realms.map((item, index) =>
+    index === realmIndex ? { ...realm, map: { ...realm.map, cells: nextCells } } : item
+  );
+  return world;
+}
+
 export function regenerateRealmTerrain(worldInput, realmId, { seed = "", biomeIds = [] } = {}) {
   const world = copy(worldInput);
   const realm = (world.realms || []).find((item) => item.id === realmId);

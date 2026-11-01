@@ -22,9 +22,11 @@ import {
   paintTerrain,
   paintTerritory,
   placeDevelopmentOnMap,
+  randomizeNationTerritory,
   regenerateRealmTerrain,
   removeDevelopmentOnMap,
   removeRouteOnMap,
+  scaleNationTerritory,
 } from "@/lib/worldEditor";
 import {
   ZoomIn,
@@ -90,6 +92,7 @@ export function WorldMap({
   const [editing, setEditing] = useState(false);
   const [tool, setTool] = useState("select");
   const [brush, setBrush] = useState(1);
+  const [territoryScale, setTerritoryScale] = useState(1.25);
   const [paintBiome, setPaintBiome] = useState("");
   const [paintNation, setPaintNation] = useState("");
   const [newKind, setNewKind] = useState("village");
@@ -405,6 +408,32 @@ export function WorldMap({
     if (!next || next === world) return;
     onChange?.(next);
     if (message) toast.success(message);
+  };
+
+  const applyTerritoryScale = (factor) => {
+    if (!paintNation) {
+      toast.error("Choose a nation before scaling its territory.");
+      return;
+    }
+    const next = scaleNationTerritory(
+      world,
+      realm.id,
+      paintNation,
+      Math.max(0.2, Math.min(3, Number(factor) || 1)),
+      `${Date.now()}`
+    );
+    commit(next, `Territory scaled to ${Math.round(Number(factor) * 100)}%.`);
+  };
+
+  const randomizeTerritory = () => {
+    if (!paintNation) {
+      toast.error("Choose a nation before randomizing its border.");
+      return;
+    }
+    commit(
+      randomizeNationTerritory(world, realm.id, paintNation, `${Date.now()}`),
+      "Territory border reshaped."
+    );
   };
 
   const deleteAt = (point) => {
@@ -829,6 +858,65 @@ export function WorldMap({
                     </SelectContent>
                   </Select>
                 </div>
+                {tool === "territory" && (
+                  <>
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                        Territory size
+                      </p>
+                      <div className="flex h-7 items-center gap-1 rounded border px-2">
+                        <input
+                          type="range"
+                          min="0.4"
+                          max="2.2"
+                          step="0.05"
+                          value={territoryScale}
+                          onChange={(event) => setTerritoryScale(Number(event.target.value))}
+                          className="w-28"
+                        />
+                        <span className="w-9 text-right font-mono">
+                          {Math.round(territoryScale * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={() => applyTerritoryScale(territoryScale)}
+                      disabled={!paintNation}
+                    >
+                      Scale
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[10px]"
+                      onClick={() => applyTerritoryScale(1.2)}
+                      disabled={!paintNation}
+                    >
+                      Grow +20%
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[10px]"
+                      onClick={() => applyTerritoryScale(0.85)}
+                      disabled={!paintNation}
+                    >
+                      Shrink −15%
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={randomizeTerritory}
+                      disabled={!paintNation}
+                    >
+                      Randomize border
+                    </Button>
+                  </>
+                )}
               </>
             )}
 

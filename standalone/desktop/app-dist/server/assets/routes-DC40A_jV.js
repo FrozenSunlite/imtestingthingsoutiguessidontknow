@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BnRanNQT.js";
+import { n as Button, r as cn } from "./router-RzRjcz6A.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -63188,7 +63188,8 @@ function buildMapCells({ realm: _realm, nations, settlements, rng, width, height
 					nationId = center.nation.id;
 				}
 			});
-			if (best > .17 + elevation * .05) nationId = "";
+			const borderNoise = (smooth(nx + 31.7, ny + 17.3, 9.1) - .5) * .07 + (detail - .5) * .04;
+			if (best > .17 + elevation * .05 + borderNoise) nationId = "";
 		}
 		cells.push({
 			x,
@@ -64372,6 +64373,89 @@ function paintTerritory(worldInput, realmId, cellX, cellY, radius, nationId) {
 	} : item);
 	return world;
 }
+var mapNoise = (x, y, seed) => {
+	const n = Math.sin(x * 127.1 + y * 311.7 + seed * .017) * 43758.5453;
+	return n - Math.floor(n);
+};
+var seedOf = (value) => [...String(value)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+var territoryCentroid = (cells) => {
+	const owned = (cells || []).filter((cell) => cell.nationId);
+	if (!owned.length) return null;
+	return {
+		x: owned.reduce((sum, cell) => sum + cell.x, 0) / owned.length,
+		y: owned.reduce((sum, cell) => sum + cell.y, 0) / owned.length
+	};
+};
+function scaleNationTerritory(worldInput, realmId, nationId, factor = 1, seed = "") {
+	if (!nationId) return worldInput;
+	const world = { ...worldInput };
+	const realmIndex = (world.realms || []).findIndex((item) => item.id === realmId);
+	const realm = realmIndex >= 0 ? world.realms[realmIndex] : null;
+	if (!realm?.map?.cells?.length) return world;
+	const cells = realm.map.cells;
+	const owned = cells.filter((cell) => cell.nationId === nationId);
+	if (!owned.length) return world;
+	const centroid = territoryCentroid(owned);
+	const target = Math.max(1, Math.round(owned.length * Math.max(.1, Number(factor) || 1) ** 2));
+	if (target === owned.length) return world;
+	const noiseSeed = seedOf(`${nationId}:${seed}:${realm.id}`);
+	const score = (cell) => Math.hypot(cell.x - centroid.x, cell.y - centroid.y) + (mapNoise(cell.x, cell.y, noiseSeed) - .5) * 3.2;
+	const keyOf = (cell) => `${cell.x},${cell.y}`;
+	const selected = new Set((target > owned.length ? cells.filter((cell) => !cell.nationId).sort((a, b) => score(a) - score(b)) : [...owned].sort((a, b) => score(b) - score(a))).slice(0, Math.abs(target - owned.length)).map(keyOf));
+	const nextCells = cells.map((cell) => {
+		const key = keyOf(cell);
+		if (!selected.has(key)) return cell;
+		return {
+			...cell,
+			nationId: target > owned.length ? nationId : ""
+		};
+	});
+	world.realms = world.realms.map((item, index) => index === realmIndex ? {
+		...realm,
+		map: {
+			...realm.map,
+			cells: nextCells
+		}
+	} : item);
+	return world;
+}
+function randomizeNationTerritory(worldInput, realmId, nationId, seed = "") {
+	if (!nationId) return worldInput;
+	const world = { ...worldInput };
+	const realmIndex = (world.realms || []).findIndex((item) => item.id === realmId);
+	const realm = realmIndex >= 0 ? world.realms[realmIndex] : null;
+	if (!realm?.map?.cells?.length) return world;
+	const cells = realm.map.cells;
+	const owned = cells.filter((cell) => cell.nationId === nationId);
+	if (owned.length < 2) return world;
+	const centroid = territoryCentroid(owned);
+	const noiseSeed = seedOf(`${nationId}:${seed}:${realm.id}`);
+	const score = (cell) => Math.hypot(cell.x - centroid.x, cell.y - centroid.y) + (mapNoise(cell.x, cell.y, noiseSeed) - .5) * 4.5;
+	const keyOf = (cell) => `${cell.x},${cell.y}`;
+	const churn = Math.max(1, Math.round(owned.length * .16));
+	const release = new Set([...owned].sort((a, b) => score(b) - score(a)).slice(0, churn).map(keyOf));
+	const claim = new Set(cells.filter((cell) => !cell.nationId).sort((a, b) => score(a) - score(b)).slice(0, churn).map(keyOf));
+	const nextCells = cells.map((cell) => {
+		const key = keyOf(cell);
+		if (release.has(key)) return {
+			...cell,
+			nationId: ""
+		};
+		if (claim.has(key)) return {
+			...cell,
+			nationId
+		};
+		return cell;
+	});
+	world.realms = world.realms.map((item, index) => index === realmIndex ? {
+		...realm,
+		map: {
+			...realm.map,
+			cells: nextCells
+		}
+	} : item);
+	return world;
+}
 function regenerateRealmTerrain(worldInput, realmId, { seed = "", biomeIds = [] } = {}) {
 	const world = copy(worldInput);
 	const realm = (world.realms || []).find((item) => item.id === realmId);
@@ -64935,6 +65019,7 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 	const [editing, setEditing] = useState(false);
 	const [tool, setTool] = useState("select");
 	const [brush, setBrush] = useState(1);
+	const [territoryScale, setTerritoryScale] = useState(1.25);
 	const [paintBiome, setPaintBiome] = useState("");
 	const [paintNation, setPaintNation] = useState("");
 	const [newKind, setNewKind] = useState("village");
@@ -65220,6 +65305,21 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		if (!next || next === world) return;
 		onChange?.(next);
 		if (message) toast.success(message);
+	};
+	const applyTerritoryScale = (factor) => {
+		if (!paintNation) {
+			toast.error("Choose a nation before scaling its territory.");
+			return;
+		}
+		const next = scaleNationTerritory(world, realm.id, paintNation, Math.max(.2, Math.min(3, Number(factor) || 1)), `${Date.now()}`);
+		commit(next, `Territory scaled to ${Math.round(Number(factor) * 100)}%.`);
+	};
+	const randomizeTerritory = () => {
+		if (!paintNation) {
+			toast.error("Choose a nation before randomizing its border.");
+			return;
+		}
+		commit(randomizeNationTerritory(world, realm.id, paintNation, `${Date.now()}`), "Territory border reshaped.");
 	};
 	const deleteAt = (point) => {
 		const settlement = settlementAt(point);
@@ -65589,68 +65689,126 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 					/* @__PURE__ */ jsxs("div", {
 						className: "flex flex-wrap items-end gap-2 text-[10px]",
 						children: [
-							(tool === "terrain" || tool === "territory") && /* @__PURE__ */ jsxs(Fragment, { children: [tool === "terrain" ? /* @__PURE__ */ jsxs("div", {
-								className: "space-y-0.5",
-								children: [/* @__PURE__ */ jsx("p", {
-									className: "text-[9px] uppercase tracking-wide text-muted-foreground",
-									children: "Biome"
-								}), /* @__PURE__ */ jsxs(Select, {
-									value: paintBiome,
-									onValueChange: setPaintBiome,
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-7 w-40 text-xs",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsx(SelectContent, { children: BIOMES.map((biome) => /* @__PURE__ */ jsx(SelectItem, {
-										value: biome.id,
-										children: biome.label
-									}, biome.id)) })]
-								})]
-							}) : /* @__PURE__ */ jsxs("div", {
-								className: "space-y-0.5",
-								children: [/* @__PURE__ */ jsx("p", {
-									className: "text-[9px] uppercase tracking-wide text-muted-foreground",
-									children: "Territory"
-								}), /* @__PURE__ */ jsxs(Select, {
-									value: paintNation || "__none__",
-									onValueChange: (value) => setPaintNation(value === "__none__" ? "" : value),
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-7 w-44 text-xs",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-										value: "__none__",
-										children: "Wilderness"
-									}), nations.map((nation) => /* @__PURE__ */ jsx(SelectItem, {
-										value: nation.id,
-										children: nation.name
-									}, nation.id))] })]
-								})]
-							}), /* @__PURE__ */ jsxs("div", {
-								className: "space-y-0.5",
-								children: [/* @__PURE__ */ jsx("p", {
-									className: "text-[9px] uppercase tracking-wide text-muted-foreground",
-									children: "Brush"
-								}), /* @__PURE__ */ jsxs(Select, {
-									value: String(brush),
-									onValueChange: (value) => setBrush(Number(value)),
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-7 w-24 text-xs",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsx(SelectContent, { children: [
-										0,
-										1,
-										2,
-										3,
-										4
-									].map((radius) => /* @__PURE__ */ jsxs(SelectItem, {
-										value: String(radius),
-										children: [
-											radius * 2 + 1,
-											"×",
-											radius * 2 + 1
-										]
-									}, radius)) })]
-								})]
-							})] }),
+							(tool === "terrain" || tool === "territory") && /* @__PURE__ */ jsxs(Fragment, { children: [
+								tool === "terrain" ? /* @__PURE__ */ jsxs("div", {
+									className: "space-y-0.5",
+									children: [/* @__PURE__ */ jsx("p", {
+										className: "text-[9px] uppercase tracking-wide text-muted-foreground",
+										children: "Biome"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: paintBiome,
+										onValueChange: setPaintBiome,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-40 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: BIOMES.map((biome) => /* @__PURE__ */ jsx(SelectItem, {
+											value: biome.id,
+											children: biome.label
+										}, biome.id)) })]
+									})]
+								}) : /* @__PURE__ */ jsxs("div", {
+									className: "space-y-0.5",
+									children: [/* @__PURE__ */ jsx("p", {
+										className: "text-[9px] uppercase tracking-wide text-muted-foreground",
+										children: "Territory"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: paintNation || "__none__",
+										onValueChange: (value) => setPaintNation(value === "__none__" ? "" : value),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-44 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+											value: "__none__",
+											children: "Wilderness"
+										}), nations.map((nation) => /* @__PURE__ */ jsx(SelectItem, {
+											value: nation.id,
+											children: nation.name
+										}, nation.id))] })]
+									})]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "space-y-0.5",
+									children: [/* @__PURE__ */ jsx("p", {
+										className: "text-[9px] uppercase tracking-wide text-muted-foreground",
+										children: "Brush"
+									}), /* @__PURE__ */ jsxs(Select, {
+										value: String(brush),
+										onValueChange: (value) => setBrush(Number(value)),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-24 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: [
+											0,
+											1,
+											2,
+											3,
+											4
+										].map((radius) => /* @__PURE__ */ jsxs(SelectItem, {
+											value: String(radius),
+											children: [
+												radius * 2 + 1,
+												"×",
+												radius * 2 + 1
+											]
+										}, radius)) })]
+									})]
+								}),
+								tool === "territory" && /* @__PURE__ */ jsxs(Fragment, { children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-0.5",
+										children: [/* @__PURE__ */ jsx("p", {
+											className: "text-[9px] uppercase tracking-wide text-muted-foreground",
+											children: "Territory size"
+										}), /* @__PURE__ */ jsxs("div", {
+											className: "flex h-7 items-center gap-1 rounded border px-2",
+											children: [/* @__PURE__ */ jsx("input", {
+												type: "range",
+												min: "0.4",
+												max: "2.2",
+												step: "0.05",
+												value: territoryScale,
+												onChange: (event) => setTerritoryScale(Number(event.target.value)),
+												className: "w-28"
+											}), /* @__PURE__ */ jsxs("span", {
+												className: "w-9 text-right font-mono",
+												children: [Math.round(territoryScale * 100), "%"]
+											})]
+										})]
+									}),
+									/* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 text-[10px]",
+										onClick: () => applyTerritoryScale(territoryScale),
+										disabled: !paintNation,
+										children: "Scale"
+									}),
+									/* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "ghost",
+										className: "h-7 text-[10px]",
+										onClick: () => applyTerritoryScale(1.2),
+										disabled: !paintNation,
+										children: "Grow +20%"
+									}),
+									/* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "ghost",
+										className: "h-7 text-[10px]",
+										onClick: () => applyTerritoryScale(.85),
+										disabled: !paintNation,
+										children: "Shrink −15%"
+									}),
+									/* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 text-[10px]",
+										onClick: randomizeTerritory,
+										disabled: !paintNation,
+										children: "Randomize border"
+									})
+								] })
+							] }),
 							(tool === "settlement" || tool === "development") && /* @__PURE__ */ jsxs("div", {
 								className: "space-y-0.5",
 								children: [/* @__PURE__ */ jsx("p", {

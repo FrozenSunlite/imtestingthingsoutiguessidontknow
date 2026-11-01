@@ -107,9 +107,11 @@ changing app code, then restart the launcher.
   settlements, adding new ones, painting, moving and deleting with the Edit map
   tools. Landmass scripts (Pangaea, Continents, Archipelago, Islands, Fractal,
   Inland Sea, Lakes, Highlands, Terra, Hemispheres, Big & Small) shape the
-  land/water mask. Building population is twice its Bedroom rooms; businesses have
-  no Bedrooms unless they are an Inn. People can be added to or removed from the
-  People tab.
+  land/water mask, and national borders have irregular noisy edges. The territory
+  tool includes a size slider, Grow/Shrink buttons and Randomize border, so
+  boundaries can be reshaped without erasing them cell by cell. Building
+  population is twice its Bedroom rooms; businesses have no Bedrooms unless they
+  are an Inn. People can be added to or removed from the People tab.
 - **Room Builder:** a front-page section for designing room shapes and battlefield
   terrain. Saved rooms feed procedural dungeons and kingdom house interiors, and
   the page links both ways with the Architect. It also includes Architect room

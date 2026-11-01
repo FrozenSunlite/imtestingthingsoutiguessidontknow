@@ -311,8 +311,12 @@ export function buildMapCells({
             nationId = center.nation.id;
           }
         });
-        // Leave some unclaimed wilderness between powers.
-        if (best > 0.17 + elevation * 0.05) nationId = "";
+        // Leave some unclaimed wilderness between powers. The noise term makes
+        // borders wavy instead of perfectly circular.
+        const borderNoise =
+          (smooth(nx + 31.7, ny + 17.3, 9.1) - 0.5) * 0.07 +
+          (detail - 0.5) * 0.04;
+        if (best > 0.17 + elevation * 0.05 + borderNoise) nationId = "";
       }
       cells.push({ x, y, biome: biome.id, nationId });
     }
