@@ -11,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DUNGEON_CATEGORIES } from "@/lib/dungeonGen";
+import { importImage } from "@/lib/imageStore";
+import { ImagePlus } from "lucide-react";
 
 const CONNECTORS = ["Doorway", "Double Door", "Gate", "Archway", "Corridor", "Bridge", "Stairs", "Rubble passage", "Rune-sealed door"];
 const lines = (arr) => (arr || []).join("\n");
@@ -162,6 +164,31 @@ export function DungeonRoomsTab() {
                   value={lines(e[key])}
                   onChange={(ev) => patch(i, { [key]: split(ev.target.value) })}
                 />
+                {key === "objects" && (
+                  <label className="mt-1 inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[10px] text-muted-foreground hover:bg-accent">
+                    <ImagePlus className="h-3.5 w-3.5" /> Upload object artwork
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (ev) => {
+                        const file = ev.target.files?.[0];
+                        ev.target.value = "";
+                        if (!file) return;
+                        try {
+                          const url = await importImage(file);
+                          if (!url) return;
+                          const name = file.name.replace(/\.[^.]+$/, "");
+                          patch(i, {
+                            objects: [...(e.objects || []), `${name} | ${url}`],
+                          });
+                        } catch {
+                          /* unsupported image */
+                        }
+                      }}
+                    />
+                  </label>
+                )}
               </div>
             ))}
             <div className="mt-1.5">

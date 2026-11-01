@@ -80,14 +80,6 @@ const SYLLABLES = {
   },
 };
 
-const PLACE_PATTERNS = [
-  (a, b) => `${a}${b}`,
-  (a, b) => `${a} ${b}`,
-  (a, b) => `${a}'s ${b}`,
-  (a, b) => `The ${b} of ${a}`,
-  (a, b) => `${a} ${b}`,
-];
-
 const PLACE_SUFFIXES = {
   settlement: ["ford", "hold", "haven", "market", "cross", "gate", "watch", "rest", "bridge", "well", "stead", "reach"],
   kingdom: ["Kingdom", "Realm", "Dominion", "Crown", "Throne", "Concord", "League", "Empire", "Protectorate", "Hegemony"],
@@ -196,7 +188,7 @@ export function generatePersonName(culture = "Human", sex = "", rng = makeRng("n
   return { first, last, full: `${first} ${last}${title ? ` ${title}` : ""}`, sex };
 }
 
-export function generateSettlementName(culture, rng, kind = "town") {
+export function generateSettlementName(culture, rng, _kind = "town") {
   const base = generatePersonName(culture, "", rng).first;
   const suffix = rng.pick(PLACE_SUFFIXES.settlement);
   const prefix = rng.pick(PLACE_PREFIXES);
@@ -210,7 +202,7 @@ export function generateSettlementName(culture, rng, kind = "town") {
   return rng.pick(patterns);
 }
 
-export function generateKingdomName(culture, rng, kind = "kingdom") {
+export function generateKingdomName(culture, rng, _kind = "kingdom") {
   const base = generatePersonName(culture, "", rng).first;
   const suffix = rng.pick(PLACE_SUFFIXES.kingdom);
   const prefix = rng.pick(PLACE_PREFIXES);
@@ -224,7 +216,7 @@ export function generateKingdomName(culture, rng, kind = "kingdom") {
   return rng.pick(patterns);
 }
 
-export function generateRealmName(culture, rng, kind = "realm") {
+export function generateRealmName(culture, rng, _kind = "realm") {
   const base = generatePersonName(culture, "", rng).first;
   const suffix = rng.pick(PLACE_SUFFIXES.realm);
   return rng.pick([

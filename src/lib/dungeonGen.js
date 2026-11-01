@@ -410,7 +410,7 @@ function templateFor(category, templates, rng) {
   return templates.length ? rng.pick(templates) : STARTER_DUNGEON_ROOMS[0];
 }
 
-function instantiate(template, category, rng, rank, { monsters, lootPools, players = 4 }) {
+function instantiate(template, category, rng, rank, { monsters: _monsters, lootPools, players = 4 }) {
   const sizeScale = Math.max(0.85, Math.min(1.35, 1 + (Math.max(1, Number(players) || 4) - 4) * 0.06));
   const w = Math.max(
     9,

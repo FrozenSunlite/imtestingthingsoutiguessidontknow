@@ -146,7 +146,7 @@ function realmKind(scale) {
   return "region";
 }
 
-export function buildMapCells({ realm, nations, settlements, rng, width, height, biomes }) {
+export function buildMapCells({ realm: _realm, nations, settlements, rng, width, height, biomes }) {
   const cells = [];
   const centers = nations.map((nation) => {
     const capital = settlements.find((s) => s.id === nation.capitalId);
@@ -552,7 +552,7 @@ function settlementKind(scale, index, total, rng) {
   return rng.chance(0.12) ? "city" : rng.chance(0.55) ? "town" : "village";
 }
 
-function generateNationSettlements({ nation, scale, era, biomePool, rng, realmId, sharedNpcs }) {
+function generateNationSettlements({ nation, scale, era, biomePool, rng, realmId, sharedNpcs: _sharedNpcs }) {
   const [minS, maxS] = scale.settlements;
   const count = Math.max(2, Math.round(rng.int(minS, maxS) / Math.max(1, scale.nations[1])));
   const settlements = [];

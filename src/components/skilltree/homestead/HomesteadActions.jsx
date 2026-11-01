@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { bastionFacilityByName } from "@/lib/homestead";
 import { BASTION_ORDERS } from "@/lib/homesteadBastionOrders";
@@ -123,7 +122,7 @@ function Section({ title, children }) {
   );
 }
 
-function ActionCard({ a, badge, action, result, locked, lockNote }) {
+function ActionCard({ a, badge, action, result, locked: _locked, lockNote }) {
   return (
     <div className="rounded-md border p-2">
       <div className="flex items-center justify-between gap-2">

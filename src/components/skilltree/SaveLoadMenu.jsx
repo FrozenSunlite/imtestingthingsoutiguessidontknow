@@ -155,7 +155,7 @@ export function SaveLoadMenu({ open, onClose }) {
     URL.revokeObjectURL(url);
   };
 
-  const downloadBundle = async (entry) => {
+  const _downloadBundle = async (entry) => {
     try {
       const portable = await inlineImages(entry, {
         includeRemote: !!settings?.cacheRemoteImages,
@@ -175,7 +175,7 @@ export function SaveLoadMenu({ open, onClose }) {
     }
   };
 
-  const importBundle = async (file) => {
+  const _importBundle = async (file) => {
     try {
       const text = file.name.endsWith(".gz")
         ? await (async () => {

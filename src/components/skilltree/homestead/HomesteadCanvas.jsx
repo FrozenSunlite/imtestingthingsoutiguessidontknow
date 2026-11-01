@@ -59,9 +59,6 @@ const CAT_FILL = {
   Misc: "fill-violet-500/30 stroke-violet-400/80",
 };
 
-// Only basic facilities can take Cellar / Floor / Attic attachments.
-const ATTACHABLE = ["Cramped", "Roomy", "Vast"];
-
 // Colours for rooms placed inside a facility's attached storeys.
 const SLOT_STYLE = {
   cellar: "fill-violet-500/25 stroke-violet-400/80",
@@ -76,7 +73,7 @@ const SLOT_STYLE = {
 // to move with cell snapping and collision checks, and resizable items have
 // draggable edge handles. Left-drag or middle-drag pans; the middle button
 // never places. Right-clicking a basic facility offers Cellar / Floor / Attic.
-export default function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, update, devMode }) {
+export default function HomesteadCanvas({ plot, floor, tool, setTool: _setTool, selection, onSelect, update, devMode }) {
   const wrapRef = useRef(null);
   const svgRef = useRef(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
@@ -397,7 +394,7 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
     setGesturing(true);
   };
 
-  const startResize = (kind, item, edge, e) => {
+  const startResize = (kind, item, edge, _e) => {
     if (tool) return;
     const g = { type: "resize", kind, id: item.id, edge, x: item.x, y: item.y, w: item.w, h: item.h, ow: item.w, oh: item.h };
     gestureRef.current = g;
@@ -1195,7 +1192,6 @@ export default function HomesteadCanvas({ plot, floor, tool, setTool, selection,
               </g>
             );
           }
-          const selCls = isSel("connection", c.id) ? " stroke-primary" : " stroke-muted-foreground/50";
           return (
             <g key={c.id} onPointerDown={(e) => {
               if (e.button === 2) {

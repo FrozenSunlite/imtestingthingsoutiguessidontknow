@@ -399,7 +399,7 @@ export function ActionsSection() {
                   {(a.parts || [])
                     .map((part, j) => [part, partSummary(part, a), j])
                     .filter(([, text]) => text)
-                    .map(([part, text, j]) => (
+                    .map(([_part, text, j]) => (
                       <span
                         key={j}
                         className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium"

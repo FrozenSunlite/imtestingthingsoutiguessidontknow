@@ -31,7 +31,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
-import { Label } from "@/components/ui/label";
 import {
   Pencil,
   Eye,

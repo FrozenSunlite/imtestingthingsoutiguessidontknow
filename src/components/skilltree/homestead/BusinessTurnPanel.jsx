@@ -40,7 +40,7 @@ export default function BusinessTurnPanel({ plot, update, log }) {
 
 // First-time setup: pick a business type and its primary skill, then invest
 // the 500 gp of starting capital.
-function SetupCard({ plot, update, log }) {
+function SetupCard({ plot: _plot, update, log }) {
   const { money } = useMoney();
   const [skill, setSkill] = useState("");
   const [type, setType] = useState("");
@@ -239,7 +239,6 @@ function TurnPanel({ plot, update, log, biz }) {
 
   // 5. Trade Routes.
   const routes = biz.routes || [];
-  const nonCourier = routes.filter((r) => !r.courier).length;
   const couriers = routes.filter((r) => r.courier).length;
   const guardsAssigned = routes.reduce((n, r) => n + (r.guards || 0), 0);
   const addRoute = (courier) => {

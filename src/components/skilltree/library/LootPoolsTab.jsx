@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTree } from "@/lib/treeStore";
-import { useLibList, ListHeader, EmptyNote } from "./shared";
+import { useLibList, EmptyNote } from "./shared";
 import { LOOT_CATEGORIES, rollLootPool } from "@/lib/dmLoot";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

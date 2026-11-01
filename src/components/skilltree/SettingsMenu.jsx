@@ -55,7 +55,7 @@ const FIXED_SHORTCUTS = [
 ];
 
 export function SettingsMenu({ open, onClose }) {
-  const { settings, setSettings, tree, patchTab, character, setCharacter, backupProject, listBackups, restoreBackup, deleteTab } = useTree();
+  const { settings, setSettings, character, setCharacter, backupProject, listBackups, restoreBackup, deleteTab } = useTree();
   const [theme, setTheme] = useTheme();
   const template = theme.template || "default";
   const customTheme = { ...DEFAULT_CUSTOM, ...(theme.custom || {}) };
@@ -82,7 +82,6 @@ export function SettingsMenu({ open, onClose }) {
     return () => { console.log = origLog; console.error = origError; };
   }, [character?.devMode]);
   if (!settings) return null;
-  const activeTab = (tree?.tabs || []).find((t) => t.id === tree?.activeTabId);
 
   const setHotkey = (action, combo) =>
     setSettings((s) => ({ ...s, hotkeys: { ...s.hotkeys, [action]: combo } }));

@@ -952,7 +952,7 @@ export function WorldBuilder({ onExit }) {
       }))
       .filter(({ npc }) => peopleNation === "__all__" || npc.nationId === peopleNation)
       .filter(
-        ({ npc, disposition }) =>
+        ({ npc: _npc, disposition }) =>
           peopleDisposition === "__all__" || disposition === peopleDisposition
       )
       .filter(({ npc, disposition }) =>

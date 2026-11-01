@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, X, ChevronDown } from "lucide-react";
 import { InfoTip } from "@/components/skilltree/InfoTip";
-import { useLibList, ListHeader, EmptyNote, EntryCard, PeriodSelect, NameList, CostField } from "./shared";
+import { useLibList, ListHeader, EmptyNote, EntryCard, PeriodSelect, CostField } from "./shared";
 import { GearContents } from "@/components/skilltree/library/GearContents";
 
 // Adventuring Gear, Trinkets, Explosives, Currency, Trade Goods and Poisons

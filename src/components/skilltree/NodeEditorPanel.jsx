@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,6 @@ import {
   Search,
   Upload,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "@/components/skilltree/PanelResizer";
 import { InfoTip } from "@/components/skilltree/InfoTip";
@@ -30,7 +29,6 @@ import { FieldGroup } from "@/components/skilltree/FieldGroup";
 import { importImage } from "@/lib/imageStore";
 import { NodePicker } from "@/components/skilltree/NodePicker";
 import { matchesQuery } from "@/lib/textSearch";
-import { checkOptions, STATS } from "@/lib/skills";
 import { NodeActionsSection } from "@/components/skilltree/NodeActionsSection";
 import { NodeResourcesSection } from "@/components/skilltree/NodeResourcesSection";
 import { NodeBenefitsSection } from "@/components/skilltree/NodeBenefitsSection";
@@ -57,7 +55,6 @@ export function NodeEditorPanel() {
     toggleDependency,
     settings,
     setSettings,
-    enterSubtreeEditor,
   } = useTree();
   const [search, setSearch] = useState("");
   const [exSearch, setExSearch] = useState("");
@@ -76,7 +73,7 @@ export function NodeEditorPanel() {
     try {
       const url = await importImage(file);
       updateNode(node.id, { [field]: url });
-    } catch (e) {
+    } catch {
       /* upload errors are non-fatal; ignore silently */
     } finally {
       setUploading(false);
@@ -106,7 +103,6 @@ export function NodeEditorPanel() {
       levelReq: next.levelReq,
     });
   };
-  const opts = checkOptions(settings);
   const nodeImageFolder =
     settings?.nodeImageFolder || settings?.library?.nodeImageFolder || "Icons";
 

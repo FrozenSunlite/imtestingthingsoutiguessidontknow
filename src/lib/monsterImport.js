@@ -48,11 +48,6 @@ const mods = (value) => {
     .join(", ");
 };
 
-const num = (v, fallback = null) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-};
-
 const sourceTag = (raw) => {
   const type = typeof raw?.type === "object" ? raw.type?.type : raw?.type;
   const typeTags = typeof raw?.type === "object" ? raw.type?.tags || [] : [];

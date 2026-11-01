@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CtU2qg77.js";
+import { n as Button, r as cn } from "./router-DB-xNOkn.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -1743,7 +1743,7 @@ function plotTotals(plot) {
 		weeks += Math.ceil(fu.w * fu.h / 4);
 		spaces += fu.w * fu.h;
 	}
-	for (const c of plot.connections || []) {
+	for (const _c of plot.connections || []) {
 		gp += 25;
 		weeks += 1;
 	}
@@ -1816,7 +1816,6 @@ function livingStyle(plot) {
 	const kitchenSpaces = count("Kitchen").reduce((n, k) => n + k.w * k.h, 0);
 	const comfortIdx = COMFORT_LEVELS.indexOf(plot.comfort || "modest");
 	const food = kitchenSpaces > 0 ? COMFORT_LEVELS[comfortIdx] : "squalid";
-	COMFORT_LEVELS.indexOf(food);
 	return {
 		overall: kitchenSpaces > 0 ? COMFORT_LEVELS[comfortIdx] : COMFORT_LEVELS[Math.max(0, Math.min(comfortIdx, COMFORT_LEVELS.indexOf("poor")))],
 		beds,
@@ -3337,1663 +3336,6 @@ function makeRoom(category, name, index) {
 }
 var STARTER_DUNGEON_ROOMS = Object.entries(CATEGORY_ROOMS).flatMap(([category, names]) => names.map((name, index) => makeRoom(category, name, index)));
 new Set(STARTER_DUNGEON_ROOMS.map((r) => r.id));
-//#endregion
-//#region src/lib/dmLoot.js
-var LOOT_CATEGORIES$1 = [
-	[
-		"weapons",
-		"Weapons",
-		(lib) => lib.weapons || []
-	],
-	[
-		"armor",
-		"Armor",
-		(lib) => lib.armor || []
-	],
-	[
-		"poisons",
-		"Poisons",
-		(lib) => lib.poisons || []
-	],
-	[
-		"explosives",
-		"Explosives",
-		(lib) => lib.explosives || []
-	],
-	[
-		"adventuringGear",
-		"Adventuring Gear",
-		(lib) => lib.adventuringGear || []
-	],
-	[
-		"ammo",
-		"Ammunition",
-		(lib) => lib.ammo || []
-	],
-	[
-		"trinkets",
-		"Trinkets",
-		(lib) => lib.trinkets || []
-	],
-	[
-		"wondrousItems",
-		"Wondrous Items",
-		(lib) => lib.wondrousItems || []
-	]
-];
-var catLabel$1 = (key) => LOOT_CATEGORIES$1.find(([k]) => k === key)?.[1] || key;
-function dexMod(abilities) {
-	const m = String(abilities || "").match(/DEX\s*[:=]?\s*(-?\d+)/i);
-	return m ? Math.floor((Number(m[1]) - 10) / 2) : 0;
-}
-function parseMaxHp(hp) {
-	const n = parseInt(String(hp ?? ""), 10);
-	return Number.isFinite(n) ? n : 0;
-}
-function crNum$2(cr) {
-	const s = String(cr ?? "").trim();
-	if (s.includes("/")) {
-		const [a, b] = s.split("/").map(Number);
-		return b > 0 ? a / b : 0;
-	}
-	const n = parseFloat(s);
-	return Number.isFinite(n) ? n : -1;
-}
-function rollExpr(expr) {
-	const s = String(expr ?? "").trim().toLowerCase().replace(/\s+/g, "");
-	const m = s.match(/^(\d*)d(\d+)([+-]\d+)?$/);
-	if (m) {
-		const n = Math.min(100, Math.max(1, parseInt(m[1] || "1", 10)));
-		const size = Math.max(1, parseInt(m[2], 10));
-		let total = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * size)).reduce((a, b) => a + b, 0);
-		if (m[3]) total += parseInt(m[3], 10);
-		return total;
-	}
-	const n = parseInt(s, 10);
-	return Number.isFinite(n) && n >= 0 ? n : 1;
-}
-function rollLootPool(poolName, pools, depth = 0, path = []) {
-	if (depth > 12) return {
-		lines: [],
-		error: "Rolled more than 12 table levels deep."
-	};
-	if (path.includes(poolName)) return {
-		lines: [],
-		error: `Circular reference: ${[...path, poolName].join(" → ")}`
-	};
-	const pool = (pools || []).find((p) => p.name === poolName);
-	if (!pool) return {
-		lines: [],
-		error: `Loot pool "${poolName}" not found.`
-	};
-	const entries = (pool.entries || []).filter((e) => e?.name);
-	if (!entries.length) return {
-		lines: [],
-		error: `Loot pool "${poolName}" is empty.`
-	};
-	const e = entries[Math.floor(Math.random() * entries.length)];
-	const qty = rollExpr(e.qty);
-	const lines = [];
-	if (e.kind === "table") {
-		for (let i = 0; i < qty; i++) {
-			const r = rollLootPool(e.name, pools, depth + 1, [...path, poolName]);
-			lines.push(...r.lines);
-			if (r.error) return {
-				lines,
-				error: r.error
-			};
-		}
-		return {
-			lines,
-			error: null
-		};
-	}
-	lines.push({
-		qty,
-		name: e.name,
-		category: e.kind === "item" ? catLabel$1(e.category) : "",
-		via: [...path, poolName]
-	});
-	return {
-		lines,
-		error: null
-	};
-}
-var CR_NUM = (cr) => {
-	const s = String(cr ?? "").trim();
-	if (s === "1/8") return .125;
-	if (s === "1/4") return .25;
-	if (s === "1/2") return .5;
-	const n = Number(s);
-	return Number.isFinite(n) ? n : 0;
-};
-var weightedRow = (rows) => {
-	const list = (rows || []).filter((r) => r && (r.monster || r.tag));
-	if (!list.length) return null;
-	const total = list.reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
-	let roll = Math.random() * total;
-	for (const row of list) {
-		roll -= Math.max(1, Number(row.weight) || 1);
-		if (roll < 0) return row;
-	}
-	return list[list.length - 1];
-};
-function rollEncounter(table, monsters = []) {
-	const minCR = table?.crMin != null && table.crMin !== "" ? CR_NUM(table.crMin) : null;
-	const maxCR = table?.crMax != null && table.crMax !== "" ? CR_NUM(table.crMax) : null;
-	return (table?.mode === "weighted" ? [weightedRow(table.rows)].filter(Boolean) : table?.rows || []).map((r) => {
-		if (!r) return null;
-		let name = r.monster || r.tag || "";
-		if (!name) return null;
-		if (r.kind === "tag" || r.tag) {
-			const tag = String(r.tag || r.monster || "").toLowerCase();
-			const pool = (monsters || []).filter((m) => {
-				const value = CR_NUM(m?.cr);
-				if (minCR != null && value < minCR) return false;
-				if (maxCR != null && value > maxCR) return false;
-				return [
-					m?.type,
-					m?.category,
-					...Array.isArray(m?.tags) ? m.tags : []
-				].filter(Boolean).map((x) => String(x).toLowerCase()).some((h) => h === tag || h.includes(tag));
-			});
-			if (pool.length) name = pool[Math.floor(Math.random() * pool.length)].name;
-		}
-		return {
-			monster: name,
-			count: rollExpr(r.count)
-		};
-	}).filter((r) => r && r.count > 0);
-}
-//#endregion
-//#region src/lib/dungeonGen.js
-var DUNGEON_RANKS = {
-	E: {
-		label: "E",
-		nickname: "Expie",
-		rooms: 3,
-		downtime: "2 weeks",
-		level: "0–2",
-		prof: 0,
-		crMin: 0,
-		crMax: 1,
-		gold: [25, 100],
-		loot: "Coins, mundane gear",
-		color: "#94a3b8"
-	},
-	D: {
-		label: "D",
-		nickname: "Newk",
-		rooms: 6,
-		downtime: "3 weeks",
-		level: "3–5",
-		prof: 1,
-		crMin: 2,
-		crMax: 3,
-		gold: [100, 500],
-		loot: "Coins, gems, uncommon items",
-		color: "#86efac"
-	},
-	C: {
-		label: "C",
-		nickname: "Rookie",
-		rooms: 9,
-		downtime: "4 weeks",
-		level: "6–8",
-		prof: 2,
-		crMin: 4,
-		crMax: 6,
-		gold: [500, 2e3],
-		loot: "Gems, potions and scrolls, rare items",
-		color: "#5eead4"
-	},
-	B: {
-		label: "B",
-		nickname: "Reg",
-		rooms: 12,
-		downtime: "5 weeks",
-		level: "9–11",
-		prof: 3,
-		crMin: 7,
-		crMax: 9,
-		gold: [2e3, 8e3],
-		loot: "Rare items, trade bars, gems",
-		color: "#60a5fa"
-	},
-	A: {
-		label: "A",
-		nickname: "Prestige",
-		rooms: 15,
-		downtime: "6 weeks",
-		level: "12–14",
-		prof: 4,
-		crMin: 10,
-		crMax: 12,
-		gold: [8e3, 25e3],
-		loot: "Very rare items, art objects",
-		color: "#a78bfa"
-	},
-	S: {
-		label: "S",
-		nickname: "Cavalry",
-		rooms: 18,
-		downtime: "7 weeks",
-		level: "15–17",
-		prof: 5,
-		crMin: 13,
-		crMax: 15,
-		gold: [25e3, 75e3],
-		loot: "Legendary items, treasures",
-		color: "#f472b6"
-	},
-	SS: {
-		label: "SS",
-		nickname: "Hero",
-		rooms: 21,
-		downtime: "8 weeks",
-		level: "18–20",
-		prof: 6,
-		crMin: 16,
-		crMax: 18,
-		gold: [75e3, 2e5],
-		loot: "Legendary items, artifacts",
-		color: "#fb923c"
-	},
-	SSS: {
-		label: "SSS",
-		nickname: "Mythos",
-		rooms: 24,
-		downtime: "9 weeks",
-		level: "21+",
-		prof: 7,
-		crMin: 19,
-		crMax: 30,
-		gold: [2e5, 5e5],
-		loot: "Artifacts and mythic relics",
-		color: "#ef4444"
-	}
-};
-function rankChallenge(rank) {
-	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
-	const minCR = Math.max(0, Number(info.crMin) || 0);
-	const maxCR = Math.max(minCR, Number(info.crMax) || minCR);
-	return {
-		rankCR: maxCR,
-		minCR,
-		maxCR,
-		minionMin: Math.max(0, minCR - 2),
-		minionMax: Math.max(0, minCR - 1)
-	};
-}
-var DUNGEON_CATEGORIES = [
-	["Start", "#22c55e"],
-	["Entrance", "#64748b"],
-	["Chamber", "#38bdf8"],
-	["Corridor", "#94a3b8"],
-	["Trap", "#f97316"],
-	["Puzzle", "#a78bfa"],
-	["Loot", "#facc15"],
-	["Elite", "#fb7185"],
-	["Boss", "#ef4444"],
-	["Rest", "#4ade80"],
-	["Shop", "#2dd4bf"],
-	["Harvest", "#22d3ee"]
-];
-var DUNGEON_ENVIRONMENTS = [
-	"Damp stone",
-	"Ancient ruins",
-	"Flooded cistern",
-	"Fungal cavern",
-	"Volcanic vents",
-	"Frozen halls",
-	"Shadowed crypt",
-	"Overgrown temple",
-	"Mine shafts",
-	"Arcane laboratory"
-];
-var ENCOUNTER_CATEGORIES = /* @__PURE__ */ new Set([
-	"Chamber",
-	"Trap",
-	"Puzzle",
-	"Elite",
-	"Boss"
-]);
-var BOSS_THEMES = [
-	"Ashen Throne",
-	"Drowned Choir",
-	"Iron Colossus",
-	"Frostbound Crown",
-	"Obsidian Gate",
-	"Sunken Idol",
-	"Crimson Reliquary"
-];
-var themedBoss = (room, index) => index === 0 ? room : {
-	...room,
-	name: `${room.name} — ${BOSS_THEMES[(index - 1) % BOSS_THEMES.length]}`
-};
-var NAME_ADJECTIVES = [
-	"Sunken",
-	"Ashen",
-	"Whispering",
-	"Broken",
-	"Gilded",
-	"Frozen",
-	"Hollow",
-	"Crimson",
-	"Forgotten",
-	"Umbral",
-	"Shifting",
-	"Iron",
-	"Verdant",
-	"Drowned",
-	"Cinder",
-	"Moonlit",
-	"Shattered",
-	"Silent",
-	"Thorned",
-	"Wandering"
-];
-var NAME_PLACES = [
-	"Crypt",
-	"Vault",
-	"Warren",
-	"Sanctum",
-	"Labyrinth",
-	"Catacomb",
-	"Keep",
-	"Reliquary",
-	"Gallery",
-	"Bastion",
-	"Undercroft",
-	"Mausoleum",
-	"Foundry"
-];
-var NAME_SPIRE_PLACES = [
-	"Spire",
-	"Tower",
-	"Ascent",
-	"Pinnacle",
-	"Citadel",
-	"Ziggurat",
-	"Needle"
-];
-var NAME_NOUNS = [
-	"Echo",
-	"Crown",
-	"Serpent",
-	"Lantern",
-	"Tide",
-	"Ember",
-	"Oracle",
-	"Warden",
-	"Choir",
-	"Colossus",
-	"Requiem",
-	"Root",
-	"Mask",
-	"Throne",
-	"Idol",
-	"Cinder"
-];
-function generateDungeonName(seed, mode = "single", rank = "E") {
-	const rng = makeRng$1(`${mode}:${rank}:${seed}:name`);
-	const place = rng.pick(mode === "spire" ? NAME_SPIRE_PLACES : NAME_PLACES);
-	const adj = rng.pick(NAME_ADJECTIVES);
-	const adj2 = rng.pick(NAME_ADJECTIVES.filter((word) => word !== adj));
-	const noun = rng.pick(NAME_NOUNS);
-	const theme = rng.pick(BOSS_THEMES);
-	return rng.pick([
-		() => `The ${adj} ${place}`,
-		() => `${adj} ${place} of the ${adj2} ${noun}`,
-		() => `The ${place} of ${theme}`,
-		() => `${place} of the ${noun}`,
-		() => `The ${noun}'s ${place}`,
-		() => `${adj} ${place} of the ${noun}`
-	])();
-}
-var DUNGEON_TRAP_TYPES = [
-	"Pressure plate",
-	"Falling ceiling",
-	"Spike pit",
-	"Alarm rune",
-	"Collapsing bridge",
-	"Flame jet",
-	"Poison mist"
-];
-var TRAP_POOL = [
-	"Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
-	"Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
-	"Spike pit: DC 8 + 2×rank Dexterity save or 2d6×rank piercing",
-	"Alarm rune: alerts the nearest room",
-	"Collapsing bridge: DC 10 + rank Dexterity save or fall 2 spaces"
-];
-var ELEVATIONS = [
-	"Flat",
-	"Raised dais (+1)",
-	"Sunken floor (−1)",
-	"Tiered steps (+2)",
-	"Chasm edge (−2)"
-];
-var COVERS = [
-	"Open",
-	"Pillars (half cover)",
-	"Crates (half cover)",
-	"Low wall (three-quarters)",
-	"Fog (lightly obscured)"
-];
-function hashSeed(seed) {
-	let h = 2166136261;
-	const s = String(seed || "dungeon");
-	for (let i = 0; i < s.length; i++) {
-		h ^= s.charCodeAt(i);
-		h = Math.imul(h, 16777619);
-	}
-	return h >>> 0;
-}
-function randomSeed$1() {
-	return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
-function makeRng$1(seed) {
-	let a = hashSeed(seed);
-	const rand = () => {
-		a |= 0;
-		a = a + 1831565813 | 0;
-		let t = Math.imul(a ^ a >>> 15, 1 | a);
-		t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-		return ((t ^ t >>> 14) >>> 0) / 4294967296;
-	};
-	return {
-		rand,
-		int: (min, max) => min + Math.floor(rand() * (max - min + 1)),
-		pick: (arr) => arr?.length ? arr[Math.floor(rand() * arr.length)] : "",
-		chance: (p) => rand() < p,
-		shuffle: (arr) => {
-			const a = [...arr];
-			for (let i = a.length - 1; i > 0; i--) {
-				const j = Math.floor(rand() * (i + 1));
-				[a[i], a[j]] = [a[j], a[i]];
-			}
-			return a;
-		}
-	};
-}
-var uid = (prefix = "d") => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
-function templateFor(category, templates, rng) {
-	const pool = templates.filter((r) => r.category === category);
-	if (pool.length) return rng.pick(pool);
-	return templates.length ? rng.pick(templates) : STARTER_DUNGEON_ROOMS[0];
-}
-function instantiate(template, category, rng, rank, { monsters, lootPools, players = 4 }) {
-	const sizeScale = Math.max(.85, Math.min(1.35, 1 + (Math.max(1, Number(players) || 4) - 4) * .06));
-	const w = Math.max(9, Math.min(33, Math.round(rng.int(template.minW || 9, Math.max(template.minW || 9, template.maxW || template.minW || 9)) * sizeScale)));
-	const h = Math.max(9, Math.min(33, Math.round(rng.int(template.minH || 9, Math.max(template.minH || 9, template.maxH || template.minH || 9)) * sizeScale)));
-	const traps = [...template.traps || []];
-	if (!traps.length && (category === "Trap" || rng.chance(.18))) traps.push(rng.pick(TRAP_POOL));
-	const spawns = [...template.spawns || []];
-	const loot = [...template.loot || []];
-	if (!loot.length && (category === "Loot" || rng.chance(.22))) {
-		const pools = (lootPools || []).map((p) => p.name).filter(Boolean);
-		loot.push(pools.length ? `${rng.pick(pools)} (1 roll)` : `1 rank ${rank} loot roll`);
-	}
-	const shape = template.cells?.length ? template.shape || "Custom" : template.shape && template.shape !== "Rectangle" ? template.shape : pickRoomShape(category, rng);
-	const cells = template.cells?.length ? template.cells.map(([cx, cy]) => [cx, cy]) : shapeCells(w, h, shape);
-	const environment = template.environment || rng.pick(DUNGEON_ENVIRONMENTS);
-	const elevation = template.elevation || rng.pick(ELEVATIONS);
-	const cover = template.cover || rng.pick(COVERS);
-	const surface = roomSurfaceFeatures({
-		...template,
-		environment,
-		elevation,
-		cover,
-		traps
-	}, cells, rng);
-	return {
-		id: uid("room"),
-		templateId: template.id,
-		name: template.name || `${category} ${rng.int(1, 9)}`,
-		floor: 0,
-		category,
-		x: 0,
-		y: 0,
-		w,
-		h,
-		environment,
-		elevation,
-		cover,
-		connector: template.connector || "Doorway",
-		externalDoor: category === "Entrance" || category === "Start" || !!template.externalDoor,
-		shape,
-		cells,
-		heights: surface.heights,
-		stairs: surface.stairs,
-		coverPoints: surface.coverPoints,
-		trapPoints: surface.trapPoints,
-		water: surface.water,
-		difficult: surface.difficult,
-		environmentEffect: template.environmentEffect || "",
-		tags: [...template.tags || []],
-		description: template.description || "",
-		ingressPoints: template.ingressPoints?.length ? template.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
-		spawnPoints: template.spawnPoints?.length ? template.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, spawns.length),
-		traps,
-		spawns,
-		loot,
-		harvest: [...template.harvest || []],
-		objects: [...template.objects || []],
-		side: !!template.side,
-		notes: template.notes || "",
-		cr0Only: !!template.cr0Only,
-		bonfire: !!template.bonfire
-	};
-}
-var link = (from, to, type = "Doorway", floor = 0) => ({
-	id: `${from}->${to}`,
-	from,
-	to,
-	type,
-	floor: Number(floor) || 0,
-	door: true
-});
-var attachDoorPoints = (rooms, connections) => {
-	const byId = new Map((rooms || []).map((room) => [room.id, room]));
-	return (connections || []).map((connection) => {
-		const from = byId.get(connection.from);
-		const to = byId.get(connection.to);
-		if (!from || !to) return connection;
-		const fromPoint = from.ingressPoints?.[0] || {
-			x: 0,
-			y: 0
-		};
-		const toPoint = to.ingressPoints?.[0] || {
-			x: 0,
-			y: 0
-		};
-		return {
-			...connection,
-			doorFrom: {
-				x: Number(fromPoint.x) || 0,
-				y: Number(fromPoint.y) || 0
-			},
-			doorTo: {
-				x: Number(toPoint.x) || 0,
-				y: Number(toPoint.y) || 0
-			}
-		};
-	});
-};
-function makeMissionStart() {
-	const w = 4;
-	const h = 4;
-	const cells = rectCells(w, h);
-	return {
-		id: uid("room"),
-		templateId: "room-mission-start",
-		name: "Mission Start",
-		floor: 0,
-		category: "Start",
-		x: 0,
-		y: 0,
-		w,
-		h,
-		shape: "Rectangle",
-		cells,
-		ingressPoints: [{
-			x: 0,
-			y: 1,
-			label: "Player ingress"
-		}],
-		spawnPoints: [],
-		environment: "Staging point",
-		elevation: "Flat",
-		cover: "Open",
-		connector: "Trail",
-		externalDoor: true,
-		traps: [],
-		spawns: [],
-		loot: [],
-		notes: "The party begins here. Choose a route from this staging point; arrows mark the way deeper into the run."
-	};
-}
-function makeBonfire(rng) {
-	const w = rng?.int(4, 5) || 4;
-	const h = rng?.int(4, 5) || 4;
-	const cells = rectCells(w, h);
-	return {
-		id: uid("room"),
-		templateId: "room-bonfire",
-		name: "Bonfire Safe Zone",
-		floor: 0,
-		category: "Rest",
-		x: 0,
-		y: 0,
-		w,
-		h,
-		shape: "Rectangle",
-		cells,
-		ingressPoints: defaultIngress(cells),
-		spawnPoints: [],
-		environment: "Sheltered alcove",
-		elevation: "Flat",
-		cover: "Low wall (three-quarters)",
-		connector: "Doorway",
-		traps: [],
-		spawns: [],
-		loot: [],
-		bonfire: true,
-		notes: "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper."
-	};
-}
-function insertBonfires(spine, rng) {
-	const out = [];
-	let encounters = 0;
-	spine.forEach((room, i) => {
-		out.push(room);
-		if (ENCOUNTER_CATEGORIES.has(room.category)) encounters += 1;
-		const last = i === spine.length - 1;
-		if (encounters >= 2 && !last && room.category !== "Boss") {
-			out.push(makeBonfire(rng));
-			encounters = 0;
-		}
-	});
-	while (out.length && out[out.length - 1]?.bonfire) out.pop();
-	const last = out[out.length - 1];
-	const previous = out[out.length - 2];
-	if (last?.category === "Boss" && previous && previous.category !== "Rest" && !previous.bonfire) out.splice(out.length - 1, 0, makeBonfire(rng));
-	return out;
-}
-function positionSingle(rooms, rng) {
-	const spine = rooms.filter((r) => !r.branch);
-	let cursor = 0;
-	spine.forEach((room) => {
-		room.x = cursor;
-		room.y = rng.int(-1, 1);
-		cursor += Math.max(12, room.w) + 34;
-	});
-	rooms.filter((r) => r.branch).forEach((room, index) => {
-		const parent = rooms.find((r) => r.id === room.parentId) || spine[0];
-		room.x = (parent?.x || 0) + Math.max(0, ((parent?.w || room.w || 9) - (room.w || 9)) / 2);
-		room.y = (parent?.y || 0) + Math.max(12, parent?.h || 12) + 26 + index * (Math.max(12, room.h || 12) + 22);
-	});
-	const placed = [];
-	const clashes = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-	rooms.forEach((room) => {
-		let guard = 0;
-		while (placed.some((other) => clashes(room, other)) && guard < 200) {
-			room.y += 14;
-			guard += 1;
-		}
-		placed.push({
-			x: room.x,
-			y: room.y,
-			w: room.w,
-			h: room.h
-		});
-	});
-}
-var HALL_TYPES = [
-	{
-		name: "Hallway",
-		elevation: "Flat",
-		environment: "Damp stone"
-	},
-	{
-		name: "Stairwell",
-		elevation: "Tiered steps (+2)",
-		environment: "Ancient ruins"
-	},
-	{
-		name: "Elevator Shaft",
-		elevation: "Raised dais (+1)",
-		environment: "Mine shafts"
-	},
-	{
-		name: "Bridge",
-		elevation: "Chasm edge (−2)",
-		environment: "Collapsed bridge"
-	},
-	{
-		name: "Collapsed Passage",
-		elevation: "Sunken floor (−1)",
-		environment: "Collapsed gallery"
-	}
-];
-function makeHall(rng, dx, dy) {
-	const kind = rng.pick(HALL_TYPES);
-	const horizontal = Math.abs(dx) >= Math.abs(dy);
-	const w = horizontal ? Math.max(9, Math.min(16, Math.round(Math.abs(dx) / 2))) : Math.max(3, Math.min(9, Math.round(Math.abs(dx) / 2) + 1));
-	const h = horizontal ? 3 : Math.max(9, Math.min(16, Math.round(Math.abs(dy) / 2)));
-	let cells = rectCells(w, h);
-	if (!horizontal && w > 3) for (let x = 3; x < w; x += 1) for (let y = h - 3; y < h; y += 1) cells.push([x, y]);
-	const traps = rng.chance(.25) ? [rng.pick(TRAP_POOL)] : [];
-	const stairs = kind.name === "Stairwell" || kind.name === "Elevator Shaft" ? [{
-		x: 0,
-		y: Math.max(0, Math.floor(h / 2))
-	}, {
-		x: Math.max(0, w - 1),
-		y: Math.max(0, Math.floor(h / 2))
-	}] : [];
-	return {
-		id: uid("hall"),
-		templateId: `hall-${kind.name.toLowerCase().replace(/\s+/g, "-")}`,
-		name: kind.name,
-		floor: 0,
-		category: "Corridor",
-		hall: true,
-		combat: false,
-		side: false,
-		branch: false,
-		x: 0,
-		y: 0,
-		w,
-		h,
-		shape: horizontal ? "Rectangle" : "L-Shape",
-		cells,
-		environment: kind.environment,
-		elevation: kind.elevation,
-		cover: "Open",
-		connector: kind.name,
-		tags: ["hall", kind.name.toLowerCase()],
-		description: `${kind.name} connecting two chambers. Monsters do not lair here, but the passage can be trapped or blocked.`,
-		traps,
-		spawns: [],
-		spawnPoints: [],
-		loot: [],
-		harvest: [],
-		stairs,
-		ingressPoints: defaultIngress(cells),
-		environmentEffect: "",
-		notes: `${kind.name}: free of monster encounters; traps and hazards are possible.`
-	};
-}
-function insertHalls(rooms, connections, rng) {
-	const halls = [];
-	const next = [];
-	(connections || []).forEach((connection) => {
-		const from = rooms.find((r) => r.id === connection.from);
-		const to = rooms.find((r) => r.id === connection.to);
-		if (!from || !to) {
-			next.push(connection);
-			return;
-		}
-		if (from.side || to.side || from.hall || to.hall || from.bonfire || to.bonfire || from.category === "Boss" || to.category === "Boss" || from.category === "Start" || to.category === "Start") {
-			next.push(connection);
-			return;
-		}
-		const dx = to.x + to.w / 2 - (from.x + from.w / 2);
-		const dy = to.y + to.h / 2 - (from.y + from.h / 2);
-		if (Math.abs(dx) + Math.abs(dy) < 18) {
-			next.push(connection);
-			return;
-		}
-		if (Math.abs(dx) > 14 && Math.abs(dy) > 14) {
-			next.push(connection);
-			return;
-		}
-		const hall = makeHall(rng, dx, dy);
-		hall.x = from.x + from.w / 2 + dx / 2 - hall.w / 2;
-		hall.y = from.y + from.h / 2 + dy / 2 - hall.h / 2;
-		if (Math.abs(dx) >= Math.abs(dy)) hall.y = (from.y + from.h / 2 + to.y + to.h / 2) / 2 - hall.h / 2;
-		else hall.x = (from.x + from.w / 2 + to.x + to.w / 2) / 2 - hall.w / 2;
-		halls.push(hall);
-		next.push(link(from.id, hall.id, hall.connector, from.floor || 0));
-		next.push(link(hall.id, to.id, connection.type || "Doorway", from.floor || 0));
-	});
-	return {
-		halls,
-		connections: next
-	};
-}
-function buildRoutes(rooms, connections) {
-	const start = rooms.find((r) => r.category === "Start") || rooms[0];
-	const bosses = rooms.filter((r) => r.category === "Boss");
-	if (!start || !bosses.length) return [];
-	const outgoing = /* @__PURE__ */ new Map();
-	(connections || []).forEach((c) => {
-		if (!outgoing.has(c.from)) outgoing.set(c.from, []);
-		outgoing.get(c.from).push(c);
-	});
-	const routes = [];
-	bosses.forEach((boss, index) => {
-		const queue = [start.id];
-		const prev = /* @__PURE__ */ new Map([[start.id, null]]);
-		while (queue.length) {
-			const id = queue.shift();
-			if (id === boss.id) break;
-			(outgoing.get(id) || []).forEach((c) => {
-				if (prev.has(c.to)) return;
-				prev.set(c.to, {
-					from: id,
-					connection: c.id
-				});
-				queue.push(c.to);
-			});
-		}
-		if (!prev.has(boss.id)) return;
-		const roomIds = [];
-		const connectionIds = [];
-		let cur = boss.id;
-		while (cur != null) {
-			roomIds.unshift(cur);
-			const step = prev.get(cur);
-			if (step?.connection) connectionIds.unshift(step.connection);
-			cur = step?.from ?? null;
-		}
-		routes.push({
-			id: `route-${index}`,
-			name: boss.name || `Boss route ${index + 1}`,
-			bossId: boss.id,
-			roomIds,
-			connectionIds
-		});
-	});
-	return routes;
-}
-function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), templates = STARTER_DUNGEON_ROOMS, monsters = [], lootPools = [], name = "", players = 4, requiredTags = [], avoidCategories = [] } = {}) {
-	const rng = makeRng$1(`${mode}:${rank}:${seed}`);
-	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
-	const rankIndex = Math.max(0, Object.keys(DUNGEON_RANKS).indexOf(rank));
-	const baseTemplates = (templates || []).length ? templates : STARTER_DUNGEON_ROOMS;
-	const wantedTags = (requiredTags || []).map((t) => String(t).toLowerCase().trim()).filter(Boolean);
-	const avoided = new Set((avoidCategories || []).map((c) => String(c).toLowerCase()));
-	let source = baseTemplates.filter((template) => {
-		if (avoided.has(String(template.category || "").toLowerCase())) return false;
-		if (!wantedTags.length) return true;
-		const haystack = `${template.name || ""} ${template.category || ""} ${(template.tags || []).join(" ")} ${template.environment || ""}`.toLowerCase();
-		return wantedTags.some((tag) => haystack.includes(tag));
-	});
-	if (!source.length) source = baseTemplates;
-	const rooms = [];
-	const connections = [];
-	const total = Math.max(3, Math.min(48, info.rooms * (mode === "single" ? 2 : 1)));
-	const opts = {
-		monsters,
-		lootPools,
-		players
-	};
-	let title = name || generateDungeonName(seed, mode, rank);
-	if (mode === "spire") {
-		const floors = 15;
-		const start = makeMissionStart();
-		start.x = -40;
-		start.y = 0;
-		rooms.push(start);
-		let previous = [start];
-		let encounterFloors = 0;
-		for (let f = 1; f < floors; f++) {
-			const last = f === 14;
-			const count = last ? rankIndex >= 4 ? 3 : rankIndex >= 2 ? 2 : 1 : rng.int(1, 3);
-			const current = [];
-			for (let lane = 0; lane < count; lane++) {
-				let category = "Chamber";
-				if (last) category = "Boss";
-				else if (f === 4 || f === 9) category = "Elite";
-				else if (f === 5 || f === 10) category = "Rest";
-				else if (f === 3 || f === 8) category = "Shop";
-				else if (rng.chance(.16)) category = rng.pick([
-					"Trap",
-					"Puzzle",
-					"Loot"
-				]);
-				let room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
-				if (last) room = themedBoss(room, lane);
-				room.floor = f;
-				room.x = f * 52;
-				room.y = (lane - (count - 1) / 2) * 42 + (last ? 0 : rng.int(-2, 2));
-				current.push(room);
-				rooms.push(room);
-			}
-			previous.forEach((p) => {
-				const nearest = [...current].sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y));
-				connections.push(link(p.id, nearest[0].id, p.connector, f));
-				if (nearest[1] && rng.chance(.35)) connections.push(link(p.id, nearest[1].id, p.connector, f));
-			});
-			current.forEach((c) => {
-				if (!connections.some((e) => e.to === c.id)) {
-					const p = [...previous].sort((a, b) => Math.abs(a.y - c.y) - Math.abs(b.y - c.y))[0];
-					if (p) connections.push(link(p.id, c.id, p.connector, f));
-				}
-			});
-			previous = current;
-			if (!current.every((r) => ["Rest", "Shop"].includes(r.category)) && !last) encounterFloors += 1;
-			if (!last && (f === 13 || encounterFloors >= 2) && !current.some((r) => r.category === "Boss")) {
-				const camp = makeBonfire(rng);
-				camp.floor = f;
-				camp.x = f * 52 + 36;
-				camp.y = 0;
-				rooms.push(camp);
-				current.forEach((room) => connections.push(link(room.id, camp.id, room.connector, f)));
-				previous = [camp];
-				encounterFloors = 0;
-			}
-		}
-	} else {
-		const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
-		const spineCount = Math.max(2, total - branchCount);
-		const categories = ["Start"];
-		for (let i = 0; i < spineCount - 1; i++) {
-			let cat = "Chamber";
-			if (i === 0 && spineCount >= 6) cat = "Elite";
-			else if (i === 1 && spineCount >= 9) cat = "Rest";
-			else if (i === 2 && spineCount >= 9) cat = "Shop";
-			else if (rng.chance(.18)) cat = "Trap";
-			else if (rng.chance(.14)) cat = "Puzzle";
-			else if (rng.chance(.2)) cat = "Loot";
-			categories.push(cat);
-		}
-		categories.push("Boss");
-		const spine = categories.map((cat) => {
-			const room = cat === "Start" ? makeMissionStart() : instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
-			room.branch = false;
-			rooms.push(room);
-			return room;
-		});
-		for (let i = 0; i < spine.length - 1; i++) connections.push(link(spine[i].id, spine[i + 1].id, spine[i].connector));
-		for (let b = 0; b < branchCount; b++) {
-			const parent = spine[Math.min(spine.length - 2, 2 + b * 2)];
-			const cat = rng.pick([
-				"Loot",
-				"Trap",
-				"Chamber",
-				"Puzzle"
-			]);
-			const room = instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
-			room.branch = true;
-			room.parentId = parent.id;
-			rooms.push(room);
-			connections.push(link(parent.id, room.id, parent.connector));
-		}
-		const expandedSpine = insertBonfires(spine, rng);
-		if (expandedSpine.length > spine.length) {
-			const spineIds = new Set(spine.map((r) => r.id));
-			const branchLinks = connections.filter((c) => !(spineIds.has(c.from) && spineIds.has(c.to)));
-			connections.length = 0;
-			connections.push(...branchLinks);
-			for (let i = 0; i < expandedSpine.length - 1; i += 1) connections.push(link(expandedSpine[i].id, expandedSpine[i + 1].id, expandedSpine[i].connector));
-			const branchRooms = rooms.filter((r) => r.branch);
-			rooms.length = 0;
-			rooms.push(...expandedSpine, ...branchRooms);
-		}
-		const altCount = rankIndex >= 4 ? 2 : rankIndex >= 2 ? 1 : 0;
-		const mainBoss = expandedSpine[expandedSpine.length - 1];
-		const mainCamp = expandedSpine[expandedSpine.length - 2];
-		const forkPoint = mainCamp?.bonfire ? expandedSpine[expandedSpine.length - 3] || mainCamp : mainCamp;
-		const alternateRoutes = [];
-		if (altCount && forkPoint && mainBoss) for (let i = 0; i < altCount; i += 1) {
-			const camp = makeBonfire(rng);
-			camp.name = `Bonfire Safe Zone ${i + 2}`;
-			camp.branch = true;
-			camp.parentId = forkPoint.id;
-			const alt = themedBoss(instantiate(templateFor("Boss", source, rng), "Boss", rng, rank, opts), i + 1);
-			alt.branch = true;
-			alt.parentId = camp.id;
-			rooms.push(camp, alt);
-			connections.push(link(forkPoint.id, camp.id, forkPoint.connector));
-			connections.push(link(camp.id, alt.id, camp.connector));
-			alternateRoutes.push({
-				camp,
-				boss: alt
-			});
-		}
-		positionSingle(rooms, rng);
-		alternateRoutes.forEach(({ camp, boss }, i) => {
-			boss.x = Math.max(0, ...rooms.map((room) => room.x + room.w)) + 30 + i * (Math.max(boss.w, 14) + 18);
-			boss.y = 0;
-			camp.x = boss.x;
-			camp.y = boss.y - Math.max(10, camp.h) - 12;
-		});
-		const hallResult = insertHalls(rooms, connections, rng);
-		if (hallResult.halls.length) {
-			rooms.push(...hallResult.halls);
-			connections.length = 0;
-			connections.push(...hallResult.connections);
-		}
-	}
-	let harvestPool = source.filter((t) => t.category === "Harvest" && t.enabled !== false);
-	if (!harvestPool.length) harvestPool = STARTER_DUNGEON_ROOMS.filter((t) => t.category === "Harvest");
-	const sideParents = rooms.filter((r) => !r.branch && !["Start", "Boss"].includes(r.category));
-	if (harvestPool.length && sideParents.length) {
-		const sideCount = Math.max(1, Math.ceil(info.rooms / 4));
-		for (let i = 0; i < sideCount; i += 1) {
-			const template = rng.pick(harvestPool);
-			const parent = rng.pick(sideParents);
-			const room = instantiate(template, "Harvest", rng, rank, {
-				monsters: [],
-				lootPools,
-				players
-			});
-			room.name = template.name || "Harvesting Site";
-			room.side = true;
-			room.branch = true;
-			room.combat = false;
-			room.parentId = parent.id;
-			room.traps = [];
-			room.spawns = [];
-			room.spawnPoints = [];
-			const maxX = Math.max(0, ...rooms.map((r) => r.x + r.w));
-			const maxY = Math.max(0, ...rooms.map((r) => r.y + r.h));
-			room.x = maxX + 20 + i % 3 * (room.w + 12);
-			room.y = maxY + 20 + Math.floor(i / 3) * (room.h + 12);
-			rooms.push(room);
-			connections.push(link(parent.id, room.id, "Side passage"));
-		}
-	}
-	const routes = buildRoutes(rooms, connections);
-	const linkedConnections = attachDoorPoints(rooms, connections);
-	return {
-		id: uid("dungeon"),
-		name: title,
-		mode,
-		rank,
-		seed,
-		rooms,
-		connections: linkedConnections,
-		routes,
-		chosenRouteId: routes[0]?.id || "",
-		notes: `${info.nickname} · ${info.downtime} downtime · ${rooms.filter((r) => !r.hall && !r.side).length} rooms`,
-		createdAt: (/* @__PURE__ */ new Date()).toISOString()
-	};
-}
-function rectCells(w, h) {
-	const cells = [];
-	for (let y = 0; y < Math.max(1, h); y++) for (let x = 0; x < Math.max(1, w); x++) cells.push([x, y]);
-	return cells;
-}
-function roomShapeCells(room) {
-	const w = Math.max(1, Math.round(Number(room?.w) || 1));
-	const h = Math.max(1, Math.round(Number(room?.h) || 1));
-	if (!Array.isArray(room?.cells) || !room.cells.length) return rectCells(w, h);
-	const set = /* @__PURE__ */ new Set();
-	room.cells.forEach((cell) => {
-		const x = Number(cell?.[0] ?? cell?.x);
-		const y = Number(cell?.[1] ?? cell?.y);
-		if (Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x < w && y < h) set.add(`${x},${y}`);
-	});
-	return set.size ? [...set].map((key) => key.split(",").map(Number)) : rectCells(w, h);
-}
-function cellsConnected(cells) {
-	if (!cells?.length) return false;
-	const set = new Set(cells.map(([x, y]) => `${x},${y}`));
-	const seen = /* @__PURE__ */ new Set([`${cells[0][0]},${cells[0][1]}`]);
-	const queue = [[cells[0][0], cells[0][1]]];
-	while (queue.length) {
-		const [x, y] = queue.shift();
-		[
-			[1, 0],
-			[-1, 0],
-			[0, 1],
-			[0, -1]
-		].forEach(([dx, dy]) => {
-			const key = `${x + dx},${y + dy}`;
-			if (set.has(key) && !seen.has(key)) {
-				seen.add(key);
-				queue.push([x + dx, y + dy]);
-			}
-		});
-	}
-	return seen.size === set.size;
-}
-function cellsOutlinePath(cells, cellSize, ox = 0, oy = 0) {
-	const set = new Set((cells || []).map(([x, y]) => `${x},${y}`));
-	const parts = [];
-	const at = (x, y) => set.has(`${x},${y}`);
-	(cells || []).forEach(([x, y]) => {
-		const x0 = ox + x * cellSize;
-		const y0 = oy + y * cellSize;
-		const x1 = x0 + cellSize;
-		const y1 = y0 + cellSize;
-		if (!at(x, y - 1)) parts.push(`M ${x0} ${y0} L ${x1} ${y0}`);
-		if (!at(x + 1, y)) parts.push(`M ${x1} ${y0} L ${x1} ${y1}`);
-		if (!at(x, y + 1)) parts.push(`M ${x1} ${y1} L ${x0} ${y1}`);
-		if (!at(x - 1, y)) parts.push(`M ${x0} ${y1} L ${x0} ${y0}`);
-	});
-	return parts.join(" ");
-}
-function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
-	return (cells || []).map(([x, y]) => {
-		return `M ${ox + x * cellSize} ${oy + y * cellSize} h ${cellSize} v ${cellSize} h ${-cellSize} Z`;
-	}).join(" ");
-}
-var ROOM_SHAPES = [
-	"Rectangle",
-	"Diamond",
-	"Circle",
-	"L-Shape",
-	"T-Shape",
-	"U-Shape",
-	"Cross",
-	"Octagon",
-	"Hexagon",
-	"Hourglass",
-	"Rounded",
-	"Cavern",
-	"Irregular"
-];
-var irregularCells = (w, h) => {
-	let seed = w * 73856093 ^ h * 19349663 ^ 2654435769;
-	const rand = () => {
-		seed = seed * 1664525 + 1013904223 >>> 0;
-		return seed / 4294967296;
-	};
-	const start = [Math.floor(w / 2), Math.floor(h / 2)];
-	const cells = [start];
-	const set = /* @__PURE__ */ new Set([`${start[0]},${start[1]}`]);
-	const target = Math.max(4, Math.round(w * h * (.58 + rand() * .18)));
-	let guard = 0;
-	while (cells.length < target && guard < 5e3) {
-		guard += 1;
-		const [px, py] = cells[Math.floor(rand() * cells.length)];
-		const [dx, dy] = [
-			[1, 0],
-			[-1, 0],
-			[0, 1],
-			[0, -1]
-		][Math.floor(rand() * 4)];
-		const x = px + dx;
-		const y = py + dy;
-		if (x < 0 || y < 0 || x >= w || y >= h) continue;
-		const key = `${x},${y}`;
-		if (set.has(key) || rand() < .22) continue;
-		set.add(key);
-		cells.push([x, y]);
-	}
-	return cells;
-};
-function shapeCells(width, height, shape) {
-	const w = Math.max(9, Math.min(33, Math.round(Number(width) || 9)));
-	const h = Math.max(9, Math.min(33, Math.round(Number(height) || 9)));
-	const keep = (predicate) => {
-		const out = [];
-		for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (predicate(x, y)) out.push([x, y]);
-		return out;
-	};
-	const cx = (w - 1) / 2;
-	const cy = (h - 1) / 2;
-	const rx = Math.max(1, (w - 1) / 2);
-	const ry = Math.max(1, (h - 1) / 2);
-	switch (shape) {
-		case "Diamond": {
-			const cells = keep((x, y) => Math.abs((x - cx) / rx) + Math.abs((y - cy) / ry) <= 1.06);
-			return cells.length ? cells : rectCells(w, h);
-		}
-		case "Circle": {
-			const cells = keep((x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.06);
-			return cells.length ? cells : rectCells(w, h);
-		}
-		case "L-Shape": return keep((x, y) => x < Math.ceil(w * .55) || y >= Math.floor(h * .55));
-		case "T-Shape": return keep((x, y) => y < Math.ceil(h * .4) || x >= Math.floor(w * .3) && x < Math.ceil(w * .7));
-		case "U-Shape": return keep((x, y) => x < Math.ceil(w * .28) || x >= Math.floor(w * .72) || y >= Math.floor(h * .55));
-		case "Cross": return keep((x, y) => x >= Math.floor(w * .3) && x < Math.ceil(w * .7) || y >= Math.floor(h * .3) && y < Math.ceil(h * .7));
-		case "Octagon": return keep((x, y) => {
-			const cutX = Math.floor(w * .25);
-			const cutY = Math.floor(h * .25);
-			return !(x < cutX && y < cutY || x >= w - cutX && y < cutY || x < cutX && y >= h - cutY || x >= w - cutX && y >= h - cutY);
-		});
-		case "Hexagon": return keep((x, y) => {
-			const cutX = Math.floor(w * .2);
-			const cutY = Math.floor(h * .25);
-			return !(x < cutX && (y < cutY || y >= h - cutY) || x >= w - cutX && (y < cutY || y >= h - cutY));
-		});
-		case "Hourglass": return keep((x, y) => {
-			const limit = .18 + .82 * (Math.abs(y - cy) / Math.max(1, h / 2));
-			return Math.abs(x - cx) / Math.max(1, w / 2) <= limit;
-		});
-		case "Rounded": return keep((x, y) => {
-			const corner = Math.min(w, h) * .18;
-			const nearX = x < corner || x >= w - corner;
-			const nearY = y < corner || y >= h - corner;
-			return !(nearX && nearY);
-		});
-		case "Cavern": return irregularCells(w, h);
-		case "Irregular": return irregularCells(w, h);
-		default: return rectCells(w, h);
-	}
-}
-function pickRoomShape(category, rng) {
-	if (category === "Entrance" || category === "Corridor") return rng.chance(.08) ? "L-Shape" : "Rectangle";
-	const roll = rng.rand();
-	if (roll < .035) return "Irregular";
-	if (roll < .06) return "Circle";
-	if (roll < .085) return "Diamond";
-	if (roll < .12) return "Hexagon";
-	if (roll < .15) return "Hourglass";
-	if (roll < .18) return "Rounded";
-	if (roll < .2) return "Cavern";
-	if (roll < .27) return "L-Shape";
-	if (roll < .33) return "T-Shape";
-	if (roll < .39) return "Cross";
-	if (roll < .44) return "Octagon";
-	if (roll < .5) return "U-Shape";
-	return "Rectangle";
-}
-function edgeCells(cells) {
-	const set = new Set(cells.map(([x, y]) => `${x},${y}`));
-	return cells.filter(([x, y]) => [
-		[1, 0],
-		[-1, 0],
-		[0, 1],
-		[0, -1]
-	].some(([dx, dy]) => !set.has(`${x + dx},${y + dy}`)));
-}
-function defaultIngress(cells) {
-	if (!cells.length) return [];
-	const edge = edgeCells(cells);
-	const left = edge.reduce((best, c) => c[0] < best[0] ? c : best, edge[0] || cells[0]);
-	return [{
-		x: left[0],
-		y: left[1],
-		label: "Ingress"
-	}];
-}
-function defaultSpawns(cells, count) {
-	if (!cells.length || !count) return [];
-	const edge = edgeCells(cells).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-	const picked = [];
-	const seen = /* @__PURE__ */ new Set();
-	edge.forEach((cell) => {
-		if (picked.length >= Math.min(6, count)) return;
-		const key = `${cell[0]},${cell[1]}`;
-		if (seen.has(key)) return;
-		seen.add(key);
-		picked.push({
-			x: cell[0],
-			y: cell[1],
-			label: `Spawn ${picked.length + 1}`
-		});
-	});
-	return picked;
-}
-var coverType = (cover) => {
-	const text = String(cover || "").toLowerCase();
-	if (/full/.test(text)) return "full";
-	if (/three|3\/4|three-quarters/.test(text)) return "three-quarters";
-	if (/half|pillar|crate|wall|fog/.test(text)) return "half";
-	return "";
-};
-function elevationHeightCells(cells, elevation) {
-	const text = String(elevation || "").toLowerCase();
-	if (!cells?.length || !text || text.includes("flat")) return [];
-	const xs = cells.map(([x]) => x);
-	const ys = cells.map(([, y]) => y);
-	const minX = Math.min(...xs);
-	const maxX = Math.max(...xs);
-	const minY = Math.min(...ys);
-	const maxY = Math.max(...ys);
-	const cx = (minX + maxX) / 2;
-	const cy = (minY + maxY) / 2;
-	const rx = Math.max(1, (maxX - minX) / 2);
-	const ry = Math.max(1, (maxY - minY) / 2);
-	const out = [];
-	cells.forEach(([x, y]) => {
-		const nx = Math.abs((x - cx) / rx);
-		const ny = Math.abs((y - cy) / ry);
-		let h = 0;
-		if (/tiered|steps/.test(text)) h = nx < .3 && ny < .3 ? 2 : nx < .62 && ny < .62 ? 1 : 0;
-		else if (/raised|dais|above|high/.test(text)) h = nx < .38 && ny < .38 ? 1 : 0;
-		else if (/sunken|pit|below|chasm/.test(text)) h = nx < .38 && ny < .38 ? -1 : 0;
-		if (h) out.push([
-			x,
-			y,
-			h
-		]);
-	});
-	return out;
-}
-function findStairs(cells, heightCells) {
-	const map = new Map((heightCells || []).map(([x, y, h]) => [`${x},${y}`, h]));
-	const candidates = [];
-	(cells || []).forEach(([x, y]) => {
-		const h = map.get(`${x},${y}`) || 0;
-		[
-			[1, 0],
-			[-1, 0],
-			[0, 1],
-			[0, -1]
-		].forEach(([dx, dy]) => {
-			const nx = x + dx;
-			const ny = y + dy;
-			if (!cells.some(([cx, cy]) => cx === nx && cy === ny)) return;
-			const nh = map.get(`${nx},${ny}`) || 0;
-			if (nh === h) return;
-			const low = h < nh ? [x, y] : [nx, ny];
-			if (!candidates.some(([cx, cy]) => cx === low[0] && cy === low[1])) candidates.push(low);
-		});
-	});
-	if (!candidates.length) return [];
-	if (candidates.length === 1) return candidates.map(([x, y]) => ({
-		x,
-		y
-	}));
-	return [candidates[0], candidates[Math.floor(candidates.length / 2)]].map(([x, y]) => ({
-		x,
-		y
-	}));
-}
-var spreadCells = (cells, count) => {
-	if (!cells.length || !count) return [];
-	const out = [];
-	for (let i = 0; i < count; i += 1) {
-		const cell = cells[Math.floor((i + .5) * (cells.length / count)) % cells.length];
-		if (cell && !out.some(([x, y]) => x === cell[0] && y === cell[1])) out.push(cell);
-	}
-	return out;
-};
-function coverPointsFor(cells, cover) {
-	const type = coverType(cover);
-	if (!type || !cells?.length) return [];
-	const edge = edgeCells(cells);
-	const pool = edge.length ? edge : cells;
-	return spreadCells(pool, Math.min(6, Math.max(2, Math.round(pool.length / 8)))).map(([x, y]) => ({
-		x,
-		y,
-		cover: type
-	}));
-}
-function trapPointsFor(cells, traps, rng) {
-	if (!cells?.length || !traps?.length) return [];
-	const list = [...traps].slice(0, 4);
-	return list.map((trap, i) => {
-		const index = Math.floor((rng ? rng.rand() : (i + .5) / list.length) * cells.length);
-		const [x, y] = cells[Math.min(cells.length - 1, index)];
-		return {
-			x,
-			y,
-			type: String(trap).split(":")[0].trim()
-		};
-	});
-}
-function waterCellsFor(cells, environment) {
-	const text = String(environment || "").toLowerCase();
-	if (!/flood|cistern|water|spring|river|lake|sea|marsh/.test(text)) return [];
-	return spreadCells(cells, Math.max(2, Math.round(cells.length * .28)));
-}
-function difficultCellsFor(cells, environment, effect = "") {
-	const text = `${environment || ""} ${effect || ""}`.toLowerCase();
-	if (!/rubble|overgrown|fungal|mine|frozen|ice|unstable|difficult/.test(text)) return [];
-	return spreadCells(cells, Math.max(2, Math.round(cells.length * .24)));
-}
-var pointXY = (p) => Array.isArray(p) ? {
-	x: Number(p[0]),
-	y: Number(p[1])
-} : {
-	x: Number(p?.x),
-	y: Number(p?.y)
-};
-function roomSurfaceFeatures(room, cells, rng) {
-	const heights = Array.isArray(room?.heights) && room.heights.length ? room.heights.map((p) => Array.isArray(p) ? [
-		Number(p[0]),
-		Number(p[1]),
-		Number(p[2]) || 0
-	] : [
-		Number(p?.x),
-		Number(p?.y),
-		Number(p?.height ?? p?.h ?? 0) || 0
-	]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)) : elevationHeightCells(cells, room?.elevation);
-	return {
-		heights,
-		stairs: Array.isArray(room?.stairs) && room.stairs.length ? room.stairs.map(pointXY).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : findStairs(cells, heights),
-		coverPoints: Array.isArray(room?.coverPoints) && room.coverPoints.length ? room.coverPoints.map((p) => ({
-			...pointXY(p),
-			cover: Array.isArray(p) ? p[2] || p[3] || "half" : p?.cover || "half"
-		})) : coverPointsFor(cells, room?.cover),
-		trapPoints: Array.isArray(room?.trapPoints) && room.trapPoints.length ? room.trapPoints.map((p) => ({
-			...pointXY(p),
-			type: Array.isArray(p) ? p[2] || p[3] || "Trap" : p?.type || "Trap"
-		})) : trapPointsFor(cells, room?.traps, rng),
-		water: Array.isArray(room?.water) && room.water.length ? room.water.map((p) => {
-			const { x, y } = pointXY(p);
-			return [x, y];
-		}) : waterCellsFor(cells, room?.environment),
-		difficult: Array.isArray(room?.difficult) && room.difficult.length ? room.difficult.map((p) => {
-			const { x, y } = pointXY(p);
-			return [x, y];
-		}) : difficultCellsFor(cells, room?.environment, room?.environmentEffect)
-	};
-}
-function roomFeaturePoints(room) {
-	const cells = roomShapeCells(room);
-	if (!cells?.length) return [];
-	const text = `${room.name || ""} ${room.category || ""} ${(room.tags || []).join(" ")} ${room.environment || ""} ${room.description || ""}`.toLowerCase();
-	const edges = edgeCells(cells);
-	const out = [];
-	const add = (cell, type) => {
-		if (!cell) return;
-		const [x, y] = cell;
-		if (out.some((f) => f.x === x && f.y === y && f.type === type)) return;
-		out.push({
-			x,
-			y,
-			type
-		});
-	};
-	const pick = (list, fraction) => list[Math.max(0, Math.min(list.length - 1, Math.floor(list.length * fraction)))];
-	const center = pick(cells, .5);
-	if (/pillar|colonnade|pillared|hall/.test(text)) [
-		.15,
-		.35,
-		.65,
-		.85
-	].forEach((fraction) => add(pick(edges, fraction), "pillar"));
-	if (/dais|throne|altar|boss|sanctum|shrine|ritual/.test(text)) add(center, "dais");
-	if (/pit|chasm|sunken|sinkhole|chasm edge/.test(text)) add(center, "pit");
-	if (/rubble|collapsed|broken|overgrown|cavern|fungal/.test(text)) [
-		.2,
-		.45,
-		.7
-	].forEach((fraction) => add(pick(cells, fraction), "rubble"));
-	if (/forge|flame|volcanic|brazier|ember/.test(text)) {
-		add(pick(edges, .08), "brazier");
-		add(pick(edges, .92), "brazier");
-	}
-	if (/crystal|grotto|arcane|mana|resonance/.test(text)) {
-		add(pick(edges, .25), "crystal");
-		add(pick(edges, .75), "crystal");
-	}
-	return out;
-}
-function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
-	const t = template || STARTER_DUNGEON_ROOMS[0];
-	const w = Math.max(9, Math.min(33, Math.round(((t.minW || 9) + (t.maxW || t.minW || 9)) / 2)));
-	const h = Math.max(9, Math.min(33, Math.round(((t.minH || 9) + (t.maxH || t.minH || 9)) / 2)));
-	const shape = t.cells?.length ? t.shape || "Custom" : t.shape || "Rectangle";
-	const cells = t.cells?.length ? t.cells.map(([cx, cy]) => [cx, cy]) : shapeCells(w, h, shape);
-	const environment = t.environment || "";
-	const elevation = t.elevation || "Flat";
-	const cover = t.cover || "Open";
-	const traps = [...t.traps || []];
-	const surface = roomSurfaceFeatures({
-		...t,
-		environment,
-		elevation,
-		cover,
-		traps
-	}, cells);
-	return {
-		id: uid("room"),
-		templateId: t.id,
-		name: t.name || "Room",
-		category: t.category || "Chamber",
-		x,
-		y,
-		w,
-		h,
-		shape,
-		cells,
-		heights: surface.heights,
-		stairs: surface.stairs,
-		coverPoints: surface.coverPoints,
-		trapPoints: surface.trapPoints,
-		water: surface.water,
-		difficult: surface.difficult,
-		environmentEffect: t.environmentEffect || "",
-		tags: [...t.tags || []],
-		ingressPoints: t.ingressPoints?.length ? t.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
-		spawnPoints: t.spawnPoints?.length ? t.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, (t.spawns || []).length),
-		environment,
-		elevation,
-		cover,
-		connector: t.connector || "Doorway",
-		traps,
-		spawns: [...t.spawns || []],
-		loot: [...t.loot || []],
-		harvest: [...t.harvest || []],
-		side: false,
-		notes: t.notes || "",
-		description: t.description || "",
-		cr0Only: !!t.cr0Only,
-		bonfire: !!t.bonfire
-	};
-}
-function crValue(cr) {
-	const s = String(cr ?? "").trim();
-	if (s === "1/8") return .125;
-	if (s === "1/4") return .25;
-	if (s === "1/2") return .5;
-	const n = Number(s);
-	return Number.isFinite(n) ? n : 0;
-}
-function hasCr(cr) {
-	const s = String(cr ?? "").trim();
-	if (!s) return false;
-	if (s === "1/8" || s === "1/4" || s === "1/2") return true;
-	return Number.isFinite(Number(s));
-}
-function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [], rank = dungeon?.rank, encounterTable = null, countMultiplier = 1, bossCR = null } = {}) {
-	const party = Math.max(1, Math.round(Number(players) || 1));
-	const level = Math.max(1, Math.round(Number(partyLevel) || 1));
-	const multiplier = Math.max(1, Math.round(Number(countMultiplier) || 1));
-	const bossTarget = Math.max(.125, Number(bossCR ?? partyLevel) || level);
-	const band = rankChallenge(rank);
-	const allPool = (monsters || []).filter((m) => m?.name);
-	const pool = allPool.filter((m) => hasCr(m.cr) && !m.dungeonExempt);
-	const byName = new Map(allPool.map((m) => [String(m.name).toLowerCase(), m]));
-	const uniqueUsed = /* @__PURE__ */ new Set();
-	const generic = (room) => {
-		const bossRoom = room.category === "Boss";
-		const eliteRoom = room.category === "Elite";
-		const target = bossRoom ? bossTarget : eliteRoom ? band.maxCR : band.minionMax;
-		if (bossRoom) return `${Math.max(1, multiplier)}× CR ${target} boss`;
-		if (eliteRoom) return `${Math.max(1, multiplier + 1)}× CR ${target} elite`;
-		return `${Math.max(1, party * 2 * multiplier)}× rank ${rank} minion threat (CR ${band.minionMin}–${band.minionMax})`;
-	};
-	return {
-		...dungeon,
-		rooms: (dungeon.rooms || []).map((room) => {
-			if (room.bonfire || room.side || room.hall || [
-				"Rest",
-				"Shop",
-				"Entrance",
-				"Start",
-				"Harvest",
-				"Corridor"
-			].includes(room.category)) return {
-				...room,
-				spawns: []
-			};
-			const bossRoom = room.category === "Boss";
-			const miniBoss = bossRoom || room.category === "Elite";
-			const lo = bossRoom ? bossTarget : miniBoss ? band.minCR : band.minionMin;
-			const hi = bossRoom ? bossTarget : miniBoss ? band.maxCR : band.minionMax;
-			if (encounterTable) {
-				const rolled = rollEncounter(encounterTable, pool);
-				let remaining = (room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2) * multiplier;
-				const spawns = [];
-				for (const row of rolled) {
-					if (remaining <= 0) break;
-					const monster = byName.get(String(row.monster).toLowerCase());
-					if (monster?.dungeonExempt) continue;
-					if (monster?.unique && (!miniBoss || uniqueUsed.has(monster.name))) continue;
-					let take = Math.min(remaining, Math.max(1, Number(row.count) || 1));
-					if (monster?.unique) take = 1;
-					if (take <= 0) continue;
-					spawns.push(`${take}× ${row.monster}`);
-					remaining -= take;
-					if (monster?.unique) uniqueUsed.add(monster.name);
-				}
-				return {
-					...room,
-					spawns: spawns.length ? spawns : [generic(room)],
-					encounterTable: encounterTable.name || ""
-				};
-			}
-			if (!pool.length) return {
-				...room,
-				spawns: [generic(room)]
-			};
-			const cr0 = !!room.cr0Only && lo === 0;
-			const baseCandidates = pool.filter((m) => !(m.unique && (!miniBoss || uniqueUsed.has(m.name))));
-			let candidates;
-			if (bossRoom) {
-				const exact = baseCandidates.filter((m) => Math.abs(crValue(m.cr) - bossTarget) <= .3);
-				candidates = exact.length ? exact : [...baseCandidates].sort((a, b) => Math.abs(crValue(a.cr) - bossTarget) - Math.abs(crValue(b.cr) - bossTarget)).slice(0, Math.max(1, Math.min(4, baseCandidates.length)));
-			} else candidates = baseCandidates.filter((m) => {
-				const v = crValue(m.cr);
-				return cr0 ? v === 0 : v >= lo && v <= hi;
-			});
-			if (!candidates.length) return {
-				...room,
-				spawns: [generic(room)]
-			};
-			const uniqueCandidates = candidates.filter((m) => m.unique);
-			const pickFrom = miniBoss && room.category === "Boss" && uniqueCandidates.length > 0 ? uniqueCandidates : candidates;
-			const groups = room.category === "Boss" || room.category === "Elite" ? 1 : Math.min(2, pickFrom.length);
-			const total = room.category === "Boss" ? multiplier : room.category === "Elite" ? multiplier + 1 : party * 2 * multiplier;
-			const picked = [];
-			for (let i = 0; i < groups; i += 1) {
-				const m = pickFrom[Math.floor(Math.random() * pickFrom.length)];
-				const count = m.unique ? 1 : Math.max(1, Math.round(total / groups));
-				picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
-				if (m.unique) {
-					uniqueUsed.add(m.name);
-					break;
-				}
-			}
-			return {
-				...room,
-				spawns: picked
-			};
-		}),
-		encounterScale: {
-			players: party,
-			partyLevel: level,
-			rank,
-			rankCR: band.rankCR,
-			bossCR: bossTarget,
-			countMultiplier: multiplier,
-			minCR: band.minCR,
-			maxCR: band.maxCR,
-			minionMin: band.minionMin,
-			minionMax: band.minionMax,
-			targetCR: band.maxCR,
-			encounterTable: encounterTable?.name || ""
-		}
-	};
-}
-function dungeonBounds(dungeon) {
-	const rooms = dungeon?.rooms || [];
-	if (!rooms.length) return {
-		minX: 0,
-		minY: 0,
-		maxX: 10,
-		maxY: 10,
-		w: 10,
-		h: 10
-	};
-	const minX = Math.min(...rooms.map((r) => r.x));
-	const minY = Math.min(...rooms.map((r) => r.y));
-	const maxX = Math.max(...rooms.map((r) => r.x + r.w));
-	const maxY = Math.max(...rooms.map((r) => r.y + r.h));
-	return {
-		minX,
-		minY,
-		maxX,
-		maxY,
-		w: maxX - minX,
-		h: maxY - minY
-	};
-}
-function categoryColor(category) {
-	return (DUNGEON_CATEGORIES.find(([c]) => c === category) || [])[1] || "#94a3b8";
-}
 //#endregion
 //#region src/lib/fiveEToolsCache.js
 var sources = /* @__PURE__ */ new Map();
@@ -9874,7 +8216,11 @@ function aggregateResources(tree, character, levels = []) {
 			uses: Number(b.value) || 1,
 			color: "#ffffff"
 		}, n));
-		(n.benefits || []).filter((b) => b?.category === "stat" && ["Hit Points", "Exertion"].includes(String(b.name || "").trim())).forEach((b) => add({
+		(n.benefits || []).filter((b) => b?.category === "stat" && [
+			"Hit Points",
+			"Exertion",
+			"Exhaustion"
+		].includes(String(b.name || "").trim())).forEach((b) => add({
 			name: String(b.name).trim(),
 			type: "point",
 			valueType: "flat",
@@ -11159,7 +9505,7 @@ var FIXED_SHORTCUTS = [
 	["Escape", "Cancel link mode or close search"]
 ];
 function SettingsMenu({ open, onClose }) {
-	const { settings, setSettings, tree, patchTab, character, setCharacter, backupProject, listBackups, restoreBackup, deleteTab } = useTree();
+	const { settings, setSettings, character, setCharacter, backupProject, listBackups, restoreBackup, deleteTab } = useTree();
 	const [theme, setTheme] = useTheme();
 	const template = theme.template || "default";
 	const customTheme = {
@@ -11203,7 +9549,6 @@ function SettingsMenu({ open, onClose }) {
 		};
 	}, [character?.devMode]);
 	if (!settings) return null;
-	(tree?.tabs || []).find((t) => t.id === tree?.activeTabId);
 	const setHotkey = (action, combo) => setSettings((s) => ({
 		...s,
 		hotkeys: {
@@ -12488,7 +10833,7 @@ function ListHeader({ onAdd, addLabel, query, setQuery, searchPlaceholder }) {
 		})]
 	});
 }
-function EmptyNote({ items, query }) {
+function EmptyNote({ items }) {
 	return /* @__PURE__ */ jsx("p", {
 		className: "text-xs text-muted-foreground",
 		children: (items || []).length === 0 ? "Nothing added yet." : "No matches."
@@ -13954,7 +12299,7 @@ function RollTableEditor({ table, onChange, onDelete }) {
 }
 //#endregion
 //#region src/components/skilltree/library/LootTablesTab.jsx
-var LOOT_CATEGORIES = [
+var LOOT_CATEGORIES$1 = [
 	[
 		"weapons",
 		"Weapons",
@@ -13996,7 +12341,7 @@ var LOOT_CATEGORIES = [
 		(lib) => lib.wondrousItems || []
 	]
 ];
-var catLabel = (key) => LOOT_CATEGORIES.find(([k]) => k === key)?.[1] || key;
+var catLabel$1 = (key) => LOOT_CATEGORIES$1.find(([k]) => k === key)?.[1] || key;
 function LootTablesTab() {
 	const t = useLibList("lootTables");
 	return /* @__PURE__ */ jsxs("div", {
@@ -14091,7 +12436,7 @@ function LootTableEditor({ table, onChange, onDelete }) {
 						className: "text-muted-foreground",
 						children: [
 							"(",
-							catLabel(roll.category),
+							catLabel$1(roll.category),
 							roll.subtable ? ` · ${roll.subtable}` : "",
 							")"
 						]
@@ -14145,10 +12490,10 @@ function LootTableEditor({ table, onChange, onDelete }) {
 }
 function SubtableEditor({ subtable, onChange, onDelete }) {
 	const { settings } = useTree();
-	const [cat, setCat] = useState(LOOT_CATEGORIES[0][0]);
+	const [cat, setCat] = useState(LOOT_CATEGORIES$1[0][0]);
 	const [q, setQ] = useState("");
 	const items = subtable.items || [];
-	const def = LOOT_CATEGORIES.find(([k]) => k === cat) || LOOT_CATEGORIES[0];
+	const def = LOOT_CATEGORIES$1.find(([k]) => k === cat) || LOOT_CATEGORIES$1[0];
 	const candidates = def[2](settings?.library || {}).filter((e) => e?.name && matchesQuery(e.name, q)).slice(0, 30);
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-1.5 rounded-md border bg-accent/20 p-2",
@@ -14181,7 +12526,7 @@ function SubtableEditor({ subtable, onChange, onDelete }) {
 					children: [/* @__PURE__ */ jsx(SelectTrigger, {
 						className: "h-8 w-36 shrink-0 text-xs",
 						children: /* @__PURE__ */ jsx(SelectValue, {})
-					}), /* @__PURE__ */ jsx(SelectContent, { children: LOOT_CATEGORIES.map(([key, label]) => /* @__PURE__ */ jsx(SelectItem, {
+					}), /* @__PURE__ */ jsx(SelectContent, { children: LOOT_CATEGORIES$1.map(([key, label]) => /* @__PURE__ */ jsx(SelectItem, {
 						value: key,
 						children: label
 					}, key)) })]
@@ -14240,7 +12585,7 @@ function SubtableEditor({ subtable, onChange, onDelete }) {
 								className: "text-[10px] text-muted-foreground",
 								children: [
 									"(",
-									catLabel(it.category),
+									catLabel$1(it.category),
 									")"
 								]
 							})
@@ -14283,6 +12628,174 @@ function SubtableEditor({ subtable, onChange, onDelete }) {
 			})
 		]
 	});
+}
+//#endregion
+//#region src/lib/dmLoot.js
+var LOOT_CATEGORIES = [
+	[
+		"weapons",
+		"Weapons",
+		(lib) => lib.weapons || []
+	],
+	[
+		"armor",
+		"Armor",
+		(lib) => lib.armor || []
+	],
+	[
+		"poisons",
+		"Poisons",
+		(lib) => lib.poisons || []
+	],
+	[
+		"explosives",
+		"Explosives",
+		(lib) => lib.explosives || []
+	],
+	[
+		"adventuringGear",
+		"Adventuring Gear",
+		(lib) => lib.adventuringGear || []
+	],
+	[
+		"ammo",
+		"Ammunition",
+		(lib) => lib.ammo || []
+	],
+	[
+		"trinkets",
+		"Trinkets",
+		(lib) => lib.trinkets || []
+	],
+	[
+		"wondrousItems",
+		"Wondrous Items",
+		(lib) => lib.wondrousItems || []
+	]
+];
+var catLabel = (key) => LOOT_CATEGORIES.find(([k]) => k === key)?.[1] || key;
+function dexMod(abilities) {
+	const m = String(abilities || "").match(/DEX\s*[:=]?\s*(-?\d+)/i);
+	return m ? Math.floor((Number(m[1]) - 10) / 2) : 0;
+}
+function parseMaxHp(hp) {
+	const n = parseInt(String(hp ?? ""), 10);
+	return Number.isFinite(n) ? n : 0;
+}
+function crNum$2(cr) {
+	const s = String(cr ?? "").trim();
+	if (s.includes("/")) {
+		const [a, b] = s.split("/").map(Number);
+		return b > 0 ? a / b : 0;
+	}
+	const n = parseFloat(s);
+	return Number.isFinite(n) ? n : -1;
+}
+function rollExpr(expr) {
+	const s = String(expr ?? "").trim().toLowerCase().replace(/\s+/g, "");
+	const m = s.match(/^(\d*)d(\d+)([+-]\d+)?$/);
+	if (m) {
+		const n = Math.min(100, Math.max(1, parseInt(m[1] || "1", 10)));
+		const size = Math.max(1, parseInt(m[2], 10));
+		let total = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * size)).reduce((a, b) => a + b, 0);
+		if (m[3]) total += parseInt(m[3], 10);
+		return total;
+	}
+	const n = parseInt(s, 10);
+	return Number.isFinite(n) && n >= 0 ? n : 1;
+}
+function rollLootPool(poolName, pools, depth = 0, path = []) {
+	if (depth > 12) return {
+		lines: [],
+		error: "Rolled more than 12 table levels deep."
+	};
+	if (path.includes(poolName)) return {
+		lines: [],
+		error: `Circular reference: ${[...path, poolName].join(" → ")}`
+	};
+	const pool = (pools || []).find((p) => p.name === poolName);
+	if (!pool) return {
+		lines: [],
+		error: `Loot pool "${poolName}" not found.`
+	};
+	const entries = (pool.entries || []).filter((e) => e?.name);
+	if (!entries.length) return {
+		lines: [],
+		error: `Loot pool "${poolName}" is empty.`
+	};
+	const e = entries[Math.floor(Math.random() * entries.length)];
+	const qty = rollExpr(e.qty);
+	const lines = [];
+	if (e.kind === "table") {
+		for (let i = 0; i < qty; i++) {
+			const r = rollLootPool(e.name, pools, depth + 1, [...path, poolName]);
+			lines.push(...r.lines);
+			if (r.error) return {
+				lines,
+				error: r.error
+			};
+		}
+		return {
+			lines,
+			error: null
+		};
+	}
+	lines.push({
+		qty,
+		name: e.name,
+		category: e.kind === "item" ? catLabel(e.category) : "",
+		via: [...path, poolName]
+	});
+	return {
+		lines,
+		error: null
+	};
+}
+var CR_NUM = (cr) => {
+	const s = String(cr ?? "").trim();
+	if (s === "1/8") return .125;
+	if (s === "1/4") return .25;
+	if (s === "1/2") return .5;
+	const n = Number(s);
+	return Number.isFinite(n) ? n : 0;
+};
+var weightedRow = (rows) => {
+	const list = (rows || []).filter((r) => r && (r.monster || r.tag));
+	if (!list.length) return null;
+	const total = list.reduce((sum, r) => sum + Math.max(1, Number(r.weight) || 1), 0);
+	let roll = Math.random() * total;
+	for (const row of list) {
+		roll -= Math.max(1, Number(row.weight) || 1);
+		if (roll < 0) return row;
+	}
+	return list[list.length - 1];
+};
+function rollEncounter(table, monsters = []) {
+	const minCR = table?.crMin != null && table.crMin !== "" ? CR_NUM(table.crMin) : null;
+	const maxCR = table?.crMax != null && table.crMax !== "" ? CR_NUM(table.crMax) : null;
+	return (table?.mode === "weighted" ? [weightedRow(table.rows)].filter(Boolean) : table?.rows || []).map((r) => {
+		if (!r) return null;
+		let name = r.monster || r.tag || "";
+		if (!name) return null;
+		if (r.kind === "tag" || r.tag) {
+			const tag = String(r.tag || r.monster || "").toLowerCase();
+			const pool = (monsters || []).filter((m) => {
+				const value = CR_NUM(m?.cr);
+				if (minCR != null && value < minCR) return false;
+				if (maxCR != null && value > maxCR) return false;
+				return [
+					m?.type,
+					m?.category,
+					...Array.isArray(m?.tags) ? m.tags : []
+				].filter(Boolean).map((x) => String(x).toLowerCase()).some((h) => h === tag || h.includes(tag));
+			});
+			if (pool.length) name = pool[Math.floor(Math.random() * pool.length)].name;
+		}
+		return {
+			monster: name,
+			count: rollExpr(r.count)
+		};
+	}).filter((r) => r && r.count > 0);
 }
 //#endregion
 //#region src/components/skilltree/library/LootPoolsTab.jsx
@@ -14507,7 +13020,7 @@ function PoolEditor({ pool, pools, onChange, onDelete }) {
 function EntryEditor({ entry, pools, selfName, onChange, onDelete }) {
 	const { settings } = useTree();
 	const kind = entry.kind || "item";
-	const items = (LOOT_CATEGORIES$1.find(([k]) => k === entry.category) || LOOT_CATEGORIES$1[0])[2](settings?.library || {}).filter((i) => i?.name);
+	const items = (LOOT_CATEGORIES.find(([k]) => k === entry.category) || LOOT_CATEGORIES[0])[2](settings?.library || {}).filter((i) => i?.name);
 	return /* @__PURE__ */ jsxs("div", {
 		className: "flex flex-wrap items-center gap-1 rounded border bg-accent/20 p-1.5",
 		children: [
@@ -14567,7 +13080,7 @@ function EntryEditor({ entry, pools, selfName, onChange, onDelete }) {
 				children: [/* @__PURE__ */ jsx(SelectTrigger, {
 					className: "h-7 w-28 shrink-0 text-xs",
 					children: /* @__PURE__ */ jsx(SelectValue, {})
-				}), /* @__PURE__ */ jsx(SelectContent, { children: LOOT_CATEGORIES$1.map(([key, label]) => /* @__PURE__ */ jsx(SelectItem, {
+				}), /* @__PURE__ */ jsx(SelectContent, { children: LOOT_CATEGORIES.map(([key, label]) => /* @__PURE__ */ jsx(SelectItem, {
 					value: key,
 					children: label
 				}, key)) })]
@@ -16169,6 +14682,1495 @@ function DieScalingTab() {
 	});
 }
 //#endregion
+//#region src/lib/dungeonGen.js
+var DUNGEON_RANKS = {
+	E: {
+		label: "E",
+		nickname: "Expie",
+		rooms: 3,
+		downtime: "2 weeks",
+		level: "0–2",
+		prof: 0,
+		crMin: 0,
+		crMax: 1,
+		gold: [25, 100],
+		loot: "Coins, mundane gear",
+		color: "#94a3b8"
+	},
+	D: {
+		label: "D",
+		nickname: "Newk",
+		rooms: 6,
+		downtime: "3 weeks",
+		level: "3–5",
+		prof: 1,
+		crMin: 2,
+		crMax: 3,
+		gold: [100, 500],
+		loot: "Coins, gems, uncommon items",
+		color: "#86efac"
+	},
+	C: {
+		label: "C",
+		nickname: "Rookie",
+		rooms: 9,
+		downtime: "4 weeks",
+		level: "6–8",
+		prof: 2,
+		crMin: 4,
+		crMax: 6,
+		gold: [500, 2e3],
+		loot: "Gems, potions and scrolls, rare items",
+		color: "#5eead4"
+	},
+	B: {
+		label: "B",
+		nickname: "Reg",
+		rooms: 12,
+		downtime: "5 weeks",
+		level: "9–11",
+		prof: 3,
+		crMin: 7,
+		crMax: 9,
+		gold: [2e3, 8e3],
+		loot: "Rare items, trade bars, gems",
+		color: "#60a5fa"
+	},
+	A: {
+		label: "A",
+		nickname: "Prestige",
+		rooms: 15,
+		downtime: "6 weeks",
+		level: "12–14",
+		prof: 4,
+		crMin: 10,
+		crMax: 12,
+		gold: [8e3, 25e3],
+		loot: "Very rare items, art objects",
+		color: "#a78bfa"
+	},
+	S: {
+		label: "S",
+		nickname: "Cavalry",
+		rooms: 18,
+		downtime: "7 weeks",
+		level: "15–17",
+		prof: 5,
+		crMin: 13,
+		crMax: 15,
+		gold: [25e3, 75e3],
+		loot: "Legendary items, treasures",
+		color: "#f472b6"
+	},
+	SS: {
+		label: "SS",
+		nickname: "Hero",
+		rooms: 21,
+		downtime: "8 weeks",
+		level: "18–20",
+		prof: 6,
+		crMin: 16,
+		crMax: 18,
+		gold: [75e3, 2e5],
+		loot: "Legendary items, artifacts",
+		color: "#fb923c"
+	},
+	SSS: {
+		label: "SSS",
+		nickname: "Mythos",
+		rooms: 24,
+		downtime: "9 weeks",
+		level: "21+",
+		prof: 7,
+		crMin: 19,
+		crMax: 30,
+		gold: [2e5, 5e5],
+		loot: "Artifacts and mythic relics",
+		color: "#ef4444"
+	}
+};
+function rankChallenge(rank) {
+	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const minCR = Math.max(0, Number(info.crMin) || 0);
+	const maxCR = Math.max(minCR, Number(info.crMax) || minCR);
+	return {
+		rankCR: maxCR,
+		minCR,
+		maxCR,
+		minionMin: Math.max(0, minCR - 2),
+		minionMax: Math.max(0, minCR - 1)
+	};
+}
+var DUNGEON_CATEGORIES = [
+	["Start", "#22c55e"],
+	["Entrance", "#64748b"],
+	["Chamber", "#38bdf8"],
+	["Corridor", "#94a3b8"],
+	["Trap", "#f97316"],
+	["Puzzle", "#a78bfa"],
+	["Loot", "#facc15"],
+	["Elite", "#fb7185"],
+	["Boss", "#ef4444"],
+	["Rest", "#4ade80"],
+	["Shop", "#2dd4bf"],
+	["Harvest", "#22d3ee"]
+];
+var DUNGEON_ENVIRONMENTS = [
+	"Damp stone",
+	"Ancient ruins",
+	"Flooded cistern",
+	"Fungal cavern",
+	"Volcanic vents",
+	"Frozen halls",
+	"Shadowed crypt",
+	"Overgrown temple",
+	"Mine shafts",
+	"Arcane laboratory"
+];
+var ENCOUNTER_CATEGORIES = /* @__PURE__ */ new Set([
+	"Chamber",
+	"Trap",
+	"Puzzle",
+	"Elite",
+	"Boss"
+]);
+var BOSS_THEMES = [
+	"Ashen Throne",
+	"Drowned Choir",
+	"Iron Colossus",
+	"Frostbound Crown",
+	"Obsidian Gate",
+	"Sunken Idol",
+	"Crimson Reliquary"
+];
+var themedBoss = (room, index) => index === 0 ? room : {
+	...room,
+	name: `${room.name} — ${BOSS_THEMES[(index - 1) % BOSS_THEMES.length]}`
+};
+var NAME_ADJECTIVES = [
+	"Sunken",
+	"Ashen",
+	"Whispering",
+	"Broken",
+	"Gilded",
+	"Frozen",
+	"Hollow",
+	"Crimson",
+	"Forgotten",
+	"Umbral",
+	"Shifting",
+	"Iron",
+	"Verdant",
+	"Drowned",
+	"Cinder",
+	"Moonlit",
+	"Shattered",
+	"Silent",
+	"Thorned",
+	"Wandering"
+];
+var NAME_PLACES = [
+	"Crypt",
+	"Vault",
+	"Warren",
+	"Sanctum",
+	"Labyrinth",
+	"Catacomb",
+	"Keep",
+	"Reliquary",
+	"Gallery",
+	"Bastion",
+	"Undercroft",
+	"Mausoleum",
+	"Foundry"
+];
+var NAME_SPIRE_PLACES = [
+	"Spire",
+	"Tower",
+	"Ascent",
+	"Pinnacle",
+	"Citadel",
+	"Ziggurat",
+	"Needle"
+];
+var NAME_NOUNS = [
+	"Echo",
+	"Crown",
+	"Serpent",
+	"Lantern",
+	"Tide",
+	"Ember",
+	"Oracle",
+	"Warden",
+	"Choir",
+	"Colossus",
+	"Requiem",
+	"Root",
+	"Mask",
+	"Throne",
+	"Idol",
+	"Cinder"
+];
+function generateDungeonName(seed, mode = "single", rank = "E") {
+	const rng = makeRng$1(`${mode}:${rank}:${seed}:name`);
+	const place = rng.pick(mode === "spire" ? NAME_SPIRE_PLACES : NAME_PLACES);
+	const adj = rng.pick(NAME_ADJECTIVES);
+	const adj2 = rng.pick(NAME_ADJECTIVES.filter((word) => word !== adj));
+	const noun = rng.pick(NAME_NOUNS);
+	const theme = rng.pick(BOSS_THEMES);
+	return rng.pick([
+		() => `The ${adj} ${place}`,
+		() => `${adj} ${place} of the ${adj2} ${noun}`,
+		() => `The ${place} of ${theme}`,
+		() => `${place} of the ${noun}`,
+		() => `The ${noun}'s ${place}`,
+		() => `${adj} ${place} of the ${noun}`
+	])();
+}
+var DUNGEON_TRAP_TYPES = [
+	"Pressure plate",
+	"Falling ceiling",
+	"Spike pit",
+	"Alarm rune",
+	"Collapsing bridge",
+	"Flame jet",
+	"Poison mist"
+];
+var TRAP_POOL = [
+	"Pressure plate: DC 8 + 2×rank Dexterity save or 1d6×rank piercing",
+	"Falling ceiling: DC 8 + 2×rank Dexterity/Strength save or 1d6×rank bludgeoning",
+	"Spike pit: DC 8 + 2×rank Dexterity save or 2d6×rank piercing",
+	"Alarm rune: alerts the nearest room",
+	"Collapsing bridge: DC 10 + rank Dexterity save or fall 2 spaces"
+];
+var ELEVATIONS = [
+	"Flat",
+	"Raised dais (+1)",
+	"Sunken floor (−1)",
+	"Tiered steps (+2)",
+	"Chasm edge (−2)"
+];
+var COVERS = [
+	"Open",
+	"Pillars (half cover)",
+	"Crates (half cover)",
+	"Low wall (three-quarters)",
+	"Fog (lightly obscured)"
+];
+function hashSeed(seed) {
+	let h = 2166136261;
+	const s = String(seed || "dungeon");
+	for (let i = 0; i < s.length; i++) {
+		h ^= s.charCodeAt(i);
+		h = Math.imul(h, 16777619);
+	}
+	return h >>> 0;
+}
+function randomSeed$1() {
+	return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+function makeRng$1(seed) {
+	let a = hashSeed(seed);
+	const rand = () => {
+		a |= 0;
+		a = a + 1831565813 | 0;
+		let t = Math.imul(a ^ a >>> 15, 1 | a);
+		t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+		return ((t ^ t >>> 14) >>> 0) / 4294967296;
+	};
+	return {
+		rand,
+		int: (min, max) => min + Math.floor(rand() * (max - min + 1)),
+		pick: (arr) => arr?.length ? arr[Math.floor(rand() * arr.length)] : "",
+		chance: (p) => rand() < p,
+		shuffle: (arr) => {
+			const a = [...arr];
+			for (let i = a.length - 1; i > 0; i--) {
+				const j = Math.floor(rand() * (i + 1));
+				[a[i], a[j]] = [a[j], a[i]];
+			}
+			return a;
+		}
+	};
+}
+var uid = (prefix = "d") => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
+function templateFor(category, templates, rng) {
+	const pool = templates.filter((r) => r.category === category);
+	if (pool.length) return rng.pick(pool);
+	return templates.length ? rng.pick(templates) : STARTER_DUNGEON_ROOMS[0];
+}
+function instantiate(template, category, rng, rank, { monsters: _monsters, lootPools, players = 4 }) {
+	const sizeScale = Math.max(.85, Math.min(1.35, 1 + (Math.max(1, Number(players) || 4) - 4) * .06));
+	const w = Math.max(9, Math.min(33, Math.round(rng.int(template.minW || 9, Math.max(template.minW || 9, template.maxW || template.minW || 9)) * sizeScale)));
+	const h = Math.max(9, Math.min(33, Math.round(rng.int(template.minH || 9, Math.max(template.minH || 9, template.maxH || template.minH || 9)) * sizeScale)));
+	const traps = [...template.traps || []];
+	if (!traps.length && (category === "Trap" || rng.chance(.18))) traps.push(rng.pick(TRAP_POOL));
+	const spawns = [...template.spawns || []];
+	const loot = [...template.loot || []];
+	if (!loot.length && (category === "Loot" || rng.chance(.22))) {
+		const pools = (lootPools || []).map((p) => p.name).filter(Boolean);
+		loot.push(pools.length ? `${rng.pick(pools)} (1 roll)` : `1 rank ${rank} loot roll`);
+	}
+	const shape = template.cells?.length ? template.shape || "Custom" : template.shape && template.shape !== "Rectangle" ? template.shape : pickRoomShape(category, rng);
+	const cells = template.cells?.length ? template.cells.map(([cx, cy]) => [cx, cy]) : shapeCells(w, h, shape);
+	const environment = template.environment || rng.pick(DUNGEON_ENVIRONMENTS);
+	const elevation = template.elevation || rng.pick(ELEVATIONS);
+	const cover = template.cover || rng.pick(COVERS);
+	const surface = roomSurfaceFeatures({
+		...template,
+		environment,
+		elevation,
+		cover,
+		traps
+	}, cells, rng);
+	return {
+		id: uid("room"),
+		templateId: template.id,
+		name: template.name || `${category} ${rng.int(1, 9)}`,
+		floor: 0,
+		category,
+		x: 0,
+		y: 0,
+		w,
+		h,
+		environment,
+		elevation,
+		cover,
+		connector: template.connector || "Doorway",
+		externalDoor: category === "Entrance" || category === "Start" || !!template.externalDoor,
+		shape,
+		cells,
+		heights: surface.heights,
+		stairs: surface.stairs,
+		coverPoints: surface.coverPoints,
+		trapPoints: surface.trapPoints,
+		water: surface.water,
+		difficult: surface.difficult,
+		environmentEffect: template.environmentEffect || "",
+		tags: [...template.tags || []],
+		description: template.description || "",
+		ingressPoints: template.ingressPoints?.length ? template.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
+		spawnPoints: template.spawnPoints?.length ? template.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, spawns.length),
+		traps,
+		spawns,
+		loot,
+		harvest: [...template.harvest || []],
+		objects: [...template.objects || []],
+		side: !!template.side,
+		notes: template.notes || "",
+		cr0Only: !!template.cr0Only,
+		bonfire: !!template.bonfire
+	};
+}
+var link = (from, to, type = "Doorway", floor = 0) => ({
+	id: `${from}->${to}`,
+	from,
+	to,
+	type,
+	floor: Number(floor) || 0,
+	door: true
+});
+var attachDoorPoints = (rooms, connections) => {
+	const byId = new Map((rooms || []).map((room) => [room.id, room]));
+	return (connections || []).map((connection) => {
+		const from = byId.get(connection.from);
+		const to = byId.get(connection.to);
+		if (!from || !to) return connection;
+		const fromPoint = from.ingressPoints?.[0] || {
+			x: 0,
+			y: 0
+		};
+		const toPoint = to.ingressPoints?.[0] || {
+			x: 0,
+			y: 0
+		};
+		return {
+			...connection,
+			doorFrom: {
+				x: Number(fromPoint.x) || 0,
+				y: Number(fromPoint.y) || 0
+			},
+			doorTo: {
+				x: Number(toPoint.x) || 0,
+				y: Number(toPoint.y) || 0
+			}
+		};
+	});
+};
+function makeMissionStart() {
+	const w = 4;
+	const h = 4;
+	const cells = rectCells(w, h);
+	return {
+		id: uid("room"),
+		templateId: "room-mission-start",
+		name: "Mission Start",
+		floor: 0,
+		category: "Start",
+		x: 0,
+		y: 0,
+		w,
+		h,
+		shape: "Rectangle",
+		cells,
+		ingressPoints: [{
+			x: 0,
+			y: 1,
+			label: "Player ingress"
+		}],
+		spawnPoints: [],
+		environment: "Staging point",
+		elevation: "Flat",
+		cover: "Open",
+		connector: "Trail",
+		externalDoor: true,
+		traps: [],
+		spawns: [],
+		loot: [],
+		notes: "The party begins here. Choose a route from this staging point; arrows mark the way deeper into the run."
+	};
+}
+function makeBonfire(rng) {
+	const w = rng?.int(4, 5) || 4;
+	const h = rng?.int(4, 5) || 4;
+	const cells = rectCells(w, h);
+	return {
+		id: uid("room"),
+		templateId: "room-bonfire",
+		name: "Bonfire Safe Zone",
+		floor: 0,
+		category: "Rest",
+		x: 0,
+		y: 0,
+		w,
+		h,
+		shape: "Rectangle",
+		cells,
+		ingressPoints: defaultIngress(cells),
+		spawnPoints: [],
+		environment: "Sheltered alcove",
+		elevation: "Flat",
+		cover: "Low wall (three-quarters)",
+		connector: "Doorway",
+		traps: [],
+		spawns: [],
+		loot: [],
+		bonfire: true,
+		notes: "A safe campfire with a clear exit. The party can take a short rest here before pushing deeper."
+	};
+}
+function insertBonfires(spine, rng) {
+	const out = [];
+	let encounters = 0;
+	spine.forEach((room, i) => {
+		out.push(room);
+		if (ENCOUNTER_CATEGORIES.has(room.category)) encounters += 1;
+		const last = i === spine.length - 1;
+		if (encounters >= 2 && !last && room.category !== "Boss") {
+			out.push(makeBonfire(rng));
+			encounters = 0;
+		}
+	});
+	while (out.length && out[out.length - 1]?.bonfire) out.pop();
+	const last = out[out.length - 1];
+	const previous = out[out.length - 2];
+	if (last?.category === "Boss" && previous && previous.category !== "Rest" && !previous.bonfire) out.splice(out.length - 1, 0, makeBonfire(rng));
+	return out;
+}
+function positionSingle(rooms, rng) {
+	const spine = rooms.filter((r) => !r.branch);
+	let cursor = 0;
+	spine.forEach((room) => {
+		room.x = cursor;
+		room.y = rng.int(-1, 1);
+		cursor += Math.max(12, room.w) + 34;
+	});
+	rooms.filter((r) => r.branch).forEach((room, index) => {
+		const parent = rooms.find((r) => r.id === room.parentId) || spine[0];
+		room.x = (parent?.x || 0) + Math.max(0, ((parent?.w || room.w || 9) - (room.w || 9)) / 2);
+		room.y = (parent?.y || 0) + Math.max(12, parent?.h || 12) + 26 + index * (Math.max(12, room.h || 12) + 22);
+	});
+	const placed = [];
+	const clashes = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+	rooms.forEach((room) => {
+		let guard = 0;
+		while (placed.some((other) => clashes(room, other)) && guard < 200) {
+			room.y += 14;
+			guard += 1;
+		}
+		placed.push({
+			x: room.x,
+			y: room.y,
+			w: room.w,
+			h: room.h
+		});
+	});
+}
+var HALL_TYPES = [
+	{
+		name: "Hallway",
+		elevation: "Flat",
+		environment: "Damp stone"
+	},
+	{
+		name: "Stairwell",
+		elevation: "Tiered steps (+2)",
+		environment: "Ancient ruins"
+	},
+	{
+		name: "Elevator Shaft",
+		elevation: "Raised dais (+1)",
+		environment: "Mine shafts"
+	},
+	{
+		name: "Bridge",
+		elevation: "Chasm edge (−2)",
+		environment: "Collapsed bridge"
+	},
+	{
+		name: "Collapsed Passage",
+		elevation: "Sunken floor (−1)",
+		environment: "Collapsed gallery"
+	}
+];
+function makeHall(rng, dx, dy) {
+	const kind = rng.pick(HALL_TYPES);
+	const horizontal = Math.abs(dx) >= Math.abs(dy);
+	const w = horizontal ? Math.max(9, Math.min(16, Math.round(Math.abs(dx) / 2))) : Math.max(3, Math.min(9, Math.round(Math.abs(dx) / 2) + 1));
+	const h = horizontal ? 3 : Math.max(9, Math.min(16, Math.round(Math.abs(dy) / 2)));
+	let cells = rectCells(w, h);
+	if (!horizontal && w > 3) for (let x = 3; x < w; x += 1) for (let y = h - 3; y < h; y += 1) cells.push([x, y]);
+	const traps = rng.chance(.25) ? [rng.pick(TRAP_POOL)] : [];
+	const stairs = kind.name === "Stairwell" || kind.name === "Elevator Shaft" ? [{
+		x: 0,
+		y: Math.max(0, Math.floor(h / 2))
+	}, {
+		x: Math.max(0, w - 1),
+		y: Math.max(0, Math.floor(h / 2))
+	}] : [];
+	return {
+		id: uid("hall"),
+		templateId: `hall-${kind.name.toLowerCase().replace(/\s+/g, "-")}`,
+		name: kind.name,
+		floor: 0,
+		category: "Corridor",
+		hall: true,
+		combat: false,
+		side: false,
+		branch: false,
+		x: 0,
+		y: 0,
+		w,
+		h,
+		shape: horizontal ? "Rectangle" : "L-Shape",
+		cells,
+		environment: kind.environment,
+		elevation: kind.elevation,
+		cover: "Open",
+		connector: kind.name,
+		tags: ["hall", kind.name.toLowerCase()],
+		description: `${kind.name} connecting two chambers. Monsters do not lair here, but the passage can be trapped or blocked.`,
+		traps,
+		spawns: [],
+		spawnPoints: [],
+		loot: [],
+		harvest: [],
+		stairs,
+		ingressPoints: defaultIngress(cells),
+		environmentEffect: "",
+		notes: `${kind.name}: free of monster encounters; traps and hazards are possible.`
+	};
+}
+function insertHalls(rooms, connections, rng) {
+	const halls = [];
+	const next = [];
+	(connections || []).forEach((connection) => {
+		const from = rooms.find((r) => r.id === connection.from);
+		const to = rooms.find((r) => r.id === connection.to);
+		if (!from || !to) {
+			next.push(connection);
+			return;
+		}
+		if (from.side || to.side || from.hall || to.hall || from.bonfire || to.bonfire || from.category === "Boss" || to.category === "Boss" || from.category === "Start" || to.category === "Start") {
+			next.push(connection);
+			return;
+		}
+		const dx = to.x + to.w / 2 - (from.x + from.w / 2);
+		const dy = to.y + to.h / 2 - (from.y + from.h / 2);
+		if (Math.abs(dx) + Math.abs(dy) < 18) {
+			next.push(connection);
+			return;
+		}
+		if (Math.abs(dx) > 14 && Math.abs(dy) > 14) {
+			next.push(connection);
+			return;
+		}
+		const hall = makeHall(rng, dx, dy);
+		hall.x = from.x + from.w / 2 + dx / 2 - hall.w / 2;
+		hall.y = from.y + from.h / 2 + dy / 2 - hall.h / 2;
+		if (Math.abs(dx) >= Math.abs(dy)) hall.y = (from.y + from.h / 2 + to.y + to.h / 2) / 2 - hall.h / 2;
+		else hall.x = (from.x + from.w / 2 + to.x + to.w / 2) / 2 - hall.w / 2;
+		halls.push(hall);
+		next.push(link(from.id, hall.id, hall.connector, from.floor || 0));
+		next.push(link(hall.id, to.id, connection.type || "Doorway", from.floor || 0));
+	});
+	return {
+		halls,
+		connections: next
+	};
+}
+function buildRoutes(rooms, connections) {
+	const start = rooms.find((r) => r.category === "Start") || rooms[0];
+	const bosses = rooms.filter((r) => r.category === "Boss");
+	if (!start || !bosses.length) return [];
+	const outgoing = /* @__PURE__ */ new Map();
+	(connections || []).forEach((c) => {
+		if (!outgoing.has(c.from)) outgoing.set(c.from, []);
+		outgoing.get(c.from).push(c);
+	});
+	const routes = [];
+	bosses.forEach((boss, index) => {
+		const queue = [start.id];
+		const prev = /* @__PURE__ */ new Map([[start.id, null]]);
+		while (queue.length) {
+			const id = queue.shift();
+			if (id === boss.id) break;
+			(outgoing.get(id) || []).forEach((c) => {
+				if (prev.has(c.to)) return;
+				prev.set(c.to, {
+					from: id,
+					connection: c.id
+				});
+				queue.push(c.to);
+			});
+		}
+		if (!prev.has(boss.id)) return;
+		const roomIds = [];
+		const connectionIds = [];
+		let cur = boss.id;
+		while (cur != null) {
+			roomIds.unshift(cur);
+			const step = prev.get(cur);
+			if (step?.connection) connectionIds.unshift(step.connection);
+			cur = step?.from ?? null;
+		}
+		routes.push({
+			id: `route-${index}`,
+			name: boss.name || `Boss route ${index + 1}`,
+			bossId: boss.id,
+			roomIds,
+			connectionIds
+		});
+	});
+	return routes;
+}
+function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), templates = STARTER_DUNGEON_ROOMS, monsters = [], lootPools = [], name = "", players = 4, requiredTags = [], avoidCategories = [] } = {}) {
+	const rng = makeRng$1(`${mode}:${rank}:${seed}`);
+	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
+	const rankIndex = Math.max(0, Object.keys(DUNGEON_RANKS).indexOf(rank));
+	const baseTemplates = (templates || []).length ? templates : STARTER_DUNGEON_ROOMS;
+	const wantedTags = (requiredTags || []).map((t) => String(t).toLowerCase().trim()).filter(Boolean);
+	const avoided = new Set((avoidCategories || []).map((c) => String(c).toLowerCase()));
+	let source = baseTemplates.filter((template) => {
+		if (avoided.has(String(template.category || "").toLowerCase())) return false;
+		if (!wantedTags.length) return true;
+		const haystack = `${template.name || ""} ${template.category || ""} ${(template.tags || []).join(" ")} ${template.environment || ""}`.toLowerCase();
+		return wantedTags.some((tag) => haystack.includes(tag));
+	});
+	if (!source.length) source = baseTemplates;
+	const rooms = [];
+	const connections = [];
+	const total = Math.max(3, Math.min(48, info.rooms * (mode === "single" ? 2 : 1)));
+	const opts = {
+		monsters,
+		lootPools,
+		players
+	};
+	let title = name || generateDungeonName(seed, mode, rank);
+	if (mode === "spire") {
+		const floors = 15;
+		const start = makeMissionStart();
+		start.x = -40;
+		start.y = 0;
+		rooms.push(start);
+		let previous = [start];
+		let encounterFloors = 0;
+		for (let f = 1; f < floors; f++) {
+			const last = f === 14;
+			const count = last ? rankIndex >= 4 ? 3 : rankIndex >= 2 ? 2 : 1 : rng.int(1, 3);
+			const current = [];
+			for (let lane = 0; lane < count; lane++) {
+				let category = "Chamber";
+				if (last) category = "Boss";
+				else if (f === 4 || f === 9) category = "Elite";
+				else if (f === 5 || f === 10) category = "Rest";
+				else if (f === 3 || f === 8) category = "Shop";
+				else if (rng.chance(.16)) category = rng.pick([
+					"Trap",
+					"Puzzle",
+					"Loot"
+				]);
+				let room = instantiate(templateFor(category, source, rng), category, rng, rank, opts);
+				if (last) room = themedBoss(room, lane);
+				room.floor = f;
+				room.x = f * 52;
+				room.y = (lane - (count - 1) / 2) * 42 + (last ? 0 : rng.int(-2, 2));
+				current.push(room);
+				rooms.push(room);
+			}
+			previous.forEach((p) => {
+				const nearest = [...current].sort((a, b) => Math.abs(a.y - p.y) - Math.abs(b.y - p.y));
+				connections.push(link(p.id, nearest[0].id, p.connector, f));
+				if (nearest[1] && rng.chance(.35)) connections.push(link(p.id, nearest[1].id, p.connector, f));
+			});
+			current.forEach((c) => {
+				if (!connections.some((e) => e.to === c.id)) {
+					const p = [...previous].sort((a, b) => Math.abs(a.y - c.y) - Math.abs(b.y - c.y))[0];
+					if (p) connections.push(link(p.id, c.id, p.connector, f));
+				}
+			});
+			previous = current;
+			if (!current.every((r) => ["Rest", "Shop"].includes(r.category)) && !last) encounterFloors += 1;
+			if (!last && (f === 13 || encounterFloors >= 2) && !current.some((r) => r.category === "Boss")) {
+				const camp = makeBonfire(rng);
+				camp.floor = f;
+				camp.x = f * 52 + 36;
+				camp.y = 0;
+				rooms.push(camp);
+				current.forEach((room) => connections.push(link(room.id, camp.id, room.connector, f)));
+				previous = [camp];
+				encounterFloors = 0;
+			}
+		}
+	} else {
+		const branchCount = total >= 9 ? 2 : total >= 6 ? 1 : 0;
+		const spineCount = Math.max(2, total - branchCount);
+		const categories = ["Start"];
+		for (let i = 0; i < spineCount - 1; i++) {
+			let cat = "Chamber";
+			if (i === 0 && spineCount >= 6) cat = "Elite";
+			else if (i === 1 && spineCount >= 9) cat = "Rest";
+			else if (i === 2 && spineCount >= 9) cat = "Shop";
+			else if (rng.chance(.18)) cat = "Trap";
+			else if (rng.chance(.14)) cat = "Puzzle";
+			else if (rng.chance(.2)) cat = "Loot";
+			categories.push(cat);
+		}
+		categories.push("Boss");
+		const spine = categories.map((cat) => {
+			const room = cat === "Start" ? makeMissionStart() : instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
+			room.branch = false;
+			rooms.push(room);
+			return room;
+		});
+		for (let i = 0; i < spine.length - 1; i++) connections.push(link(spine[i].id, spine[i + 1].id, spine[i].connector));
+		for (let b = 0; b < branchCount; b++) {
+			const parent = spine[Math.min(spine.length - 2, 2 + b * 2)];
+			const cat = rng.pick([
+				"Loot",
+				"Trap",
+				"Chamber",
+				"Puzzle"
+			]);
+			const room = instantiate(templateFor(cat, source, rng), cat, rng, rank, opts);
+			room.branch = true;
+			room.parentId = parent.id;
+			rooms.push(room);
+			connections.push(link(parent.id, room.id, parent.connector));
+		}
+		const expandedSpine = insertBonfires(spine, rng);
+		if (expandedSpine.length > spine.length) {
+			const spineIds = new Set(spine.map((r) => r.id));
+			const branchLinks = connections.filter((c) => !(spineIds.has(c.from) && spineIds.has(c.to)));
+			connections.length = 0;
+			connections.push(...branchLinks);
+			for (let i = 0; i < expandedSpine.length - 1; i += 1) connections.push(link(expandedSpine[i].id, expandedSpine[i + 1].id, expandedSpine[i].connector));
+			const branchRooms = rooms.filter((r) => r.branch);
+			rooms.length = 0;
+			rooms.push(...expandedSpine, ...branchRooms);
+		}
+		const altCount = rankIndex >= 4 ? 2 : rankIndex >= 2 ? 1 : 0;
+		const mainBoss = expandedSpine[expandedSpine.length - 1];
+		const mainCamp = expandedSpine[expandedSpine.length - 2];
+		const forkPoint = mainCamp?.bonfire ? expandedSpine[expandedSpine.length - 3] || mainCamp : mainCamp;
+		const alternateRoutes = [];
+		if (altCount && forkPoint && mainBoss) for (let i = 0; i < altCount; i += 1) {
+			const camp = makeBonfire(rng);
+			camp.name = `Bonfire Safe Zone ${i + 2}`;
+			camp.branch = true;
+			camp.parentId = forkPoint.id;
+			const alt = themedBoss(instantiate(templateFor("Boss", source, rng), "Boss", rng, rank, opts), i + 1);
+			alt.branch = true;
+			alt.parentId = camp.id;
+			rooms.push(camp, alt);
+			connections.push(link(forkPoint.id, camp.id, forkPoint.connector));
+			connections.push(link(camp.id, alt.id, camp.connector));
+			alternateRoutes.push({
+				camp,
+				boss: alt
+			});
+		}
+		positionSingle(rooms, rng);
+		alternateRoutes.forEach(({ camp, boss }, i) => {
+			boss.x = Math.max(0, ...rooms.map((room) => room.x + room.w)) + 30 + i * (Math.max(boss.w, 14) + 18);
+			boss.y = 0;
+			camp.x = boss.x;
+			camp.y = boss.y - Math.max(10, camp.h) - 12;
+		});
+		const hallResult = insertHalls(rooms, connections, rng);
+		if (hallResult.halls.length) {
+			rooms.push(...hallResult.halls);
+			connections.length = 0;
+			connections.push(...hallResult.connections);
+		}
+	}
+	let harvestPool = source.filter((t) => t.category === "Harvest" && t.enabled !== false);
+	if (!harvestPool.length) harvestPool = STARTER_DUNGEON_ROOMS.filter((t) => t.category === "Harvest");
+	const sideParents = rooms.filter((r) => !r.branch && !["Start", "Boss"].includes(r.category));
+	if (harvestPool.length && sideParents.length) {
+		const sideCount = Math.max(1, Math.ceil(info.rooms / 4));
+		for (let i = 0; i < sideCount; i += 1) {
+			const template = rng.pick(harvestPool);
+			const parent = rng.pick(sideParents);
+			const room = instantiate(template, "Harvest", rng, rank, {
+				monsters: [],
+				lootPools,
+				players
+			});
+			room.name = template.name || "Harvesting Site";
+			room.side = true;
+			room.branch = true;
+			room.combat = false;
+			room.parentId = parent.id;
+			room.traps = [];
+			room.spawns = [];
+			room.spawnPoints = [];
+			const maxX = Math.max(0, ...rooms.map((r) => r.x + r.w));
+			const maxY = Math.max(0, ...rooms.map((r) => r.y + r.h));
+			room.x = maxX + 20 + i % 3 * (room.w + 12);
+			room.y = maxY + 20 + Math.floor(i / 3) * (room.h + 12);
+			rooms.push(room);
+			connections.push(link(parent.id, room.id, "Side passage"));
+		}
+	}
+	const routes = buildRoutes(rooms, connections);
+	const linkedConnections = attachDoorPoints(rooms, connections);
+	return {
+		id: uid("dungeon"),
+		name: title,
+		mode,
+		rank,
+		seed,
+		rooms,
+		connections: linkedConnections,
+		routes,
+		chosenRouteId: routes[0]?.id || "",
+		notes: `${info.nickname} · ${info.downtime} downtime · ${rooms.filter((r) => !r.hall && !r.side).length} rooms`,
+		createdAt: (/* @__PURE__ */ new Date()).toISOString()
+	};
+}
+function rectCells(w, h) {
+	const cells = [];
+	for (let y = 0; y < Math.max(1, h); y++) for (let x = 0; x < Math.max(1, w); x++) cells.push([x, y]);
+	return cells;
+}
+function roomShapeCells(room) {
+	const w = Math.max(1, Math.round(Number(room?.w) || 1));
+	const h = Math.max(1, Math.round(Number(room?.h) || 1));
+	if (!Array.isArray(room?.cells) || !room.cells.length) return rectCells(w, h);
+	const set = /* @__PURE__ */ new Set();
+	room.cells.forEach((cell) => {
+		const x = Number(cell?.[0] ?? cell?.x);
+		const y = Number(cell?.[1] ?? cell?.y);
+		if (Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x < w && y < h) set.add(`${x},${y}`);
+	});
+	return set.size ? [...set].map((key) => key.split(",").map(Number)) : rectCells(w, h);
+}
+function cellsConnected(cells) {
+	if (!cells?.length) return false;
+	const set = new Set(cells.map(([x, y]) => `${x},${y}`));
+	const seen = /* @__PURE__ */ new Set([`${cells[0][0]},${cells[0][1]}`]);
+	const queue = [[cells[0][0], cells[0][1]]];
+	while (queue.length) {
+		const [x, y] = queue.shift();
+		[
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		].forEach(([dx, dy]) => {
+			const key = `${x + dx},${y + dy}`;
+			if (set.has(key) && !seen.has(key)) {
+				seen.add(key);
+				queue.push([x + dx, y + dy]);
+			}
+		});
+	}
+	return seen.size === set.size;
+}
+function cellsOutlinePath(cells, cellSize, ox = 0, oy = 0) {
+	const set = new Set((cells || []).map(([x, y]) => `${x},${y}`));
+	const parts = [];
+	const at = (x, y) => set.has(`${x},${y}`);
+	(cells || []).forEach(([x, y]) => {
+		const x0 = ox + x * cellSize;
+		const y0 = oy + y * cellSize;
+		const x1 = x0 + cellSize;
+		const y1 = y0 + cellSize;
+		if (!at(x, y - 1)) parts.push(`M ${x0} ${y0} L ${x1} ${y0}`);
+		if (!at(x + 1, y)) parts.push(`M ${x1} ${y0} L ${x1} ${y1}`);
+		if (!at(x, y + 1)) parts.push(`M ${x1} ${y1} L ${x0} ${y1}`);
+		if (!at(x - 1, y)) parts.push(`M ${x0} ${y1} L ${x0} ${y0}`);
+	});
+	return parts.join(" ");
+}
+function cellsFillPath(cells, cellSize, ox = 0, oy = 0) {
+	return (cells || []).map(([x, y]) => {
+		return `M ${ox + x * cellSize} ${oy + y * cellSize} h ${cellSize} v ${cellSize} h ${-cellSize} Z`;
+	}).join(" ");
+}
+var ROOM_SHAPES = [
+	"Rectangle",
+	"Diamond",
+	"Circle",
+	"L-Shape",
+	"T-Shape",
+	"U-Shape",
+	"Cross",
+	"Octagon",
+	"Hexagon",
+	"Hourglass",
+	"Rounded",
+	"Cavern",
+	"Irregular"
+];
+var irregularCells = (w, h) => {
+	let seed = w * 73856093 ^ h * 19349663 ^ 2654435769;
+	const rand = () => {
+		seed = seed * 1664525 + 1013904223 >>> 0;
+		return seed / 4294967296;
+	};
+	const start = [Math.floor(w / 2), Math.floor(h / 2)];
+	const cells = [start];
+	const set = /* @__PURE__ */ new Set([`${start[0]},${start[1]}`]);
+	const target = Math.max(4, Math.round(w * h * (.58 + rand() * .18)));
+	let guard = 0;
+	while (cells.length < target && guard < 5e3) {
+		guard += 1;
+		const [px, py] = cells[Math.floor(rand() * cells.length)];
+		const [dx, dy] = [
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		][Math.floor(rand() * 4)];
+		const x = px + dx;
+		const y = py + dy;
+		if (x < 0 || y < 0 || x >= w || y >= h) continue;
+		const key = `${x},${y}`;
+		if (set.has(key) || rand() < .22) continue;
+		set.add(key);
+		cells.push([x, y]);
+	}
+	return cells;
+};
+function shapeCells(width, height, shape) {
+	const w = Math.max(9, Math.min(33, Math.round(Number(width) || 9)));
+	const h = Math.max(9, Math.min(33, Math.round(Number(height) || 9)));
+	const keep = (predicate) => {
+		const out = [];
+		for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (predicate(x, y)) out.push([x, y]);
+		return out;
+	};
+	const cx = (w - 1) / 2;
+	const cy = (h - 1) / 2;
+	const rx = Math.max(1, (w - 1) / 2);
+	const ry = Math.max(1, (h - 1) / 2);
+	switch (shape) {
+		case "Diamond": {
+			const cells = keep((x, y) => Math.abs((x - cx) / rx) + Math.abs((y - cy) / ry) <= 1.06);
+			return cells.length ? cells : rectCells(w, h);
+		}
+		case "Circle": {
+			const cells = keep((x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.06);
+			return cells.length ? cells : rectCells(w, h);
+		}
+		case "L-Shape": return keep((x, y) => x < Math.ceil(w * .55) || y >= Math.floor(h * .55));
+		case "T-Shape": return keep((x, y) => y < Math.ceil(h * .4) || x >= Math.floor(w * .3) && x < Math.ceil(w * .7));
+		case "U-Shape": return keep((x, y) => x < Math.ceil(w * .28) || x >= Math.floor(w * .72) || y >= Math.floor(h * .55));
+		case "Cross": return keep((x, y) => x >= Math.floor(w * .3) && x < Math.ceil(w * .7) || y >= Math.floor(h * .3) && y < Math.ceil(h * .7));
+		case "Octagon": return keep((x, y) => {
+			const cutX = Math.floor(w * .25);
+			const cutY = Math.floor(h * .25);
+			return !(x < cutX && y < cutY || x >= w - cutX && y < cutY || x < cutX && y >= h - cutY || x >= w - cutX && y >= h - cutY);
+		});
+		case "Hexagon": return keep((x, y) => {
+			const cutX = Math.floor(w * .2);
+			const cutY = Math.floor(h * .25);
+			return !(x < cutX && (y < cutY || y >= h - cutY) || x >= w - cutX && (y < cutY || y >= h - cutY));
+		});
+		case "Hourglass": return keep((x, y) => {
+			const limit = .18 + .82 * (Math.abs(y - cy) / Math.max(1, h / 2));
+			return Math.abs(x - cx) / Math.max(1, w / 2) <= limit;
+		});
+		case "Rounded": return keep((x, y) => {
+			const corner = Math.min(w, h) * .18;
+			const nearX = x < corner || x >= w - corner;
+			const nearY = y < corner || y >= h - corner;
+			return !(nearX && nearY);
+		});
+		case "Cavern": return irregularCells(w, h);
+		case "Irregular": return irregularCells(w, h);
+		default: return rectCells(w, h);
+	}
+}
+function pickRoomShape(category, rng) {
+	if (category === "Entrance" || category === "Corridor") return rng.chance(.08) ? "L-Shape" : "Rectangle";
+	const roll = rng.rand();
+	if (roll < .035) return "Irregular";
+	if (roll < .06) return "Circle";
+	if (roll < .085) return "Diamond";
+	if (roll < .12) return "Hexagon";
+	if (roll < .15) return "Hourglass";
+	if (roll < .18) return "Rounded";
+	if (roll < .2) return "Cavern";
+	if (roll < .27) return "L-Shape";
+	if (roll < .33) return "T-Shape";
+	if (roll < .39) return "Cross";
+	if (roll < .44) return "Octagon";
+	if (roll < .5) return "U-Shape";
+	return "Rectangle";
+}
+function edgeCells(cells) {
+	const set = new Set(cells.map(([x, y]) => `${x},${y}`));
+	return cells.filter(([x, y]) => [
+		[1, 0],
+		[-1, 0],
+		[0, 1],
+		[0, -1]
+	].some(([dx, dy]) => !set.has(`${x + dx},${y + dy}`)));
+}
+function defaultIngress(cells) {
+	if (!cells.length) return [];
+	const edge = edgeCells(cells);
+	const left = edge.reduce((best, c) => c[0] < best[0] ? c : best, edge[0] || cells[0]);
+	return [{
+		x: left[0],
+		y: left[1],
+		label: "Ingress"
+	}];
+}
+function defaultSpawns(cells, count) {
+	if (!cells.length || !count) return [];
+	const edge = edgeCells(cells).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+	const picked = [];
+	const seen = /* @__PURE__ */ new Set();
+	edge.forEach((cell) => {
+		if (picked.length >= Math.min(6, count)) return;
+		const key = `${cell[0]},${cell[1]}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		picked.push({
+			x: cell[0],
+			y: cell[1],
+			label: `Spawn ${picked.length + 1}`
+		});
+	});
+	return picked;
+}
+var coverType = (cover) => {
+	const text = String(cover || "").toLowerCase();
+	if (/full/.test(text)) return "full";
+	if (/three|3\/4|three-quarters/.test(text)) return "three-quarters";
+	if (/half|pillar|crate|wall|fog/.test(text)) return "half";
+	return "";
+};
+function elevationHeightCells(cells, elevation) {
+	const text = String(elevation || "").toLowerCase();
+	if (!cells?.length || !text || text.includes("flat")) return [];
+	const xs = cells.map(([x]) => x);
+	const ys = cells.map(([, y]) => y);
+	const minX = Math.min(...xs);
+	const maxX = Math.max(...xs);
+	const minY = Math.min(...ys);
+	const maxY = Math.max(...ys);
+	const cx = (minX + maxX) / 2;
+	const cy = (minY + maxY) / 2;
+	const rx = Math.max(1, (maxX - minX) / 2);
+	const ry = Math.max(1, (maxY - minY) / 2);
+	const out = [];
+	cells.forEach(([x, y]) => {
+		const nx = Math.abs((x - cx) / rx);
+		const ny = Math.abs((y - cy) / ry);
+		let h = 0;
+		if (/tiered|steps/.test(text)) h = nx < .3 && ny < .3 ? 2 : nx < .62 && ny < .62 ? 1 : 0;
+		else if (/raised|dais|above|high/.test(text)) h = nx < .38 && ny < .38 ? 1 : 0;
+		else if (/sunken|pit|below|chasm/.test(text)) h = nx < .38 && ny < .38 ? -1 : 0;
+		if (h) out.push([
+			x,
+			y,
+			h
+		]);
+	});
+	return out;
+}
+function findStairs(cells, heightCells) {
+	const map = new Map((heightCells || []).map(([x, y, h]) => [`${x},${y}`, h]));
+	const candidates = [];
+	(cells || []).forEach(([x, y]) => {
+		const h = map.get(`${x},${y}`) || 0;
+		[
+			[1, 0],
+			[-1, 0],
+			[0, 1],
+			[0, -1]
+		].forEach(([dx, dy]) => {
+			const nx = x + dx;
+			const ny = y + dy;
+			if (!cells.some(([cx, cy]) => cx === nx && cy === ny)) return;
+			const nh = map.get(`${nx},${ny}`) || 0;
+			if (nh === h) return;
+			const low = h < nh ? [x, y] : [nx, ny];
+			if (!candidates.some(([cx, cy]) => cx === low[0] && cy === low[1])) candidates.push(low);
+		});
+	});
+	if (!candidates.length) return [];
+	if (candidates.length === 1) return candidates.map(([x, y]) => ({
+		x,
+		y
+	}));
+	return [candidates[0], candidates[Math.floor(candidates.length / 2)]].map(([x, y]) => ({
+		x,
+		y
+	}));
+}
+var spreadCells = (cells, count) => {
+	if (!cells.length || !count) return [];
+	const out = [];
+	for (let i = 0; i < count; i += 1) {
+		const cell = cells[Math.floor((i + .5) * (cells.length / count)) % cells.length];
+		if (cell && !out.some(([x, y]) => x === cell[0] && y === cell[1])) out.push(cell);
+	}
+	return out;
+};
+function coverPointsFor(cells, cover) {
+	const type = coverType(cover);
+	if (!type || !cells?.length) return [];
+	const edge = edgeCells(cells);
+	const pool = edge.length ? edge : cells;
+	return spreadCells(pool, Math.min(6, Math.max(2, Math.round(pool.length / 8)))).map(([x, y]) => ({
+		x,
+		y,
+		cover: type
+	}));
+}
+function trapPointsFor(cells, traps, rng) {
+	if (!cells?.length || !traps?.length) return [];
+	const list = [...traps].slice(0, 4);
+	return list.map((trap, i) => {
+		const index = Math.floor((rng ? rng.rand() : (i + .5) / list.length) * cells.length);
+		const [x, y] = cells[Math.min(cells.length - 1, index)];
+		return {
+			x,
+			y,
+			type: String(trap).split(":")[0].trim()
+		};
+	});
+}
+function waterCellsFor(cells, environment) {
+	const text = String(environment || "").toLowerCase();
+	if (!/flood|cistern|water|spring|river|lake|sea|marsh/.test(text)) return [];
+	return spreadCells(cells, Math.max(2, Math.round(cells.length * .28)));
+}
+function difficultCellsFor(cells, environment, effect = "") {
+	const text = `${environment || ""} ${effect || ""}`.toLowerCase();
+	if (!/rubble|overgrown|fungal|mine|frozen|ice|unstable|difficult/.test(text)) return [];
+	return spreadCells(cells, Math.max(2, Math.round(cells.length * .24)));
+}
+var pointXY = (p) => Array.isArray(p) ? {
+	x: Number(p[0]),
+	y: Number(p[1])
+} : {
+	x: Number(p?.x),
+	y: Number(p?.y)
+};
+function roomSurfaceFeatures(room, cells, rng) {
+	const heights = Array.isArray(room?.heights) && room.heights.length ? room.heights.map((p) => Array.isArray(p) ? [
+		Number(p[0]),
+		Number(p[1]),
+		Number(p[2]) || 0
+	] : [
+		Number(p?.x),
+		Number(p?.y),
+		Number(p?.height ?? p?.h ?? 0) || 0
+	]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)) : elevationHeightCells(cells, room?.elevation);
+	return {
+		heights,
+		stairs: Array.isArray(room?.stairs) && room.stairs.length ? room.stairs.map(pointXY).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : findStairs(cells, heights),
+		coverPoints: Array.isArray(room?.coverPoints) && room.coverPoints.length ? room.coverPoints.map((p) => ({
+			...pointXY(p),
+			cover: Array.isArray(p) ? p[2] || p[3] || "half" : p?.cover || "half"
+		})) : coverPointsFor(cells, room?.cover),
+		trapPoints: Array.isArray(room?.trapPoints) && room.trapPoints.length ? room.trapPoints.map((p) => ({
+			...pointXY(p),
+			type: Array.isArray(p) ? p[2] || p[3] || "Trap" : p?.type || "Trap"
+		})) : trapPointsFor(cells, room?.traps, rng),
+		water: Array.isArray(room?.water) && room.water.length ? room.water.map((p) => {
+			const { x, y } = pointXY(p);
+			return [x, y];
+		}) : waterCellsFor(cells, room?.environment),
+		difficult: Array.isArray(room?.difficult) && room.difficult.length ? room.difficult.map((p) => {
+			const { x, y } = pointXY(p);
+			return [x, y];
+		}) : difficultCellsFor(cells, room?.environment, room?.environmentEffect)
+	};
+}
+function roomFeaturePoints(room) {
+	const cells = roomShapeCells(room);
+	if (!cells?.length) return [];
+	const text = `${room.name || ""} ${room.category || ""} ${(room.tags || []).join(" ")} ${room.environment || ""} ${room.description || ""}`.toLowerCase();
+	const edges = edgeCells(cells);
+	const out = [];
+	const add = (cell, type) => {
+		if (!cell) return;
+		const [x, y] = cell;
+		if (out.some((f) => f.x === x && f.y === y && f.type === type)) return;
+		out.push({
+			x,
+			y,
+			type
+		});
+	};
+	const pick = (list, fraction) => list[Math.max(0, Math.min(list.length - 1, Math.floor(list.length * fraction)))];
+	const center = pick(cells, .5);
+	if (/pillar|colonnade|pillared|hall/.test(text)) [
+		.15,
+		.35,
+		.65,
+		.85
+	].forEach((fraction) => add(pick(edges, fraction), "pillar"));
+	if (/dais|throne|altar|boss|sanctum|shrine|ritual/.test(text)) add(center, "dais");
+	if (/pit|chasm|sunken|sinkhole|chasm edge/.test(text)) add(center, "pit");
+	if (/rubble|collapsed|broken|overgrown|cavern|fungal/.test(text)) [
+		.2,
+		.45,
+		.7
+	].forEach((fraction) => add(pick(cells, fraction), "rubble"));
+	if (/forge|flame|volcanic|brazier|ember/.test(text)) {
+		add(pick(edges, .08), "brazier");
+		add(pick(edges, .92), "brazier");
+	}
+	if (/crystal|grotto|arcane|mana|resonance/.test(text)) {
+		add(pick(edges, .25), "crystal");
+		add(pick(edges, .75), "crystal");
+	}
+	return out;
+}
+function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
+	const t = template || STARTER_DUNGEON_ROOMS[0];
+	const w = Math.max(9, Math.min(33, Math.round(((t.minW || 9) + (t.maxW || t.minW || 9)) / 2)));
+	const h = Math.max(9, Math.min(33, Math.round(((t.minH || 9) + (t.maxH || t.minH || 9)) / 2)));
+	const shape = t.cells?.length ? t.shape || "Custom" : t.shape || "Rectangle";
+	const cells = t.cells?.length ? t.cells.map(([cx, cy]) => [cx, cy]) : shapeCells(w, h, shape);
+	const environment = t.environment || "";
+	const elevation = t.elevation || "Flat";
+	const cover = t.cover || "Open";
+	const traps = [...t.traps || []];
+	const surface = roomSurfaceFeatures({
+		...t,
+		environment,
+		elevation,
+		cover,
+		traps
+	}, cells);
+	return {
+		id: uid("room"),
+		templateId: t.id,
+		name: t.name || "Room",
+		category: t.category || "Chamber",
+		x,
+		y,
+		w,
+		h,
+		shape,
+		cells,
+		heights: surface.heights,
+		stairs: surface.stairs,
+		coverPoints: surface.coverPoints,
+		trapPoints: surface.trapPoints,
+		water: surface.water,
+		difficult: surface.difficult,
+		environmentEffect: t.environmentEffect || "",
+		tags: [...t.tags || []],
+		ingressPoints: t.ingressPoints?.length ? t.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
+		spawnPoints: t.spawnPoints?.length ? t.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, (t.spawns || []).length),
+		environment,
+		elevation,
+		cover,
+		connector: t.connector || "Doorway",
+		traps,
+		spawns: [...t.spawns || []],
+		loot: [...t.loot || []],
+		harvest: [...t.harvest || []],
+		side: false,
+		notes: t.notes || "",
+		description: t.description || "",
+		cr0Only: !!t.cr0Only,
+		bonfire: !!t.bonfire
+	};
+}
+function crValue(cr) {
+	const s = String(cr ?? "").trim();
+	if (s === "1/8") return .125;
+	if (s === "1/4") return .25;
+	if (s === "1/2") return .5;
+	const n = Number(s);
+	return Number.isFinite(n) ? n : 0;
+}
+function hasCr(cr) {
+	const s = String(cr ?? "").trim();
+	if (!s) return false;
+	if (s === "1/8" || s === "1/4" || s === "1/2") return true;
+	return Number.isFinite(Number(s));
+}
+function scaleEncounters(dungeon, { players = 4, partyLevel = 1, monsters = [], rank = dungeon?.rank, encounterTable = null, countMultiplier = 1, bossCR = null } = {}) {
+	const party = Math.max(1, Math.round(Number(players) || 1));
+	const level = Math.max(1, Math.round(Number(partyLevel) || 1));
+	const multiplier = Math.max(1, Math.round(Number(countMultiplier) || 1));
+	const bossTarget = Math.max(.125, Number(bossCR ?? partyLevel) || level);
+	const band = rankChallenge(rank);
+	const allPool = (monsters || []).filter((m) => m?.name);
+	const pool = allPool.filter((m) => hasCr(m.cr) && !m.dungeonExempt);
+	const byName = new Map(allPool.map((m) => [String(m.name).toLowerCase(), m]));
+	const uniqueUsed = /* @__PURE__ */ new Set();
+	const generic = (room) => {
+		const bossRoom = room.category === "Boss";
+		const eliteRoom = room.category === "Elite";
+		const target = bossRoom ? bossTarget : eliteRoom ? band.maxCR : band.minionMax;
+		if (bossRoom) return `${Math.max(1, multiplier)}× CR ${target} boss`;
+		if (eliteRoom) return `${Math.max(1, multiplier + 1)}× CR ${target} elite`;
+		return `${Math.max(1, party * 2 * multiplier)}× rank ${rank} minion threat (CR ${band.minionMin}–${band.minionMax})`;
+	};
+	return {
+		...dungeon,
+		rooms: (dungeon.rooms || []).map((room) => {
+			if (room.bonfire || room.side || room.hall || [
+				"Rest",
+				"Shop",
+				"Entrance",
+				"Start",
+				"Harvest",
+				"Corridor"
+			].includes(room.category)) return {
+				...room,
+				spawns: []
+			};
+			const bossRoom = room.category === "Boss";
+			const miniBoss = bossRoom || room.category === "Elite";
+			const lo = bossRoom ? bossTarget : miniBoss ? band.minCR : band.minionMin;
+			const hi = bossRoom ? bossTarget : miniBoss ? band.maxCR : band.minionMax;
+			if (encounterTable) {
+				const rolled = rollEncounter(encounterTable, pool);
+				let remaining = (room.category === "Boss" ? party + 2 : room.category === "Elite" ? party + 1 : party * 2) * multiplier;
+				const spawns = [];
+				for (const row of rolled) {
+					if (remaining <= 0) break;
+					const monster = byName.get(String(row.monster).toLowerCase());
+					if (monster?.dungeonExempt) continue;
+					if (monster?.unique && (!miniBoss || uniqueUsed.has(monster.name))) continue;
+					let take = Math.min(remaining, Math.max(1, Number(row.count) || 1));
+					if (monster?.unique) take = 1;
+					if (take <= 0) continue;
+					spawns.push(`${take}× ${row.monster}`);
+					remaining -= take;
+					if (monster?.unique) uniqueUsed.add(monster.name);
+				}
+				return {
+					...room,
+					spawns: spawns.length ? spawns : [generic(room)],
+					encounterTable: encounterTable.name || ""
+				};
+			}
+			if (!pool.length) return {
+				...room,
+				spawns: [generic(room)]
+			};
+			const cr0 = !!room.cr0Only && lo === 0;
+			const baseCandidates = pool.filter((m) => !(m.unique && (!miniBoss || uniqueUsed.has(m.name))));
+			let candidates;
+			if (bossRoom) {
+				const exact = baseCandidates.filter((m) => Math.abs(crValue(m.cr) - bossTarget) <= .3);
+				candidates = exact.length ? exact : [...baseCandidates].sort((a, b) => Math.abs(crValue(a.cr) - bossTarget) - Math.abs(crValue(b.cr) - bossTarget)).slice(0, Math.max(1, Math.min(4, baseCandidates.length)));
+			} else candidates = baseCandidates.filter((m) => {
+				const v = crValue(m.cr);
+				return cr0 ? v === 0 : v >= lo && v <= hi;
+			});
+			if (!candidates.length) return {
+				...room,
+				spawns: [generic(room)]
+			};
+			const uniqueCandidates = candidates.filter((m) => m.unique);
+			const pickFrom = miniBoss && room.category === "Boss" && uniqueCandidates.length > 0 ? uniqueCandidates : candidates;
+			const groups = room.category === "Boss" || room.category === "Elite" ? 1 : Math.min(2, pickFrom.length);
+			const total = room.category === "Boss" ? multiplier : room.category === "Elite" ? multiplier + 1 : party * 2 * multiplier;
+			const picked = [];
+			for (let i = 0; i < groups; i += 1) {
+				const m = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+				const count = m.unique ? 1 : Math.max(1, Math.round(total / groups));
+				picked.push(`${count}× ${m.name}${m.cr ? ` (CR ${m.cr})` : ""}`);
+				if (m.unique) {
+					uniqueUsed.add(m.name);
+					break;
+				}
+			}
+			return {
+				...room,
+				spawns: picked
+			};
+		}),
+		encounterScale: {
+			players: party,
+			partyLevel: level,
+			rank,
+			rankCR: band.rankCR,
+			bossCR: bossTarget,
+			countMultiplier: multiplier,
+			minCR: band.minCR,
+			maxCR: band.maxCR,
+			minionMin: band.minionMin,
+			minionMax: band.minionMax,
+			targetCR: band.maxCR,
+			encounterTable: encounterTable?.name || ""
+		}
+	};
+}
+function dungeonBounds(dungeon) {
+	const rooms = dungeon?.rooms || [];
+	if (!rooms.length) return {
+		minX: 0,
+		minY: 0,
+		maxX: 10,
+		maxY: 10,
+		w: 10,
+		h: 10
+	};
+	const minX = Math.min(...rooms.map((r) => r.x));
+	const minY = Math.min(...rooms.map((r) => r.y));
+	const maxX = Math.max(...rooms.map((r) => r.x + r.w));
+	const maxY = Math.max(...rooms.map((r) => r.y + r.h));
+	return {
+		minX,
+		minY,
+		maxX,
+		maxY,
+		w: maxX - minX,
+		h: maxY - minY
+	};
+}
+function categoryColor(category) {
+	return (DUNGEON_CATEGORIES.find(([c]) => c === category) || [])[1] || "#94a3b8";
+}
+//#endregion
 //#region src/components/skilltree/library/DungeonRoomsTab.jsx
 var CONNECTORS$1 = [
 	"Doorway",
@@ -16324,15 +16326,41 @@ function DungeonRoomsTab() {
 						["objects", "Imported objects (one per line; Name | /images/... for artwork)"]
 					].map(([key, label]) => /* @__PURE__ */ jsxs("div", {
 						className: "mt-1.5",
-						children: [/* @__PURE__ */ jsx(Label, {
-							className: "text-[10px] text-muted-foreground",
-							children: label
-						}), /* @__PURE__ */ jsx(Textarea, {
-							className: "min-h-14 text-xs",
-							rows: 2,
-							value: lines$1(e[key]),
-							onChange: (ev) => patch(i, { [key]: split$1(ev.target.value) })
-						})]
+						children: [
+							/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] text-muted-foreground",
+								children: label
+							}),
+							/* @__PURE__ */ jsx(Textarea, {
+								className: "min-h-14 text-xs",
+								rows: 2,
+								value: lines$1(e[key]),
+								onChange: (ev) => patch(i, { [key]: split$1(ev.target.value) })
+							}),
+							key === "objects" && /* @__PURE__ */ jsxs("label", {
+								className: "mt-1 inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[10px] text-muted-foreground hover:bg-accent",
+								children: [
+									/* @__PURE__ */ jsx(ImagePlus, { className: "h-3.5 w-3.5" }),
+									" Upload object artwork",
+									/* @__PURE__ */ jsx("input", {
+										type: "file",
+										accept: "image/*",
+										className: "hidden",
+										onChange: async (ev) => {
+											const file = ev.target.files?.[0];
+											ev.target.value = "";
+											if (!file) return;
+											try {
+												const url = await importImage(file);
+												if (!url) return;
+												const name = file.name.replace(/\.[^.]+$/, "");
+												patch(i, { objects: [...e.objects || [], `${name} | ${url}`] });
+											} catch {}
+										}
+									})
+								]
+							})
+						]
 					}, key)),
 					/* @__PURE__ */ jsxs("div", {
 						className: "mt-1.5",
@@ -21720,7 +21748,7 @@ function Field({ label, value, onChange, placeholder, className, list }) {
 		})]
 	});
 }
-function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
+function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 	const [open, setOpen] = useState(false);
 	const eff = computed(m, lib);
 	const patch = onPatch;
@@ -22426,7 +22454,7 @@ function TemplatesSection({ lib, setLib }) {
 	});
 }
 function MonstersTab() {
-	const { character, setCharacter, settings, setSettings } = useTree();
+	const { setCharacter, settings, setSettings } = useTree();
 	const [q, setQ] = useState("");
 	const [sort, setSort] = useState("name");
 	const [desc, setDesc] = useState(false);
@@ -27117,7 +27145,6 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			selectedConnectionId: null
 		}));
 		if (!editable) return;
-		containerRef.current.getBoundingClientRect();
 		dragRef.current = {
 			type: "node",
 			el: e.currentTarget,
@@ -27325,7 +27352,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			moveBend(d.connId, d.bendIndex, w.x, w.y);
 		}
 	};
-	const onPointerUp = (e) => {
+	const onPointerUp = () => {
 		const d = dragRef.current;
 		if (pendingViewRef.current) {
 			const pv = pendingViewRef.current;
@@ -30967,7 +30994,7 @@ function NodeImagePicker({ open, onClose, folder = "Icons", onFolderChange, onPi
 //#region src/components/skilltree/NodeEditorPanel.jsx
 var entryName = (e) => typeof e === "string" ? e : e?.name || "";
 function NodeEditorPanel() {
-	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, setSettings, enterSubtreeEditor } = useTree();
+	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, setSettings } = useTree();
 	const [search, setSearch] = useState("");
 	const [exSearch, setExSearch] = useState("");
 	const [imagePickerField, setImagePickerField] = useState("");
@@ -30981,7 +31008,7 @@ function NodeEditorPanel() {
 		try {
 			const url = await importImage(file);
 			updateNode(node.id, { [field]: url });
-		} catch (e) {} finally {
+		} catch {} finally {
 			setUploading(false);
 		}
 	};
@@ -31011,7 +31038,6 @@ function NodeEditorPanel() {
 			levelReq: next.levelReq
 		});
 	};
-	checkOptions(settings);
 	const nodeImageFolder = settings?.nodeImageFolder || settings?.library?.nodeImageFolder || "Icons";
 	const filtered = search ? tree.nodes.filter((n) => n.id !== node.id && matchesQuery(n.name, search)).slice(0, 30) : [];
 	const exFiltered = exSearch ? tree.nodes.filter((n) => n.id !== node.id && matchesQuery(n.name, exSearch)).slice(0, 30) : [];
@@ -34036,7 +34062,7 @@ function CharacterTab() {
 		const ability = p.ability || DEFAULT_SKILL_ABILITIES[p.name] || "";
 		const abilMod = ability ? Math.floor((statOr10(sheet[ability]?.final ?? stats[ability]) - 10) / 2) + (Number(character.modifiers?.ability?.[ability]) || 0) : 0;
 		const profTimes = (p.times ?? 1) > 0 ? (p.expertise ? 2 : 1) * profBonus : 0;
-		const exPenalty = 2 * Math.max(0, Math.min(6, Math.round(Number(character.exhaustion) || 0)));
+		const exPenalty = 2 * Math.max(0, Math.min(6, Math.round(Number(sheet.Exhaustion?.final ?? character.exhaustion) || 0)));
 		return 10 + abilMod + profTimes + (Number(p.bonus) || 0) + (resNums[sanitizeKey(p.name)] || 0) - exPenalty;
 	};
 	const coreCards = [
@@ -37709,7 +37735,7 @@ function ActionsSection() {
 									part,
 									partSummary(part, a),
 									j
-								]).filter(([, text]) => text).map(([part, text, j]) => /* @__PURE__ */ jsx("span", {
+								]).filter(([, text]) => text).map(([_part, text, j]) => /* @__PURE__ */ jsx("span", {
 									className: "rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium",
 									children: text
 								}, j))
@@ -38948,7 +38974,7 @@ function ActionActivationDialog({ open, onClose }) {
 	};
 	const pushLog = (line) => setCharacter((c) => pushActivityLog(c, line));
 	const fmt = (n) => n >= 0 ? `+${n}` : String(n);
-	const attackLine = (pick) => {
+	const attackLine = (_pick) => {
 		const d = 1 + Math.floor(Math.random() * 20);
 		const str = Number(stats.STR) || 10;
 		const dex = Number(stats.DEX) || 10;
@@ -43565,7 +43591,7 @@ function RoomBattleMap({ room }) {
 							strokeWidth: "0.6"
 						}), label((cx + .5) * cell, (cy + .62) * cell, `${height > 0 ? "+" : ""}${height}`, "hsl(var(--primary))", Math.max(4, Math.min(7, cell * .4)))] }, `h${i}`);
 					}),
-					(stairs.length ? stairs.map((p, i) => [Number(p.x) + ox, Number(p.y) + oy]) : []).map(([cx, cy], i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
+					(stairs.length ? stairs.map((p, _i) => [Number(p.x) + ox, Number(p.y) + oy]) : []).map(([cx, cy], i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
 						x: cx * cell + cell * .18,
 						y: cy * cell + cell * .18,
 						width: cell * .64,
@@ -49379,7 +49405,6 @@ function pasteClipboard(clipboard, plot, floorId) {
 function HomesteadContextMenu({ menu, fac, onAttach, onAddRoom, onWallRoom, onRotate, onDelete, onSelect, onClose }) {
 	if (!menu) return null;
 	const isFac = menu.kind === "facility" && fac;
-	menu.kind === "furnishing" && furnishingByName(menu.type);
 	const title = isFac ? fac.name || fac.type : menu.title || menu.type;
 	const item = (label, onClick, cls = "") => /* @__PURE__ */ jsx("button", {
 		className: `block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent ${cls}`,
@@ -49831,7 +49856,7 @@ var SLOT_STYLE = {
 	floor: "fill-sky-500/25 stroke-sky-400/80",
 	attic: "fill-amber-500/25 stroke-amber-400/80"
 };
-function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, update, devMode }) {
+function HomesteadCanvas({ plot, floor, tool, setTool: _setTool, selection, onSelect, update, devMode }) {
 	const wrapRef = useRef(null);
 	const svgRef = useRef(null);
 	const [size, setSize] = useState({
@@ -50248,7 +50273,7 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 		setDrag(g);
 		setGesturing(true);
 	};
-	const startResize = (kind, item, edge, e) => {
+	const startResize = (kind, item, edge, _e) => {
 		if (tool) return;
 		const g = {
 			type: "resize",
@@ -51481,7 +51506,6 @@ function HomesteadCanvas({ plot, floor, tool, setTool, selection, onSelect, upda
 								]
 							}, c.id);
 						}
-						isSel("connection", c.id);
 						return /* @__PURE__ */ jsx("g", {
 							onPointerDown: (e) => {
 								if (e.button === 2) {
@@ -52217,7 +52241,7 @@ var updFur = (update, id, patch) => update((p) => ({
 		...patch
 	} : x)
 }));
-function AttachmentEditor({ plot, f, keyName, update }) {
+function AttachmentEditor({ plot: _plot, f, keyName, update }) {
 	const at = f[keyName] || {
 		on: false,
 		items: []
@@ -53671,7 +53695,7 @@ function BusinessTurnPanel({ plot, update, log }) {
 		biz
 	});
 }
-function SetupCard({ plot, update, log }) {
+function SetupCard({ plot: _plot, update, log }) {
 	const { money } = useMoney();
 	const [skill, setSkill] = useState("");
 	const [type, setType] = useState("");
@@ -53941,7 +53965,6 @@ function TurnPanel({ plot, update, log, biz }) {
 		});
 	};
 	const routes = biz.routes || [];
-	routes.filter((r) => !r.courier).length;
 	const couriers = routes.filter((r) => r.courier).length;
 	const guardsAssigned = routes.reduce((n, r) => n + (r.guards || 0), 0);
 	const addRoute = (courier) => {
@@ -54905,7 +54928,7 @@ function Section$1({ title, children }) {
 		})]
 	});
 }
-function ActionCard({ a, badge, action, result, locked, lockNote }) {
+function ActionCard({ a, badge, action, result, locked: _locked, lockNote }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
 		children: [
@@ -57144,7 +57167,7 @@ function generatePersonName(culture = "Human", sex = "", rng = makeRng("name")) 
 		sex
 	};
 }
-function generateSettlementName(culture, rng, kind = "town") {
+function generateSettlementName(culture, rng, _kind = "town") {
 	const base = generatePersonName(culture, "", rng).first;
 	const suffix = rng.pick(PLACE_SUFFIXES.settlement);
 	const prefix = rng.pick(PLACE_PREFIXES);
@@ -57164,7 +57187,7 @@ function generateSettlementName(culture, rng, kind = "town") {
 	];
 	return rng.pick(patterns);
 }
-function generateKingdomName(culture, rng, kind = "kingdom") {
+function generateKingdomName(culture, rng, _kind = "kingdom") {
 	const base = generatePersonName(culture, "", rng).first;
 	const suffix = rng.pick(PLACE_SUFFIXES.kingdom);
 	const prefix = rng.pick(PLACE_PREFIXES);
@@ -57184,7 +57207,7 @@ function generateKingdomName(culture, rng, kind = "kingdom") {
 	];
 	return rng.pick(patterns);
 }
-function generateRealmName(culture, rng, kind = "realm") {
+function generateRealmName(culture, rng, _kind = "realm") {
 	const base = generatePersonName(culture, "", rng).first;
 	const suffix = rng.pick(PLACE_SUFFIXES.realm);
 	return rng.pick([
@@ -58221,7 +58244,7 @@ var bastionFacilityLevel = (name) => BASTION_FACILITIES.find((facility) => facil
 function bastionFocusFor(name) {
 	return BASTION_FOCUS[name] || "social";
 }
-function roomTypePool({ templateRooms = [], buildingType = "", buildingCategory = "", settlementKind = "", rulerLevel = 0, capitalSeat = false, floor = 0, floorCount = 1, count = 6, rng = null } = {}) {
+function roomTypePool({ templateRooms = [], buildingType = "", buildingCategory = "", settlementKind = "", rulerLevel = 0, capitalSeat = false, floor = 0, floorCount: _floorCount = 1, count = 6, rng = null } = {}) {
 	const rand = () => rng?.rand ? rng.rand() : .5;
 	const chance = (p) => rng?.chance ? rng.chance(p) : rand() < p;
 	const types = [];
@@ -61219,7 +61242,7 @@ function realmKind(scale) {
 	if (scale.id === "world" || scale.id === "continent") return "realm";
 	return "region";
 }
-function buildMapCells({ realm, nations, settlements, rng, width, height, biomes }) {
+function buildMapCells({ realm: _realm, nations, settlements, rng, width, height, biomes }) {
 	const cells = [];
 	const centers = nations.map((nation) => {
 		const capital = settlements.find((s) => s.id === nation.capitalId);
@@ -61644,7 +61667,7 @@ function settlementKind(scale, index, total, rng) {
 	if (scale.id === "solar" || scale.id === "galactic" || scale.id === "multiverse") return rng.chance(.2) ? "station" : rng.chance(.5) ? "city" : "town";
 	return rng.chance(.12) ? "city" : rng.chance(.55) ? "town" : "village";
 }
-function generateNationSettlements({ nation, scale, era, biomePool, rng, realmId, sharedNpcs }) {
+function generateNationSettlements({ nation, scale, era, biomePool, rng, realmId, sharedNpcs: _sharedNpcs }) {
 	const [minS, maxS] = scale.settlements;
 	const count = Math.max(2, Math.round(rng.int(minS, maxS) / Math.max(1, scale.nations[1])));
 	const settlements = [];
@@ -75404,7 +75427,7 @@ function WorldBuilder({ onExit }) {
 			npc,
 			disposition: npc.disposition || dispositionFor(world, npc),
 			settlement: (world?.settlements || []).find((item) => item.id === npc.settlementId) || null
-		})).filter(({ npc }) => peopleNation === "__all__" || npc.nationId === peopleNation).filter(({ npc, disposition }) => peopleDisposition === "__all__" || disposition === peopleDisposition).filter(({ npc, disposition }) => `${npc.name} ${npc.occupation} ${npc.role} ${disposition} ${npc.personality?.trait} ${npc.personality?.background}`.toLowerCase().includes(query));
+		})).filter(({ npc }) => peopleNation === "__all__" || npc.nationId === peopleNation).filter(({ npc: _npc, disposition }) => peopleDisposition === "__all__" || disposition === peopleDisposition).filter(({ npc, disposition }) => `${npc.name} ${npc.occupation} ${npc.role} ${disposition} ${npc.personality?.trait} ${npc.personality?.background}`.toLowerCase().includes(query));
 		const byName = (a, b) => (a.npc.name || "").localeCompare(b.npc.name || "");
 		rows.sort((a, b) => {
 			if (peopleSort === "settlement") return (a.settlement?.name || "").localeCompare(b.settlement?.name || "") || byName(a, b);
@@ -77051,7 +77074,6 @@ function PresentationSheet({ innerRef, onExport }) {
 	const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
 	const speedTypes = speedTypeList(character, settings?.library || {});
 	const senses = senseList(character, settings?.library || {});
-	encumbranceInfo(character, tree);
 	const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
 	const actions = mergeLibraryActions(settings?.library?.actions || [], collectActions(tree, vars), vars);
 	const spent = character.actionUses || {};
@@ -77636,7 +77658,7 @@ function profLines(character) {
 		["languages", "Language"],
 		["instruments", "Instrument"]
 	].forEach(([k, label]) => {
-		(p[k] || []).forEach((it) => out.push(`${label}: ${it.name || "—"}${k === "languages" ? "" : ` ×${it.times ?? 1}`}${it.expertise ? " (Expertise)" : ""}`));
+		(p[k] || []).forEach((it) => out.push(`${label}: ${it.name || "â€”"}${k === "languages" ? "" : ` Ã—${it.times ?? 1}`}${it.expertise ? " (Expertise)" : ""}`));
 	});
 	return out;
 }
@@ -77679,7 +77701,7 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
 	if (profs.length) {
 		L.push("");
 		L.push("PROFICIENCIES");
-		profs.forEach((l) => L.push(`  • ${l}`));
+		profs.forEach((l) => L.push(`  â€¢ ${l}`));
 	}
 	if (resources.length) {
 		L.push("");
@@ -77689,13 +77711,13 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
 	if (heritageNodes.length) {
 		L.push("");
 		L.push("HERITAGE TRAITS");
-		heritageNodes.forEach((n) => L.push(`  • ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`));
+		heritageNodes.forEach((n) => L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`));
 	}
 	L.push("");
 	L.push("UNLOCKED TALENTS");
 	talentGroups.forEach((g) => {
 		if (g.type) L.push(`  ${g.type}:`);
-		g.nodes.forEach((n) => L.push(`  • ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`));
+		g.nodes.forEach((n) => L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`));
 	});
 	return L.join("\n");
 }
@@ -77921,7 +77943,7 @@ function ExportPanel({ open, onClose }) {
 							/* @__PURE__ */ jsx(f.icon, { className: "mr-2 h-4 w-4" }),
 							" ",
 							f.label,
-							busy === f.id && " …"
+							busy === f.id && " â€¦"
 						]
 					}, f.id))]
 				})]

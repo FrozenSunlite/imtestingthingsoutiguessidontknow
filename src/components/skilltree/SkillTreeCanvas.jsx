@@ -682,7 +682,6 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       selectedConnectionId: null,
     }));
     if (!editable) return;
-    const rect = containerRef.current.getBoundingClientRect();
     dragRef.current = {
       type: "node",
       el: e.currentTarget,
@@ -900,7 +899,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     }
   };
 
-  const onPointerUp = (e) => {
+  const onPointerUp = () => {
     const d = dragRef.current;
     // End of a pan gesture: commit the camera to React state in one render.
     if (pendingViewRef.current) {

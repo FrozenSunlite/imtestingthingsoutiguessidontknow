@@ -254,7 +254,7 @@ const updFur = (update, id, patch) =>
 // Per-facility attic or cellar: toggle it on the facility, then add rooms
 // from the homebrew's allowed list. Each room costs 50 gp per space and the
 // attachment takes 2 weeks to install.
-function AttachmentEditor({ plot, f, keyName, update }) {
+function AttachmentEditor({ plot: _plot, f, keyName, update }) {
   const at = f[keyName] || { on: false, items: [] };
   const conf = ATTACHMENTS[keyName];
   const used = at.items.reduce((n, it) => n + it.w * it.h, 0);

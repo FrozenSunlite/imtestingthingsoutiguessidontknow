@@ -173,7 +173,7 @@ export function ActionActivationDialog({ open, onClose }) {
 
   // An attack action rolls its d20 automatically: prof + best of STR/DEX
   // (+ the weapon-attack modifier), checked against the Target AC when set.
-  const attackLine = (pick) => {
+  const attackLine = (_pick) => {
     const d = 1 + Math.floor(Math.random() * 20);
     const str = Number(stats.STR) || 10;
     const dex = Number(stats.DEX) || 10;

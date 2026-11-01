@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+﻿import { useRef, useState } from "react";
 import { useTree, aggregateResources, poolUsage, effectivePools } from "@/lib/treeStore";
 import { PresentationSheet } from "@/components/skilltree/PresentationSheet";
 import { ActionsSection } from "@/components/skilltree/ActionsSection";
@@ -30,104 +30,11 @@ function profLines(character) {
   ].forEach(([k, label]) => {
     (p[k] || []).forEach((it) =>
       out.push(
-        `${label}: ${it.name || "—"}${k === "languages" ? "" : ` ×${it.times ?? 1}`}${it.expertise ? " (Expertise)" : ""}`
+        `${label}: ${it.name || "â€”"}${k === "languages" ? "" : ` Ã—${it.times ?? 1}`}${it.expertise ? " (Expertise)" : ""}`
       )
     );
   });
   return out;
-}
-
-function SheetDocument({ innerRef }) {
-  const { mergedTree: tree, character, pools, settings } = useTree();
-  const levels = settings?.library?.levels || [];
-  const usage = poolUsage(tree);
-  const eff = effectivePools(pools, character, tree, levels);
-  const resources = aggregateResources(tree, character, levels);
-  const { heritage: heritageNodes, talentGroups } = groupUnlocked(
-    tree.nodes.filter((n) => (n.currentPoints || 0) > 0),
-    { includeAutoGranted: !!character.devMode }
-  );
-
-  return (
-    <div
-      ref={innerRef}
-      className="bg-white p-8 text-black"
-      style={{ width: "460px", fontFamily: "Georgia, serif" }}
-    >
-      <h1 className="mb-1 text-center text-2xl font-bold">
-        {character.name || "Unnamed Character"}
-      </h1>
-      <p className="mb-4 text-center text-sm text-gray-600">
-        {character.class} {character.race ? `· ${character.race}` : ""}
-        {character.alignment ? ` · ${character.alignment}` : ""}
-      </p>
-      <div className="mb-4 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-        <div><b>Race:</b> {character.race || "—"}</div>
-        <div><b>Class:</b> {character.class || "—"}</div>
-        <div><b>Background:</b> {character.background || "—"}</div>
-        <div><b>Age:</b> {character.age || "—"}</div>
-        <div><b>Alignment:</b> {character.alignment || "—"}</div>
-        <div><b>Level:</b> {character.level}</div>
-        <div><b>Size:</b> {character.size || "—"}</div>
-      </div>
-      <h2 className="mb-2 border-b border-gray-400 text-sm font-bold uppercase">Ability Scores</h2>
-      <div className="mb-4 grid grid-cols-6 gap-1 text-center text-sm">
-        {STATS.map((s) => (
-          <div key={s} className="rounded border border-gray-400 p-1">
-            <div className="text-[10px] font-bold">{s}</div>
-            <div className="text-lg font-bold">{character.stats[s]}</div>
-          </div>
-        ))}
-      </div>
-      <h2 className="mb-2 border-b border-gray-400 text-sm font-bold uppercase">Point Pools</h2>
-      <div className="mb-4 text-sm">
-        <div>Heritage: {usage.heritage} / {eff.heritage.total}</div>
-        <div>Talent: {usage.talent} / {eff.talent.total}</div>
-        <div>Attribute: {usage.attribute} / {eff.attribute.total}</div>
-      </div>
-      {resources.length > 0 && (
-        <>
-          <h2 className="mb-2 border-b border-gray-400 text-sm font-bold uppercase">Resources</h2>
-          <ul className="mb-4 list-disc pl-5 text-sm">
-            {resources.map((r) => (
-              <li key={r.name}><b>{r.name}:</b> {r.value}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      {profLines(character).length > 0 && (
-        <>
-          <h2 className="mb-2 border-b border-gray-400 text-sm font-bold uppercase">Proficiencies</h2>
-          <ul className="mb-4 list-disc pl-5 text-sm">
-            {profLines(character).map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      {heritageNodes.length > 0 && (
-        <>
-          <h2 className="mb-2 border-b border-gray-400 text-sm font-bold uppercase">Heritage Traits</h2>
-          <ul className="mb-4 list-disc pl-5 text-sm">
-            {heritageNodes.map((n) => (
-              <li key={n.id}>{n.name}{n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      <h2 className="mb-2 border-b border-gray-400 text-sm font-bold uppercase">Unlocked Talents</h2>
-      {talentGroups.map((g) => (
-        <div key={g.type || "__untyped"} className="mb-2">
-          <div className="text-[11px] font-bold uppercase">{g.type || "Untyped"}</div>
-          <ul className="list-disc pl-5 text-sm">
-            {g.nodes.map((n) => (
-              <li key={n.id}>{n.name}{n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function buildText(character, tree, pools, usage, resources, raw, levels) {
@@ -174,7 +81,7 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
   if (profs.length) {
     L.push("");
     L.push("PROFICIENCIES");
-    profs.forEach((l) => L.push(`  • ${l}`));
+    profs.forEach((l) => L.push(`  â€¢ ${l}`));
   }
   if (resources.length) {
     L.push("");
@@ -185,7 +92,7 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
     L.push("");
     L.push("HERITAGE TRAITS");
     heritageNodes.forEach((n) =>
-      L.push(`  • ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`)
+      L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`)
     );
   }
   L.push("");
@@ -193,7 +100,7 @@ function buildText(character, tree, pools, usage, resources, raw, levels) {
   talentGroups.forEach((g) => {
     if (g.type) L.push(`  ${g.type}:`);
     g.nodes.forEach((n) =>
-      L.push(`  • ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`)
+      L.push(`  â€¢ ${n.name}${n.maxPoints > 1 ? ` (${n.currentPoints}/${n.maxPoints})` : ""}`)
     );
   });
   return L.join("\n");
@@ -383,7 +290,7 @@ export function ExportPanel({ open, onClose }) {
                 onClick={f.run}
               >
                 <f.icon className="mr-2 h-4 w-4" /> {f.label}
-                {busy === f.id && " …"}
+                {busy === f.id && " â€¦"}
               </Button>
             ))}
           </div>

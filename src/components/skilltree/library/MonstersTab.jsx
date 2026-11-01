@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
-import { ListHeader, EmptyNote } from "./shared";
+import { EmptyNote } from "./shared";
 import { matchesQuery } from "@/lib/textSearch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -210,7 +210,7 @@ function Field({ label, value, onChange, placeholder, className, list }) {
 }
 
 // One monster entry: summary line with the effective stats, expandable editor.
-function MonsterRow({ m, i, onPatch, onDelete, onImport, lib }) {
+function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
   const [open, setOpen] = useState(false);
   const eff = computed(m, lib);
   const patch = onPatch;
@@ -698,7 +698,7 @@ function TemplatesSection({ lib, setLib }) {
 }
 
 export function MonstersTab() {
-  const { character, setCharacter, settings, setSettings } = useTree();
+  const { setCharacter, settings, setSettings } = useTree();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("name");
   const [desc, setDesc] = useState(false);

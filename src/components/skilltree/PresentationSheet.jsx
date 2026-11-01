@@ -18,7 +18,6 @@ import {
   customResourceList,
   speedTypeList,
   senseList,
-  encumbranceInfo,
 } from "@/lib/resources";
 import { resolveResourceDie } from "@/lib/dieScaling";
 import { CapacityBar } from "./CapacityBar";
@@ -73,7 +72,6 @@ export function PresentationSheet({ innerRef, onExport }) {
   const sheet = derivedSheet(character, tree, levels, aggregated, profBonus, stats, settings?.library);
   const speedTypes = speedTypeList(character, settings?.library || {});
   const senses = senseList(character, settings?.library || {});
-  const enc = encumbranceInfo(character, tree);
   const vars = buildVars(character.level, stats, profBonus, numericResourceMap(aggregated), character.hitDiceSize);
   const actions = mergeLibraryActions(
     settings?.library?.actions || [],

@@ -233,7 +233,7 @@ export function CharacterTab() {
       : 0;
     const profTimes = (p.times ?? 1) > 0 ? (p.expertise ? 2 : 1) * profBonus : 0;
     const exPenalty =
-      2 * Math.max(0, Math.min(6, Math.round(Number(character.exhaustion) || 0)));
+      2 * Math.max(0, Math.min(6, Math.round(Number(sheet.Exhaustion?.final ?? character.exhaustion) || 0)));
     return (
       10 + abilMod + profTimes + (Number(p.bonus) || 0) + (resNums[sanitizeKey(p.name)] || 0) - exPenalty
     );

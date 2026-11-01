@@ -1,5 +1,5 @@
 import { useTree } from "@/lib/treeStore";
-import { sizeShift, SIZE_LADDER, SIZE_MULT, totalCarried, encumbranceInfo } from "@/lib/resources";
+import { sizeShift, SIZE_LADDER, SIZE_MULT, encumbranceInfo } from "@/lib/resources";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {

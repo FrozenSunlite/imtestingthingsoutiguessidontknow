@@ -467,7 +467,7 @@ export function plotTotals(plot) {
     weeks += Math.ceil((fu.w * fu.h) / 4);
     spaces += fu.w * fu.h;
   }
-  for (const c of plot.connections || []) {
+  for (const _c of plot.connections || []) {
     gp += 25;
     weeks += 1;
   }
@@ -540,7 +540,6 @@ export function livingStyle(plot) {
   const food = kitchenSpaces > 0
     ? COMFORT_LEVELS[comfortIdx]
     : "squalid";
-  const foodIdx = COMFORT_LEVELS.indexOf(food);
   const overall = kitchenSpaces > 0
     ? COMFORT_LEVELS[comfortIdx]
     : COMFORT_LEVELS[Math.max(0, Math.min(comfortIdx, COMFORT_LEVELS.indexOf("poor")))];

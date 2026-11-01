@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, X } from "lucide-react";
-import { InfoTip } from "@/components/skilltree/InfoTip";
 
 // A calculator inside a save DC: a flat number, an ability modifier, a skill
 // modifier, or the numeric value of a resource granted by a node — or nothing.

@@ -107,7 +107,7 @@ export function ListHeader({ onAdd, addLabel, query, setQuery, searchPlaceholder
   );
 }
 
-export function EmptyNote({ items, query }) {
+export function EmptyNote({ items }) {
   return (
     <p className="text-xs text-muted-foreground">
       {(items || []).length === 0 ? "Nothing added yet." : "No matches."}

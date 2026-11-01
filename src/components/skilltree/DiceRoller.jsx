@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useTree, pushActivityLog, profBonusFor } from "@/lib/treeStore";
 import {
   abilityMod,
-  modFmt,
   checkOptions,
   checkBonus,
   talentBonusDice,

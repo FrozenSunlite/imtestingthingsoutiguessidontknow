@@ -53,7 +53,7 @@ function openBrowser(url) {
       child.on("error", ignore);
       child.unref();
     }
-  } catch (_) {
+  } catch {
     /* the address is printed below anyway */
   }
 }
@@ -69,7 +69,7 @@ function start(port, attemptsLeft) {
     let urlPath;
     try {
       urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
-    } catch (_) {
+    } catch {
       urlPath = "/";
     }
     const filePath = path.normalize(path.join(ROOT, urlPath));

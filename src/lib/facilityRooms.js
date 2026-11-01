@@ -285,7 +285,7 @@ export function roomTypePool({
   rulerLevel = 0,
   capitalSeat = false,
   floor = 0,
-  floorCount = 1,
+  floorCount: _floorCount = 1,
   count = 6,
   rng = null,
 } = {}) {

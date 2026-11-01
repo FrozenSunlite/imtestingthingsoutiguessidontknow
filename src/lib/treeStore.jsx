@@ -22,7 +22,6 @@ import {
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
-import { DEFAULT_DUNGEON_ROOMS } from "@/lib/dungeonGen";
 import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
 import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";
 import { featureMechanics } from "@/lib/fiveETools";
@@ -234,7 +233,7 @@ export {
   normalizeTree,
   denormalizeTree,
 } from "@/lib/treeFormat";
-import { normalizeTree, denormalizeTree } from "@/lib/treeFormat";
+import { normalizeTree } from "@/lib/treeFormat";
 
 // Which point pool a node is spent from: the node's own currency override when
 // set, otherwise what its node type normally spends.
@@ -2938,7 +2937,7 @@ export function aggregateResources(tree, character, levels = []) {
       .filter(
         (b) =>
           b?.category === "stat" &&
-          ["Hit Points", "Exertion"].includes(String(b.name || "").trim())
+          ["Hit Points", "Exertion", "Exhaustion"].includes(String(b.name || "").trim())
       )
       .forEach((b) =>
         add(

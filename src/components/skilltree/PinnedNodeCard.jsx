@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 
 const CARD_W = 288;
 const REST_LABEL = { none: "", short: "short rest", long: "long rest" };
-const USES_LABEL = { atwill: "at will", own: "", shared: "shared pool" };
 
 // Player-facing detail body for one node: description, actions, resources,
 // prerequisites and the nodes it unlocks. While Blind Run hides locked nodes,

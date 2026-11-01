@@ -1,5 +1,4 @@
-import { Button } from "@/components/ui/button";
-import { ATTACHMENTS, FACILITY_TYPES, furnishingByName } from "@/lib/homestead";
+import { ATTACHMENTS } from "@/lib/homestead";
 
 // The canvas right-click menu, for any placed item kind (basic facilities get
 // their Cellar / Floor / Attic attachments, everything else gets select /
@@ -8,7 +7,6 @@ import { ATTACHMENTS, FACILITY_TYPES, furnishingByName } from "@/lib/homestead";
 export default function HomesteadContextMenu({ menu, fac, onAttach, onAddRoom, onWallRoom, onRotate, onDelete, onSelect, onClose }) {
   if (!menu) return null;
   const isFac = menu.kind === "facility" && fac;
-  const def = menu.kind === "furnishing" ? furnishingByName(menu.type) : null;
   const title = isFac ? (fac.name || fac.type) : menu.title || menu.type;
 
   const item = (label, onClick, cls = "") => (

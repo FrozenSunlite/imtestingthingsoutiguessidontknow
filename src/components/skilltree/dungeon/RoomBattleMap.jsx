@@ -154,7 +154,7 @@ export function RoomBattleMap({ room }) {
 
         {/* Stairs sit on elevation edges; a manual stair always wins. */}
         {(stairs.length
-          ? stairs.map((p, i) => [Number(p.x) + ox, Number(p.y) + oy])
+          ? stairs.map((p, _i) => [Number(p.x) + ox, Number(p.y) + oy])
           : []
         ).map(([cx, cy], i) => (
           <g key={`st${i}`}>
