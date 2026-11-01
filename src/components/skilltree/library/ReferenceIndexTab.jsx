@@ -21,7 +21,7 @@ import {
   vehicleToLibrary,
 } from "@/lib/fiveETools";
 import { entryDetails, entryImage } from "@/lib/fiveEToolsView";
-import { BulkLibrary, importBrewIntoDraft, localizeBulkImages } from "@/lib/fiveEToolsBulk";
+import { BulkLibrary, importBrewIntoDraft, importSourceIntoDraft, localizeBulkImages } from "@/lib/fiveEToolsBulk";
 import { bookToRulebook } from "@/lib/fiveEToolsRulebook";
 import { authorsFromBrew } from "@/lib/fiveEToolsCredits";
 import { addCreditNames, setRulebookActiveBookId } from "@/lib/rulebookStore";
@@ -191,6 +191,8 @@ export function ReferenceIndexTab() {
   const [catalogSelected, setCatalogSelected] = useState(() => new Set());
   const [fileQuery, setFileQuery] = useState("");
   const [partneredOnly, setPartneredOnly] = useState(false);
+  const [sourceImport, setSourceImport] = useState("");
+  const [sourceScope, setSourceScope] = useState("category");
   const [bulk, setBulk] = useState(null);
   const [bulkMakeTabs, setBulkMakeTabs] = useState(true);
   const bulkCancelRef = useRef(false);
@@ -1005,7 +1007,7 @@ export function ReferenceIndexTab() {
   // files does not trigger a state update per entity. `local` imports the
   // current category from the on-disk 5eTools data; otherwise it imports the
   // selected remote brew files.
-  const importCatalogFiles = async (paths, { local = false, category = null } = {}) => {
+  const importCatalogFiles = async (paths, { local = false, category = null, source = "" } = {}) => {
     if (bulk) return;
     const chosen = (Array.isArray(paths) ? paths : []).filter(Boolean);
     if (!chosen.length) {
@@ -1013,13 +1015,18 @@ export function ReferenceIndexTab() {
       return;
     }
     const effectiveCategory = local ? category || activeCategory : null;
-    const warning = local
-      ? `Import all ${chosen.length} files in “${effectiveCategory?.label || categoryId}”?\n\n` +
-        `This reads every file in that category and can create a very large project.` +
+    const sourceLabel = String(source || "").trim();
+    const warning = sourceLabel
+      ? `Import every entry with source “${sourceLabel}” from ${chosen.length} file(s)?\n\n` +
+        `Only matching entries are added; other entries in those files are skipped.` +
         (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "")
-      : `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\n` +
-        `This downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` +
-        (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
+      : local
+        ? `Import all ${chosen.length} files in “${effectiveCategory?.label || categoryId}”?\n\n` +
+          `This reads every file in that category and can create a very large project.` +
+          (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "")
+        : `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\n` +
+          `This downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` +
+          (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
     if (!window.confirm(warning)) return;
     const importId = newImportId();
     activeImportRef.current = importId;
@@ -1077,11 +1084,17 @@ export function ReferenceIndexTab() {
           }
           try {
             authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
-            const applied = importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
-              makeTabs: bulkMakeTabs,
-              kind: local ? "data" : root,
-              importId,
-            });
+            const applied = sourceLabel
+              ? importSourceIntoDraft(bulkLib, r.info, r.category, r.data, sourceLabel, {
+                  makeTabs: bulkMakeTabs,
+                  kind: local ? "data" : root,
+                  importId,
+                })
+              : importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
+                  makeTabs: bulkMakeTabs,
+                  kind: local ? "data" : root,
+                  importId,
+                });
             entryTotal += applied.entries;
             applied.tabs.forEach((tab) => {
               if (tabNames.has(tab.name)) return;
@@ -1117,18 +1130,26 @@ export function ReferenceIndexTab() {
       recordSession(importId, {
         count: entryTotal,
         tabIds: importTabIdsRef.current,
-        label: local
-          ? `${effectiveCategory?.label || categoryId} · local data`
-          : `${root} · brew files`,
+        label: sourceLabel
+          ? `${sourceLabel} · source import`
+          : local
+            ? `${effectiveCategory?.label || categoryId} · local data`
+            : `${root} · brew files`,
       });
       if (creditNames.size) addCreditNames([...creditNames]);
       if (bulkCancelRef.current) {
         toast(`Stopped after ${done} of ${total} files. Imported data is kept.`);
       } else {
         toast.success(
-          `Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${
-            images.saved ? ` · saved ${images.saved} pictures` : ""
-          }${errors ? ` · ${errors} failed` : ""}.`
+          sourceLabel
+            ? `Imported ${entryTotal} entries with source “${sourceLabel}” from ${done} files${
+                tabTotal ? ` and created ${tabTotal} tabs` : ""
+              }${images.saved ? ` · saved ${images.saved} pictures` : ""}${
+                errors ? ` · ${errors} failed` : ""
+              }.`
+            : `Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${
+                images.saved ? ` · saved ${images.saved} pictures` : ""
+              }${errors ? ` · ${errors} failed` : ""}.`
         );
         if (images.skipped) {
           toast(
@@ -1160,6 +1181,36 @@ export function ReferenceIndexTab() {
     importCatalogFiles(paths, {
       local: !isRemote,
       category: everything ? { id: "__all__", label: "All categories" } : activeCategory,
+    });
+  };
+
+  // Import every entry with a given source/book abbreviation, optionally
+  // scanning only the current category or the whole repository.
+  const importBySource = () => {
+    if (bulk) return;
+    const source = sourceImport.trim();
+    if (!source) {
+      toast("Enter a source code first, e.g. XPHB or PHB.");
+      return;
+    }
+    const sourceFiles =
+      sourceScope === "all"
+        ? isRemote
+          ? catalog
+          : index.filter((f) => isSourceFile(f.path))
+        : files;
+    const paths = sourceFiles.map((f) => f.path);
+    if (!paths.length) {
+      toast("No files to scan.");
+      return;
+    }
+    importCatalogFiles(paths, {
+      local: !isRemote,
+      category:
+        sourceScope === "all"
+          ? { id: "__all__", label: "All categories" }
+          : activeCategory,
+      source,
     });
   };
 
@@ -1288,6 +1339,37 @@ export function ReferenceIndexTab() {
             {isRemote ? "Refresh catalog" : "Refresh index"}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2 text-xs">
+        <span className="font-semibold">Import by source</span>
+        <Input
+          className="h-7 w-40 text-xs"
+          value={sourceImport}
+          onChange={(event) => setSourceImport(event.target.value.toUpperCase())}
+          placeholder="Source code, e.g. XPHB"
+        />
+        <Select value={sourceScope} onValueChange={setSourceScope}>
+          <SelectTrigger className="h-7 w-36 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="category">This category</SelectItem>
+            <SelectItem value="all">All files</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={importBySource}
+          disabled={!sourceImport.trim() || !!bulk}
+        >
+          Import source
+        </Button>
+        <span className="text-[10px] text-muted-foreground">
+          Imports every entry whose source/book matches, skipping other entries in those files.
+        </span>
       </div>
 
       {bulk && (

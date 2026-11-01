@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-RzRjcz6A.js";
+import { n as Button, r as cn } from "./router-ChLKmRij.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -18493,15 +18493,55 @@ var magicVariantDetails = (entry) => ({
 	],
 	sections: []
 });
-var genericDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
-		["Rarity", clean(entry.rarity)],
-		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries || entry.description || entry.text), textSection("Additional", entry.additionalEntries)].filter(Boolean)
-});
+var GENERIC_SKIP = /* @__PURE__ */ new Set([
+	"name",
+	"source",
+	"page",
+	"edition",
+	"img",
+	"image",
+	"portrait",
+	"cover",
+	"id",
+	"entries",
+	"description",
+	"text",
+	"additionalEntries",
+	"type",
+	"objectType",
+	"vehicleType",
+	"facilityType",
+	"rarity",
+	"prerequisite",
+	"fluff"
+]);
+var genericValue = (value) => {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (typeof value === "boolean") return value ? "Yes" : "";
+	if (Array.isArray(value)) return join(value);
+	if (typeof value === "object") {
+		if (value.name) return clean(value.name);
+		if (value.type) return clean(value.type);
+		if (value.entries) return clean(value.entries);
+		return "";
+	}
+	return "";
+};
+var genericDetails = (entry) => {
+	const extra = Object.entries(entry || {}).filter(([key, value]) => !GENERIC_SKIP.has(key) && !key.startsWith("_") && (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || Array.isArray(value) || value && typeof value === "object" && (value.name || value.type || value.entries))).slice(0, 30).map(([key, value]) => [titleCase(key.replace(/([A-Z])/g, " $1")), genericValue(value)]).filter(([, value]) => value);
+	return {
+		fields: [
+			["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
+			["Rarity", clean(entry.rarity)],
+			["Prerequisite", prerequisite(entry.prerequisite)],
+			["Source", clean(entry.source)],
+			...extra
+		],
+		sections: [textSection("Description", entry.entries || entry.description || entry.text), textSection("Additional", entry.additionalEntries)].filter(Boolean)
+	};
+};
 var DETAILERS = {
 	bestiary: monsterDetails,
 	spells: spellDetails,
@@ -19477,7 +19517,10 @@ function FiveEToolsCategoryTab({ categoryId }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(null);
 	const [isNew, setIsNew] = useState(false);
-	const label = FIVE_CATEGORIES.find((c) => c.id === categoryId)?.label || categoryId;
+	const [jsonText, setJsonText] = useState("");
+	const [jsonError, setJsonError] = useState("");
+	const [showJson, setShowJson] = useState(false);
+	const label = FIVE_CATEGORIES.find((c) => c.id === categoryId)?.label || categoryId.replace(/([A-Z])/g, " $1").replace(/[-_]+/g, " ").replace(/^./, (char) => char.toUpperCase());
 	const fields = ENTRY_FIELDS[categoryId] || [];
 	const shown = useMemo(() => data.map((entry, index) => ({
 		entry,
@@ -19514,6 +19557,8 @@ function FiveEToolsCategoryTab({ categoryId }) {
 		setEditing(false);
 		setDraft(null);
 		setIsNew(false);
+		setJsonText("");
+		setJsonError("");
 	};
 	const addEntry = () => {
 		const blank = {
@@ -19524,13 +19569,19 @@ function FiveEToolsCategoryTab({ categoryId }) {
 		writeEntries([...data, blank]);
 		select(blank, data.length);
 		setDraft(blank);
+		setJsonText(JSON.stringify(blank, null, 2));
+		setJsonError("");
 		setIsNew(true);
 		setEditing(true);
 		setQuery("");
 	};
 	const startEdit = () => {
 		if (!preview) return;
-		setDraft(JSON.parse(JSON.stringify(preview)));
+		const copy = JSON.parse(JSON.stringify(preview));
+		setDraft(copy);
+		setJsonText(JSON.stringify(copy, null, 2));
+		setJsonError("");
+		setShowJson(fields.length === 0);
 		setEditing(true);
 	};
 	const cancelEdit = () => {
@@ -19542,14 +19593,30 @@ function FiveEToolsCategoryTab({ categoryId }) {
 		setIsNew(false);
 		setEditing(false);
 		setDraft(null);
+		setJsonText("");
+		setJsonError("");
 	};
-	const patchDraft = (patch) => setDraft((current) => current ? {
-		...current,
-		...patch
-	} : current);
+	const patchDraft = (patch) => {
+		if (!draft) return;
+		const next = {
+			...draft,
+			...patch
+		};
+		setDraft(next);
+		setJsonText(JSON.stringify(next, null, 2));
+		setJsonError("");
+	};
 	const saveDraft = () => {
 		if (!draft || previewIndex < 0) return;
-		const next = { ...draft };
+		let next = { ...draft };
+		if (jsonText.trim()) try {
+			const parsed = JSON.parse(jsonText);
+			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The entry must be a JSON object.");
+			next = parsed;
+		} catch (error) {
+			setJsonError(`Could not save the JSON: ${error?.message || error}`);
+			return;
+		}
 		if (typeof next.ability === "string") {
 			const ability = normalizeAbility(next.ability);
 			if (ability === void 0) delete next.ability;
@@ -19562,6 +19629,8 @@ function FiveEToolsCategoryTab({ categoryId }) {
 		setIsNew(false);
 		setEditing(false);
 		setDraft(null);
+		setJsonText("");
+		setJsonError("");
 	};
 	const remove = () => {
 		const index = previewIndex >= 0 ? previewIndex : data.indexOf(preview);
@@ -19572,6 +19641,8 @@ function FiveEToolsCategoryTab({ categoryId }) {
 		setIsNew(false);
 		setEditing(false);
 		setDraft(null);
+		setJsonText("");
+		setJsonError("");
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2",
@@ -19729,6 +19800,41 @@ function FiveEToolsCategoryTab({ categoryId }) {
 								placeholder: "Description, traits and rules text",
 								onChange: (e) => patchDraft({ entries: e.target.value })
 							})]
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "rounded-md border bg-muted/20 p-2",
+							children: [
+								/* @__PURE__ */ jsxs("div", {
+									className: "flex items-center justify-between gap-2",
+									children: [/* @__PURE__ */ jsx("span", {
+										className: "text-[10px] font-medium text-muted-foreground",
+										children: "All entry data (JSON)"
+									}), /* @__PURE__ */ jsx(Button, {
+										size: "sm",
+										variant: "ghost",
+										className: "h-6 text-[10px]",
+										onClick: () => setShowJson((value) => !value),
+										children: showJson ? "Hide" : "Show"
+									})]
+								}),
+								(showJson || fields.length === 0) && /* @__PURE__ */ jsx(Textarea, {
+									className: "mt-1 min-h-40 font-mono text-[10px] leading-tight",
+									rows: 10,
+									value: jsonText,
+									onChange: (event) => {
+										setJsonText(event.target.value);
+										setJsonError("");
+									}
+								}),
+								jsonError && /* @__PURE__ */ jsx("p", {
+									className: "mt-1 text-[10px] text-destructive",
+									children: jsonError
+								}),
+								/* @__PURE__ */ jsx("p", {
+									className: "mt-1 text-[9px] text-muted-foreground",
+									children: "Every imported field is preserved here. Edit the JSON directly to change fields not shown above, then save."
+								})
+							]
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "flex justify-end gap-2",
@@ -24296,6 +24402,15 @@ var STATS_LIST = [
 	"WIS",
 	"CHA"
 ];
+var DEDICATED_IMPORTED = /* @__PURE__ */ new Set([
+	"backgrounds",
+	"species",
+	"deities",
+	"objects",
+	"traps",
+	"books"
+]);
+var importedCategoryLabel = (id) => FIVE_CATEGORIES.find((category) => category.id === id)?.label || id.replace(/([A-Z])/g, " $1").replace(/[-_]+/g, " ").replace(/^./, (char) => char.toUpperCase());
 var DIE_SIZES = [
 	"d4",
 	"d6",
@@ -24617,6 +24732,8 @@ function LibraryMenu({ open, onClose }) {
 	}, []);
 	if (!settings) return null;
 	const lib = settings.library;
+	const importedTabs = Object.keys(lib.fiveETools || {}).filter((key) => Array.isArray(lib.fiveETools[key]) && lib.fiveETools[key].length && !DEDICATED_IMPORTED.has(key)).sort((a, b) => importedCategoryLabel(a).localeCompare(importedCategoryLabel(b))).map((key) => [`imported:${key}`, importedCategoryLabel(key)]);
+	const tabGroups = importedTabs.length ? [...TAB_GROUPS, ["Imported 5eTools", importedTabs]] : TAB_GROUPS;
 	const setLib = (patch) => setSettings((s) => ({
 		...s,
 		library: {
@@ -24629,7 +24746,12 @@ function LibraryMenu({ open, onClose }) {
 		[key]: next
 	} });
 	const q = search.trim();
-	const results = q ? SEARCH_CATEGORIES(lib).map(([cat, tabValue, entries]) => ({
+	const searchCategories = [...SEARCH_CATEGORIES(lib), ...importedTabs.map(([value, label]) => [
+		label,
+		value,
+		lib.fiveETools?.[value.slice(9)] || []
+	])];
+	const results = q ? searchCategories.map(([cat, tabValue, entries]) => ({
 		cat,
 		tabValue,
 		hits: entries.filter((e) => matchesQuery(e?.name, q)).slice(0, 8)
@@ -24662,7 +24784,7 @@ function LibraryMenu({ open, onClose }) {
 						className: "flex w-full shrink-0 flex-col gap-1 md:w-48",
 						children: [/* @__PURE__ */ jsx(TabsList, {
 							className: "flex h-[55vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1",
-							children: TAB_GROUPS.map(([groupLabel, entries]) => /* @__PURE__ */ jsxs("div", {
+							children: tabGroups.map(([groupLabel, entries]) => /* @__PURE__ */ jsxs("div", {
 								className: "w-full",
 								children: [/* @__PURE__ */ jsx("div", {
 									className: "px-2 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground",
@@ -24785,6 +24907,11 @@ function LibraryMenu({ open, onClose }) {
 									className: "mt-0",
 									children: /* @__PURE__ */ jsx(FiveEToolsImportsTab, {})
 								}),
+								importedTabs.map(([value]) => /* @__PURE__ */ jsx(TabsContent, {
+									value,
+									className: "mt-0",
+									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: value.slice(9) })
+								}, value)),
 								/* @__PURE__ */ jsx(TabsContent, {
 									value: "media",
 									className: "mt-0",
@@ -49134,6 +49261,27 @@ function importBrewIntoDraft(bulk, info, category, raw, { makeTabs = true, kind,
 		tabs: makeTabs ? tabsForBrewFile(category, entries, raw, info) : []
 	};
 }
+function importSourceIntoDraft(bulk, info, category, raw, source, { makeTabs = true, kind, importId } = {}) {
+	const wanted = String(source || "").trim().toLowerCase();
+	if (!wanted) return {
+		entries: 0,
+		tabs: []
+	};
+	const entries = entriesFromRaw(raw, info?.props?.[0]).filter((entry) => sourceOf$1(entry).toLowerCase() === wanted);
+	if (!entries.length) return {
+		entries: 0,
+		tabs: []
+	};
+	entries.forEach((entry) => applyEntryToLibrary(bulk, category, entry, {
+		kind,
+		fallbackTitle: info?.name,
+		importId
+	}));
+	return {
+		entries: entries.length,
+		tabs: makeTabs ? tabsForBrewFile(category, entries, raw, info) : []
+	};
+}
 async function localizeBulkImages(library, kind, { limit = 400 } = {}) {
 	if (!library) return {
 		saved: 0,
@@ -49390,6 +49538,8 @@ function ReferenceIndexTab() {
 	const [catalogSelected, setCatalogSelected] = useState(() => /* @__PURE__ */ new Set());
 	const [fileQuery, setFileQuery] = useState("");
 	const [partneredOnly, setPartneredOnly] = useState(false);
+	const [sourceImport, setSourceImport] = useState("");
+	const [sourceScope, setSourceScope] = useState("category");
 	const [bulk, setBulk] = useState(null);
 	const [bulkMakeTabs, setBulkMakeTabs] = useState(true);
 	const bulkCancelRef = useRef(false);
@@ -50135,7 +50285,7 @@ function ReferenceIndexTab() {
 			return next;
 		});
 	};
-	const importCatalogFiles = async (paths, { local = false, category = null } = {}) => {
+	const importCatalogFiles = async (paths, { local = false, category = null, source = "" } = {}) => {
 		if (bulk) return;
 		const chosen = (Array.isArray(paths) ? paths : []).filter(Boolean);
 		if (!chosen.length) {
@@ -50143,7 +50293,8 @@ function ReferenceIndexTab() {
 			return;
 		}
 		const effectiveCategory = local ? category || activeCategory : null;
-		const warning = local ? `Import all ${chosen.length} files in “${effectiveCategory?.label || categoryId}”?\n\nThis reads every file in that category and can create a very large project.` + (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "") : `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\nThis downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` + (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
+		const sourceLabel = String(source || "").trim();
+		const warning = sourceLabel ? `Import every entry with source “${sourceLabel}” from ${chosen.length} file(s)?\n\nOnly matching entries are added; other entries in those files are skipped.` + (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "") : local ? `Import all ${chosen.length} files in “${effectiveCategory?.label || categoryId}”?\n\nThis reads every file in that category and can create a very large project.` + (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "") : `Import ${chosen.length} brew file${chosen.length === 1 ? "" : "s"} from GitHub?\n\nThis downloads each selected file. Importing the whole catalog can take several minutes and create a very large project.` + (bulkMakeTabs ? "\n\nClass and feat tabs will be created." : "");
 		if (!window.confirm(warning)) return;
 		const importId = newImportId();
 		activeImportRef.current = importId;
@@ -50220,7 +50371,11 @@ function ReferenceIndexTab() {
 					}
 					try {
 						authorsFromBrew(r.data, null, r.info).forEach((name) => creditNames.add(name));
-						const applied = importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
+						const applied = sourceLabel ? importSourceIntoDraft(bulkLib, r.info, r.category, r.data, sourceLabel, {
+							makeTabs: bulkMakeTabs,
+							kind: local ? "data" : root,
+							importId
+						}) : importBrewIntoDraft(bulkLib, r.info, r.category, r.data, {
 							makeTabs: bulkMakeTabs,
 							kind: local ? "data" : root,
 							importId
@@ -50266,12 +50421,12 @@ function ReferenceIndexTab() {
 			recordSession(importId, {
 				count: entryTotal,
 				tabIds: importTabIdsRef.current,
-				label: local ? `${effectiveCategory?.label || categoryId} · local data` : `${root} · brew files`
+				label: sourceLabel ? `${sourceLabel} · source import` : local ? `${effectiveCategory?.label || categoryId} · local data` : `${root} · brew files`
 			});
 			if (creditNames.size) addCreditNames([...creditNames]);
 			if (bulkCancelRef.current) toast(`Stopped after ${done} of ${total} files. Imported data is kept.`);
 			else {
-				toast.success(`Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${images.saved ? ` · saved ${images.saved} pictures` : ""}${errors ? ` · ${errors} failed` : ""}.`);
+				toast.success(sourceLabel ? `Imported ${entryTotal} entries with source “${sourceLabel}” from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${images.saved ? ` · saved ${images.saved} pictures` : ""}${errors ? ` · ${errors} failed` : ""}.` : `Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${images.saved ? ` · saved ${images.saved} pictures` : ""}${errors ? ` · ${errors} failed` : ""}.`);
 				if (images.skipped) toast(`${images.skipped} extra pictures still use the source link. Re-import that file to save them, or import individual entries.`);
 			}
 		} catch (err) {
@@ -50295,6 +50450,27 @@ function ReferenceIndexTab() {
 				id: "__all__",
 				label: "All categories"
 			} : activeCategory
+		});
+	};
+	const importBySource = () => {
+		if (bulk) return;
+		const source = sourceImport.trim();
+		if (!source) {
+			toast("Enter a source code first, e.g. XPHB or PHB.");
+			return;
+		}
+		const paths = (sourceScope === "all" ? isRemote ? catalog : index.filter((f) => isSourceFile(f.path)) : files).map((f) => f.path);
+		if (!paths.length) {
+			toast("No files to scan.");
+			return;
+		}
+		importCatalogFiles(paths, {
+			local: !isRemote,
+			category: sourceScope === "all" ? {
+				id: "__all__",
+				label: "All categories"
+			} : activeCategory,
+			source
 		});
 	};
 	const undoImport = (record) => {
@@ -50417,6 +50593,47 @@ function ReferenceIndexTab() {
 								children: isRemote ? "Refresh catalog" : "Refresh index"
 							})
 						]
+					})
+				]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2 text-xs",
+				children: [
+					/* @__PURE__ */ jsx("span", {
+						className: "font-semibold",
+						children: "Import by source"
+					}),
+					/* @__PURE__ */ jsx(Input, {
+						className: "h-7 w-40 text-xs",
+						value: sourceImport,
+						onChange: (event) => setSourceImport(event.target.value.toUpperCase()),
+						placeholder: "Source code, e.g. XPHB"
+					}),
+					/* @__PURE__ */ jsxs(Select, {
+						value: sourceScope,
+						onValueChange: setSourceScope,
+						children: [/* @__PURE__ */ jsx(SelectTrigger, {
+							className: "h-7 w-36 text-xs",
+							children: /* @__PURE__ */ jsx(SelectValue, {})
+						}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+							value: "category",
+							children: "This category"
+						}), /* @__PURE__ */ jsx(SelectItem, {
+							value: "all",
+							children: "All files"
+						})] })]
+					}),
+					/* @__PURE__ */ jsx(Button, {
+						size: "sm",
+						variant: "outline",
+						className: "h-7 text-xs",
+						onClick: importBySource,
+						disabled: !sourceImport.trim() || !!bulk,
+						children: "Import source"
+					}),
+					/* @__PURE__ */ jsx("span", {
+						className: "text-[10px] text-muted-foreground",
+						children: "Imports every entry whose source/book matches, skipping other entries in those files."
 					})
 				]
 			}),

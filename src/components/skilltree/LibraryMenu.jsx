@@ -59,6 +59,7 @@ import { DungeonRoomsTab } from "./library/DungeonRoomsTab";
 import { FiveEToolsImportsTab } from "./library/FiveEToolsImportsTab";
 import { MediaTab } from "./library/MediaTab";
 import { FiveEToolsCategoryTab } from "./library/FiveEToolsCategoryTab";
+import { FIVE_CATEGORIES } from "@/lib/fiveETools";
 import { EncounterXpCalculator } from "./library/EncounterXpCalculator";
 import { ActionsTab } from "./library/ActionsTab";
 import { SpellsTab } from "./library/SpellsTab";
@@ -67,6 +68,22 @@ import { TriggersTab } from "./library/TriggersTab";
 import { StatusEffectsTab } from "./library/StatusEffectsTab";
 import { MonstersTab } from "./library/MonstersTab";
 import { UpgradesTab } from "./library/UpgradesTab";
+
+const DEDICATED_IMPORTED = new Set([
+  "backgrounds",
+  "species",
+  "deities",
+  "objects",
+  "traps",
+  "books",
+]);
+
+const importedCategoryLabel = (id) =>
+  FIVE_CATEGORIES.find((category) => category.id === id)?.label ||
+  id
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[-_]+/g, " ")
+    .replace(/^./, (char) => char.toUpperCase());
 
 const DIE_SIZES = ["d4", "d6", "d8", "d10", "d12", "d20"];
 
@@ -181,13 +198,35 @@ export function LibraryMenu({ open, onClose }) {
   }, []);
   if (!settings) return null;
   const lib = settings.library;
+  const importedTabs = Object.keys(lib.fiveETools || {})
+    .filter(
+      (key) =>
+        Array.isArray(lib.fiveETools[key]) &&
+        lib.fiveETools[key].length &&
+        !DEDICATED_IMPORTED.has(key)
+    )
+    .sort((a, b) =>
+      importedCategoryLabel(a).localeCompare(importedCategoryLabel(b))
+    )
+    .map((key) => [`imported:${key}`, importedCategoryLabel(key)]);
+  const tabGroups = importedTabs.length
+    ? [...TAB_GROUPS, ["Imported 5eTools", importedTabs]]
+    : TAB_GROUPS;
   const setLib = (patch) => setSettings((s) => ({ ...s, library: { ...s.library, ...patch } }));
   const setList = (key, next) => setLib({ lists: { ...lib.lists, [key]: next } });
 
   // Global search: matches grouped by library category; a click opens its tab.
   const q = search.trim();
+  const searchCategories = [
+    ...SEARCH_CATEGORIES(lib),
+    ...importedTabs.map(([value, label]) => [
+      label,
+      value,
+      lib.fiveETools?.[value.slice("imported:".length)] || [],
+    ]),
+  ];
   const results = q
-    ? SEARCH_CATEGORIES(lib)
+    ? searchCategories
         .map(([cat, tabValue, entries]) => ({
           cat,
           tabValue,
@@ -230,7 +269,7 @@ export function LibraryMenu({ open, onClose }) {
           {navOpen && (
             <div className="flex w-full shrink-0 flex-col gap-1 md:w-48">
               <TabsList className="flex h-[55vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1">
-                {TAB_GROUPS.map(([groupLabel, entries]) => (
+                {tabGroups.map(([groupLabel, entries]) => (
                   <div key={groupLabel} className="w-full">
                     <div className="px-2 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                       {groupLabel}
@@ -342,6 +381,11 @@ export function LibraryMenu({ open, onClose }) {
             <TabsContent value="fiveETools" className="mt-0">
               <FiveEToolsImportsTab />
             </TabsContent>
+            {importedTabs.map(([value]) => (
+              <TabsContent key={value} value={value} className="mt-0">
+                <FiveEToolsCategoryTab categoryId={value.slice("imported:".length)} />
+              </TabsContent>
+            ))}
             <TabsContent value="media" className="mt-0">
               <MediaTab />
             </TabsContent>

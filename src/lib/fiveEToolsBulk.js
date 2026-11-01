@@ -310,6 +310,35 @@ export function importBrewIntoDraft(
   };
 }
 
+// Import only the entries whose source/book abbreviation matches, across any
+// number of files. This is the "import everything from XPHB" path.
+export function importSourceIntoDraft(
+  bulk,
+  info,
+  category,
+  raw,
+  source,
+  { makeTabs = true, kind, importId } = {}
+) {
+  const wanted = String(source || "").trim().toLowerCase();
+  if (!wanted) return { entries: 0, tabs: [] };
+  const entries = entriesFromRaw(raw, info?.props?.[0]).filter(
+    (entry) => sourceOf(entry).toLowerCase() === wanted
+  );
+  if (!entries.length) return { entries: 0, tabs: [] };
+  entries.forEach((entry) =>
+    applyEntryToLibrary(bulk, category, entry, {
+      kind,
+      fallbackTitle: info?.name,
+      importId,
+    })
+  );
+  return {
+    entries: entries.length,
+    tabs: makeTabs ? tabsForBrewFile(category, entries, raw, info) : [],
+  };
+}
+
 // Bulk imports keep short proxy URLs while they run. This pass walks the
 // imported library, downloads those pictures and stores them in the project's
 // image folder, so the artwork survives after the 5eTools data is removed.

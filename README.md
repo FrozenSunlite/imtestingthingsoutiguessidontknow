@@ -92,6 +92,12 @@ changing app code, then restart the launcher.
   private copy, and new subtrees can still be created normally.
 - **Editable Lore & Creatures:** Backgrounds, Species, Deities, Objects and
   Traps & Hazards can be added, edited and removed from the Reference Library.
+- **Imported 5eTools categories:** any imported 5eTools category without a
+  dedicated tab (classes, feats, options, gifts, psionics, decks and so on) gets
+  its own Reference Library section automatically. Entries keep every imported
+  field and can be edited in the form or as raw JSON. The Reference Index also
+  has an **Import by source** panel for importing every entry with a given
+  source/book abbreviation across a category or the whole repository.
 - **Return nodes:** every subtree starts with a non-investable node named
   “double click to return to the parent node” (only its name is editable).
   Double-clicking it returns to the node the subtree was entered through, at any

@@ -121,8 +121,16 @@ export function FiveEToolsCategoryTab({ categoryId }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [isNew, setIsNew] = useState(false);
+  const [jsonText, setJsonText] = useState("");
+  const [jsonError, setJsonError] = useState("");
+  const [showJson, setShowJson] = useState(false);
   const category = FIVE_CATEGORIES.find((c) => c.id === categoryId);
-  const label = category?.label || categoryId;
+  const label =
+    category?.label ||
+    categoryId
+      .replace(/([A-Z])/g, " $1")
+      .replace(/[-_]+/g, " ")
+      .replace(/^./, (char) => char.toUpperCase());
   const fields = ENTRY_FIELDS[categoryId] || [];
   const shown = useMemo(
     () =>
@@ -169,6 +177,8 @@ export function FiveEToolsCategoryTab({ categoryId }) {
     setEditing(false);
     setDraft(null);
     setIsNew(false);
+    setJsonText("");
+    setJsonError("");
   };
 
   const addEntry = () => {
@@ -180,6 +190,8 @@ export function FiveEToolsCategoryTab({ categoryId }) {
     writeEntries([...data, blank]);
     select(blank, data.length);
     setDraft(blank);
+    setJsonText(JSON.stringify(blank, null, 2));
+    setJsonError("");
     setIsNew(true);
     setEditing(true);
     setQuery("");
@@ -187,7 +199,11 @@ export function FiveEToolsCategoryTab({ categoryId }) {
 
   const startEdit = () => {
     if (!preview) return;
-    setDraft(JSON.parse(JSON.stringify(preview)));
+    const copy = JSON.parse(JSON.stringify(preview));
+    setDraft(copy);
+    setJsonText(JSON.stringify(copy, null, 2));
+    setJsonError("");
+    setShowJson(fields.length === 0);
     setEditing(true);
   };
 
@@ -201,14 +217,33 @@ export function FiveEToolsCategoryTab({ categoryId }) {
     setIsNew(false);
     setEditing(false);
     setDraft(null);
+    setJsonText("");
+    setJsonError("");
   };
 
-  const patchDraft = (patch) =>
-    setDraft((current) => (current ? { ...current, ...patch } : current));
+  const patchDraft = (patch) => {
+    if (!draft) return;
+    const next = { ...draft, ...patch };
+    setDraft(next);
+    setJsonText(JSON.stringify(next, null, 2));
+    setJsonError("");
+  };
 
   const saveDraft = () => {
     if (!draft || previewIndex < 0) return;
-    const next = { ...draft };
+    let next = { ...draft };
+    if (jsonText.trim()) {
+      try {
+        const parsed = JSON.parse(jsonText);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("The entry must be a JSON object.");
+        }
+        next = parsed;
+      } catch (error) {
+        setJsonError(`Could not save the JSON: ${error?.message || error}`);
+        return;
+      }
+    }
     if (typeof next.ability === "string") {
       const ability = normalizeAbility(next.ability);
       if (ability === undefined) delete next.ability;
@@ -221,6 +256,8 @@ export function FiveEToolsCategoryTab({ categoryId }) {
     setIsNew(false);
     setEditing(false);
     setDraft(null);
+    setJsonText("");
+    setJsonError("");
   };
 
   const remove = () => {
@@ -232,6 +269,8 @@ export function FiveEToolsCategoryTab({ categoryId }) {
     setIsNew(false);
     setEditing(false);
     setDraft(null);
+    setJsonText("");
+    setJsonError("");
   };
 
   return (
@@ -385,6 +424,39 @@ export function FiveEToolsCategoryTab({ categoryId }) {
                     onChange={(e) => patchDraft({ entries: e.target.value })}
                   />
                 </label>
+                <div className="rounded-md border bg-muted/20 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      All entry data (JSON)
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[10px]"
+                      onClick={() => setShowJson((value) => !value)}
+                    >
+                      {showJson ? "Hide" : "Show"}
+                    </Button>
+                  </div>
+                  {(showJson || fields.length === 0) && (
+                    <Textarea
+                      className="mt-1 min-h-40 font-mono text-[10px] leading-tight"
+                      rows={10}
+                      value={jsonText}
+                      onChange={(event) => {
+                        setJsonText(event.target.value);
+                        setJsonError("");
+                      }}
+                    />
+                  )}
+                  {jsonError && (
+                    <p className="mt-1 text-[10px] text-destructive">{jsonError}</p>
+                  )}
+                  <p className="mt-1 text-[9px] text-muted-foreground">
+                    Every imported field is preserved here. Edit the JSON directly to change
+                    fields not shown above, then save.
+                  </p>
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={cancelEdit}>
                     Cancel

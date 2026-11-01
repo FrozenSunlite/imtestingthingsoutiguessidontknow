@@ -935,18 +935,78 @@ const magicVariantDetails = (entry) => ({
   sections: [],
 });
 
-const genericDetails = (entry) => ({
-  fields: [
-    ["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
-    ["Rarity", clean(entry.rarity)],
-    ["Prerequisite", prerequisite(entry.prerequisite)],
-    ["Source", clean(entry.source)],
-  ],
-  sections: [
-    textSection("Description", entry.entries || entry.description || entry.text),
-    textSection("Additional", entry.additionalEntries),
-  ].filter(Boolean),
-});
+const GENERIC_SKIP = new Set([
+  "name",
+  "source",
+  "page",
+  "edition",
+  "img",
+  "image",
+  "portrait",
+  "cover",
+  "id",
+  "entries",
+  "description",
+  "text",
+  "additionalEntries",
+  "type",
+  "objectType",
+  "vehicleType",
+  "facilityType",
+  "rarity",
+  "prerequisite",
+  "fluff",
+]);
+
+const genericValue = (value) => {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") return clean(value);
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "Yes" : "";
+  if (Array.isArray(value)) return join(value);
+  if (typeof value === "object") {
+    if (value.name) return clean(value.name);
+    if (value.type) return clean(value.type);
+    if (value.entries) return clean(value.entries);
+    return "";
+  }
+  return "";
+};
+
+// Unknown imported categories still show every useful top-level field, so the
+// library is not reduced to a few hard-coded fields.
+const genericDetails = (entry) => {
+  const extra = Object.entries(entry || {})
+    .filter(
+      ([key, value]) =>
+        !GENERIC_SKIP.has(key) &&
+        !key.startsWith("_") &&
+        (typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean" ||
+          Array.isArray(value) ||
+          (value && typeof value === "object" && (value.name || value.type || value.entries)))
+    )
+    .slice(0, 30)
+    .map(([key, value]) => [
+      titleCase(key.replace(/([A-Z])/g, " $1")),
+      genericValue(value),
+    ])
+    .filter(([, value]) => value);
+  return {
+    fields: [
+      ["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
+      ["Rarity", clean(entry.rarity)],
+      ["Prerequisite", prerequisite(entry.prerequisite)],
+      ["Source", clean(entry.source)],
+      ...extra,
+    ],
+    sections: [
+      textSection("Description", entry.entries || entry.description || entry.text),
+      textSection("Additional", entry.additionalEntries),
+    ].filter(Boolean),
+  };
+};
 
 const DETAILERS = {
   bestiary: monsterDetails,
