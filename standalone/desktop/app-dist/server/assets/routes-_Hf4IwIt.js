@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-ChLKmRij.js";
+import { n as Button, r as cn } from "./router-DAt1HdL1.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -18918,6 +18918,7 @@ function FiveEToolsImportsTab() {
 	const [category, setCategory] = useState(categories[0] || "");
 	const [query, setQuery] = useState("");
 	const [preview, setPreview] = useState(null);
+	const [sourceShortcut, setSourceShortcut] = useState("");
 	const active = categories.includes(category) ? category : categories[0] || "";
 	const list = data[active] || [];
 	const shown = useMemo(() => list.filter((e) => `${entryName$1(e)} ${entrySource(e)}`.toLowerCase().includes(query.trim().toLowerCase())), [list, query]);
@@ -18933,9 +18934,42 @@ function FiveEToolsImportsTab() {
 			category: active
 		});
 	};
-	if (!categories.length) return /* @__PURE__ */ jsx("p", {
-		className: "text-xs text-muted-foreground",
-		children: "Nothing imported yet. Categories that don't have a dedicated library tab (backgrounds, species, deities, books, objects, traps and so on) are kept here by the Reference Index."
+	const openSourceImporter = () => {
+		window.__tttPendingSourceImport = sourceShortcut.trim();
+		window.dispatchEvent(new Event("skilltree:open-reference-index"));
+	};
+	const sourceShortcutRow = /* @__PURE__ */ jsxs("div", {
+		className: "flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2",
+		children: [
+			/* @__PURE__ */ jsx("span", {
+				className: "text-xs font-semibold",
+				children: "Import by source"
+			}),
+			/* @__PURE__ */ jsx(Input, {
+				className: "h-7 w-40 text-xs",
+				value: sourceShortcut,
+				placeholder: "Source code, e.g. XPHB",
+				onChange: (event) => setSourceShortcut(event.target.value.toUpperCase())
+			}),
+			/* @__PURE__ */ jsxs(Button, {
+				size: "sm",
+				variant: "outline",
+				className: "h-7 text-xs",
+				onClick: openSourceImporter,
+				children: [/* @__PURE__ */ jsx(Database, { className: "mr-1 h-3.5 w-3.5" }), " Open source importer"]
+			}),
+			/* @__PURE__ */ jsx("span", {
+				className: "text-[10px] text-muted-foreground",
+				children: "Opens the Reference Index with this source ready to import across a category or all files."
+			})
+		]
+	});
+	if (!categories.length) return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-2",
+		children: [sourceShortcutRow, /* @__PURE__ */ jsx("p", {
+			className: "text-xs text-muted-foreground",
+			children: "Nothing imported yet. Categories that don't have a dedicated library tab (backgrounds, species, deities, books, objects, traps and so on) are kept here by the Reference Index."
+		})]
 	});
 	const remove = () => {
 		if (!preview) return;
@@ -18957,6 +18991,7 @@ function FiveEToolsImportsTab() {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-2",
 		children: [
+			sourceShortcutRow,
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex flex-wrap items-center gap-1",
 				children: [categories.map((c) => /* @__PURE__ */ jsx(Button, {
@@ -49550,6 +49585,8 @@ function ReferenceIndexTab() {
 	const activeImportRef = useRef("");
 	const importTabIdsRef = useRef([]);
 	const rawByPath = useRef(/* @__PURE__ */ new Map());
+	const sourcePanelRef = useRef(null);
+	const sourceInputRef = useRef(null);
 	const [categoryId, setCategoryId] = useState("bestiary");
 	const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
 	const [filePath, setFilePath] = useState("");
@@ -49690,6 +49727,19 @@ function ReferenceIndexTab() {
 	};
 	useEffect(() => {
 		loadSpellLookup().then(setSpellLookup);
+	}, []);
+	useEffect(() => {
+		const pending = window.__tttPendingSourceImport;
+		if (!pending) return;
+		window.__tttPendingSourceImport = "";
+		setSourceImport(String(pending));
+		setTimeout(() => {
+			sourcePanelRef.current?.scrollIntoView({
+				behavior: "smooth",
+				block: "center"
+			});
+			sourceInputRef.current?.focus();
+		}, 150);
 	}, []);
 	useEffect(() => {
 		refresh();
@@ -50597,6 +50647,7 @@ function ReferenceIndexTab() {
 				]
 			}),
 			/* @__PURE__ */ jsxs("div", {
+				ref: sourcePanelRef,
 				className: "flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2 text-xs",
 				children: [
 					/* @__PURE__ */ jsx("span", {
@@ -50604,6 +50655,7 @@ function ReferenceIndexTab() {
 						children: "Import by source"
 					}),
 					/* @__PURE__ */ jsx(Input, {
+						ref: sourceInputRef,
 						className: "h-7 w-40 text-xs",
 						value: sourceImport,
 						onChange: (event) => setSourceImport(event.target.value.toUpperCase()),

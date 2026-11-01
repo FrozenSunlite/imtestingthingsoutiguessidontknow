@@ -5,7 +5,7 @@ import { entryDetails, entryDetailsMarkdown } from "@/lib/fiveEToolsView";
 import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Database, X } from "lucide-react";
 
 // Browse raw entries imported from 5eTools categories that don't map onto a
 // dedicated Reference Library tab. The entries stay editable/removable here,
@@ -24,6 +24,7 @@ export function FiveEToolsImportsTab() {
   const [category, setCategory] = useState(categories[0] || "");
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState(null);
+  const [sourceShortcut, setSourceShortcut] = useState("");
   const active = categories.includes(category) ? category : categories[0] || "";
   const list = data[active] || [];
   const shown = useMemo(
@@ -55,12 +56,38 @@ export function FiveEToolsImportsTab() {
     });
   };
 
+  const openSourceImporter = () => {
+    window.__tttPendingSourceImport = sourceShortcut.trim();
+    window.dispatchEvent(new Event("skilltree:open-reference-index"));
+  };
+
+  const sourceShortcutRow = (
+    <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2">
+      <span className="text-xs font-semibold">Import by source</span>
+      <Input
+        className="h-7 w-40 text-xs"
+        value={sourceShortcut}
+        placeholder="Source code, e.g. XPHB"
+        onChange={(event) => setSourceShortcut(event.target.value.toUpperCase())}
+      />
+      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openSourceImporter}>
+        <Database className="mr-1 h-3.5 w-3.5" /> Open source importer
+      </Button>
+      <span className="text-[10px] text-muted-foreground">
+        Opens the Reference Index with this source ready to import across a category or all files.
+      </span>
+    </div>
+  );
+
   if (!categories.length) {
     return (
-      <p className="text-xs text-muted-foreground">
-        Nothing imported yet. Categories that don't have a dedicated library tab (backgrounds,
-        species, deities, books, objects, traps and so on) are kept here by the Reference Index.
-      </p>
+      <div className="space-y-2">
+        {sourceShortcutRow}
+        <p className="text-xs text-muted-foreground">
+          Nothing imported yet. Categories that don't have a dedicated library tab (backgrounds,
+          species, deities, books, objects, traps and so on) are kept here by the Reference Index.
+        </p>
+      </div>
     );
   }
 
@@ -78,6 +105,7 @@ export function FiveEToolsImportsTab() {
 
   return (
     <div className="space-y-2">
+      {sourceShortcutRow}
       <div className="flex flex-wrap items-center gap-1">
         {categories.map((c) => (
           <Button

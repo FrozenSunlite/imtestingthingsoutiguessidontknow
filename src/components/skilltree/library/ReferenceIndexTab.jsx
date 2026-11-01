@@ -203,6 +203,8 @@ export function ReferenceIndexTab() {
   const activeImportRef = useRef("");
   const importTabIdsRef = useRef([]);
   const rawByPath = useRef(new Map());
+  const sourcePanelRef = useRef(null);
+  const sourceInputRef = useRef(null);
   const [categoryId, setCategoryId] = useState("bestiary");
   const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
   const [filePath, setFilePath] = useState("");
@@ -367,6 +369,19 @@ export function ReferenceIndexTab() {
 
   useEffect(() => {
     loadSpellLookup().then(setSpellLookup);
+  }, []);
+
+  // A shortcut from the Reference Library's 5eTools Imports tab can pre-fill
+  // the source importer and focus it when the Reference Index opens.
+  useEffect(() => {
+    const pending = window.__tttPendingSourceImport;
+    if (!pending) return;
+    window.__tttPendingSourceImport = "";
+    setSourceImport(String(pending));
+    setTimeout(() => {
+      sourcePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      sourceInputRef.current?.focus();
+    }, 150);
   }, []);
 
   useEffect(() => {
@@ -1341,9 +1356,13 @@ export function ReferenceIndexTab() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2 text-xs">
+      <div
+        ref={sourcePanelRef}
+        className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-2 text-xs"
+      >
         <span className="font-semibold">Import by source</span>
         <Input
+          ref={sourceInputRef}
           className="h-7 w-40 text-xs"
           value={sourceImport}
           onChange={(event) => setSourceImport(event.target.value.toUpperCase())}

@@ -97,7 +97,9 @@ changing app code, then restart the launcher.
   its own Reference Library section automatically. Entries keep every imported
   field and can be edited in the form or as raw JSON. The Reference Index also
   has an **Import by source** panel for importing every entry with a given
-  source/book abbreviation across a category or the whole repository.
+  source/book abbreviation across a category or the whole repository, and the
+  Reference Library's **5eTools Imports** tab has a shortcut that opens it with
+  the source prefilled.
 - **Return nodes:** every subtree starts with a non-investable node named
   “double click to return to the parent node” (only its name is editable).
   Double-clicking it returns to the node the subtree was entered through, at any

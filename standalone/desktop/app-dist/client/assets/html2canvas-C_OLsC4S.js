@@ -1,0 +1,1 @@
+import{g as e}from"./routes-Db8MMp5_.js";export default e();
