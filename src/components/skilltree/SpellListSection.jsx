@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTree, aggregateResources, profBonusFor, statVars } from "@/lib/treeStore";
+import { collectNodeBenefits, benefitSpells } from "@/lib/benefits";
 import { STATS, derivedSheet } from "@/lib/resources";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +32,31 @@ const LEVELS = [
 
 export function SpellListSection() {
   const { mergedTree: tree, character, setCharacter, settings } = useTree();
-  const spells = character.spellList || [];
+  const librarySpells = benefitSpells(settings);
+  const grantedSpells = collectNodeBenefits(tree)
+    .filter((b) => b.category === "spell")
+    .map((b) => {
+      const src =
+        librarySpells.find(
+          (sp) => typeof sp !== "string" && sp.name?.toLowerCase() === b.name?.toLowerCase()
+        ) || {};
+      return {
+        ...src,
+        name: b.name,
+        level: src.level === 0 ? "cantrip" : String(src.level ?? "cantrip"),
+        spellStat: src.spellStat || character.spellStat || "CHA",
+        granted: true,
+      };
+    });
+  const spells = [
+    ...(character.spellList || []),
+    ...grantedSpells.filter(
+      (g) =>
+        !(character.spellList || []).some(
+          (s) => String(s.name || "").toLowerCase() === String(g.name || "").toLowerCase()
+        )
+    ),
+  ];
   const levels = settings?.library?.levels || [];
   // Derived sheet values so every spell can show its auto-calculated save DC
   // and attack bonus (prof + casting-stat modifier, node contributions
@@ -121,13 +146,15 @@ export function SpellListSection() {
                           {s.name}
                           {s.repeats ? ` ×${s.repeats}` : ""}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeSpell(idx)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        {!s.granted && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeSpell(idx)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                       {open[idx] && (
                         <SpellDetails spell={s} character={character} sheet={sheet} />

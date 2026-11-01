@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BSMgsNkN.js";
+import { n as Button, r as cn } from "./router-CtU2qg77.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -37216,7 +37216,18 @@ var LEVELS = [
 ];
 function SpellListSection() {
 	const { mergedTree: tree, character, setCharacter, settings } = useTree();
-	const spells = character.spellList || [];
+	const librarySpells = benefitSpells(settings);
+	const grantedSpells = collectNodeBenefits(tree).filter((b) => b.category === "spell").map((b) => {
+		const src = librarySpells.find((sp) => typeof sp !== "string" && sp.name?.toLowerCase() === b.name?.toLowerCase()) || {};
+		return {
+			...src,
+			name: b.name,
+			level: src.level === 0 ? "cantrip" : String(src.level ?? "cantrip"),
+			spellStat: src.spellStat || character.spellStat || "CHA",
+			granted: true
+		};
+	});
+	const spells = [...character.spellList || [], ...grantedSpells.filter((g) => !(character.spellList || []).some((s) => String(s.name || "").toLowerCase() === String(g.name || "").toLowerCase()))];
 	const levels = settings?.library?.levels || [];
 	const sheet = derivedSheet(character, tree, levels, aggregateResources(tree, character, levels), profBonusFor(character.level || 1, levels), statVars(character, tree), settings?.library);
 	const libSpells = (settings?.library?.spells || []).filter((sp) => sp.name);
@@ -37300,7 +37311,7 @@ function SpellListSection() {
 										className: "flex-1 truncate text-xs",
 										children: [s.name, s.repeats ? ` ×${s.repeats}` : ""]
 									}),
-									/* @__PURE__ */ jsx(Button, {
+									!s.granted && /* @__PURE__ */ jsx(Button, {
 										size: "sm",
 										variant: "ghost",
 										onClick: () => removeSpell(idx),
