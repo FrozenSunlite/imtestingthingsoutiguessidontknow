@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BUVRndKj.js";
+import { n as Button, r as cn } from "./router-HkIBwOcJ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -19990,7 +19990,7 @@ function DuplicatesTab() {
 			});
 		};
 		Object.entries(library.fiveETools || {}).forEach(([cat, list]) => {
-			if (!Array.isArray(list)) return;
+			if (!Array.isArray(list) || cat === "classes") return;
 			list.forEach((entry, index) => add(`raw:${cat}`, index, entry, `5eTools · ${categoryLabel(cat)}`));
 		});
 		LIBRARY_ARRAYS.forEach((key) => {

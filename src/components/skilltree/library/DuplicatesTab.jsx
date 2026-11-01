@@ -78,7 +78,7 @@ export function DuplicatesTab() {
       });
     };
     Object.entries(library.fiveETools || {}).forEach(([cat, list]) => {
-      if (!Array.isArray(list)) return;
+      if (!Array.isArray(list) || cat === "classes") return;
       list.forEach((entry, index) =>
         add(`raw:${cat}`, index, entry, `5eTools · ${categoryLabel(cat)}`)
       );
