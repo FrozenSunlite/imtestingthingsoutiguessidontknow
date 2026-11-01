@@ -283,8 +283,11 @@ export function WorldMap({
       if (nextZoom === zoom) return;
       const rect = node.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      const fx = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-      const fy = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+      const side = Math.min(rect.width, rect.height);
+      const offsetX = (rect.width - side) / 2;
+      const offsetY = (rect.height - side) / 2;
+      const fx = clamp((event.clientX - rect.left - offsetX) / side, 0, 1);
+      const fy = clamp((event.clientY - rect.top - offsetY) / side, 0, 1);
       const oldSize = 1000 / zoom;
       const oldCenterX = (selected ? selected.x : 500) + pan.x;
       const oldCenterY = (selected ? selected.y : 500) + pan.y;
@@ -324,14 +327,15 @@ export function WorldMap({
     if (!drag) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
+    const side = Math.min(rect.width, rect.height);
     if (
       Math.abs(event.clientX - drag.startX) > 3 ||
       Math.abs(event.clientY - drag.startY) > 3
     ) {
       dragMovedRef.current = true;
     }
-    const dx = ((event.clientX - drag.startX) * size) / rect.width;
-    const dy = ((event.clientY - drag.startY) * size) / rect.height;
+    const dx = ((event.clientX - drag.startX) * size) / side;
+    const dy = ((event.clientY - drag.startY) * size) / side;
     setPan({ x: drag.panX - dx, y: drag.panY - dy });
   };
 
@@ -358,9 +362,16 @@ export function WorldMap({
     if (!svg) return { x: 500, y: 500 };
     const rect = svg.getBoundingClientRect();
     if (!rect.width || !rect.height) return { x: 500, y: 500 };
+    // The square map is letterboxed inside a wider SVG. Map against the square
+    // itself, not the full element, or painting lands far from the cursor.
+    const side = Math.min(rect.width, rect.height);
+    const offsetX = (rect.width - side) / 2;
+    const offsetY = (rect.height - side) / 2;
+    const relX = Math.max(0, Math.min(side, event.clientX - rect.left - offsetX));
+    const relY = Math.max(0, Math.min(side, event.clientY - rect.top - offsetY));
     return {
-      x: view.x + ((event.clientX - rect.left) / rect.width) * view.w,
-      y: view.y + ((event.clientY - rect.top) / rect.height) * view.h,
+      x: view.x + (relX / side) * view.w,
+      y: view.y + (relY / side) * view.h,
     };
   };
 

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DMGpXxsF.js";
+import { n as Button, r as cn } from "./router-BnRanNQT.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -65107,8 +65107,11 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 			if (nextZoom === zoom) return;
 			const rect = node.getBoundingClientRect();
 			if (!rect.width || !rect.height) return;
-			const fx = clamp$1((event.clientX - rect.left) / rect.width, 0, 1);
-			const fy = clamp$1((event.clientY - rect.top) / rect.height, 0, 1);
+			const side = Math.min(rect.width, rect.height);
+			const offsetX = (rect.width - side) / 2;
+			const offsetY = (rect.height - side) / 2;
+			const fx = clamp$1((event.clientX - rect.left - offsetX) / side, 0, 1);
+			const fy = clamp$1((event.clientY - rect.top - offsetY) / side, 0, 1);
 			const oldSize = 1e3 / zoom;
 			const oldCenterX = (selected ? selected.x : 500) + pan.x;
 			const oldCenterY = (selected ? selected.y : 500) + pan.y;
@@ -65148,9 +65151,10 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		if (!drag) return;
 		const rect = event.currentTarget.getBoundingClientRect();
 		if (!rect.width || !rect.height) return;
+		const side = Math.min(rect.width, rect.height);
 		if (Math.abs(event.clientX - drag.startX) > 3 || Math.abs(event.clientY - drag.startY) > 3) dragMovedRef.current = true;
-		const dx = (event.clientX - drag.startX) * size / rect.width;
-		const dy = (event.clientY - drag.startY) * size / rect.height;
+		const dx = (event.clientX - drag.startX) * size / side;
+		const dy = (event.clientY - drag.startY) * size / side;
 		setPan({
 			x: drag.panX - dx,
 			y: drag.panY - dy
@@ -65183,9 +65187,14 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 			x: 500,
 			y: 500
 		};
+		const side = Math.min(rect.width, rect.height);
+		const offsetX = (rect.width - side) / 2;
+		const offsetY = (rect.height - side) / 2;
+		const relX = Math.max(0, Math.min(side, event.clientX - rect.left - offsetX));
+		const relY = Math.max(0, Math.min(side, event.clientY - rect.top - offsetY));
 		return {
-			x: view.x + (event.clientX - rect.left) / rect.width * view.w,
-			y: view.y + (event.clientY - rect.top) / rect.height * view.h
+			x: view.x + relX / side * view.w,
+			y: view.y + relY / side * view.h
 		};
 	};
 	const settlementAt = (point) => {
