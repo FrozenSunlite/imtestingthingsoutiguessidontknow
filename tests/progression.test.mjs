@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { nodeMaxPoints, tierGate, tierPlan } from "../src/lib/nodeTiers.js";
-import { stripLegacyAutoGrants } from "../src/lib/subtrees.js";
+import {
+  RETURN_NODE_NAME,
+  cloneSubtreeForNode,
+  makeReturnNode,
+  migrateReturnNodes,
+  snapshotSubtree,
+  stripLegacyAutoGrants,
+} from "../src/lib/subtrees.js";
 import { filterSpells, tableOptions, tableSummary } from "../src/lib/benefits.js";
 
 test("tiers add up to Max Points and gate each level", () => {
@@ -82,4 +89,97 @@ test("custom tables list options and summarise the roll", () => {
   };
   assert.deepEqual(tableOptions(table, []), ["Fire Bolt", "Shield"]);
   assert.match(tableSummary(table, []), /Roll d6/);
+});
+
+test("the return node is not investable and keeps only its name", () => {
+  const node = makeReturnNode();
+  assert.equal(node.__returnNode, true);
+  assert.equal(node.name, RETURN_NODE_NAME);
+  assert.equal(node.description, "");
+  assert.equal(nodeMaxPoints(node), 0);
+  assert.equal(tierPlan(node).complete, true);
+  assert.equal(tierGate(node, 20).ok, false);
+});
+
+test("legacy host-copy anchors migrate to return nodes", () => {
+  const tree = {
+    nodes: [
+      {
+        id: "host",
+        subtrees: [
+          {
+            nodes: [
+              { id: "old-anchor", __hostCopy: true, name: "Host" },
+              { id: "child", currentPoints: 1 },
+            ],
+            connections: [{ id: "old-anchor->child", from: "old-anchor", to: "child" }],
+          },
+          { nodes: [{ id: "plain" }], connections: [] },
+        ],
+      },
+    ],
+  };
+  const out = migrateReturnNodes(tree);
+  const first = out.nodes[0].subtrees[0];
+  const anchor = first.nodes.find((n) => n.id === "old-anchor");
+  assert.equal(anchor.__returnNode, true);
+  assert.equal(anchor.__hostCopy, undefined);
+  assert.equal(anchor.name, RETURN_NODE_NAME);
+  assert.equal(anchor.description, "");
+  assert.equal(anchor.maxPoints, 0);
+  assert.ok(first.connections.some((c) => c.from === "old-anchor" && c.to === "child"));
+  // A subtree with no anchor gets one prepended.
+  const second = out.nodes[0].subtrees[1];
+  assert.equal(second.nodes[0].__returnNode, true);
+  assert.equal(second.nodes[1].id, "plain");
+});
+
+test("shared subtrees clone independently for every host", () => {
+  const source = {
+    id: "shared",
+    name: "Fighting Styles",
+    exclusive: true,
+    purchases: 4,
+    grantedPoints: 3,
+    nodes: [
+      { id: "a", maxPoints: 1, currentPoints: 1, acquiredOrder: 9 },
+      { id: "b", maxPoints: 1, dependencies: ["a"], exclusiveWith: ["a"] },
+    ],
+    connections: [{ id: "a->b", from: "a", to: "b" }],
+  };
+  const one = cloneSubtreeForNode(source);
+  const two = cloneSubtreeForNode(source);
+  assert.notEqual(one.id, two.id);
+  assert.notEqual(one.nodes[0].id, two.nodes[0].id);
+  assert.equal(one.nodes[0].currentPoints, 0);
+  assert.equal(one.nodes[0].acquiredOrder, undefined);
+  assert.equal(one.purchases, 0);
+  assert.equal(one.exclusive, true);
+  assert.deepEqual(one.nodes[1].dependencies, [one.nodes[0].id]);
+  assert.deepEqual(one.nodes[1].exclusiveWith, [one.nodes[0].id]);
+  // Mutating one clone must not touch the source or the other clone.
+  one.exclusive = false;
+  assert.equal(two.exclusive, true);
+  assert.equal(source.exclusive, true);
+});
+
+test("snapshots drop play state but keep the subtree structure", () => {
+  const snap = snapshotSubtree(
+    {
+      name: "Original",
+      purchases: 2,
+      exclusive: false,
+      nodes: [
+        makeReturnNode(),
+        { id: "n1", currentPoints: 3, maxPoints: 3 },
+      ],
+      connections: [],
+    },
+    "Saved"
+  );
+  assert.equal(snap.name, "Saved");
+  assert.equal(snap.purchases, 0);
+  assert.equal(snap.exclusive, false);
+  assert.equal(snap.nodes[0].__returnNode, true);
+  assert.equal(snap.nodes[1].currentPoints, 0);
 });

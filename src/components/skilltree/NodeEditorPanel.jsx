@@ -95,6 +95,32 @@ export function NodeEditorPanel() {
   }
 
   const set = (patch) => updateNode(node.id, patch);
+
+  // The return node is a navigation marker: only its name is editable.
+  if (node.__returnNode) {
+    return (
+      <div className="relative flex h-full flex-col border-l bg-card" style={{ width }}>
+        <PanelResizer />
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <h3 className="text-sm font-semibold">Return Node</h3>
+          <Button size="sm" variant="ghost" onClick={() => setUi((u) => ({ ...u, editingNodeId: null }))}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-3 p-4 text-sm">
+          <div className="space-y-1">
+            <Label>Name</Label>
+            <Input value={node.name} onChange={(e) => set({ name: e.target.value })} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Double-click this node in play to return to the parent node. It cannot be invested in
+            and has no effects.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const applyTiers = (tiers) => {
     const next = withTiers(node, tiers);
     set({

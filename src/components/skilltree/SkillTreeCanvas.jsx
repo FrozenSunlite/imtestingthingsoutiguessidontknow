@@ -174,10 +174,12 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     pendingViewRef.current = null;
     clearTimeout(commitTimer.current);
     if (subtreeStackLen > prev) {
-      // Entering: remember the parent-space camera, then centre on the seeded
-      // copy of the host node (the branch root).
+      // Entering: remember the parent-space camera, then centre on the
+      // subtree's return node (the branch root).
       preSubtreeViewRef.current = viewRef.current;
-      const copy = (tree?.nodes || []).find((n) => n.__hostCopy);
+      const copy =
+        (tree?.nodes || []).find((n) => n.__returnNode) ||
+        (tree?.nodes || []).find((n) => n.__hostCopy);
       if (!copy) return;
       const z = viewRef.current.zoom || 0.1;
       setView({ zoom: z, panX: vp.w / 2 - copy.x * z, panY: vp.h / 2 - copy.y * z });
@@ -1324,6 +1326,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
             onContextMenu={onNodeContext}
             onInvest={onInvestStable}
             onOpenSubtree={editable ? undefined : (n) => setSubtreePicker(n)}
+            onReturnParent={editable ? exitSubtreeEditor : undefined}
             popIn={!!hiddenIds}
           />
         ))}

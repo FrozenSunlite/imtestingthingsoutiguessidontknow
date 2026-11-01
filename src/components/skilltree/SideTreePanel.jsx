@@ -75,6 +75,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     setSideTree,
     treeFocus,
     clearTreeFocus,
+    focusNode,
     investPoint,
     pools,
     character,
@@ -622,6 +623,36 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     openSubtreePanel(st.subtreeHostId, st.subtreeIndex ?? 0, subtreeChain.slice(0, -1));
   };
 
+  // Double-clicking a subtree's return node goes back to the node through
+  // which the player entered it — the host on the main tree, or the host node
+  // inside the parent subtree when subtrees are nested.
+  const returnToParent = () => {
+    const chain = subtreeChain;
+    if (!chain.length) return;
+    const current = chain[chain.length - 1];
+    const parentChain = chain.slice(0, -1);
+    // Close this subtree's tab (and focus the previous one, if any).
+    const tabs = (st.tabs || []).filter((t) => t.key !== st.key);
+    setSideTree(
+      slot,
+      tabs.length
+        ? { ...st, ...tabs[tabs.length - 1], tabs, activeKey: tabs[tabs.length - 1].key }
+        : { ...st, tabs: [], activeKey: null, closed: true }
+    );
+    if (parentChain.length) {
+      const parent = parentChain[parentChain.length - 1];
+      openSubtreePanel(parent.hostId, parent.subIndex ?? 0, parentChain.slice(0, -1));
+      // The parent panel flattens with the prefix of its own host, so target
+      // the flattened id of the node we entered this subtree through.
+      focusNode(
+        `sub-${parent.hostId}-${parent.subIndex ?? 0}-${current.hostId}`
+      );
+    } else {
+      // Top-level subtree: centre the main tree on its host node.
+      focusNode(current.hostId);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -849,6 +880,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
                     ? (n) => setSubtreePickNode(n)
                     : undefined
                 }
+                onReturnParent={returnToParent}
                 dblClickInvest={floating}
               />
             ))}

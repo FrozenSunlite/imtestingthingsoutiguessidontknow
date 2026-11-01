@@ -4,9 +4,10 @@
 // normal nodes the player invests in with tree-specific points:
 //   { id, name, nodes: [...], connections: [...], grantedPoints: 3, poolName: "", exclusive: false }
 // Subtree nodes are ordinary node objects and may carry subtrees of their own
-// (branches of branches). Every subtree is seeded with a copy of its host node
-// (marked `__hostCopy`): nodes added to the subtree are connected to that copy,
-// and copies never appear on the View screen — only the original node does.
+// (branches of branches). Every subtree starts with a non-investable return
+// node (`__returnNode`): double-clicking it in play goes back to the node the
+// player entered the subtree through. Older trees used a copy of the host node
+// (`__hostCopy`) for this job; migration converts those in place.
 
 export const DEFAULT_SUBTREE = {
   id: "",
@@ -102,6 +103,150 @@ export function makeHostCopy(node) {
   };
 }
 
+export const RETURN_NODE_NAME = "double click to return to the parent node";
+
+// The return node is the first node in every subtree. It is a marker, not an
+// investable talent: double-clicking it in play goes back to the node through
+// which the player entered the subtree.
+export function makeReturnNode() {
+  return {
+    id: "ret" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+    name: RETURN_NODE_NAME,
+    description: "",
+    x: 0,
+    y: 0,
+    currentPoints: 0,
+    maxPoints: 0,
+    cost: 0,
+    nodeType: "skill",
+    dependencies: [],
+    exclusiveWith: [],
+    __returnNode: true,
+  };
+}
+
+// Convert legacy host-copy anchors into return nodes and make sure every
+// subtree has one. Connections and dependencies keep the same node id.
+export function migrateReturnNodes(tree) {
+  if (!tree?.nodes) return tree;
+  let changed = false;
+  const walkSubtree = (st) => {
+    if (!st) return st;
+    let subChanged = false;
+    let nodes = (st.nodes || []).map((n) => {
+      let next = n;
+      const nested = Array.isArray(n.subtrees)
+        ? n.subtrees
+        : n.subtree
+          ? [n.subtree]
+          : [];
+      if (nested.length) {
+        const mapped = nested.map(walkSubtree);
+        if (mapped.some((s, i) => s !== nested[i])) {
+          next = Array.isArray(n.subtrees)
+            ? { ...next, subtrees: mapped }
+            : { ...next, subtrees: mapped, subtree: undefined };
+          subChanged = true;
+        }
+      }
+      if (n.__hostCopy) {
+        const { __hostCopy, __autoGranted, ...rest } = next;
+        next = {
+          ...rest,
+          __returnNode: true,
+          name: RETURN_NODE_NAME,
+          description: "",
+          image: "",
+          frameImage: "",
+          currentPoints: 0,
+          maxPoints: 0,
+          cost: 0,
+          levelGain: 0,
+          dependencies: [],
+          exclusiveWith: [],
+        };
+        subChanged = true;
+      }
+      return next;
+    });
+    if (!nodes.some((n) => n.__returnNode || n.__hostCopy)) {
+      nodes = [makeReturnNode(), ...nodes];
+      subChanged = true;
+    } else {
+      // The return node is always the first node in its subtree.
+      const anchorIndex = nodes.findIndex((n) => n.__returnNode || n.__hostCopy);
+      if (anchorIndex > 0) {
+        const [anchor] = nodes.splice(anchorIndex, 1);
+        nodes = [anchor, ...nodes];
+        subChanged = true;
+      }
+    }
+    if (!subChanged) return st;
+    changed = true;
+    return { ...st, nodes };
+  };
+  const nodes = tree.nodes.map((n) => {
+    if (!Array.isArray(n.subtrees) || !n.subtrees.length) return n;
+    const next = n.subtrees.map(walkSubtree);
+    return next.some((s, i) => s !== n.subtrees[i]) ? { ...n, subtrees: next } : n;
+  });
+  return changed ? { ...tree, nodes } : tree;
+}
+
+// Deep-clone a subtree definition for a new host, resetting play state and
+// giving every node/connection a fresh id. Shared trees loaded twice never
+// share node ids, purchase counts or exclusivity settings.
+export function cloneSubtreeForNode(source) {
+  if (!source) return null;
+  const idMap = {};
+  const cloneNodes = (nodes) =>
+    (nodes || []).map((n) => {
+      const clone = JSON.parse(JSON.stringify(n));
+      const oldId = clone.id;
+      clone.id =
+        "n" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+      idMap[oldId] = clone.id;
+      clone.currentPoints = 0;
+      delete clone.acquiredOrder;
+      delete clone.__autoGranted;
+      if (Array.isArray(clone.subtrees)) {
+        clone.subtrees = clone.subtrees.map(cloneSubtreeForNode);
+      }
+      return clone;
+    });
+  const nodes = cloneNodes(source.nodes);
+  nodes.forEach((n) => {
+    n.dependencies = (n.dependencies || []).map((id) => idMap[id]).filter(Boolean);
+    n.exclusiveWith = (n.exclusiveWith || []).map((id) => idMap[id]).filter(Boolean);
+  });
+  const connections = (source.connections || [])
+    .map((c) => {
+      const from = idMap[c.from];
+      const to = idMap[c.to];
+      if (!from || !to) return null;
+      return { ...c, id: `${from}->${to}`, from, to };
+    })
+    .filter(Boolean);
+  return {
+    ...source,
+    id: nextSubtreeId(),
+    purchases: 0,
+    nodes,
+    connections,
+  };
+}
+
+// Save the current subtree as a reusable template: fresh ids, no play state.
+export function snapshotSubtree(source, name) {
+  const copy = cloneSubtreeForNode(source);
+  if (!copy) return null;
+  return {
+    ...copy,
+    name: String(name || copy.name || "Shared subtree").trim(),
+    purchases: 0,
+  };
+}
+
 // True when targetId is this node itself or lives anywhere inside its subtree
 // chain — dropping it there would nest a tree inside its own branch.
 export function subtreeChainHasNode(node, targetId) {
@@ -139,8 +284,8 @@ export function setSubtreePoint(nodes, path, points) {
 //   sub-<hostId>-<subtreeIndex>-<nodeId>
 // Every node keeps `__path` (its id within this subtree, for writing
 // investments back) and `__originalId` (used to open its own nested subtree in
-// another tab). Host copies are skipped unless `keepHostCopies` is set (dev
-// mode); the original host node already appears on the main tree.
+// another tab). Legacy host copies are skipped unless `keepHostCopies` is set
+// (dev mode); the return node is always included so it can navigate upwards.
 export function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
   const subtree =
     (host?.subtrees || [])[subIndex] ?? (host?.subtrees || [])[0] ?? {};

@@ -20,6 +20,7 @@ export const SkillNodeView = memo(function SkillNodeView({
   onContextMenu,
   onInvest,
   onOpenSubtree,
+  onReturnParent,
   dblClickInvest,
   onHover,
   onHoverMove,
@@ -52,6 +53,9 @@ export const SkillNodeView = memo(function SkillNodeView({
         e.stopPropagation();
         if (editable) {
           onSelect(node);
+        } else if (node.__returnNode) {
+          // Navigation marker: a single click just selects it.
+          onSelect?.(node);
         } else if (dblClickInvest) {
           // Floating windows: single click selects, double-click invests.
           onSelect?.(node);
@@ -61,6 +65,10 @@ export const SkillNodeView = memo(function SkillNodeView({
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
+        if (node.__returnNode) {
+          onReturnParent?.(node);
+          return;
+        }
         if (!editable && dblClickInvest) onInvest(node, 1);
       }}
       style={{
@@ -137,16 +145,18 @@ export const SkillNodeView = memo(function SkillNodeView({
       </div>
 
       {/* Quantity: always visible, bottom center between name and node edge */}
-      <div
-        className={`absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${
-          unlocked ? "bg-emerald-600" : "bg-muted-foreground"
-        }`}
-      >
-        {(node.currentPoints || 0)}/{max}
-        {cost !== 1 && (
-          <span className="ml-1 opacity-80">{cost === 0 ? "free" : `${cost}×`}</span>
-        )}
-      </div>
+      {!node.__returnNode && (
+        <div
+          className={`absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${
+            unlocked ? "bg-emerald-600" : "bg-muted-foreground"
+          }`}
+        >
+          {(node.currentPoints || 0)}/{max}
+          {cost !== 1 && (
+            <span className="ml-1 opacity-80">{cost === 0 ? "free" : `${cost}×`}</span>
+          )}
+        </div>
+      )}
 
       {showNames && (
         <div className="pointer-events-none absolute -bottom-8 left-1/2 max-w-[140px] -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-[10px] leading-tight text-foreground shadow-sm">
@@ -186,7 +196,7 @@ export const SkillNodeView = memo(function SkillNodeView({
         </button>
       )}
 
-      {!editable && (
+      {!editable && !node.__returnNode && (
         <div className="absolute -left-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onPointerDown={(e) => e.stopPropagation()}

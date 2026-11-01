@@ -4,13 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { FieldGroup } from "@/components/skilltree/FieldGroup";
 import { AbilityReqEditor } from "@/components/skilltree/AbilityReqEditor";
 import { SubtreeNodeEditor } from "@/components/skilltree/SubtreeNodeEditor";
 import { SubtreePreview } from "@/components/skilltree/SubtreePreview";
-import { makeHostCopy, nextSubtreeId } from "@/lib/subtrees";
-import { ChevronDown, ChevronRight, Plus, Network, Trash2 } from "lucide-react";
+import {
+  cloneSubtreeForNode,
+  makeReturnNode,
+  nextSubtreeId,
+  snapshotSubtree,
+} from "@/lib/subtrees";
+import { toast } from "sonner";
+import { ChevronDown, ChevronRight, FolderOpen, Plus, Network, Share2, Trash2 } from "lucide-react";
 
 // A node's subtrees: its own skill trees, each with its own pool and edited
 // in the full subtree editor. The section is a drop target: dropping carried
@@ -21,10 +34,14 @@ import { ChevronDown, ChevronRight, Plus, Network, Trash2 } from "lucide-react";
 // editors (cost, ability gates, proficiencies, bonus dice, actions,
 // resources) for quick access without leaving this panel.
 export function SubtreesSection({ node, set }) {
-  const { enterSubtreeEditor, carry, dropCarriedOnSubtree, settings } = useTree();
+  const { enterSubtreeEditor, carry, dropCarriedOnSubtree, settings, setSettings } = useTree();
   const [dropKey, setDropKey] = useState(null);
   const [expanded, setExpanded] = useState(null); // "subtreeIndex:nodeIndex"
+  const [shareIndex, setShareIndex] = useState(null);
+  const [shareName, setShareName] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const subtrees = node.subtrees || [];
+  const shared = settings?.library?.sharedSubtrees || [];
 
   const addSubtree = () =>
     set({
@@ -33,7 +50,7 @@ export function SubtreesSection({ node, set }) {
         {
           id: nextSubtreeId(),
           name: `Subtree ${subtrees.length + 1}`,
-          nodes: [makeHostCopy(node)],
+          nodes: [makeReturnNode()],
           connections: [],
           grantedPoints: 3,
           poolName: "",
@@ -44,6 +61,47 @@ export function SubtreesSection({ node, set }) {
         },
       ],
     });
+
+  const openShare = (i) => {
+    setShareIndex(i);
+    setShareName(subtrees[i]?.name || `Subtree ${i + 1}`);
+  };
+
+  const saveShared = () => {
+    const st = subtrees[shareIndex];
+    if (!st) return;
+    const snap = snapshotSubtree(st, shareName);
+    if (!snap) return;
+    setSettings((s) => ({
+      ...s,
+      library: {
+        ...(s.library || {}),
+        sharedSubtrees: [...(s.library?.sharedSubtrees || []), snap],
+      },
+    }));
+    toast.success(`Saved "${snap.name}" to the shared subtree library.`);
+    setShareIndex(null);
+    setShareName("");
+  };
+
+  const loadShared = (entry) => {
+    const clone = cloneSubtreeForNode(entry);
+    if (!clone) return;
+    // Per-node settings stay per-node: exclusivity, points and purchase limits
+    // come from the clone, never from a global shared definition.
+    set({ subtrees: [...subtrees, clone] });
+    setLibraryOpen(false);
+    toast.success(`Loaded "${clone.name}" into this node.`);
+  };
+
+  const removeShared = (id) =>
+    setSettings((s) => ({
+      ...s,
+      library: {
+        ...(s.library || {}),
+        sharedSubtrees: (s.library?.sharedSubtrees || []).filter((t) => t.id !== id),
+      },
+    }));
 
   const patch = (i, up) =>
     set({ subtrees: subtrees.map((st, j) => (j === i ? { ...st, ...up } : st)) });
@@ -88,6 +146,15 @@ export function SubtreesSection({ node, set }) {
               onClick={() => enterSubtreeEditor(node.id, i)}
             >
               <Network className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-1.5"
+              title="Save this subtree to the shared library"
+              onClick={() => openShare(i)}
+            >
+              <Share2 className="h-4 w-4" />
             </Button>
             <Button
               size="sm"
@@ -185,6 +252,7 @@ export function SubtreesSection({ node, set }) {
             <Label className="text-[10px]">Nodes ({st.nodes.length})</Label>
             {st.nodes.map((sn, k) => {
               const key = `${i}:${k}`;
+              const isReturn = !!sn.__returnNode;
               const setNode = (up) =>
                 patch(i, {
                   nodes: st.nodes.map((m, j) => (j === k ? { ...m, ...up } : m)),
@@ -192,30 +260,34 @@ export function SubtreesSection({ node, set }) {
               return (
                 <div key={sn.id || k} className="rounded-md border p-1.5">
                   <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 w-6 shrink-0 px-0"
-                      title="Edit effects"
-                      onClick={() => setExpanded(expanded === key ? null : key)}
-                    >
-                      {expanded === key ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {!isReturn && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 shrink-0 px-0"
+                        title="Edit effects"
+                        onClick={() => setExpanded(expanded === key ? null : key)}
+                      >
+                        {expanded === key ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                     <Input
                       className="h-7 flex-1"
                       value={sn.name || ""}
                       placeholder="Node name"
                       onChange={(e) => setNode({ name: e.target.value })}
                     />
-                    <span className="shrink-0 text-[10px] text-muted-foreground">
-                      {(sn.currentPoints || 0) > 0 ? `${sn.currentPoints}/${sn.maxPoints || 1}` : `cost ${sn.cost ?? 1}`}
-                    </span>
+                    {!isReturn && (
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {(sn.currentPoints || 0) > 0 ? `${sn.currentPoints}/${sn.maxPoints || 1}` : `cost ${sn.cost ?? 1}`}
+                      </span>
+                    )}
                   </div>
-                  {expanded === key && (
+                  {!isReturn && expanded === key && (
                     <SubtreeNodeEditor node={sn} set={setNode} settings={settings} />
                   )}
                 </div>
@@ -237,10 +309,97 @@ export function SubtreesSection({ node, set }) {
         {subtrees.length ? "" : " — creates this node's first subtree"}
       </div>
       {!carry && (
-        <Button size="sm" variant="outline" className="w-full" onClick={addSubtree}>
-          <Plus className="mr-1 h-4 w-4" /> Add subtree
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="flex-1" onClick={addSubtree}>
+            <Plus className="mr-1 h-4 w-4" /> Add subtree
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => setLibraryOpen(true)}
+            title="Load a saved shared subtree"
+          >
+            <FolderOpen className="mr-1 h-4 w-4" /> Shared library
+            {shared.length ? ` (${shared.length})` : ""}
+          </Button>
+        </div>
       )}
+
+      {/* Save the selected subtree as a reusable, per-node-loaded template. */}
+      <Dialog open={shareIndex !== null} onOpenChange={(v) => !v && setShareIndex(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save subtree to the shared library</DialogTitle>
+            <DialogDescription>
+              The saved copy keeps every node, connection and its own exclusivity setting. Loading
+              it into a node creates an independent clone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">Library name</Label>
+            <Input
+              value={shareName}
+              placeholder="e.g. Fighting Styles"
+              onChange={(e) => setShareName(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setShareIndex(null)}>
+                Cancel
+              </Button>
+              <Button onClick={saveShared}>Save to library</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reusable subtree library: each entry can be loaded into this node. */}
+      <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Shared subtree library</DialogTitle>
+            <DialogDescription>
+              Load a saved subtree into this node. Each load is cloned, so its points, purchases
+              and mutual-exclusivity settings stay specific to this node.
+            </DialogDescription>
+          </DialogHeader>
+          {shared.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No shared subtrees yet. Use the share button on any subtree to save it here.
+            </p>
+          ) : (
+            <div className="max-h-80 space-y-2 overflow-y-auto">
+              {shared.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center gap-2 rounded-md border p-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{entry.name || "Shared subtree"}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {(entry.nodes || []).filter((n) => !n.__returnNode).length} nodes
+                      {entry.exclusive ? " · exclusive" : ""}
+                      {entry.grantedPoints ? ` · ${entry.grantedPoints} points` : ""}
+                    </p>
+                  </div>
+                  <Button size="sm" onClick={() => loadShared(entry)}>
+                    Load
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    title="Remove from library"
+                    onClick={() => removeShared(entry.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </FieldGroup>
   );
 }

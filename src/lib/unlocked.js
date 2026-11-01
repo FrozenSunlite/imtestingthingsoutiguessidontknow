@@ -11,7 +11,7 @@ export function collectSubtreeUnlocked(tree) {
   const out = [];
   const walk = (subtree, host, chain, label) => {
     (subtree?.nodes || []).forEach((n) => {
-      if (n.__hostCopy) return;
+      if (n.__hostCopy || n.__returnNode) return;
       if ((n.currentPoints || 0) > 0) {
         const subtreeIndex = chain[chain.length - 1]?.subIndex ?? 0;
         out.push({
@@ -62,7 +62,7 @@ export function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
   // would show that talent twice on the sheet. Auto-granted starter nodes are
   // structural and only appear in dev mode.
   const list = (nodes || []).filter(
-    (n) => !n.__hostCopy && (includeAutoGranted || !n.__autoGranted)
+    (n) => !n.__hostCopy && !n.__returnNode && (includeAutoGranted || !n.__autoGranted)
   );
   const byAcquired = (a, b) =>
     (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);

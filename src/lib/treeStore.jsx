@@ -32,7 +32,9 @@ import {
   setSubtreePoint,
   subtreeChainHasNode,
   nextSubtreeId,
+  makeReturnNode,
   stripLegacyAutoGrants,
+  migrateReturnNodes,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
 import { nodeMaxPoints } from "@/lib/nodeTiers";
@@ -159,6 +161,7 @@ export const DEFAULT_LIBRARY = {
   },
   weapons: [],
   weaponUpgrades: [],
+  sharedSubtrees: [],
   armor: [],
   currencies: [
     { name: "Copper", key: "copper" },
@@ -334,10 +337,12 @@ export function migrateSubtrees(tree) {
 
 export function migrateTree(tree) {
   const migrateOne = (t) =>
-    stripLegacyAutoGrants(
-      migrateSubtrees(
-        migrateOptionRequires(
-          migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t)))
+    migrateReturnNodes(
+      stripLegacyAutoGrants(
+        migrateSubtrees(
+          migrateOptionRequires(
+            migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t)))
+          )
         )
       )
     );
@@ -525,6 +530,7 @@ function mergeLibrary(lib) {
       ? lib.weaponMasteries
       : d.weaponMasteries
     ).map((m) => (typeof m === "string" ? { name: m, description: "" } : m)),
+    sharedSubtrees: Array.isArray(lib?.sharedSubtrees) ? lib.sharedSubtrees : [],
     weaponCategories: lib?.weaponCategories?.length ? lib.weaponCategories : d.weaponCategories,
     armorTypes: lib?.armorTypes?.length ? lib.armorTypes : d.armorTypes,
     spellSchools: lib?.spellSchools?.length ? lib.spellSchools : d.spellSchools,
@@ -1136,7 +1142,7 @@ export function TreeProvider({ children }) {
       const base = existing || {
         id: nextSubtreeId(),
         name: `Subtree ${(host.subtrees || []).length + 1}`,
-        nodes: [],
+        nodes: [makeReturnNode()],
         connections: [],
         grantedPoints: 3,
         poolName: "",
@@ -1144,9 +1150,12 @@ export function TreeProvider({ children }) {
         maxPurchases: 0,
         purchases: 0,
       };
-      // Every subtree is seeded with a copy of its host node; new arrivals
-      // are connected to it.
-      const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
+      // Every subtree is seeded with a return node; new arrivals are connected
+      // to it. Legacy trees may still use a host copy as their anchor.
+      const hostCopy =
+        (base.nodes || []).find((n) => n.__returnNode) ||
+        (base.nodes || []).find((n) => n.__hostCopy) ||
+        null;
       const clones = c.nodes.map((n, i) => {
         const copy = JSON.parse(JSON.stringify(n));
         const id = "n" + Date.now() + "d" + i + "-" + Math.floor(Math.random() * 1000);
@@ -1308,7 +1317,7 @@ export function TreeProvider({ children }) {
         const base = existing || {
           id: nextSubtreeId(),
           name: `Subtree ${(host.subtrees || []).length + 1}`,
-          nodes: [],
+          nodes: [makeReturnNode()],
           connections: [],
           grantedPoints: 3,
           poolName: "",
@@ -1316,7 +1325,10 @@ export function TreeProvider({ children }) {
           maxPurchases: 0,
           purchases: 0,
         };
-        const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
+        const hostCopy =
+          (base.nodes || []).find((n) => n.__returnNode) ||
+          (base.nodes || []).find((n) => n.__hostCopy) ||
+          null;
         const clones = [];
         const idMap = {};
         items.forEach(({ node: n }, i) => {
@@ -1633,9 +1645,9 @@ export function TreeProvider({ children }) {
         size: 100,
       };
       // Inside a subtree editor, new nodes are auto-linked with a connector
-      // from the host's copy (the seed node of this subtree).
+      // from that subtree's return node (the seed node of this subtree).
       const hostCopy = t.subtreeEditing?.stack?.length
-        ? t.nodes.find((n) => n.__hostCopy)
+        ? t.nodes.find((n) => n.__returnNode) || t.nodes.find((n) => n.__hostCopy)
         : null;
       return {
         ...t,

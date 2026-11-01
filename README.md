@@ -80,6 +80,13 @@ changing app code, then restart the launcher.
 - **Subtree limits:** each subtree has a repeat-purchase limit (`0` = unlimited);
   the first open counts as the first purchase and later purchases add another
   batch of its granted points.
+- **Shared subtrees:** any subtree can be saved to a reusable library and loaded
+  into another node. Loads are independent clones, so each node keeps its own
+  mutual-exclusivity and purchase state; new subtrees can still be created.
+- **Return nodes:** every subtree starts with a non-investable node named
+  “double click to return to the parent node” (only its name is editable).
+  Double-clicking it returns to the node the subtree was entered through, at any
+  nesting depth.
 - **Levels from nodes:** a node can grant character levels while invested. The
   effective level drives tier gates, subtree unlocks, proficiency bonus and the
   per-level talent purchase cap in Levels & Rules.

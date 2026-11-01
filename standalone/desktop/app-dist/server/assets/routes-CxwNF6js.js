@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-DB-xNOkn.js";
+import { n as Button, r as cn } from "./router-HPmOQJwb.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -4433,18 +4433,142 @@ function nextSubtreeId() {
 	subSeq += 1;
 	return "st" + Date.now().toString(36) + "-" + subSeq;
 }
-function makeHostCopy(node) {
-	const copy = JSON.parse(JSON.stringify(node || {}));
-	const id = "n" + Date.now().toString(36) + "h" + Math.floor(Math.random() * 1e4);
+var RETURN_NODE_NAME = "double click to return to the parent node";
+function makeReturnNode() {
 	return {
-		...copy,
-		id,
+		id: "ret" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+		name: RETURN_NODE_NAME,
+		description: "",
 		x: 0,
 		y: 0,
 		currentPoints: 0,
+		maxPoints: 0,
+		cost: 0,
+		nodeType: "skill",
 		dependencies: [],
 		exclusiveWith: [],
-		__hostCopy: true
+		__returnNode: true
+	};
+}
+function migrateReturnNodes(tree) {
+	if (!tree?.nodes) return tree;
+	let changed = false;
+	const walkSubtree = (st) => {
+		if (!st) return st;
+		let subChanged = false;
+		let nodes = (st.nodes || []).map((n) => {
+			let next = n;
+			const nested = Array.isArray(n.subtrees) ? n.subtrees : n.subtree ? [n.subtree] : [];
+			if (nested.length) {
+				const mapped = nested.map(walkSubtree);
+				if (mapped.some((s, i) => s !== nested[i])) {
+					next = Array.isArray(n.subtrees) ? {
+						...next,
+						subtrees: mapped
+					} : {
+						...next,
+						subtrees: mapped,
+						subtree: void 0
+					};
+					subChanged = true;
+				}
+			}
+			if (n.__hostCopy) {
+				const { __hostCopy, __autoGranted, ...rest } = next;
+				next = {
+					...rest,
+					__returnNode: true,
+					name: RETURN_NODE_NAME,
+					description: "",
+					image: "",
+					frameImage: "",
+					currentPoints: 0,
+					maxPoints: 0,
+					cost: 0,
+					levelGain: 0,
+					dependencies: [],
+					exclusiveWith: []
+				};
+				subChanged = true;
+			}
+			return next;
+		});
+		if (!nodes.some((n) => n.__returnNode || n.__hostCopy)) {
+			nodes = [makeReturnNode(), ...nodes];
+			subChanged = true;
+		} else {
+			const anchorIndex = nodes.findIndex((n) => n.__returnNode || n.__hostCopy);
+			if (anchorIndex > 0) {
+				const [anchor] = nodes.splice(anchorIndex, 1);
+				nodes = [anchor, ...nodes];
+				subChanged = true;
+			}
+		}
+		if (!subChanged) return st;
+		changed = true;
+		return {
+			...st,
+			nodes
+		};
+	};
+	const nodes = tree.nodes.map((n) => {
+		if (!Array.isArray(n.subtrees) || !n.subtrees.length) return n;
+		const next = n.subtrees.map(walkSubtree);
+		return next.some((s, i) => s !== n.subtrees[i]) ? {
+			...n,
+			subtrees: next
+		} : n;
+	});
+	return changed ? {
+		...tree,
+		nodes
+	} : tree;
+}
+function cloneSubtreeForNode(source) {
+	if (!source) return null;
+	const idMap = {};
+	const cloneNodes = (nodes) => (nodes || []).map((n) => {
+		const clone = JSON.parse(JSON.stringify(n));
+		const oldId = clone.id;
+		clone.id = "n" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+		idMap[oldId] = clone.id;
+		clone.currentPoints = 0;
+		delete clone.acquiredOrder;
+		delete clone.__autoGranted;
+		if (Array.isArray(clone.subtrees)) clone.subtrees = clone.subtrees.map(cloneSubtreeForNode);
+		return clone;
+	});
+	const nodes = cloneNodes(source.nodes);
+	nodes.forEach((n) => {
+		n.dependencies = (n.dependencies || []).map((id) => idMap[id]).filter(Boolean);
+		n.exclusiveWith = (n.exclusiveWith || []).map((id) => idMap[id]).filter(Boolean);
+	});
+	const connections = (source.connections || []).map((c) => {
+		const from = idMap[c.from];
+		const to = idMap[c.to];
+		if (!from || !to) return null;
+		return {
+			...c,
+			id: `${from}->${to}`,
+			from,
+			to
+		};
+	}).filter(Boolean);
+	return {
+		...source,
+		id: nextSubtreeId(),
+		purchases: 0,
+		nodes,
+		connections
+	};
+}
+function snapshotSubtree(source, name) {
+	const copy = cloneSubtreeForNode(source);
+	if (!copy) return null;
+	return {
+		...copy,
+		name: String(name || copy.name || "Shared subtree").trim(),
+		purchases: 0
 	};
 }
 function subtreeChainHasNode(node, targetId) {
@@ -4570,6 +4694,7 @@ function normalizeTiers(node) {
 	}));
 }
 function tiersForNode(node) {
+	if (node?.__returnNode) return [];
 	const tiers = normalizeTiers(node);
 	if (tiers.length) return tiers;
 	return [{
@@ -5616,6 +5741,7 @@ var DEFAULT_LIBRARY = {
 	},
 	weapons: [],
 	weaponUpgrades: [],
+	sharedSubtrees: [],
 	armor: [],
 	currencies: [
 		{
@@ -5851,7 +5977,7 @@ function migrateSubtrees(tree) {
 	} : tree;
 }
 function migrateTree(tree) {
-	const migrateOne = (t) => stripLegacyAutoGrants(migrateSubtrees(migrateOptionRequires(migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t))))));
+	const migrateOne = (t) => migrateReturnNodes(stripLegacyAutoGrants(migrateSubtrees(migrateOptionRequires(migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t)))))));
 	const out = migrateOne(tree);
 	if (Array.isArray(out?.tabs) && out.tabs.length) {
 		let changed = false;
@@ -6076,6 +6202,7 @@ function mergeLibrary(lib) {
 			name: m,
 			description: ""
 		} : m),
+		sharedSubtrees: Array.isArray(lib?.sharedSubtrees) ? lib.sharedSubtrees : [],
 		weaponCategories: lib?.weaponCategories?.length ? lib.weaponCategories : d.weaponCategories,
 		armorTypes: lib?.armorTypes?.length ? lib.armorTypes : d.armorTypes,
 		spellSchools: lib?.spellSchools?.length ? lib.spellSchools : d.spellSchools,
@@ -6609,7 +6736,7 @@ function TreeProvider({ children }) {
 			const base = existing || {
 				id: nextSubtreeId(),
 				name: `Subtree ${(host.subtrees || []).length + 1}`,
-				nodes: [],
+				nodes: [makeReturnNode()],
 				connections: [],
 				grantedPoints: 3,
 				poolName: "",
@@ -6617,7 +6744,7 @@ function TreeProvider({ children }) {
 				maxPurchases: 0,
 				purchases: 0
 			};
-			const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
+			const hostCopy = (base.nodes || []).find((n) => n.__returnNode) || (base.nodes || []).find((n) => n.__hostCopy) || null;
 			const clones = c.nodes.map((n, i) => {
 				const copy = JSON.parse(JSON.stringify(n));
 				const id = "n" + Date.now() + "d" + i + "-" + Math.floor(Math.random() * 1e3);
@@ -6756,7 +6883,7 @@ function TreeProvider({ children }) {
 				const base = existing || {
 					id: nextSubtreeId(),
 					name: `Subtree ${(host.subtrees || []).length + 1}`,
-					nodes: [],
+					nodes: [makeReturnNode()],
 					connections: [],
 					grantedPoints: 3,
 					poolName: "",
@@ -6764,7 +6891,7 @@ function TreeProvider({ children }) {
 					maxPurchases: 0,
 					purchases: 0
 				};
-				const hostCopy = (base.nodes || []).find((n) => n.__hostCopy) || null;
+				const hostCopy = (base.nodes || []).find((n) => n.__returnNode) || (base.nodes || []).find((n) => n.__hostCopy) || null;
 				const clones = [];
 				const idMap = {};
 				items.forEach(({ node: n }, i) => {
@@ -7043,7 +7170,7 @@ function TreeProvider({ children }) {
 				subtrees: [],
 				size: 100
 			};
-			const hostCopy = t.subtreeEditing?.stack?.length ? t.nodes.find((n) => n.__hostCopy) : null;
+			const hostCopy = t.subtreeEditing?.stack?.length ? t.nodes.find((n) => n.__returnNode) || t.nodes.find((n) => n.__hostCopy) : null;
 			return {
 				...t,
 				nodes: [...t.nodes, node],
@@ -25849,7 +25976,7 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 }
 //#endregion
 //#region src/components/skilltree/SkillNodeView.jsx
-var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, dblClickInvest, onHover, onHoverMove, onHoverEnd }) {
+var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd }) {
 	const unlocked = (node.currentPoints || 0) > 0;
 	const dim = !unlocked && !available;
 	const size = node.size || 100;
@@ -25869,11 +25996,16 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		onClick: (e) => {
 			e.stopPropagation();
 			if (editable) onSelect(node);
+			else if (node.__returnNode) onSelect?.(node);
 			else if (dblClickInvest) onSelect?.(node);
 			else if (available || unlocked) onInvest(node, 1);
 		},
 		onDoubleClick: (e) => {
 			e.stopPropagation();
+			if (node.__returnNode) {
+				onReturnParent?.(node);
+				return;
+			}
 			if (!editable && dblClickInvest) onInvest(node, 1);
 		},
 		style: {
@@ -25920,7 +26052,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 					}
 				})]
 			}),
-			/* @__PURE__ */ jsxs("div", {
+			!node.__returnNode && /* @__PURE__ */ jsxs("div", {
 				className: `absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${unlocked ? "bg-emerald-600" : "bg-muted-foreground"}`,
 				children: [
 					node.currentPoints || 0,
@@ -25953,7 +26085,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 				title: "Choose one of this skill's subtree trees to open",
 				children: /* @__PURE__ */ jsx(ChevronDown, { className: "h-3 w-3" })
 			}),
-			!editable && /* @__PURE__ */ jsx("div", {
+			!editable && !node.__returnNode && /* @__PURE__ */ jsx("div", {
 				className: "absolute -left-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100",
 				children: /* @__PURE__ */ jsx("button", {
 					onPointerDown: (e) => e.stopPropagation(),
@@ -26661,7 +26793,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		clearTimeout(commitTimer.current);
 		if (subtreeStackLen > prev) {
 			preSubtreeViewRef.current = viewRef.current;
-			const copy = (tree?.nodes || []).find((n) => n.__hostCopy);
+			const copy = (tree?.nodes || []).find((n) => n.__returnNode) || (tree?.nodes || []).find((n) => n.__hostCopy);
 			if (!copy) return;
 			const z = viewRef.current.zoom || .1;
 			setView({
@@ -27709,6 +27841,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 							onContextMenu: onNodeContext,
 							onInvest: onInvestStable,
 							onOpenSubtree: editable ? void 0 : (n) => setSubtreePicker(n),
+							onReturnParent: editable ? exitSubtreeEditor : void 0,
 							popIn: !!hiddenIds
 						}, n.id)),
 						exiting.map((g) => {
@@ -30274,14 +30407,18 @@ function SubtreeNodeEditor({ node, set, settings }) {
 //#endregion
 //#region src/components/skilltree/SubtreesSection.jsx
 function SubtreesSection({ node, set }) {
-	const { enterSubtreeEditor, carry, dropCarriedOnSubtree, settings } = useTree();
+	const { enterSubtreeEditor, carry, dropCarriedOnSubtree, settings, setSettings } = useTree();
 	const [dropKey, setDropKey] = useState(null);
 	const [expanded, setExpanded] = useState(null);
+	const [shareIndex, setShareIndex] = useState(null);
+	const [shareName, setShareName] = useState("");
+	const [libraryOpen, setLibraryOpen] = useState(false);
 	const subtrees = node.subtrees || [];
+	const shared = settings?.library?.sharedSubtrees || [];
 	const addSubtree = () => set({ subtrees: [...subtrees, {
 		id: nextSubtreeId(),
 		name: `Subtree ${subtrees.length + 1}`,
-		nodes: [makeHostCopy(node)],
+		nodes: [makeReturnNode()],
 		connections: [],
 		grantedPoints: 3,
 		poolName: "",
@@ -30290,6 +30427,40 @@ function SubtreesSection({ node, set }) {
 		purchases: 0,
 		abilityReqs: []
 	}] });
+	const openShare = (i) => {
+		setShareIndex(i);
+		setShareName(subtrees[i]?.name || `Subtree ${i + 1}`);
+	};
+	const saveShared = () => {
+		const st = subtrees[shareIndex];
+		if (!st) return;
+		const snap = snapshotSubtree(st, shareName);
+		if (!snap) return;
+		setSettings((s) => ({
+			...s,
+			library: {
+				...s.library || {},
+				sharedSubtrees: [...s.library?.sharedSubtrees || [], snap]
+			}
+		}));
+		toast.success(`Saved "${snap.name}" to the shared subtree library.`);
+		setShareIndex(null);
+		setShareName("");
+	};
+	const loadShared = (entry) => {
+		const clone = cloneSubtreeForNode(entry);
+		if (!clone) return;
+		set({ subtrees: [...subtrees, clone] });
+		setLibraryOpen(false);
+		toast.success(`Loaded "${clone.name}" into this node.`);
+	};
+	const removeShared = (id) => setSettings((s) => ({
+		...s,
+		library: {
+			...s.library || {},
+			sharedSubtrees: (s.library?.sharedSubtrees || []).filter((t) => t.id !== id)
+		}
+	}));
 	const patch = (i, up) => set({ subtrees: subtrees.map((st, j) => j === i ? {
 		...st,
 		...up
@@ -30330,6 +30501,14 @@ function SubtreesSection({ node, set }) {
 								title: "Edit this subtree",
 								onClick: () => enterSubtreeEditor(node.id, i),
 								children: /* @__PURE__ */ jsx(Network, { className: "h-4 w-4" })
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								className: "h-7 px-1.5",
+								title: "Save this subtree to the shared library",
+								onClick: () => openShare(i),
+								children: /* @__PURE__ */ jsx(Share2, { className: "h-4 w-4" })
 							}),
 							/* @__PURE__ */ jsx(Button, {
 								size: "sm",
@@ -30450,6 +30629,7 @@ function SubtreesSection({ node, set }) {
 							]
 						}), st.nodes.map((sn, k) => {
 							const key = `${i}:${k}`;
+							const isReturn = !!sn.__returnNode;
 							const setNode = (up) => patch(i, { nodes: st.nodes.map((m, j) => j === k ? {
 								...m,
 								...up
@@ -30459,7 +30639,7 @@ function SubtreesSection({ node, set }) {
 								children: [/* @__PURE__ */ jsxs("div", {
 									className: "flex items-center gap-1",
 									children: [
-										/* @__PURE__ */ jsx(Button, {
+										!isReturn && /* @__PURE__ */ jsx(Button, {
 											size: "sm",
 											variant: "ghost",
 											className: "h-6 w-6 shrink-0 px-0",
@@ -30473,12 +30653,12 @@ function SubtreesSection({ node, set }) {
 											placeholder: "Node name",
 											onChange: (e) => setNode({ name: e.target.value })
 										}),
-										/* @__PURE__ */ jsx("span", {
+										!isReturn && /* @__PURE__ */ jsx("span", {
 											className: "shrink-0 text-[10px] text-muted-foreground",
 											children: (sn.currentPoints || 0) > 0 ? `${sn.currentPoints}/${sn.maxPoints || 1}` : `cost ${sn.cost ?? 1}`
 										})
 									]
-								}), expanded === key && /* @__PURE__ */ jsx(SubtreeNodeEditor, {
+								}), !isReturn && expanded === key && /* @__PURE__ */ jsx(SubtreeNodeEditor, {
 									node: sn,
 									set: setNode,
 									settings
@@ -30499,12 +30679,98 @@ function SubtreesSection({ node, set }) {
 					subtrees.length ? "" : " — creates this node's first subtree"
 				]
 			}),
-			!carry && /* @__PURE__ */ jsxs(Button, {
-				size: "sm",
-				variant: "outline",
-				className: "w-full",
-				onClick: addSubtree,
-				children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add subtree"]
+			!carry && /* @__PURE__ */ jsxs("div", {
+				className: "flex gap-2",
+				children: [/* @__PURE__ */ jsxs(Button, {
+					size: "sm",
+					variant: "outline",
+					className: "flex-1",
+					onClick: addSubtree,
+					children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add subtree"]
+				}), /* @__PURE__ */ jsxs(Button, {
+					size: "sm",
+					variant: "outline",
+					className: "flex-1",
+					onClick: () => setLibraryOpen(true),
+					title: "Load a saved shared subtree",
+					children: [
+						/* @__PURE__ */ jsx(FolderOpen, { className: "mr-1 h-4 w-4" }),
+						" Shared library",
+						shared.length ? ` (${shared.length})` : ""
+					]
+				})]
+			}),
+			/* @__PURE__ */ jsx(Dialog, {
+				open: shareIndex !== null,
+				onOpenChange: (v) => !v && setShareIndex(null),
+				children: /* @__PURE__ */ jsxs(DialogContent, { children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Save subtree to the shared library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "The saved copy keeps every node, connection and its own exclusivity setting. Loading it into a node creates an independent clone." })] }), /* @__PURE__ */ jsxs("div", {
+					className: "space-y-2",
+					children: [
+						/* @__PURE__ */ jsx(Label, {
+							className: "text-xs",
+							children: "Library name"
+						}),
+						/* @__PURE__ */ jsx(Input, {
+							value: shareName,
+							placeholder: "e.g. Fighting Styles",
+							onChange: (e) => setShareName(e.target.value)
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "flex justify-end gap-2 pt-1",
+							children: [/* @__PURE__ */ jsx(Button, {
+								variant: "outline",
+								onClick: () => setShareIndex(null),
+								children: "Cancel"
+							}), /* @__PURE__ */ jsx(Button, {
+								onClick: saveShared,
+								children: "Save to library"
+							})]
+						})
+					]
+				})] })
+			}),
+			/* @__PURE__ */ jsx(Dialog, {
+				open: libraryOpen,
+				onOpenChange: setLibraryOpen,
+				children: /* @__PURE__ */ jsxs(DialogContent, { children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Shared subtree library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Load a saved subtree into this node. Each load is cloned, so its points, purchases and mutual-exclusivity settings stay specific to this node." })] }), shared.length === 0 ? /* @__PURE__ */ jsx("p", {
+					className: "text-sm text-muted-foreground",
+					children: "No shared subtrees yet. Use the share button on any subtree to save it here."
+				}) : /* @__PURE__ */ jsx("div", {
+					className: "max-h-80 space-y-2 overflow-y-auto",
+					children: shared.map((entry) => /* @__PURE__ */ jsxs("div", {
+						className: "flex items-center gap-2 rounded-md border p-2",
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "min-w-0 flex-1",
+								children: [/* @__PURE__ */ jsx("p", {
+									className: "truncate text-sm font-medium",
+									children: entry.name || "Shared subtree"
+								}), /* @__PURE__ */ jsxs("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: [
+										(entry.nodes || []).filter((n) => !n.__returnNode).length,
+										" nodes",
+										entry.exclusive ? " · exclusive" : "",
+										entry.grantedPoints ? ` · ${entry.grantedPoints} points` : ""
+									]
+								})]
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								onClick: () => loadShared(entry),
+								children: "Load"
+							}),
+							/* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								className: "text-destructive",
+								title: "Remove from library",
+								onClick: () => removeShared(entry.id),
+								children: /* @__PURE__ */ jsx(Trash2, { className: "h-4 w-4" })
+							})
+						]
+					}, entry.id))
+				})] })
 			})
 		]
 	});
@@ -31030,6 +31296,41 @@ function NodeEditorPanel() {
 		]
 	});
 	const set = (patch) => updateNode(node.id, patch);
+	if (node.__returnNode) return /* @__PURE__ */ jsxs("div", {
+		className: "relative flex h-full flex-col border-l bg-card",
+		style: { width },
+		children: [
+			/* @__PURE__ */ jsx(PanelResizer, {}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex items-center justify-between border-b px-4 py-3",
+				children: [/* @__PURE__ */ jsx("h3", {
+					className: "text-sm font-semibold",
+					children: "Return Node"
+				}), /* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: "ghost",
+					onClick: () => setUi((u) => ({
+						...u,
+						editingNodeId: null
+					})),
+					children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+				})]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "space-y-3 p-4 text-sm",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "space-y-1",
+					children: [/* @__PURE__ */ jsx(Label, { children: "Name" }), /* @__PURE__ */ jsx(Input, {
+						value: node.name,
+						onChange: (e) => set({ name: e.target.value })
+					})]
+				}), /* @__PURE__ */ jsx("p", {
+					className: "text-xs text-muted-foreground",
+					children: "Double-click this node in play to return to the parent node. It cannot be invested in and has no effects."
+				})]
+			})
+		]
+	});
 	const applyTiers = (tiers) => {
 		const next = withTiers(node, tiers);
 		set({
@@ -32537,7 +32838,7 @@ function collectSubtreeUnlocked(tree) {
 	const out = [];
 	const walk = (subtree, host, chain, label) => {
 		(subtree?.nodes || []).forEach((n) => {
-			if (n.__hostCopy) return;
+			if (n.__hostCopy || n.__returnNode) return;
 			if ((n.currentPoints || 0) > 0) {
 				const subtreeIndex = chain[chain.length - 1]?.subIndex ?? 0;
 				out.push({
@@ -32573,7 +32874,7 @@ function collectSubtreeUnlocked(tree) {
 	return out;
 }
 function groupUnlocked(nodes, { includeAutoGranted = false } = {}) {
-	const list = (nodes || []).filter((n) => !n.__hostCopy && (includeAutoGranted || !n.__autoGranted));
+	const list = (nodes || []).filter((n) => !n.__hostCopy && !n.__returnNode && (includeAutoGranted || !n.__autoGranted));
 	const byAcquired = (a, b) => (Number(a.acquiredOrder) || Infinity) - (Number(b.acquiredOrder) || Infinity);
 	const heritage = list.filter((n) => poolForNode(n) === "heritage").sort(byAcquired);
 	const attributes = list.filter((n) => poolForNode(n) === "attribute").sort(byAcquired);
@@ -40723,7 +41024,7 @@ function prefixTree(nodes, connections, prefix) {
 	};
 }
 function SideTreePanel({ slot, floating = false, stacked = false }) {
-	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel, purchaseSubtree } = useTree();
+	const { tree, mergedTree, sideTrees, setSideTree, treeFocus, clearTreeFocus, focusNode, investPoint, pools, character, setCharacter, settings, ui, setSubtreeNodePoints, openSubtreePanel, purchaseSubtree } = useTree();
 	const st = (sideTrees || {})[slot];
 	const [width, setPanelWidth] = usePanelWidth(440, 260, 720, "skilltree:sideWidth:" + slot);
 	const [view, setView] = useState({
@@ -41188,6 +41489,29 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		purchaseSubtree(subtreeChain, st.subtreeHostId, st.subtreeIndex ?? 0);
 		openSubtreePanel(st.subtreeHostId, st.subtreeIndex ?? 0, subtreeChain.slice(0, -1));
 	};
+	const returnToParent = () => {
+		const chain = subtreeChain;
+		if (!chain.length) return;
+		const current = chain[chain.length - 1];
+		const parentChain = chain.slice(0, -1);
+		const tabs = (st.tabs || []).filter((t) => t.key !== st.key);
+		setSideTree(slot, tabs.length ? {
+			...st,
+			...tabs[tabs.length - 1],
+			tabs,
+			activeKey: tabs[tabs.length - 1].key
+		} : {
+			...st,
+			tabs: [],
+			activeKey: null,
+			closed: true
+		});
+		if (parentChain.length) {
+			const parent = parentChain[parentChain.length - 1];
+			openSubtreePanel(parent.hostId, parent.subIndex ?? 0, parentChain.slice(0, -1));
+			focusNode(`sub-${parent.hostId}-${parent.subIndex ?? 0}-${current.hostId}`);
+		} else focusNode(current.hostId);
+	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: cn("flex min-h-0 flex-col bg-card", stacked ? "w-full min-h-0 flex-1" : "h-full", !floating && !stacked && "relative shrink-0", !floating && !stacked && (slot === "left" ? "border-r" : "border-l")),
 		style: floating || stacked ? void 0 : { width },
@@ -41427,6 +41751,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 						onContextMenu: () => {},
 						onInvest,
 						onOpenSubtree: isMain || st?.subtreeHostId && Array.isArray(st?.hostChain) ? (n) => setSubtreePickNode(n) : void 0,
+						onReturnParent: returnToParent,
 						dblClickInvest: floating
 					}, n.id))]
 				}), /* @__PURE__ */ jsx(NodeTooltip, {

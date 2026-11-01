@@ -20,6 +20,8 @@ export function hasTiers(node) {
 }
 
 export function tiersForNode(node) {
+  // The return node is a navigation marker, not an investable talent.
+  if (node?.__returnNode) return [];
   const tiers = normalizeTiers(node);
   if (tiers.length) return tiers;
   return [
