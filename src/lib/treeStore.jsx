@@ -2918,6 +2918,40 @@ export function aggregateResources(tree, character, levels = []) {
       if (r.toggle && !(character.activeToggles || []).includes(`${n.id}:${i}`)) return;
       add(r, n);
     });
+    // Benefits assigned to the node's Resources category are real resources
+    // too; a numeric amount stacks into the resource's uses.
+    (n.benefits || [])
+      .filter((b) => b?.category === "resource" && b.name)
+      .forEach((b) =>
+        add(
+          {
+            name: b.name,
+            type: "point",
+            valueType: "flat",
+            uses: Number(b.value) || 1,
+            color: "#ffffff",
+          },
+          n
+        )
+      );
+    (n.benefits || [])
+      .filter(
+        (b) =>
+          b?.category === "stat" &&
+          ["Hit Points", "Exertion"].includes(String(b.name || "").trim())
+      )
+      .forEach((b) =>
+        add(
+          {
+            name: String(b.name).trim(),
+            type: "point",
+            valueType: "flat",
+            uses: Number(b.value) || 1,
+            color: "#ffffff",
+          },
+          n
+        )
+      );
   });
   pendingEqual.forEach(({ key, r, node }) => {
     const entry = map.get(key);

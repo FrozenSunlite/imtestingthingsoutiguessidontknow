@@ -1,1 +1,0 @@
-import{n as e}from"./routes-B2K_DEtn.js";export{e as default,e as jsPDF};

@@ -1,1 +1,0 @@
-import{g as e}from"./routes-B2K_DEtn.js";export default e();

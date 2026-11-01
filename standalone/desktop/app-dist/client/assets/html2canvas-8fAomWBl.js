@@ -1,0 +1,1 @@
+import{g as e}from"./routes-CJmcaVRT.js";export default e();

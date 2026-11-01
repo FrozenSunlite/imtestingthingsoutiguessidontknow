@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B-XpdHyw.js";
+import { n as Button, r as cn } from "./router-BSMgsNkN.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -9867,6 +9867,20 @@ function aggregateResources(tree, character, levels = []) {
 			if (r.toggle && !(character.activeToggles || []).includes(`${n.id}:${i}`)) return;
 			add(r, n);
 		});
+		(n.benefits || []).filter((b) => b?.category === "resource" && b.name).forEach((b) => add({
+			name: b.name,
+			type: "point",
+			valueType: "flat",
+			uses: Number(b.value) || 1,
+			color: "#ffffff"
+		}, n));
+		(n.benefits || []).filter((b) => b?.category === "stat" && ["Hit Points", "Exertion"].includes(String(b.name || "").trim())).forEach((b) => add({
+			name: String(b.name).trim(),
+			type: "point",
+			valueType: "flat",
+			uses: Number(b.value) || 1,
+			color: "#ffffff"
+		}, n));
 	});
 	pendingEqual.forEach(({ key, r, node }) => {
 		const entry = map.get(key);
@@ -12070,6 +12084,10 @@ var BENEFIT_CATEGORIES = [
 		label: "Weapon Properties"
 	},
 	{
+		id: "instrument",
+		label: "Instruments"
+	},
+	{
 		id: "stat",
 		label: "Character Stats"
 	},
@@ -12117,6 +12135,7 @@ function benefitOptions(settings, category) {
 			...names(lib.lists?.miscTools),
 			...names(lib.lists?.instruments)
 		];
+		case "instrument": return names(lib.lists?.instruments);
 		case "language": return names(lib.lists?.languages);
 		case "speed": return names(lib.speedTypes);
 		case "sense": return names(lib.senses);
@@ -34318,7 +34337,17 @@ function CharacterTab() {
 			/* @__PURE__ */ jsx("div", {
 				className: "grid gap-3 sm:grid-cols-2",
 				children: PROF_TYPES.map(([label, key]) => {
-					const list = (character.proficiencies || {})[key] || [];
+					const benefitKey = {
+						skills: "skill",
+						tools: "tool",
+						languages: "language",
+						instruments: "instrument"
+					}[key];
+					const benefitList = collectNodeBenefits(tree).filter((b) => b.category === benefitKey).map((b) => ({
+						name: b.name,
+						benefit: true
+					}));
+					const list = [...(character.proficiencies || {})[key] || [], ...benefitList];
 					return /* @__PURE__ */ jsx(SectionCard, {
 						title: `${label} Proficiencies`,
 						children: /* @__PURE__ */ jsxs("div", {
@@ -34328,7 +34357,7 @@ function CharacterTab() {
 								children: [
 									p.name || "—",
 									p.expertise ? " (Expertise)" : "",
-									key === "skills" && p.name && /* @__PURE__ */ jsxs("span", {
+									key === "skills" && p.name && !p.benefit && /* @__PURE__ */ jsxs("span", {
 										className: "text-muted-foreground",
 										children: [" · passive ", passiveFor(p)]
 									})

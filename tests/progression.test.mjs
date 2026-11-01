@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { nodeMaxPoints, tierGate, tierPlan } from "../src/lib/nodeTiers.js";
 import { stripLegacyAutoGrants } from "../src/lib/subtrees.js";
+import { filterSpells, tableOptions, tableSummary } from "../src/lib/benefits.js";
 
 test("tiers add up to Max Points and gate each level", () => {
   const node = {
@@ -52,4 +53,33 @@ test("legacy free subtree points are removed but manual points remain", () => {
   assert.equal(subtree.nodes[0].__autoGranted, undefined);
   assert.equal(subtree.nodes[1].currentPoints, 1);
   assert.equal(subtree.nodes[2].currentPoints, 1);
+});
+
+test("spell table filters by school and level relation", () => {
+  const spells = [
+    { name: "Fire Bolt", school: "Evocation", level: 0 },
+    { name: "Fireball", school: "Evocation", level: 3 },
+    { name: "Shield", school: "Abjuration", level: 1 },
+  ];
+  assert.deepEqual(
+    filterSpells(spells, { schools: ["Evocation"], levelMode: "upTo", level: 1 }).map(
+      (s) => s.name
+    ),
+    ["Fire Bolt"]
+  );
+  assert.deepEqual(
+    filterSpells(spells, { levelMode: "equalOrGreater", level: 3 }).map((s) => s.name),
+    ["Fireball"]
+  );
+});
+
+test("custom tables list options and summarise the roll", () => {
+  const table = {
+    source: "custom",
+    mode: "roll",
+    die: "d6",
+    optionsText: "Fire Bolt\nShield\n",
+  };
+  assert.deepEqual(tableOptions(table, []), ["Fire Bolt", "Shield"]);
+  assert.match(tableSummary(table, []), /Roll d6/);
 });

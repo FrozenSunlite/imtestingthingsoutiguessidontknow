@@ -1,7 +1,7 @@
 // Node benefits: a small category-aware library of things a talent grants.
 // Entries are stored on the node as { id, category, name, source, description, image }.
 // The editor can add them from a select or by dropping Reference Library entries.
-import { FACILITY_TYPES, BASTION_FACILITIES } from "@/lib/homestead";
+import { FACILITY_TYPES, BASTION_FACILITIES } from "./homestead.js";
 
 export const BENEFIT_CATEGORIES = [
   { id: "spell", label: "Spells" },
@@ -17,6 +17,7 @@ export const BENEFIT_CATEGORIES = [
   { id: "resource", label: "Resources" },
   { id: "mastery", label: "Weapon Masteries" },
   { id: "property", label: "Weapon Properties" },
+  { id: "instrument", label: "Instruments" },
   { id: "stat", label: "Character Stats" },
   { id: "facility", label: "Facilities" },
   { id: "object", label: "Objects" },
@@ -68,6 +69,8 @@ export function benefitOptions(settings, category) {
         ...names(lib.lists?.miscTools),
         ...names(lib.lists?.instruments),
       ];
+    case "instrument":
+      return names(lib.lists?.instruments);
     case "language":
       return names(lib.lists?.languages);
     case "speed":

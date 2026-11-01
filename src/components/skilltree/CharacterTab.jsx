@@ -516,7 +516,16 @@ export function CharacterTab() {
       {/* Proficiencies — one section per type */}
       <div className="grid gap-3 sm:grid-cols-2">
         {PROF_TYPES.map(([label, key]) => {
-          const list = (character.proficiencies || {})[key] || [];
+          const benefitKey = {
+            skills: "skill",
+            tools: "tool",
+            languages: "language",
+            instruments: "instrument",
+          }[key];
+          const benefitList = collectNodeBenefits(tree)
+            .filter((b) => b.category === benefitKey)
+            .map((b) => ({ name: b.name, benefit: true }));
+          const list = [...((character.proficiencies || {})[key] || []), ...benefitList];
           return (
             <SectionCard key={key} title={`${label} Proficiencies`}>
               <div className="flex flex-wrap gap-1.5">
@@ -527,7 +536,7 @@ export function CharacterTab() {
                   >
                     {p.name || "—"}
                     {p.expertise ? " (Expertise)" : ""}
-                    {key === "skills" && p.name && (
+                    {key === "skills" && p.name && !p.benefit && (
                       <span className="text-muted-foreground"> · passive {passiveFor(p)}</span>
                     )}
                   </span>
