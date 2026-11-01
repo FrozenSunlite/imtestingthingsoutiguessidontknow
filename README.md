@@ -105,8 +105,10 @@ changing app code, then restart the launcher.
   fixed size or a seed-driven random size, and the Borders toggle hides the
   coloured national territory as well as its outlines. The map supports selecting
   settlements, adding new ones, painting, moving and deleting with the Edit map
-  tools. Building population is twice its Bedroom rooms; businesses have no
-  Bedrooms unless they are an Inn. People can be added to or removed from the
+  tools. Landmass scripts (Pangaea, Continents, Archipelago, Islands, Fractal,
+  Inland Sea, Lakes, Highlands, Terra, Hemispheres, Big & Small) shape the
+  land/water mask. Building population is twice its Bedroom rooms; businesses have
+  no Bedrooms unless they are an Inn. People can be added to or removed from the
   People tab.
 - **Room Builder:** a front-page section for designing room shapes and battlefield
   terrain. Saved rooms feed procedural dungeons and kingdom house interiors, and

@@ -139,6 +139,22 @@ const BUILDING_TEMPLATES = [
   { type: "Well", category: "Civic", comfort: "Wretched", districts: ["Market", "Residential"], floors: [1, 1], rooms: ["Well"], workstations: ["Well"], terrain: [], prereq: [], kinds: ["village", "town", "city", "capital"], repeatable: 2 },
 ];
 
+// Civilization-style map scripts. They only reshape the land/water mask; the
+// biomes, nations and settlements are still generated the same way.
+export const LANDMASSES = [
+  { id: "pangaea", label: "Pangaea", description: "One vast central continent with ocean at the edges." },
+  { id: "continents", label: "Continents", description: "Two or three large landmasses separated by ocean." },
+  { id: "archipelago", label: "Archipelago", description: "Many small islands scattered across the sea." },
+  { id: "islands", label: "Islands", description: "Tiny island chains with plenty of open water." },
+  { id: "fractal", label: "Fractal", description: "Irregular noise-driven coastlines with no fixed shape." },
+  { id: "inland_sea", label: "Inland Sea", description: "A ring of land around a central sea." },
+  { id: "lakes", label: "Lakes", description: "Mostly land with scattered inland lakes." },
+  { id: "highlands", label: "Highlands", description: "Mostly land with only a few seas." },
+  { id: "terra", label: "Terra", description: "One old-world continent plus small new-world islands." },
+  { id: "hemispheres", label: "Hemispheres", description: "Two large lobes of land on opposite sides." },
+  { id: "big_small", label: "Big & Small", description: "One large continent and several smaller ones." },
+];
+
 function pickRealmCount(scale, rng) {
   const [min, max] = scale.realms;
   return rng.int(min, max);
@@ -151,12 +167,32 @@ function realmKind(scale) {
   return "region";
 }
 
-export function buildMapCells({ realm: _realm, nations, settlements, rng, width, height, biomes }) {
+export function buildMapCells({
+  realm: _realm,
+  nations,
+  settlements,
+  rng,
+  width,
+  height,
+  biomes,
+  landmass = "continents",
+}) {
   const cells = [];
   const centers = nations.map((nation) => {
     const capital = settlements.find((s) => s.id === nation.capitalId);
     return { nation, x: (capital?.x || 500) / 1000, y: (capital?.y || 500) / 1000 };
   });
+  const anchors = settlements.map((settlement) => ({
+    x: Number(settlement.x || 500) / 1000,
+    y: Number(settlement.y || 500) / 1000,
+  }));
+  const landBiomes = biomes.filter((b) => !["ocean", "void"].includes(b.id));
+  const biomePool = landBiomes.length ? landBiomes : biomes;
+  const oceanBiome =
+    BIOMES.find((b) => b.id === "ocean") ||
+    BIOMES.find((b) => b.id === "coast") ||
+    biomes[0];
+  const coastBiome = BIOMES.find((b) => b.id === "coast") || oceanBiome;
   const seed = rng.int(1, 999999);
   const hash = (x, y) => {
     const n = Math.sin(x * 127.1 + y * 311.7 + seed * 0.017) * 43758.5453;
@@ -177,29 +213,111 @@ export function buildMapCells({ realm: _realm, nations, settlements, rng, width,
     const v = ty * ty * (3 - 2 * ty);
     return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
   };
+  const landValue = (style, nx, ny, elevation, detail, fine) => {
+    const dist = Math.hypot(nx - 0.5, ny - 0.5);
+    switch (style) {
+      case "pangaea":
+        return (1 - dist * 2.0) * 0.55 + elevation * 0.45 + (detail - 0.5) * 0.15;
+      case "continents": {
+        const lobes = [
+          [0.28, 0.4, 0.19],
+          [0.72, 0.58, 0.18],
+          [0.5, 0.23, 0.14],
+        ];
+        const blob = Math.max(
+          ...lobes.map(([cx, cy, radius]) =>
+            Math.exp(-(((nx - cx) ** 2 + (ny - cy) ** 2) / (2 * radius * radius)))
+          )
+        );
+        return blob * 0.7 + elevation * 0.3;
+      }
+      case "archipelago":
+        return elevation * 0.55 + detail * 0.45 - 0.08;
+      case "islands":
+        return detail * 0.65 + fine * 0.35 - 0.18;
+      case "fractal":
+        return elevation;
+      case "inland_sea":
+        return dist * 1.8 + (elevation - 0.5) * 0.5;
+      case "lakes":
+        return elevation * 0.9 + 0.18 - (fine > 0.68 ? 0.35 : 0);
+      case "highlands":
+        return elevation * 0.8 + 0.3;
+      case "terra": {
+        const oldWorld = Math.exp(
+          -(((nx - 0.3) ** 2 + (ny - 0.5) ** 2) / (2 * 0.22 * 0.22))
+        );
+        const newWorld = detail > 0.72 ? 0.55 : 0;
+        return oldWorld * 0.8 + elevation * 0.2 + newWorld;
+      }
+      case "hemispheres": {
+        const left = Math.exp(
+          -(((nx - 0.25) ** 2 + (ny - 0.5) ** 2) / (2 * 0.16 * 0.16))
+        );
+        const right = Math.exp(
+          -(((nx - 0.75) ** 2 + (ny - 0.5) ** 2) / (2 * 0.16 * 0.16))
+        );
+        return Math.max(left, right) * 0.8 + elevation * 0.2;
+      }
+      case "big_small": {
+        const big = Math.exp(
+          -(((nx - 0.32) ** 2 + (ny - 0.45) ** 2) / (2 * 0.2 * 0.2))
+        );
+        const small = Math.max(
+          Math.exp(-(((nx - 0.78) ** 2 + (ny - 0.25) ** 2) / (2 * 0.07 * 0.07))),
+          Math.exp(-(((nx - 0.7) ** 2 + (ny - 0.78) ** 2) / (2 * 0.08 * 0.08))),
+          Math.exp(-(((nx - 0.9) ** 2 + (ny - 0.55) ** 2) / (2 * 0.06 * 0.06)))
+        );
+        return Math.max(big * 0.85, small * 0.7) + elevation * 0.15;
+      }
+      default:
+        return elevation;
+    }
+  };
+
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const nx = x / Math.max(1, width - 1);
       const ny = y / Math.max(1, height - 1);
-      const noise = smooth(nx, ny, 3.2) * 0.65 + smooth(nx, ny, 7.4) * 0.35;
+      const elevation = smooth(nx, ny, 3.2) * 0.65 + smooth(nx, ny, 7.4) * 0.35;
+      const detail = smooth(nx + 9.7, ny + 3.1, 5.2);
+      const fine = smooth(nx + 21.3, ny + 13.7, 11.4);
       const edge = Math.min(nx, ny, 1 - nx, 1 - ny);
-      let biome = biomes[Math.floor(noise * biomes.length)] || biomes[0];
-      if (edge < 0.06 && biomes.some((b) => b.id === "ocean")) biome = biomes.find((b) => b.id === "ocean");
+      let value = landValue(landmass, nx, ny, elevation, detail, fine);
+      // Settlements should always sit on land: raise the mask around them.
+      const anchor = anchors.reduce((best, point) => {
+        const d2 = (nx - point.x) ** 2 + (ny - point.y) ** 2;
+        return Math.max(best, Math.exp(-d2 / (2 * 0.055 * 0.055)));
+      }, 0);
+      value += anchor * 0.65;
+      let isLand = value > 0.5;
+      if (edge < 0.035) isLand = false;
+
+      let biome;
+      if (isLand) {
+        const landNoise = smooth(nx + 4.2, ny + 8.6, 6.1);
+        biome = biomePool[Math.floor(landNoise * biomePool.length)] || biomePool[0];
+      } else {
+        biome = value > 0.42 ? coastBiome : oceanBiome;
+      }
+
       let nationId = "";
-      let best = Infinity;
-      centers.forEach((center) => {
-        const d = (nx - center.x) ** 2 + (ny - center.y) ** 2;
-        if (d < best) {
-          best = d;
-          nationId = center.nation.id;
-        }
-      });
-      // Leave some unclaimed wilderness between powers.
-      if (best > 0.17 + noise * 0.05) nationId = "";
+      if (isLand) {
+        let best = Infinity;
+        centers.forEach((center) => {
+          const d = (nx - center.x) ** 2 + (ny - center.y) ** 2;
+          if (d < best) {
+            best = d;
+            nationId = center.nation.id;
+          }
+        });
+        // Leave some unclaimed wilderness between powers.
+        if (best > 0.17 + elevation * 0.05) nationId = "";
+      }
       cells.push({ x, y, biome: biome.id, nationId });
     }
   }
-  return { width, height, cells };
+  return { width, height, cells, landmass };
 }
 
 export function routeBetween(from, to, era, widthKm, rng) {
@@ -821,6 +939,7 @@ export function generateWorld({
   realmName = "",
   mapSizeMode = "fixed",
   mapSize = 256,
+  landmassId = "continents",
 } = {}) {
   const rng = makeRng(seed);
   const era = ERAS.find((e) => e.id === eraId) || ERAS[4];
@@ -971,6 +1090,7 @@ export function generateWorld({
       width: mapSide,
       height: mapSide,
       biomes: BIOMES.filter((b) => realm.biomeIds.includes(b.id)),
+      landmass: landmassId,
     });
   });
 
@@ -997,6 +1117,11 @@ export function generateWorld({
     widthKm: scale.widthKm,
     mapSize: mapSide,
     mapSizeMode: String(mapSizeMode) === "random" ? "random" : "fixed",
+    landmassId: LANDMASSES.some((item) => item.id === landmassId)
+      ? landmassId
+      : "continents",
+    landmassLabel:
+      LANDMASSES.find((item) => item.id === landmassId)?.label || "Continents",
     createdAt: new Date().toISOString(),
     calendar: { year: 1, month: 1, day: 1, hour: 8, season: "Spring" },
     realms,

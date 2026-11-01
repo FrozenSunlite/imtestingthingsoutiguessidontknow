@@ -1166,6 +1166,7 @@ export function WorldBuilder({ onExit }) {
                   <span>Tech level: {era?.tech}</span>
                   <span>Theme: {world.theme}</span>
                   <span>Seed: {world.seed}</span>
+                  <span>Landmass: {world.landmassLabel || world.landmassId || "Continents"}</span>
                   <span>Biomes: {world.realms[0]?.biomeLabels?.join(", ")}</span>
                   <span>Routes: {world.routes.length}</span>
                 </div>

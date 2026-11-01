@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Sparkles, Dices } from "lucide-react";
-import { BIOMES, ERAS, SCALES, THEMES } from "@/lib/worldGen";
+import { BIOMES, ERAS, LANDMASSES, SCALES, THEMES } from "@/lib/worldGen";
 
 const randomSeed = () =>
   `${Math.random().toString(36).slice(2, 7)}-${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
@@ -23,6 +23,7 @@ export function SettingForm({ onCreate, compact = false }) {
   const [scaleId, setScaleId] = useState("kingdom");
   const [sizeMode, setSizeMode] = useState("fixed");
   const [mapSize, setMapSize] = useState(256);
+  const [landmassId, setLandmassId] = useState("continents");
   const [realmName, setRealmName] = useState("");
   const [biomes, setBiomes] = useState(["grassland", "forest", "hills", "mountains", "coast"]);
 
@@ -34,6 +35,7 @@ export function SettingForm({ onCreate, compact = false }) {
     setTheme(THEMES[Math.floor(Math.random() * THEMES.length)]);
     setEraId(ERAS[Math.floor(Math.random() * ERAS.length)].id);
     setScaleId(SCALES[Math.floor(Math.random() * SCALES.length)].id);
+    setLandmassId(LANDMASSES[Math.floor(Math.random() * LANDMASSES.length)].id);
   };
 
   return (
@@ -133,6 +135,22 @@ export function SettingForm({ onCreate, compact = false }) {
             />
           )}
         </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Landmass</Label>
+          <Select value={landmassId} onValueChange={setLandmassId}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {LANDMASSES.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-0.5 text-[9px] text-muted-foreground">
+            {LANDMASSES.find((item) => item.id === landmassId)?.description}
+          </p>
+        </div>
       </div>
 
       <div>
@@ -171,6 +189,7 @@ export function SettingForm({ onCreate, compact = false }) {
             selectedBiomes: biomes,
             mapSizeMode: sizeMode,
             mapSize: Number(mapSize) || 256,
+            landmassId,
           })
         }
       >
