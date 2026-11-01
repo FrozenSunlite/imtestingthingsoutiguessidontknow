@@ -131,6 +131,136 @@ const REWARD_ITEMS = [
   "A favour from the patron", "A small land grant", "A guild introduction",
 ];
 
+// Coherent step chains: the opener, the road, the goal, then the return. The
+// goal step always matches the chosen objective so a quest never asks for an
+// item that was never introduced.
+function stepsForQuest(typeId, variant, fill) {
+  const opener = fill(
+    ["Speak with {patron} in {settlement}.", "Meet the contact at the {settlement} gate.", "Study the reports in {settlement}."][
+      variant % 3
+    ]
+  );
+  const road = fill(
+    ["Travel to {place} and find the trail.", "Reach the {biome} without being seen.", "Interview witnesses around {place}."][
+      variant % 3
+    ]
+  );
+  const returnStep = fill(
+    ["Report back to {patron} in {settlement}.", "Bring proof to the {settlement} hall.", "Return to {patron} with the news."][
+      variant % 3
+    ]
+  );
+  switch (typeId) {
+    case "hunt":
+      return [
+        opener,
+        road,
+        fill(variant === 1 ? "Clear the {monster} from the {biome}." : "Confront and defeat the {monster}."),
+        fill("Bring proof of the {monster}'s death back to {patron} in {settlement}."),
+      ];
+    case "delve":
+      return [
+        opener,
+        fill("Travel to {place} and find the entrance."),
+        fill(
+          variant === 0
+            ? "Explore the ruin and recover the {item}."
+            : variant === 1
+              ? "Map the tunnels beneath {place} and return alive."
+              : "Break the seal and destroy what waits inside."
+        ),
+        variant === 0 ? fill("Bring the {item} back to {patron} in {settlement}.") : returnStep,
+      ];
+    case "escort":
+      return [
+        opener,
+        fill("Prepare the caravan and leave {settlement} for {place}."),
+        fill("Protect the cargo and travellers through the {biome}."),
+        fill("Deliver the caravan safely to {place} and report to {patron}."),
+      ];
+    case "retrieve":
+      return [
+        opener,
+        fill("Travel to {place} and search the {biome}."),
+        fill(
+          variant === 0
+            ? "Recover the stolen {item} from the {biome} near {place}."
+            : variant === 1
+              ? "Find the missing {item} before it leaves the region."
+              : "Retrieve the {item} from the rival without starting a war."
+        ),
+        fill("Return the {item} to {patron} in {settlement}."),
+      ];
+    case "investigate":
+      return [
+        opener,
+        fill("Interview witnesses and study the reports in {settlement}."),
+        fill(
+          variant === 0
+            ? "Find out why people are disappearing around {place}."
+            : variant === 1
+              ? "Investigate the strange lights in the {biome}."
+              : "Uncover who is spreading unrest in {place}."
+        ),
+        fill("Confront the culprit and report to {patron} in {settlement}."),
+      ];
+    case "diplomacy":
+      return [
+        opener,
+        fill("Travel to {place} with the patron's terms."),
+        fill(
+          variant === 0
+            ? "Secure a meeting with the {place} council."
+            : variant === 1
+              ? "Prevent the border dispute from becoming a war."
+              : "Negotiate the release of the prisoners held at {place}."
+        ),
+        returnStep,
+      ];
+    case "trade":
+      return [
+        opener,
+        fill("Travel to {place} and inspect the route."),
+        fill(
+          variant === 0
+            ? "Open the trade route between {place} and the capital."
+            : variant === 1
+              ? "Find out why shipments to {place} keep disappearing."
+              : "Deliver seed and tools to {place} before the planting season ends."
+        ),
+        fill("Return to {patron} in {settlement} with the signed contract."),
+      ];
+    case "defense":
+      return [
+        opener,
+        fill("Reach {place} and inspect its defences."),
+        fill(
+          variant === 0
+            ? "Defend {place} from the raid out of the {biome}."
+            : variant === 1
+              ? "Repair the watchtower and organise the militia at {place}."
+              : "Break the siege lines around {place}."
+        ),
+        returnStep,
+      ];
+    case "harvest":
+      return [
+        opener,
+        fill("Travel into the {biome} near {place}."),
+        fill(
+          variant === 0
+            ? "Gather the {item} without waking its guardians."
+            : variant === 1
+              ? "Find a reliable supply of the {item} for the settlement."
+              : "Escort the harvesters into the {biome} and back."
+        ),
+        fill("Bring the harvest to {patron} in {settlement}."),
+      ];
+    default:
+      return [opener, road, fill("Complete the task at {place}."), returnStep];
+  }
+}
+
 export function generateQuest(world, { level = 1, seed = "", patronId = "" } = {}) {
   const rng = makeRng(`${world?.id}:${seed || Date.now()}:${Math.random()}`);
   const settlements = world?.settlements || [];
@@ -164,12 +294,10 @@ export function generateQuest(world, { level = 1, seed = "", patronId = "" } = {
   const difficulty = Math.max(1, Math.min(20, Number(level) + rng.int(-1, 2)));
   const tier = difficulty <= 4 ? "local" : difficulty <= 8 ? "regional" : difficulty <= 12 ? "kingdom" : difficulty <= 16 ? "national" : "legendary";
   const rewardGold = Math.round((100 + difficulty * 75) * (1 + rng.rand() * 0.4));
-  const steps = [
-    fill(rng.pick(["Speak with {patron} in {settlement}.", "Meet the contact at the {settlement} gate.", "Study the reports in {settlement}."])),
-    fill(rng.pick(["Travel to {place} and find the trail.", "Reach the {biome} without being seen.", "Interview witnesses around {place}."])),
-    fill(rng.pick(["Confront the {monster}.", "Recover the {item}.", "Secure the site and return."])),
-    fill(rng.pick(["Report back to {patron} in {settlement}.", "Bring proof to the {settlement} hall.", "Return the {item} to its owner."])),
-  ];
+  const objective = rng.pick(type.objectives);
+  const variant = Math.max(0, type.objectives.indexOf(objective));
+  const objectiveText = fill(objective);
+  const steps = stepsForQuest(type.id, variant, fill);
   const quest = {
     id: `quest_${Date.now().toString(36)}_${Math.floor(rng.rand() * 1e5).toString(36)}`,
     title: fill(rng.pick(type.titles)),
@@ -190,9 +318,9 @@ export function generateQuest(world, { level = 1, seed = "", patronId = "" } = {
     biomeLabel: biome.label,
     level: difficulty,
     tier,
-    objective: fill(rng.pick(type.objectives)),
+    objective: objectiveText,
     description: fill(
-      `${patron?.name || "A patron"} needs help. ${rng.pick(type.objectives)} ` +
+      `${patron?.name || "A patron"} needs help. ${objectiveText} ` +
         `The work is expected to suit a party around level ${difficulty}.`
     ),
     complication: rng.pick(COMPLICATIONS),

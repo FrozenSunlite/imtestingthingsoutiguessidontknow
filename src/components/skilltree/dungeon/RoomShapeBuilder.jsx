@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTree } from "@/lib/treeStore";
 import {
   DUNGEON_TRAP_TYPES,
   ROOM_SHAPES,
@@ -15,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -36,14 +38,31 @@ const TOOLS = [
   ["threeQuarter", "¾ cover", "Place three-quarters cover on this cell"],
   ["full", "Full cover", "Place full cover on this cell"],
   ["trap", "Trap", "Place the selected trap type"],
+  ["hazard", "Hazard", "Mark terrain as a hazard with a description"],
   ["water", "Water", "Mark a water cell (swimming / difficult)"],
+  ["lava", "Lava", "Mark a lava cell (hazardous floor)"],
+  ["bridge", "Bridge", "Mark a bridge crossing over liquid"],
   ["difficult", "Difficult", "Mark difficult terrain"],
   ["stairs", "Stairs", "Place stairs on an elevation edge"],
   ["erase", "Erase", "Remove markers, surfaces, then floor"],
 ];
 
-const keyOf = (x, y) => `${x},${y}`;
-const pointKey = (p) => keyOf(Number(p?.x), Number(p?.y));
+const FLOOR_TYPES = [
+  ["stone", "Stone", "#6b7280"],
+  ["wood", "Wood", "#8b5e3c"],
+  ["dirt", "Dirt", "#7c5a3a"],
+  ["grass", "Grass", "#4d7c0f"],
+  ["sand", "Sand", "#c2a35a"],
+  ["marble", "Marble", "#d1d5db"],
+  ["ice", "Ice", "#7dd3fc"],
+  ["metal", "Metal", "#64748b"],
+  ["lava", "Lava", "#dc2626"],
+];
+
+const floorColor = (id) =>
+  FLOOR_TYPES.find(([key]) => key === id)?.[2] || "#6b7280";
+
+const keyOf = (x, y) => `${x},${y}`;const pointKey = (p) => keyOf(Number(p?.x), Number(p?.y));
 const pointList = (arr) => {
   if (!Array.isArray(arr) || !arr.length) return [];
   return arr
@@ -102,9 +121,11 @@ export function RoomShapeBuilder({
   templates = [],
   onLoadTemplate,
   templateId = "",
+  onResize,
 }) {
-  const w = Math.max(9, Math.min(33, Math.round(Number(room?.w) || 9)));
-  const h = Math.max(9, Math.min(33, Math.round(Number(room?.h) || 9)));
+  const { settings } = useTree();
+  const w = Math.max(3, Math.min(33, Math.round(Number(room?.w) || 9)));
+  const h = Math.max(3, Math.min(33, Math.round(Number(room?.h) || 9)));
   const [preset, setPreset] = useState("Rectangle");
   const [tool, setTool] = useState("floor");
   const [cells, setCells] = useState(() => new Set());
@@ -113,10 +134,17 @@ export function RoomShapeBuilder({
   const [heights, setHeights] = useState(() => new Map());
   const [covers, setCovers] = useState(() => new Map());
   const [trapMaps, setTrapMaps] = useState(() => new Map());
+  const [hazards, setHazards] = useState(() => new Map());
   const [water, setWater] = useState(() => new Set());
+  const [lava, setLava] = useState(() => new Set());
+  const [bridges, setBridges] = useState(() => new Set());
   const [difficult, setDifficult] = useState(() => new Set());
   const [stairs, setStairs] = useState(() => new Set());
   const [trapType, setTrapType] = useState(DUNGEON_TRAP_TYPES[0]);
+  const [hazardType, setHazardType] = useState("Unstable ground");
+  const [bridgeType, setBridgeType] = useState("Bridge");
+  const [floorType, setFloorType] = useState(room?.floorType || "stone");
+  const [floorTexture, setFloorTexture] = useState(room?.floorTextureUrl || "");
   const [brush, setBrush] = useState(1);
   const [mirror, setMirror] = useState(false);
   const [rectStart, setRectStart] = useState(null);
@@ -164,8 +192,19 @@ export function RoomShapeBuilder({
       )
     );
     setWater(new Set(pointList(room.water).map(pointKey).filter(keep)));
+    setLava(new Set(pointList(room.lava).map(pointKey).filter(keep)));
+    setBridges(new Set(pointList(room.bridges).map(pointKey).filter(keep)));
+    setHazards(
+      new Map(
+        pointList(room.hazardPoints)
+          .map((p) => [pointKey(p), String(p.type || p.hazard || "Hazard")])
+          .filter(([key]) => keep(key))
+      )
+    );
     setDifficult(new Set(pointList(room.difficult).map(pointKey).filter(keep)));
     setStairs(new Set(pointList(room.stairs).map(pointKey).filter(keep)));
+    setFloorType(room.floorType || "stone");
+    setFloorTexture(room.floorTextureUrl || "");
     setTool("floor");
     setPreset(room.shape || "Custom");
   }, [room, w, h]);
@@ -182,7 +221,10 @@ export function RoomShapeBuilder({
     state.heights.has(key) ||
     state.covers.has(key) ||
     state.trapMaps.has(key) ||
+    state.hazards.has(key) ||
     state.water.has(key) ||
+    state.lava.has(key) ||
+    state.bridges.has(key) ||
     state.difficult.has(key) ||
     state.stairs.has(key);
 
@@ -192,7 +234,10 @@ export function RoomShapeBuilder({
     state.heights.delete(key);
     state.covers.delete(key);
     state.trapMaps.delete(key);
+    state.hazards.delete(key);
     state.water.delete(key);
+    state.lava.delete(key);
+    state.bridges.delete(key);
     state.difficult.delete(key);
     state.stairs.delete(key);
   };
@@ -249,9 +294,33 @@ export function RoomShapeBuilder({
       return;
     }
 
+    if (tool === "hazard") {
+      if (state.hazards.get(key) === hazardType) state.hazards.delete(key);
+      else state.hazards.set(key, hazardType);
+      return;
+    }
+
     if (tool === "water") {
       if (state.water.has(key)) state.water.delete(key);
-      else state.water.add(key);
+      else {
+        state.water.add(key);
+        state.lava.delete(key);
+      }
+      return;
+    }
+
+    if (tool === "lava") {
+      if (state.lava.has(key)) state.lava.delete(key);
+      else {
+        state.lava.add(key);
+        state.water.delete(key);
+      }
+      return;
+    }
+
+    if (tool === "bridge") {
+      if (state.bridges.has(key)) state.bridges.delete(key);
+      else state.bridges.add(key);
       return;
     }
 
@@ -283,7 +352,10 @@ export function RoomShapeBuilder({
       heights: new Map(heights),
       covers: new Map(covers),
       trapMaps: new Map(trapMaps),
+      hazards: new Map(hazards),
       water: new Set(water),
+      lava: new Set(lava),
+      bridges: new Set(bridges),
       difficult: new Set(difficult),
       stairs: new Set(stairs),
     };
@@ -335,7 +407,10 @@ export function RoomShapeBuilder({
     setHeights(state.heights);
     setCovers(state.covers);
     setTrapMaps(state.trapMaps);
+    setHazards(state.hazards);
     setWater(state.water);
+    setLava(state.lava);
+    setBridges(state.bridges);
     setDifficult(state.difficult);
     setStairs(state.stairs);
     setPreset("Custom");
@@ -347,7 +422,10 @@ export function RoomShapeBuilder({
     heights: new Map([...heights].filter(([key]) => next.has(key))),
     covers: new Map([...covers].filter(([key]) => next.has(key))),
     trapMaps: new Map([...trapMaps].filter(([key]) => next.has(key))),
+    hazards: new Map([...hazards].filter(([key]) => next.has(key))),
     water: new Set([...water].filter((key) => next.has(key))),
+    lava: new Set([...lava].filter((key) => next.has(key))),
+    bridges: new Set([...bridges].filter((key) => next.has(key))),
     difficult: new Set([...difficult].filter((key) => next.has(key))),
     stairs: new Set([...stairs].filter((key) => next.has(key))),
   });
@@ -362,7 +440,10 @@ export function RoomShapeBuilder({
     setHeights(filtered.heights);
     setCovers(filtered.covers);
     setTrapMaps(filtered.trapMaps);
+    setHazards(filtered.hazards);
     setWater(filtered.water);
+    setLava(filtered.lava);
+    setBridges(filtered.bridges);
     setDifficult(filtered.difficult);
     setStairs(filtered.stairs);
   };
@@ -372,7 +453,10 @@ export function RoomShapeBuilder({
       heights: new Map(heights),
       covers: new Map(covers),
       trapMaps: new Map(trapMaps),
+      hazards: new Map(hazards),
       water: new Set(water),
+      lava: new Set(lava),
+      bridges: new Set(bridges),
       difficult: new Set(difficult),
       stairs: new Set(stairs),
     });
@@ -384,7 +468,10 @@ export function RoomShapeBuilder({
     setHeights(new Map([...terrainClip.heights].filter(([key]) => keep(key))));
     setCovers(new Map([...terrainClip.covers].filter(([key]) => keep(key))));
     setTrapMaps(new Map([...terrainClip.trapMaps].filter(([key]) => keep(key))));
+    setHazards(new Map([...terrainClip.hazards].filter(([key]) => keep(key))));
     setWater(new Set([...terrainClip.water].filter(keep)));
+    setLava(new Set([...terrainClip.lava].filter(keep)));
+    setBridges(new Set([...terrainClip.bridges].filter(keep)));
     setDifficult(new Set([...terrainClip.difficult].filter(keep)));
     setStairs(new Set([...terrainClip.stairs].filter(keep)));
     setPreset("Custom");
@@ -423,8 +510,16 @@ export function RoomShapeBuilder({
         const [x, y] = key.split(",").map(Number);
         return { x, y, type };
       }),
+      hazardPoints: [...hazards].map(([key, type]) => {
+        const [x, y] = key.split(",").map(Number);
+        return { x, y, type };
+      }),
       water: [...water].map((key) => key.split(",").map(Number)),
+      lava: [...lava].map((key) => key.split(",").map(Number)),
+      bridges: [...bridges].map((key) => key.split(",").map(Number)),
       difficult: [...difficult].map((key) => key.split(",").map(Number)),
+      floorType,
+      floorTextureUrl: floorTexture,
       environmentEffect: room?.environmentEffect || "",
       tags: [...(room?.tags || [])],
     };
@@ -442,8 +537,9 @@ export function RoomShapeBuilder({
         <div>
           <h3 className="text-sm font-semibold">Room Maker — {room?.name || "Room"}</h3>
           <p className="text-[10px] text-muted-foreground">
-            Paint the floor and battlefield: height, cover, traps, water, difficult terrain and
-            stairs. Grid: {w} × {h}. Enemies stay abstract — this is terrain, not a monster list.
+            Paint the floor and battlefield: height, cover, traps, hazards, water, lava, bridges and
+            stairs. Add a floor type or texture to the whole room. Grid: {w} × {h}. Enemies stay
+            abstract — this is terrain, not a monster list.
           </p>
         </div>
       ) : (
@@ -496,6 +592,38 @@ export function RoomShapeBuilder({
         <span className="text-[10px] text-muted-foreground">
           {list.length} cells · {connected ? "connected" : "disconnected"}
         </span>
+        {onResize && (
+          <span className="flex items-center gap-1">
+            <Label className="text-[10px] text-muted-foreground">W</Label>
+            <Input
+              className="h-7 w-14 text-xs"
+              type="number"
+              min={3}
+              max={33}
+              value={w}
+              onChange={(e) =>
+                onResize({
+                  w: Math.max(3, Math.min(33, Number(e.target.value) || 3)),
+                  h,
+                })
+              }
+            />
+            <Label className="text-[10px] text-muted-foreground">H</Label>
+            <Input
+              className="h-7 w-14 text-xs"
+              type="number"
+              min={3}
+              max={33}
+              value={h}
+              onChange={(e) =>
+                onResize({
+                  w,
+                  h: Math.max(3, Math.min(33, Number(e.target.value) || 3)),
+                })
+              }
+            />
+          </span>
+        )}
         <div className="ml-auto flex gap-1">
           <Button size="sm" variant="ghost" onClick={() => applyPreset("Rectangle")}>
             Fill
@@ -510,7 +638,10 @@ export function RoomShapeBuilder({
               setHeights(new Map());
               setCovers(new Map());
               setTrapMaps(new Map());
+              setHazards(new Map());
               setWater(new Set());
+              setLava(new Set());
+              setBridges(new Set());
               setDifficult(new Set());
               setStairs(new Set());
               setRectStart(null);
@@ -519,6 +650,40 @@ export function RoomShapeBuilder({
             Clear
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Label className="text-[10px] text-muted-foreground">Floor type</Label>
+        <Select value={floorType} onValueChange={setFloorType}>
+          <SelectTrigger className="h-7 w-32 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FLOOR_TYPES.map(([id, label]) => (
+              <SelectItem key={id} value={id}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Label className="text-[10px] text-muted-foreground">Texture</Label>
+        <Input
+          className="h-7 w-64 text-xs"
+          value={floorTexture}
+          list="room-floor-textures"
+          placeholder="/images/... or a texture URL"
+          onChange={(e) => setFloorTexture(e.target.value)}
+        />
+        <datalist id="room-floor-textures">
+          {[...new Set((settings?.library?.dungeonRooms || [])
+            .map((r) => r.floorTextureUrl)
+            .filter(Boolean))].map((url) => (
+            <option key={url} value={url} />
+          ))}
+        </datalist>
+        {floorTexture && (
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setFloorTexture("")}>
+            Clear texture
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-1">
@@ -582,6 +747,27 @@ export function RoomShapeBuilder({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {tool === "hazard" && (
+          <>
+            <Label className="text-[10px] text-muted-foreground">Hazard</Label>
+            <Input
+              className="h-7 w-64 text-xs"
+              value={hazardType}
+              placeholder="What is the hazard?"
+              onChange={(e) => setHazardType(e.target.value)}
+            />
+          </>
+        )}
+        {tool === "bridge" && (
+          <>
+            <Label className="text-[10px] text-muted-foreground">Bridge</Label>
+            <Input
+              className="h-7 w-44 text-xs"
+              value={bridgeType}
+              onChange={(e) => setBridgeType(e.target.value)}
+            />
+          </>
+        )}
         {tool === "trap" && (
           <>
             <Label className="text-[10px] text-muted-foreground">Trap type</Label>
@@ -612,15 +798,17 @@ export function RoomShapeBuilder({
         </Button>
         <span className="ml-auto text-[10px] text-muted-foreground">
           {spawns.size} spawn{spawns.size === 1 ? "" : "s"} · {ingress.size} ingress ·{" "}
-          {heights.size} height · {covers.size} cover · {trapMaps.size} trap · {water.size} water ·{" "}
+          {heights.size} height · {covers.size} cover · {trapMaps.size} trap · {hazards.size} hazard ·{" "}
+          {water.size} water · {lava.size} lava · {bridges.size} bridge ·{" "}
           {difficult.size} difficult · {stairs.size} stair
         </span>
       </div>
 
       <div className="overflow-auto rounded-md border p-2">
         <div
-          className="mx-auto grid w-max gap-0.5"
+          className="mx-auto grid w-max select-none gap-0.5"
           style={{ gridTemplateColumns: `repeat(${w}, 2rem)` }}
+          onMouseDown={(event) => event.preventDefault()}
         >
           {Array.from({ length: h }, (_, y) =>
             Array.from({ length: w }, (_, x) => {
@@ -631,12 +819,18 @@ export function RoomShapeBuilder({
               const height = heights.get(key) || 0;
               const cover = covers.get(key);
               const trap = trapMaps.get(key);
+              const hazard = hazards.get(key);
               const isWater = water.has(key);
+              const isLava = lava.has(key);
+              const isBridge = bridges.has(key);
               const isDifficult = difficult.has(key);
               const isStairs = stairs.has(key);
               const badges = [
                 trap ? "T" : "",
+                hazard ? "!" : "",
                 isWater ? "≈" : "",
+                isLava ? "L" : "",
+                isBridge ? "B" : "",
                 isDifficult ? "▨" : "",
                 isStairs ? "↕" : "",
                 cover ? coverLabel(cover) : "",
@@ -646,13 +840,19 @@ export function RoomShapeBuilder({
                 ? "S"
                 : isIngress
                   ? "IN"
-                  : isWater
-                    ? "≈"
-                    : isDifficult
-                      ? "▨"
-                      : active
-                        ? "·"
-                        : "";
+                  : isBridge
+                    ? "B"
+                    : isLava
+                      ? "L"
+                      : isWater
+                        ? "≈"
+                        : hazard
+                          ? "!"
+                          : isDifficult
+                            ? "▨"
+                            : active
+                              ? "·"
+                              : "";
               return (
                 <button
                   key={key}
@@ -662,24 +862,41 @@ export function RoomShapeBuilder({
                   }${isIngress ? " · player ingress" : ""}${
                     height ? ` · height ${height}` : ""
                   }${cover ? ` · ${cover} cover` : ""}${trap ? ` · trap: ${trap}` : ""}${
-                    isWater ? " · water" : ""
+                    hazard ? ` · hazard: ${hazard}` : ""
+                  }${isWater ? " · water" : ""}${isLava ? " · lava" : ""}${
+                    isBridge ? ` · ${bridgeType || "bridge"}` : ""
                   }${isDifficult ? " · difficult terrain" : ""}${
                     isStairs ? " · stairs" : ""
                   }`}
                   onClick={() => applyCellClick(x, y)}
-                  className={`relative h-8 w-8 overflow-hidden rounded-sm border text-[10px] font-semibold transition-colors ${
+                  onMouseDown={(event) => event.preventDefault()}
+                  style={
+                    active
+                      ? {
+                          backgroundColor: floorColor(floorType),
+                          backgroundImage: floorTexture ? `url("${floorTexture}")` : undefined,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }
+                      : undefined
+                  }
+                  className={`relative h-8 w-8 cursor-pointer select-none overflow-hidden rounded-sm border text-[10px] font-semibold transition-colors ${
                     isSpawn
                       ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300"
                       : isIngress
                         ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-                        : isWater
-                          ? "border-sky-500 bg-sky-500/30 text-sky-700 dark:text-sky-300"
-                          : isDifficult
-                            ? "border-amber-600 bg-amber-500/25 text-amber-800 dark:text-amber-300"
-                            : active
-                              ? "border-primary bg-primary/35 text-foreground"
-                              : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"
-                  }`}
+                        : isLava
+                          ? "border-orange-600 bg-orange-500/40 text-orange-800 dark:text-orange-200"
+                          : isWater
+                            ? "border-sky-500 bg-sky-500/30 text-sky-700 dark:text-sky-300"
+                            : hazard
+                              ? "border-rose-600 bg-rose-500/30 text-rose-800 dark:text-rose-200"
+                              : isDifficult
+                                ? "border-amber-600 bg-amber-500/25 text-amber-800 dark:text-amber-300"
+                                : active
+                                  ? "border-primary text-foreground"
+                                  : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"
+                  } ${isBridge ? "ring-1 ring-inset ring-amber-200/80" : ""}`}
                 >
                   {center}
                   {badges.length > 0 && (
@@ -699,8 +916,11 @@ export function RoomShapeBuilder({
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" /> spawn</span>
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" /> ingress</span>
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" /> water</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-orange-500" /> lava</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-200" /> bridge</span>
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-rose-500" /> hazard</span>
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" /> difficult</span>
-          <span>T trap · ↕ stairs · ½/¾/F cover · +1/−1 elevation</span>
+          <span>T trap · ! hazard · L lava · B bridge · ↕ stairs · ½/¾/F cover · +1/−1 elevation</span>
         </div>
         <div className="flex flex-wrap justify-end gap-1">
           <Button size="sm" variant="outline" onClick={() => onOpenChange?.(false)}>

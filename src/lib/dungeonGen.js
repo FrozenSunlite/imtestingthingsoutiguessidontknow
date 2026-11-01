@@ -480,8 +480,15 @@ function instantiate(template, category, rng, rank, { monsters: _monsters, lootP
     coverPoints: surface.coverPoints,
     trapPoints: surface.trapPoints,
     water: surface.water,
+    lava: surface.lava || [],
+    bridges: surface.bridges || [],
+    hazardPoints: surface.hazardPoints || [],
+    liquidStart: surface.liquidStart || null,
+    liquidEnds: surface.liquidEnds || [],
     difficult: surface.difficult,
     environmentEffect: template.environmentEffect || "",
+    floorType: template.floorType || "stone",
+    floorTextureUrl: template.floorTextureUrl || "",
     tags: [...(template.tags || [])],
     description: template.description || "",
     ingressPoints: template.ingressPoints?.length
@@ -819,6 +826,22 @@ export function buildRoutes(rooms, connections) {
   return routes;
 }
 
+// Keep at most two exterior doors. The start/entrance rooms get priority; any
+// extra external door is closed so generated dungeons do not leak the surface.
+function limitExternalDoors(rooms) {
+  const external = (rooms || []).filter((room) => room.externalDoor);
+  if (external.length <= 2) return rooms;
+  const priority = [...external].sort((a, b) => {
+    const score = (room) =>
+      room.category === "Start" ? 2 : room.category === "Entrance" ? 1 : 0;
+    return score(b) - score(a);
+  });
+  const keep = new Set(priority.slice(0, 2).map((room) => room.id));
+  return rooms.map((room) =>
+    room.externalDoor && !keep.has(room.id) ? { ...room, externalDoor: false } : room
+  );
+}
+
 export function generateDungeon({
   mode = "single",
   rank = "E",
@@ -1063,14 +1086,15 @@ export function generateDungeon({
   }
 
   const routes = buildRoutes(rooms, connections);
-  const linkedConnections = attachDoorPoints(rooms, connections);
+  const finalRooms = limitExternalDoors(rooms);
+  const linkedConnections = attachDoorPoints(finalRooms, connections);
   return {
     id: uid("dungeon"),
     name: title,
     mode,
     rank,
     seed,
-    rooms,
+    rooms: finalRooms,
     connections: linkedConnections,
     routes,
     chosenRouteId: routes[0]?.id || "",
@@ -1398,6 +1422,91 @@ export function waterCellsFor(cells, environment) {
   return spreadCells(cells, Math.max(2, Math.round(cells.length * 0.28)));
 }
 
+// Liquids run across a room from one edge (start) to one or two opposite/side
+// edges, always at least two cells thick, with a bridge crossing over them.
+export function liquidCellsFor(cells, environment, rng) {
+  const text = String(environment || "").toLowerCase();
+  const kind = /lava|magma|volcan|molten|fire/.test(text)
+    ? "lava"
+    : /flood|cistern|water|spring|river|lake|sea|marsh/.test(text)
+      ? "water"
+      : "";
+  const list = (cells || [])
+    .map((cell) => [Number(cell?.[0]), Number(cell?.[1])])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (!kind || list.length < 4) {
+    return { kind: "", cells: [], bridges: [], start: null, ends: [] };
+  }
+  const valid = new Set(list.map(([x, y]) => `${x},${y}`));
+  const xs = list.map(([x]) => x);
+  const ys = list.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const rand = (min, max) =>
+    rng?.int ? rng.int(min, max) : Math.round((min + max) / 2);
+  const random = () => (rng?.rand ? rng.rand() : 0.5);
+  const horizontal = random() < 0.5;
+  const liquid = new Set();
+  const bridges = new Set();
+  const pathPoints = [];
+
+  const addPath = (from, to, remember = false) => {
+    const steps = Math.max(Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1]), 1);
+    for (let i = 0; i <= steps; i += 1) {
+      const x = Math.round(from[0] + ((to[0] - from[0]) * i) / steps);
+      const y = Math.round(from[1] + ((to[1] - from[1]) * i) / steps);
+      if (remember) pathPoints.push([x, y]);
+      // Two-cell thickness.
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        if (valid.has(`${x + dx},${y + dy}`)) liquid.add(`${x + dx},${y + dy}`);
+      }
+    }
+  };
+
+  const start = horizontal
+    ? [minX, rand(minY + 1, Math.max(minY + 1, maxY - 1))]
+    : [rand(minX + 1, Math.max(minX + 1, maxX - 1)), minY];
+  const ends = [];
+  ends.push(
+    horizontal
+      ? [maxX, rand(minY + 1, Math.max(minY + 1, maxY - 1))]
+      : [rand(minX + 1, Math.max(minX + 1, maxX - 1)), maxY]
+  );
+  if (random() < 0.55) {
+    ends.push(
+      horizontal
+        ? [rand(minX + 1, Math.max(minX + 1, maxX - 1)), maxY]
+        : [maxX, rand(minY + 1, Math.max(minY + 1, maxY - 1))]
+    );
+  }
+  ends.forEach((end, index) => addPath(start, end, index === 0));
+
+  // At least one bridge crosses the liquid two cells wide.
+  const bridgePoint =
+    pathPoints[Math.floor(pathPoints.length * 0.55)] ||
+    [rand(minX + 1, Math.max(minX + 1, maxX - 1)), rand(minY + 1, Math.max(minY + 1, maxY - 1))];
+  const bridgeX = bridgePoint[0];
+  const bridgeY = bridgePoint[1];
+  for (let d = -1; d <= 1; d += 1) {
+    const cellsToAdd = horizontal
+      ? [[bridgeX + d, bridgeY - 1], [bridgeX + d, bridgeY], [bridgeX + d, bridgeY + 1]]
+      : [[bridgeX - 1, bridgeY + d], [bridgeX, bridgeY + d], [bridgeX + 1, bridgeY + d]];
+    cellsToAdd.forEach(([x, y]) => {
+      if (valid.has(`${x},${y}`)) bridges.add(`${x},${y}`);
+    });
+  }
+
+  return {
+    kind,
+    cells: [...liquid].map((key) => key.split(",").map(Number)),
+    bridges: [...bridges].map((key) => key.split(",").map(Number)),
+    start,
+    ends,
+  };
+}
+
 export function difficultCellsFor(cells, environment, effect = "") {
   const text = `${environment || ""} ${effect || ""}`.toLowerCase();
   if (!/rubble|overgrown|fungal|mine|frozen|ice|unstable|difficult/.test(text)) return [];
@@ -1422,6 +1531,36 @@ export function roomSurfaceFeatures(room, cells, rng) {
   const stairs = Array.isArray(room?.stairs) && room.stairs.length
     ? room.stairs.map(pointXY).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
     : findStairs(cells, heights);
+  const explicitWater = Array.isArray(room?.water) && room.water.length
+    ? room.water.map((p) => {
+        const { x, y } = pointXY(p);
+        return [x, y];
+      })
+    : null;
+  const explicitLava = Array.isArray(room?.lava) && room.lava.length
+    ? room.lava.map((p) => {
+        const { x, y } = pointXY(p);
+        return [x, y];
+      })
+    : null;
+  const liquid =
+    explicitWater || explicitLava
+      ? { kind: explicitLava ? "lava" : "water", bridges: [] }
+      : liquidCellsFor(cells, room?.environment, rng);
+  const water = explicitWater || (liquid.kind === "water" ? liquid.cells : []);
+  const lava = explicitLava || (liquid.kind === "lava" ? liquid.cells : []);
+  const bridges = Array.isArray(room?.bridges) && room.bridges.length
+    ? room.bridges.map((p) => {
+        const { x, y } = pointXY(p);
+        return [x, y];
+      })
+    : liquid.bridges || [];
+  const hazardPoints = Array.isArray(room?.hazardPoints)
+    ? room.hazardPoints.map((p) => ({
+        ...pointXY(p),
+        type: String(Array.isArray(p) ? p[2] || p[3] || "Hazard" : p?.type || p?.hazard || "Hazard"),
+      }))
+    : [];
   return {
     heights,
     stairs,
@@ -1437,12 +1576,12 @@ export function roomSurfaceFeatures(room, cells, rng) {
           type: Array.isArray(p) ? p[2] || p[3] || "Trap" : p?.type || "Trap",
         }))
       : trapPointsFor(cells, room?.traps, rng),
-    water: Array.isArray(room?.water) && room.water.length
-      ? room.water.map((p) => {
-          const { x, y } = pointXY(p);
-          return [x, y];
-        })
-      : waterCellsFor(cells, room?.environment),
+    water,
+    lava,
+    bridges,
+    hazardPoints,
+    liquidStart: liquid.start || null,
+    liquidEnds: liquid.ends || [],
     difficult: Array.isArray(room?.difficult) && room.difficult.length
       ? room.difficult.map((p) => {
           const { x, y } = pointXY(p);
@@ -1528,8 +1667,13 @@ export function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
     coverPoints: surface.coverPoints,
     trapPoints: surface.trapPoints,
     water: surface.water,
+    lava: surface.lava || [],
+    bridges: surface.bridges || [],
+    hazardPoints: surface.hazardPoints || [],
     difficult: surface.difficult,
     environmentEffect: t.environmentEffect || "",
+    floorType: t.floorType || "stone",
+    floorTextureUrl: t.floorTextureUrl || "",
     tags: [...(t.tags || [])],
     ingressPoints: t.ingressPoints?.length
       ? t.ingressPoints.map((p) => ({ ...p }))

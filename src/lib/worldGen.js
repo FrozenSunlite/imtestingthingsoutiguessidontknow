@@ -653,6 +653,73 @@ function attachSchedule(npc, settlement) {
   return npc;
 }
 
+// Create one NPC and attach them to a settlement, home and workplace.
+export function createNpc(worldInput, { settlementId = "", role = "settlement", name = "", occupation = "", seed = "" } = {}) {
+  const world = JSON.parse(JSON.stringify(worldInput || {}));
+  const settlement =
+    (world.settlements || []).find((item) => item.id === settlementId) ||
+    (world.settlements || [])[0];
+  if (!settlement) return { world: worldInput, npc: null, error: "No settlement available." };
+  const nation = (world.nations || []).find((item) => item.id === settlement.nationId);
+  const rng = makeRng(seed || `${world.id || "world"}:${settlement.id}:${Date.now()}:${Math.random()}`);
+  const npc = generateNpc({
+    culture: nation?.culture || "Human",
+    role,
+    settlementKind: settlement.kind || "town",
+    rng,
+    settlementId: settlement.id,
+    nationId: nation?.id || "",
+  });
+  if (name.trim()) npc.name = name.trim();
+  if (occupation.trim()) npc.occupation = occupation.trim();
+  const home =
+    settlement.buildings.find((b) => b.category === "Residential") ||
+    settlement.buildings[0];
+  const work =
+    settlement.buildings.find((b) =>
+      String(b.type || "").toLowerCase().includes(String(npc.occupation || "").split(" ")[0].toLowerCase())
+    ) || settlement.buildings.find((b) => b.type === "Tavern" || b.type === "Inn") || settlement.buildings[0];
+  npc.homeBuildingId = home?.id || "";
+  npc.workBuildingId = work?.id || "";
+  attachSchedule(npc, settlement);
+  world.npcs = [...(world.npcs || []), npc];
+  world.settlements = (world.settlements || []).map((item) => {
+    if (item.id !== settlement.id) return item;
+    return {
+      ...item,
+      npcIds: [...(item.npcIds || []), npc.id],
+      buildings: (item.buildings || []).map((building) => {
+        if (home && building.id === home.id) {
+          return { ...building, residentIds: [...(building.residentIds || []), npc.id] };
+        }
+        if (work && building.id === work.id) {
+          return { ...building, staffIds: [...(building.staffIds || []), npc.id] };
+        }
+        return building;
+      }),
+    };
+  });
+  return { world, npc };
+}
+
+// Remove one NPC from the world, settlements and building rosters.
+export function deleteNpc(worldInput, npcId) {
+  const world = JSON.parse(JSON.stringify(worldInput || {}));
+  const npc = (world.npcs || []).find((item) => item.id === npcId);
+  if (!npc) return worldInput;
+  world.npcs = (world.npcs || []).filter((item) => item.id !== npcId);
+  world.settlements = (world.settlements || []).map((settlement) => ({
+    ...settlement,
+    npcIds: (settlement.npcIds || []).filter((id) => id !== npcId),
+    buildings: (settlement.buildings || []).map((building) => ({
+      ...building,
+      residentIds: (building.residentIds || []).filter((id) => id !== npcId),
+      staffIds: (building.staffIds || []).filter((id) => id !== npcId),
+    })),
+  }));
+  return world;
+}
+
 function createKingdom(nation, settlements, era, rng) {
   const capital = settlements.find((s) => s.kind === "capital") || settlements[0];
   const capitalNpc = generateNpc({

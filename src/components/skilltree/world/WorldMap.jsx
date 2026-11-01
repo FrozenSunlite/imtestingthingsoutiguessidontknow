@@ -202,8 +202,8 @@ export function WorldMap({
     const h = 1000 / (liveMap.height || 1);
     const groups = new Map();
     liveMap.cells.forEach((cell) => {
-      const nation = cell.nationId ? nationById.get(cell.nationId) : null;
-      const textured = !nation && useTextures && textures[cell.biome];
+      const nation = showBorders && cell.nationId ? nationById.get(cell.nationId) : null;
+      const textured = useTextures && textures[cell.biome];
       const key = nation
         ? `nation:${nation.id}`
         : `biome:${cell.biome}:${textured ? "tex" : "flat"}`;
@@ -223,7 +223,7 @@ export function WorldMap({
       group.d += `M${cell.x * w} ${cell.y * h}h${w + 0.6}v${h + 0.6}h${-(w + 0.6)}Z`;
     });
     return [...groups.values()];
-  }, [liveMap, nationById, useTextures, textures]);
+  }, [liveMap, nationById, useTextures, textures, showBorders]);
   const borderGroups = useMemo(() => {
     if (!showBorders || !liveMap?.cells?.length) return [];
     const w = 1000 / (liveMap.width || 1);

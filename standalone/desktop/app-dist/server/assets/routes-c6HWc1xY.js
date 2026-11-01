@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C-VG08K_.js";
+import { n as Button, r as cn } from "./router-BT6ksNm_.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -15885,8 +15885,15 @@ function instantiate(template, category, rng, rank, { monsters: _monsters, lootP
 		coverPoints: surface.coverPoints,
 		trapPoints: surface.trapPoints,
 		water: surface.water,
+		lava: surface.lava || [],
+		bridges: surface.bridges || [],
+		hazardPoints: surface.hazardPoints || [],
+		liquidStart: surface.liquidStart || null,
+		liquidEnds: surface.liquidEnds || [],
 		difficult: surface.difficult,
 		environmentEffect: template.environmentEffect || "",
+		floorType: template.floorType || "stone",
+		floorTextureUrl: template.floorTextureUrl || "",
 		tags: [...template.tags || []],
 		description: template.description || "",
 		ingressPoints: template.ingressPoints?.length ? template.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
@@ -16204,6 +16211,19 @@ function buildRoutes(rooms, connections) {
 	});
 	return routes;
 }
+function limitExternalDoors(rooms) {
+	const external = (rooms || []).filter((room) => room.externalDoor);
+	if (external.length <= 2) return rooms;
+	const priority = [...external].sort((a, b) => {
+		const score = (room) => room.category === "Start" ? 2 : room.category === "Entrance" ? 1 : 0;
+		return score(b) - score(a);
+	});
+	const keep = new Set(priority.slice(0, 2).map((room) => room.id));
+	return rooms.map((room) => room.externalDoor && !keep.has(room.id) ? {
+		...room,
+		externalDoor: false
+	} : room);
+}
 function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), templates = STARTER_DUNGEON_ROOMS, monsters = [], lootPools = [], name = "", players = 4, requiredTags = [], avoidCategories = [] } = {}) {
 	const rng = makeRng$1(`${mode}:${rank}:${seed}`);
 	const info = DUNGEON_RANKS[rank] || DUNGEON_RANKS.E;
@@ -16394,14 +16414,15 @@ function generateDungeon({ mode = "single", rank = "E", seed = randomSeed$1(), t
 		}
 	}
 	const routes = buildRoutes(rooms, connections);
-	const linkedConnections = attachDoorPoints(rooms, connections);
+	const finalRooms = limitExternalDoors(rooms);
+	const linkedConnections = attachDoorPoints(finalRooms, connections);
 	return {
 		id: uid("dungeon"),
 		name: title,
 		mode,
 		rank,
 		seed,
-		rooms,
+		rooms: finalRooms,
 		connections: linkedConnections,
 		routes,
 		chosenRouteId: routes[0]?.id || "",
@@ -16717,10 +16738,70 @@ function trapPointsFor(cells, traps, rng) {
 		};
 	});
 }
-function waterCellsFor(cells, environment) {
+function liquidCellsFor(cells, environment, rng) {
 	const text = String(environment || "").toLowerCase();
-	if (!/flood|cistern|water|spring|river|lake|sea|marsh/.test(text)) return [];
-	return spreadCells(cells, Math.max(2, Math.round(cells.length * .28)));
+	const kind = /lava|magma|volcan|molten|fire/.test(text) ? "lava" : /flood|cistern|water|spring|river|lake|sea|marsh/.test(text) ? "water" : "";
+	const list = (cells || []).map((cell) => [Number(cell?.[0]), Number(cell?.[1])]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+	if (!kind || list.length < 4) return {
+		kind: "",
+		cells: [],
+		bridges: [],
+		start: null,
+		ends: []
+	};
+	const valid = new Set(list.map(([x, y]) => `${x},${y}`));
+	const xs = list.map(([x]) => x);
+	const ys = list.map(([, y]) => y);
+	const minX = Math.min(...xs);
+	const maxX = Math.max(...xs);
+	const minY = Math.min(...ys);
+	const maxY = Math.max(...ys);
+	const rand = (min, max) => rng?.int ? rng.int(min, max) : Math.round((min + max) / 2);
+	const random = () => rng?.rand ? rng.rand() : .5;
+	const horizontal = random() < .5;
+	const liquid = /* @__PURE__ */ new Set();
+	const bridges = /* @__PURE__ */ new Set();
+	const pathPoints = [];
+	const addPath = (from, to, remember = false) => {
+		const steps = Math.max(Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1]), 1);
+		for (let i = 0; i <= steps; i += 1) {
+			const x = Math.round(from[0] + (to[0] - from[0]) * i / steps);
+			const y = Math.round(from[1] + (to[1] - from[1]) * i / steps);
+			if (remember) pathPoints.push([x, y]);
+			for (const [dx, dy] of [
+				[0, 0],
+				[1, 0],
+				[0, 1],
+				[1, 1]
+			]) if (valid.has(`${x + dx},${y + dy}`)) liquid.add(`${x + dx},${y + dy}`);
+		}
+	};
+	const start = horizontal ? [minX, rand(minY + 1, Math.max(minY + 1, maxY - 1))] : [rand(minX + 1, Math.max(minX + 1, maxX - 1)), minY];
+	const ends = [];
+	ends.push(horizontal ? [maxX, rand(minY + 1, Math.max(minY + 1, maxY - 1))] : [rand(minX + 1, Math.max(minX + 1, maxX - 1)), maxY]);
+	if (random() < .55) ends.push(horizontal ? [rand(minX + 1, Math.max(minX + 1, maxX - 1)), maxY] : [maxX, rand(minY + 1, Math.max(minY + 1, maxY - 1))]);
+	ends.forEach((end, index) => addPath(start, end, index === 0));
+	const bridgePoint = pathPoints[Math.floor(pathPoints.length * .55)] || [rand(minX + 1, Math.max(minX + 1, maxX - 1)), rand(minY + 1, Math.max(minY + 1, maxY - 1))];
+	const bridgeX = bridgePoint[0];
+	const bridgeY = bridgePoint[1];
+	for (let d = -1; d <= 1; d += 1) (horizontal ? [
+		[bridgeX + d, bridgeY - 1],
+		[bridgeX + d, bridgeY],
+		[bridgeX + d, bridgeY + 1]
+	] : [
+		[bridgeX - 1, bridgeY + d],
+		[bridgeX, bridgeY + d],
+		[bridgeX + 1, bridgeY + d]
+	]).forEach(([x, y]) => {
+		if (valid.has(`${x},${y}`)) bridges.add(`${x},${y}`);
+	});
+	return {
+		kind,
+		cells: [...liquid].map((key) => key.split(",").map(Number)),
+		bridges: [...bridges].map((key) => key.split(",").map(Number)),
+		start,
+		ends
+	};
 }
 function difficultCellsFor(cells, environment, effect = "") {
 	const text = `${environment || ""} ${effect || ""}`.toLowerCase();
@@ -16744,9 +16825,32 @@ function roomSurfaceFeatures(room, cells, rng) {
 		Number(p?.y),
 		Number(p?.height ?? p?.h ?? 0) || 0
 	]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)) : elevationHeightCells(cells, room?.elevation);
+	const stairs = Array.isArray(room?.stairs) && room.stairs.length ? room.stairs.map(pointXY).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : findStairs(cells, heights);
+	const explicitWater = Array.isArray(room?.water) && room.water.length ? room.water.map((p) => {
+		const { x, y } = pointXY(p);
+		return [x, y];
+	}) : null;
+	const explicitLava = Array.isArray(room?.lava) && room.lava.length ? room.lava.map((p) => {
+		const { x, y } = pointXY(p);
+		return [x, y];
+	}) : null;
+	const liquid = explicitWater || explicitLava ? {
+		kind: explicitLava ? "lava" : "water",
+		bridges: []
+	} : liquidCellsFor(cells, room?.environment, rng);
+	const water = explicitWater || (liquid.kind === "water" ? liquid.cells : []);
+	const lava = explicitLava || (liquid.kind === "lava" ? liquid.cells : []);
+	const bridges = Array.isArray(room?.bridges) && room.bridges.length ? room.bridges.map((p) => {
+		const { x, y } = pointXY(p);
+		return [x, y];
+	}) : liquid.bridges || [];
+	const hazardPoints = Array.isArray(room?.hazardPoints) ? room.hazardPoints.map((p) => ({
+		...pointXY(p),
+		type: String(Array.isArray(p) ? p[2] || p[3] || "Hazard" : p?.type || p?.hazard || "Hazard")
+	})) : [];
 	return {
 		heights,
-		stairs: Array.isArray(room?.stairs) && room.stairs.length ? room.stairs.map(pointXY).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : findStairs(cells, heights),
+		stairs,
 		coverPoints: Array.isArray(room?.coverPoints) && room.coverPoints.length ? room.coverPoints.map((p) => ({
 			...pointXY(p),
 			cover: Array.isArray(p) ? p[2] || p[3] || "half" : p?.cover || "half"
@@ -16755,10 +16859,12 @@ function roomSurfaceFeatures(room, cells, rng) {
 			...pointXY(p),
 			type: Array.isArray(p) ? p[2] || p[3] || "Trap" : p?.type || "Trap"
 		})) : trapPointsFor(cells, room?.traps, rng),
-		water: Array.isArray(room?.water) && room.water.length ? room.water.map((p) => {
-			const { x, y } = pointXY(p);
-			return [x, y];
-		}) : waterCellsFor(cells, room?.environment),
+		water,
+		lava,
+		bridges,
+		hazardPoints,
+		liquidStart: liquid.start || null,
+		liquidEnds: liquid.ends || [],
 		difficult: Array.isArray(room?.difficult) && room.difficult.length ? room.difficult.map((p) => {
 			const { x, y } = pointXY(p);
 			return [x, y];
@@ -16839,8 +16945,13 @@ function roomFromTemplate(template, { x = 0, y = 0 } = {}) {
 		coverPoints: surface.coverPoints,
 		trapPoints: surface.trapPoints,
 		water: surface.water,
+		lava: surface.lava || [],
+		bridges: surface.bridges || [],
+		hazardPoints: surface.hazardPoints || [],
 		difficult: surface.difficult,
 		environmentEffect: t.environmentEffect || "",
+		floorType: t.floorType || "stone",
+		floorTextureUrl: t.floorTextureUrl || "",
 		tags: [...t.tags || []],
 		ingressPoints: t.ingressPoints?.length ? t.ingressPoints.map((p) => ({ ...p })) : defaultIngress(cells),
 		spawnPoints: t.spawnPoints?.length ? t.spawnPoints.map((p) => ({ ...p })) : defaultSpawns(cells, (t.spawns || []).length),
@@ -44779,7 +44890,10 @@ function RoomBattleMap({ room }) {
 	const coverPoints = pointList(room.coverPoints);
 	const trapPoints = pointList(room.trapPoints);
 	const water = new Set(pointList(room.water).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`));
+	const lava = new Set(pointList(room.lava).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`));
+	const bridges = new Set(pointList(room.bridges).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`));
 	const difficult = new Set(pointList(room.difficult).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`));
+	const hazardMarks = new Map(pointList(room.hazardPoints).map((p) => [`${Number(p.x) + ox},${Number(p.y) + oy}`, String(p.type || p.hazard || "Hazard")]));
 	const coverMarks = new Map(coverPoints.map((p) => [`${Number(p.x) + ox},${Number(p.y) + oy}`, String(p.cover || "half")]));
 	const trapMarks = new Map(trapPoints.map((p) => [`${Number(p.x) + ox},${Number(p.y) + oy}`, String(p.type || "Trap")]));
 	const at = (i) => cells[(i % cells.length + cells.length) % cells.length] || center;
@@ -44846,20 +44960,49 @@ function RoomBattleMap({ room }) {
 					cells.map(([cx, cy], i) => {
 						const key = `${cx},${cy}`;
 						const isWater = water.has(key);
+						const isLava = lava.has(key);
 						const isDifficult = difficult.has(key);
-						if (!isWater && !isDifficult) return null;
+						if (!isWater && !isLava && !isDifficult) return null;
 						return /* @__PURE__ */ jsx("rect", {
 							x: cx * cell,
 							y: cy * cell,
 							width: cell,
 							height: cell,
-							fill: isWater ? "hsl(199 89% 48%)" : "hsl(38 74% 45%)",
-							fillOpacity: isWater ? .28 : .22,
-							stroke: isWater ? "hsl(199 89% 40%)" : "hsl(32 80% 38%)",
-							strokeDasharray: isWater ? void 0 : "1.5 1.5",
+							fill: isLava ? "hsl(18 90% 50%)" : isWater ? "hsl(199 89% 48%)" : "hsl(38 74% 45%)",
+							fillOpacity: isLava ? .42 : isWater ? .28 : .22,
+							stroke: isLava ? "hsl(12 88% 38%)" : isWater ? "hsl(199 89% 40%)" : "hsl(32 80% 38%)",
+							strokeDasharray: isDifficult && !isWater && !isLava ? "1.5 1.5" : void 0,
 							strokeOpacity: "0.55",
 							strokeWidth: "0.6"
 						}, `surf${i}`);
+					}),
+					cells.map(([cx, cy], i) => {
+						const key = `${cx},${cy}`;
+						if (!bridges.has(key)) return null;
+						return /* @__PURE__ */ jsx("rect", {
+							x: cx * cell + cell * .08,
+							y: cy * cell + cell * .08,
+							width: cell * .84,
+							height: cell * .84,
+							fill: "hsl(32 55% 62%)",
+							fillOpacity: "0.85",
+							stroke: "hsl(28 45% 38%)",
+							strokeWidth: "0.6"
+						}, `bridge${i}`);
+					}),
+					[...hazardMarks].map(([key], i) => {
+						const [cx, cy] = key.split(",").map(Number);
+						return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
+							x: cx * cell,
+							y: cy * cell,
+							width: cell,
+							height: cell,
+							fill: "hsl(348 80% 50%)",
+							fillOpacity: "0.18",
+							stroke: "hsl(348 80% 42%)",
+							strokeDasharray: "2 2",
+							strokeWidth: "0.6"
+						}), label((cx + .5) * cell, (cy + .65) * cell, "!", "hsl(348 80% 45%)", 7)] }, `hazard${i}`);
 					}),
 					heights.map((p, i) => {
 						const cx = Number(p.x) + ox;
@@ -45117,6 +45260,18 @@ function RoomBattleMap({ room }) {
 						children: "■ water"
 					}),
 					/* @__PURE__ */ jsx("span", {
+						className: "text-orange-600 dark:text-orange-400",
+						children: "■ lava"
+					}),
+					/* @__PURE__ */ jsx("span", {
+						className: "text-amber-700 dark:text-amber-300",
+						children: "▬ bridge"
+					}),
+					/* @__PURE__ */ jsx("span", {
+						className: "text-rose-600 dark:text-rose-400",
+						children: "! hazard"
+					}),
+					/* @__PURE__ */ jsx("span", {
 						className: "text-amber-700 dark:text-amber-500",
 						children: "▨ difficult terrain"
 					}),
@@ -45191,9 +45346,24 @@ var TOOLS = [
 		"Place the selected trap type"
 	],
 	[
+		"hazard",
+		"Hazard",
+		"Mark terrain as a hazard with a description"
+	],
+	[
 		"water",
 		"Water",
 		"Mark a water cell (swimming / difficult)"
+	],
+	[
+		"lava",
+		"Lava",
+		"Mark a lava cell (hazardous floor)"
+	],
+	[
+		"bridge",
+		"Bridge",
+		"Mark a bridge crossing over liquid"
 	],
 	[
 		"difficult",
@@ -45211,6 +45381,54 @@ var TOOLS = [
 		"Remove markers, surfaces, then floor"
 	]
 ];
+var FLOOR_TYPES = [
+	[
+		"stone",
+		"Stone",
+		"#6b7280"
+	],
+	[
+		"wood",
+		"Wood",
+		"#8b5e3c"
+	],
+	[
+		"dirt",
+		"Dirt",
+		"#7c5a3a"
+	],
+	[
+		"grass",
+		"Grass",
+		"#4d7c0f"
+	],
+	[
+		"sand",
+		"Sand",
+		"#c2a35a"
+	],
+	[
+		"marble",
+		"Marble",
+		"#d1d5db"
+	],
+	[
+		"ice",
+		"Ice",
+		"#7dd3fc"
+	],
+	[
+		"metal",
+		"Metal",
+		"#64748b"
+	],
+	[
+		"lava",
+		"Lava",
+		"#dc2626"
+	]
+];
+var floorColor = (id) => FLOOR_TYPES.find(([key]) => key === id)?.[2] || "#6b7280";
 var keyOf$1 = (x, y) => `${x},${y}`;
 var pointKey = (p) => keyOf$1(Number(p?.x), Number(p?.y));
 var pointList = (arr) => {
@@ -45242,9 +45460,10 @@ var mirrorOf = (key, w) => {
 	const [x, y] = key.split(",").map(Number);
 	return keyOf$1(w - 1 - x, y);
 };
-function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onSave, onUpload, onAdd, templates = [], onLoadTemplate, templateId = "" }) {
-	const w = Math.max(9, Math.min(33, Math.round(Number(room?.w) || 9)));
-	const h = Math.max(9, Math.min(33, Math.round(Number(room?.h) || 9)));
+function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onSave, onUpload, onAdd, templates = [], onLoadTemplate, templateId = "", onResize }) {
+	const { settings } = useTree();
+	const w = Math.max(3, Math.min(33, Math.round(Number(room?.w) || 9)));
+	const h = Math.max(3, Math.min(33, Math.round(Number(room?.h) || 9)));
 	const [preset, setPreset] = useState("Rectangle");
 	const [tool, setTool] = useState("floor");
 	const [cells, setCells] = useState(() => /* @__PURE__ */ new Set());
@@ -45253,10 +45472,17 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 	const [heights, setHeights] = useState(() => /* @__PURE__ */ new Map());
 	const [covers, setCovers] = useState(() => /* @__PURE__ */ new Map());
 	const [trapMaps, setTrapMaps] = useState(() => /* @__PURE__ */ new Map());
+	const [hazards, setHazards] = useState(() => /* @__PURE__ */ new Map());
 	const [water, setWater] = useState(() => /* @__PURE__ */ new Set());
+	const [lava, setLava] = useState(() => /* @__PURE__ */ new Set());
+	const [bridges, setBridges] = useState(() => /* @__PURE__ */ new Set());
 	const [difficult, setDifficult] = useState(() => /* @__PURE__ */ new Set());
 	const [stairs, setStairs] = useState(() => /* @__PURE__ */ new Set());
 	const [trapType, setTrapType] = useState(DUNGEON_TRAP_TYPES[0]);
+	const [hazardType, setHazardType] = useState("Unstable ground");
+	const [bridgeType, setBridgeType] = useState("Bridge");
+	const [floorType, setFloorType] = useState(room?.floorType || "stone");
+	const [floorTexture, setFloorTexture] = useState(room?.floorTextureUrl || "");
 	const [brush, setBrush] = useState(1);
 	const [mirror, setMirror] = useState(false);
 	const [rectStart, setRectStart] = useState(null);
@@ -45277,8 +45503,13 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		setCovers(new Map(pointList(room.coverPoints).map((p) => [pointKey(p), String(p.cover || "half")]).filter(([key]) => keep(key))));
 		setTrapMaps(new Map(pointList(room.trapPoints).map((p) => [pointKey(p), String(p.type || "Trap")]).filter(([key]) => keep(key))));
 		setWater(new Set(pointList(room.water).map(pointKey).filter(keep)));
+		setLava(new Set(pointList(room.lava).map(pointKey).filter(keep)));
+		setBridges(new Set(pointList(room.bridges).map(pointKey).filter(keep)));
+		setHazards(new Map(pointList(room.hazardPoints).map((p) => [pointKey(p), String(p.type || p.hazard || "Hazard")]).filter(([key]) => keep(key))));
 		setDifficult(new Set(pointList(room.difficult).map(pointKey).filter(keep)));
 		setStairs(new Set(pointList(room.stairs).map(pointKey).filter(keep)));
+		setFloorType(room.floorType || "stone");
+		setFloorTexture(room.floorTextureUrl || "");
 		setTool("floor");
 		setPreset(room.shape || "Custom");
 	}, [
@@ -45288,14 +45519,17 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 	]);
 	const list = useMemo(() => [...cells].map((key) => key.split(",").map(Number)), [cells]);
 	const connected = list.length > 0 && cellsConnected(list);
-	const hasAnnotation = (key, state) => state.spawns.has(key) || state.ingress.has(key) || state.heights.has(key) || state.covers.has(key) || state.trapMaps.has(key) || state.water.has(key) || state.difficult.has(key) || state.stairs.has(key);
+	const hasAnnotation = (key, state) => state.spawns.has(key) || state.ingress.has(key) || state.heights.has(key) || state.covers.has(key) || state.trapMaps.has(key) || state.hazards.has(key) || state.water.has(key) || state.lava.has(key) || state.bridges.has(key) || state.difficult.has(key) || state.stairs.has(key);
 	const clearAnnotations = (key, state) => {
 		state.spawns.delete(key);
 		state.ingress.delete(key);
 		state.heights.delete(key);
 		state.covers.delete(key);
 		state.trapMaps.delete(key);
+		state.hazards.delete(key);
 		state.water.delete(key);
+		state.lava.delete(key);
+		state.bridges.delete(key);
 		state.difficult.delete(key);
 		state.stairs.delete(key);
 	};
@@ -45343,9 +45577,30 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 			else state.trapMaps.set(key, trapType);
 			return;
 		}
+		if (tool === "hazard") {
+			if (state.hazards.get(key) === hazardType) state.hazards.delete(key);
+			else state.hazards.set(key, hazardType);
+			return;
+		}
 		if (tool === "water") {
 			if (state.water.has(key)) state.water.delete(key);
-			else state.water.add(key);
+			else {
+				state.water.add(key);
+				state.lava.delete(key);
+			}
+			return;
+		}
+		if (tool === "lava") {
+			if (state.lava.has(key)) state.lava.delete(key);
+			else {
+				state.lava.add(key);
+				state.water.delete(key);
+			}
+			return;
+		}
+		if (tool === "bridge") {
+			if (state.bridges.has(key)) state.bridges.delete(key);
+			else state.bridges.add(key);
 			return;
 		}
 		if (tool === "difficult") {
@@ -45371,7 +45626,10 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 			heights: new Map(heights),
 			covers: new Map(covers),
 			trapMaps: new Map(trapMaps),
+			hazards: new Map(hazards),
 			water: new Set(water),
+			lava: new Set(lava),
+			bridges: new Set(bridges),
 			difficult: new Set(difficult),
 			stairs: new Set(stairs)
 		};
@@ -45414,7 +45672,10 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		setHeights(state.heights);
 		setCovers(state.covers);
 		setTrapMaps(state.trapMaps);
+		setHazards(state.hazards);
 		setWater(state.water);
+		setLava(state.lava);
+		setBridges(state.bridges);
 		setDifficult(state.difficult);
 		setStairs(state.stairs);
 		setPreset("Custom");
@@ -45425,7 +45686,10 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		heights: new Map([...heights].filter(([key]) => next.has(key))),
 		covers: new Map([...covers].filter(([key]) => next.has(key))),
 		trapMaps: new Map([...trapMaps].filter(([key]) => next.has(key))),
+		hazards: new Map([...hazards].filter(([key]) => next.has(key))),
 		water: new Set([...water].filter((key) => next.has(key))),
+		lava: new Set([...lava].filter((key) => next.has(key))),
+		bridges: new Set([...bridges].filter((key) => next.has(key))),
 		difficult: new Set([...difficult].filter((key) => next.has(key))),
 		stairs: new Set([...stairs].filter((key) => next.has(key)))
 	});
@@ -45439,7 +45703,10 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		setHeights(filtered.heights);
 		setCovers(filtered.covers);
 		setTrapMaps(filtered.trapMaps);
+		setHazards(filtered.hazards);
 		setWater(filtered.water);
+		setLava(filtered.lava);
+		setBridges(filtered.bridges);
 		setDifficult(filtered.difficult);
 		setStairs(filtered.stairs);
 	};
@@ -45448,7 +45715,10 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 			heights: new Map(heights),
 			covers: new Map(covers),
 			trapMaps: new Map(trapMaps),
+			hazards: new Map(hazards),
 			water: new Set(water),
+			lava: new Set(lava),
+			bridges: new Set(bridges),
 			difficult: new Set(difficult),
 			stairs: new Set(stairs)
 		});
@@ -45459,7 +45729,10 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		setHeights(new Map([...terrainClip.heights].filter(([key]) => keep(key))));
 		setCovers(new Map([...terrainClip.covers].filter(([key]) => keep(key))));
 		setTrapMaps(new Map([...terrainClip.trapMaps].filter(([key]) => keep(key))));
+		setHazards(new Map([...terrainClip.hazards].filter(([key]) => keep(key))));
 		setWater(new Set([...terrainClip.water].filter(keep)));
+		setLava(new Set([...terrainClip.lava].filter(keep)));
+		setBridges(new Set([...terrainClip.bridges].filter(keep)));
 		setDifficult(new Set([...terrainClip.difficult].filter(keep)));
 		setStairs(new Set([...terrainClip.stairs].filter(keep)));
 		setPreset("Custom");
@@ -45521,8 +45794,20 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 					type
 				};
 			}),
+			hazardPoints: [...hazards].map(([key, type]) => {
+				const [x, y] = key.split(",").map(Number);
+				return {
+					x,
+					y,
+					type
+				};
+			}),
 			water: [...water].map((key) => key.split(",").map(Number)),
+			lava: [...lava].map((key) => key.split(",").map(Number)),
+			bridges: [...bridges].map((key) => key.split(",").map(Number)),
 			difficult: [...difficult].map((key) => key.split(",").map(Number)),
+			floorType,
+			floorTextureUrl: floorTexture,
 			environmentEffect: room?.environmentEffect || "",
 			tags: [...room?.tags || []]
 		};
@@ -45539,7 +45824,7 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		}), /* @__PURE__ */ jsxs("p", {
 			className: "text-[10px] text-muted-foreground",
 			children: [
-				"Paint the floor and battlefield: height, cover, traps, water, difficult terrain and stairs. Grid: ",
+				"Paint the floor and battlefield: height, cover, traps, hazards, water, lava, bridges and stairs. Add a floor type or texture to the whole room. Grid: ",
 				w,
 				" × ",
 				h,
@@ -45596,6 +45881,41 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 						connected ? "connected" : "disconnected"
 					]
 				}),
+				onResize && /* @__PURE__ */ jsxs("span", {
+					className: "flex items-center gap-1",
+					children: [
+						/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: "W"
+						}),
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-7 w-14 text-xs",
+							type: "number",
+							min: 3,
+							max: 33,
+							value: w,
+							onChange: (e) => onResize({
+								w: Math.max(3, Math.min(33, Number(e.target.value) || 3)),
+								h
+							})
+						}),
+						/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] text-muted-foreground",
+							children: "H"
+						}),
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-7 w-14 text-xs",
+							type: "number",
+							min: 3,
+							max: 33,
+							value: h,
+							onChange: (e) => onResize({
+								w,
+								h: Math.max(3, Math.min(33, Number(e.target.value) || 3))
+							})
+						})
+					]
+				}),
 				/* @__PURE__ */ jsxs("div", {
 					className: "ml-auto flex gap-1",
 					children: [/* @__PURE__ */ jsx(Button, {
@@ -45613,13 +45933,58 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 							setHeights(/* @__PURE__ */ new Map());
 							setCovers(/* @__PURE__ */ new Map());
 							setTrapMaps(/* @__PURE__ */ new Map());
+							setHazards(/* @__PURE__ */ new Map());
 							setWater(/* @__PURE__ */ new Set());
+							setLava(/* @__PURE__ */ new Set());
+							setBridges(/* @__PURE__ */ new Set());
 							setDifficult(/* @__PURE__ */ new Set());
 							setStairs(/* @__PURE__ */ new Set());
 							setRectStart(null);
 						},
 						children: "Clear"
 					})]
+				})
+			]
+		}),
+		/* @__PURE__ */ jsxs("div", {
+			className: "flex flex-wrap items-center gap-2",
+			children: [
+				/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "Floor type"
+				}),
+				/* @__PURE__ */ jsxs(Select, {
+					value: floorType,
+					onValueChange: setFloorType,
+					children: [/* @__PURE__ */ jsx(SelectTrigger, {
+						className: "h-7 w-32 text-xs",
+						children: /* @__PURE__ */ jsx(SelectValue, {})
+					}), /* @__PURE__ */ jsx(SelectContent, { children: FLOOR_TYPES.map(([id, label]) => /* @__PURE__ */ jsx(SelectItem, {
+						value: id,
+						children: label
+					}, id)) })]
+				}),
+				/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "Texture"
+				}),
+				/* @__PURE__ */ jsx(Input, {
+					className: "h-7 w-64 text-xs",
+					value: floorTexture,
+					list: "room-floor-textures",
+					placeholder: "/images/... or a texture URL",
+					onChange: (e) => setFloorTexture(e.target.value)
+				}),
+				/* @__PURE__ */ jsx("datalist", {
+					id: "room-floor-textures",
+					children: [...new Set((settings?.library?.dungeonRooms || []).map((r) => r.floorTextureUrl).filter(Boolean))].map((url) => /* @__PURE__ */ jsx("option", { value: url }, url))
+				}),
+				floorTexture && /* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: "ghost",
+					className: "h-7 text-xs",
+					onClick: () => setFloorTexture(""),
+					children: "Clear texture"
 				})
 			]
 		}),
@@ -45702,6 +46067,23 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		/* @__PURE__ */ jsxs("div", {
 			className: "flex flex-wrap items-center gap-2",
 			children: [
+				tool === "hazard" && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "Hazard"
+				}), /* @__PURE__ */ jsx(Input, {
+					className: "h-7 w-64 text-xs",
+					value: hazardType,
+					placeholder: "What is the hazard?",
+					onChange: (e) => setHazardType(e.target.value)
+				})] }),
+				tool === "bridge" && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Label, {
+					className: "text-[10px] text-muted-foreground",
+					children: "Bridge"
+				}), /* @__PURE__ */ jsx(Input, {
+					className: "h-7 w-44 text-xs",
+					value: bridgeType,
+					onChange: (e) => setBridgeType(e.target.value)
+				})] }),
 				tool === "trap" && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Label, {
 					className: "text-[10px] text-muted-foreground",
 					children: "Trap type"
@@ -45742,8 +46124,15 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 						" cover · ",
 						trapMaps.size,
 						" trap · ",
+						hazards.size,
+						" hazard ·",
+						" ",
 						water.size,
-						" water ·",
+						" water · ",
+						lava.size,
+						" lava · ",
+						bridges.size,
+						" bridge ·",
 						" ",
 						difficult.size,
 						" difficult · ",
@@ -45756,8 +46145,9 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		/* @__PURE__ */ jsx("div", {
 			className: "overflow-auto rounded-md border p-2",
 			children: /* @__PURE__ */ jsx("div", {
-				className: "mx-auto grid w-max gap-0.5",
+				className: "mx-auto grid w-max select-none gap-0.5",
 				style: { gridTemplateColumns: `repeat(${w}, 2rem)` },
+				onMouseDown: (event) => event.preventDefault(),
 				children: Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
 					const key = keyOf$1(x, y);
 					const active = cells.has(key);
@@ -45766,23 +46156,36 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 					const height = heights.get(key) || 0;
 					const cover = covers.get(key);
 					const trap = trapMaps.get(key);
+					const hazard = hazards.get(key);
 					const isWater = water.has(key);
+					const isLava = lava.has(key);
+					const isBridge = bridges.has(key);
 					const isDifficult = difficult.has(key);
 					const isStairs = stairs.has(key);
 					const badges = [
 						trap ? "T" : "",
+						hazard ? "!" : "",
 						isWater ? "≈" : "",
+						isLava ? "L" : "",
+						isBridge ? "B" : "",
 						isDifficult ? "▨" : "",
 						isStairs ? "↕" : "",
 						cover ? coverLabel(cover) : "",
 						height ? `${height > 0 ? "+" : ""}${height}` : ""
 					].filter(Boolean);
-					const center = isSpawn ? "S" : isIngress ? "IN" : isWater ? "≈" : isDifficult ? "▨" : active ? "·" : "";
+					const center = isSpawn ? "S" : isIngress ? "IN" : isBridge ? "B" : isLava ? "L" : isWater ? "≈" : hazard ? "!" : isDifficult ? "▨" : active ? "·" : "";
 					return /* @__PURE__ */ jsxs("button", {
 						type: "button",
-						title: `${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}${height ? ` · height ${height}` : ""}${cover ? ` · ${cover} cover` : ""}${trap ? ` · trap: ${trap}` : ""}${isWater ? " · water" : ""}${isDifficult ? " · difficult terrain" : ""}${isStairs ? " · stairs" : ""}`,
+						title: `${x}, ${y}${isSpawn ? " · monster spawn" : ""}${isIngress ? " · player ingress" : ""}${height ? ` · height ${height}` : ""}${cover ? ` · ${cover} cover` : ""}${trap ? ` · trap: ${trap}` : ""}${hazard ? ` · hazard: ${hazard}` : ""}${isWater ? " · water" : ""}${isLava ? " · lava" : ""}${isBridge ? ` · ${bridgeType || "bridge"}` : ""}${isDifficult ? " · difficult terrain" : ""}${isStairs ? " · stairs" : ""}`,
 						onClick: () => applyCellClick(x, y),
-						className: `relative h-8 w-8 overflow-hidden rounded-sm border text-[10px] font-semibold transition-colors ${isSpawn ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300" : isIngress ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300" : isWater ? "border-sky-500 bg-sky-500/30 text-sky-700 dark:text-sky-300" : isDifficult ? "border-amber-600 bg-amber-500/25 text-amber-800 dark:text-amber-300" : active ? "border-primary bg-primary/35 text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"}`,
+						onMouseDown: (event) => event.preventDefault(),
+						style: active ? {
+							backgroundColor: floorColor(floorType),
+							backgroundImage: floorTexture ? `url("${floorTexture}")` : void 0,
+							backgroundSize: "cover",
+							backgroundPosition: "center"
+						} : void 0,
+						className: `relative h-8 w-8 cursor-pointer select-none overflow-hidden rounded-sm border text-[10px] font-semibold transition-colors ${isSpawn ? "border-red-500 bg-red-500/30 text-red-700 dark:text-red-300" : isIngress ? "border-emerald-500 bg-emerald-500/30 text-emerald-700 dark:text-emerald-300" : isLava ? "border-orange-600 bg-orange-500/40 text-orange-800 dark:text-orange-200" : isWater ? "border-sky-500 bg-sky-500/30 text-sky-700 dark:text-sky-300" : hazard ? "border-rose-600 bg-rose-500/30 text-rose-800 dark:text-rose-200" : isDifficult ? "border-amber-600 bg-amber-500/25 text-amber-800 dark:text-amber-300" : active ? "border-primary text-foreground" : "border-border bg-muted/20 text-muted-foreground hover:bg-accent"} ${isBridge ? "ring-1 ring-inset ring-amber-200/80" : ""}`,
 						children: [center, badges.length > 0 && /* @__PURE__ */ jsx("span", {
 							className: "pointer-events-none absolute right-0.5 top-0 flex max-w-full flex-wrap justify-end gap-0.5 text-[7px] leading-none opacity-90",
 							children: badges.join(" ")
@@ -45799,8 +46202,11 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-red-500" }), " spawn"] }),
 					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" }), " ingress"] }),
 					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-sky-500" }), " water"] }),
+					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-orange-500" }), " lava"] }),
+					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-amber-200" }), " bridge"] }),
+					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-rose-500" }), " hazard"] }),
 					/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", { className: "mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" }), " difficult"] }),
-					/* @__PURE__ */ jsx("span", { children: "T trap · ↕ stairs · ½/¾/F cover · +1/−1 elevation" })
+					/* @__PURE__ */ jsx("span", { children: "T trap · ! hazard · L lava · B bridge · ↕ stairs · ½/¾/F cover · +1/−1 elevation" })
 				]
 			}), /* @__PURE__ */ jsxs("div", {
 				className: "flex flex-wrap justify-end gap-1",
@@ -46568,6 +46974,11 @@ function DungeonGenerator({ onExit, embedded = false }) {
 				coverPoints: (footprint.coverPoints || []).map((p) => ({ ...p })),
 				trapPoints: (footprint.trapPoints || []).map((p) => ({ ...p })),
 				water: (footprint.water || []).map((p) => [...p]),
+				lava: (footprint.lava || []).map((p) => [...p]),
+				bridges: (footprint.bridges || []).map((p) => [...p]),
+				hazardPoints: (footprint.hazardPoints || []).map((p) => ({ ...p })),
+				floorType: footprint.floorType || room.floorType || "stone",
+				floorTextureUrl: footprint.floorTextureUrl || room.floorTextureUrl || "",
 				difficult: (footprint.difficult || []).map((p) => [...p]),
 				harvest: [...room.harvest || []]
 			};
@@ -46951,6 +47362,21 @@ function DungeonGenerator({ onExit, embedded = false }) {
 				...patch
 			} : r)
 		});
+		if (makerRoom?.id === selected.id) setMakerRoom((room) => room ? {
+			...room,
+			...patch
+		} : room);
+	};
+	const patchRoomDimensions = (patch) => {
+		if (makerOpen && makerRoom) {
+			setMakerRoom((room) => room ? {
+				...room,
+				...patch
+			} : room);
+			if (selected && makerRoom.id === selected.id) patchSelected(patch);
+			return;
+		}
+		patchSelected(patch);
 	};
 	const setRoute = (routeId) => {
 		if (!dungeon) return;
@@ -47066,8 +47492,8 @@ function DungeonGenerator({ onExit, embedded = false }) {
 	const resizeRoom = (id, w, h) => {
 		if (!dungeon) return;
 		const room = dungeon.rooms.find((r) => r.id === id);
-		const nextW = Math.max(9, Math.min(33, Math.round(w)));
-		const nextH = Math.max(9, Math.min(33, Math.round(h)));
+		const nextW = Math.max(3, Math.min(33, Math.round(w)));
+		const nextH = Math.max(3, Math.min(33, Math.round(h)));
 		if (room && room.w === nextW && room.h === nextH) return;
 		commit({
 			...dungeon,
@@ -47816,47 +48242,50 @@ function DungeonGenerator({ onExit, embedded = false }) {
 									children: [/* @__PURE__ */ jsx(Dices, { className: "mr-1 h-4 w-4" }), " Generate dungeon"]
 								})
 							]
-						}), makerOpen && /* @__PURE__ */ jsxs("div", {
-							className: `flex shrink-0 flex-col rounded-md border bg-background ${makerMax ? "h-[calc(100vh-1.5rem)]" : "h-[min(72vh,820px)] min-h-[420px]"}`,
-							children: [/* @__PURE__ */ jsxs("div", {
-								className: "flex items-center justify-between border-b bg-muted/20 px-3 py-1.5",
-								children: [
-									/* @__PURE__ */ jsx("p", {
+						}), makerOpen && /* @__PURE__ */ jsx("div", {
+							className: "fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3",
+							children: /* @__PURE__ */ jsxs("div", {
+								className: `flex flex-col overflow-hidden rounded-lg border bg-background shadow-2xl ${makerMax ? "h-[96vh] w-[98vw]" : "h-[min(92vh,920px)] w-[min(1180px,96vw)]"}`,
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "flex items-center justify-between border-b bg-muted/20 px-3 py-1.5",
+									children: [/* @__PURE__ */ jsx("p", {
 										className: "text-[10px] font-bold uppercase tracking-widest text-muted-foreground",
 										children: "Room Maker"
-									}),
-									/* @__PURE__ */ jsx(Button, {
-										size: "sm",
-										variant: "ghost",
-										className: "h-7 text-xs",
-										onClick: () => setMakerMax((value) => !value),
-										children: makerMax ? "Restore" : "Maximize"
-									}),
-									/* @__PURE__ */ jsx(Button, {
-										size: "sm",
-										variant: "ghost",
-										className: "h-7 text-xs",
-										onClick: () => setMakerOpen(false),
-										children: "Hide"
+									}), /* @__PURE__ */ jsxs("div", {
+										className: "flex items-center gap-1",
+										children: [/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "ghost",
+											className: "h-7 text-xs",
+											onClick: () => setMakerMax((value) => !value),
+											children: makerMax ? "Restore" : "Maximize"
+										}), /* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "ghost",
+											className: "h-7 text-xs",
+											onClick: () => setMakerOpen(false),
+											children: "Hide"
+										})]
+									})]
+								}), /* @__PURE__ */ jsx("div", {
+									className: "min-h-0 flex-1 overflow-y-auto p-3",
+									children: makerRoom ? /* @__PURE__ */ jsx(RoomShapeBuilder, {
+										inline: true,
+										room: makerRoom,
+										templates: allRoomTemplates,
+										templateId: makerTemplateId,
+										onLoadTemplate: loadMakerTemplate,
+										onSave: applyMaker,
+										onUpload: uploadMaker,
+										onAdd: addMakerRoom,
+										onResize: patchRoomDimensions,
+										onOpenChange: () => setMakerOpen(false)
+									}) : /* @__PURE__ */ jsx("p", {
+										className: "text-xs text-muted-foreground",
+										children: "Select a room on the map to edit its footprint, spawn points and ingress zones, or load a room template from the Reference Library."
 									})
-								]
-							}), /* @__PURE__ */ jsx("div", {
-								className: "min-h-0 flex-1 overflow-y-auto p-3",
-								children: makerRoom ? /* @__PURE__ */ jsx(RoomShapeBuilder, {
-									inline: true,
-									room: makerRoom,
-									templates: allRoomTemplates,
-									templateId: makerTemplateId,
-									onLoadTemplate: loadMakerTemplate,
-									onSave: applyMaker,
-									onUpload: uploadMaker,
-									onAdd: addMakerRoom,
-									onOpenChange: () => setMakerOpen(false)
-								}) : /* @__PURE__ */ jsx("p", {
-									className: "text-xs text-muted-foreground",
-									children: "Select a room on the map to edit its footprint, spawn points and ingress zones, or load a room template from the Reference Library."
-								})
-							})]
+								})]
+							})
 						})]
 					}),
 					/* @__PURE__ */ jsx("aside", {
@@ -47931,22 +48360,22 @@ function DungeonGenerator({ onExit, embedded = false }) {
 											children: "Width (spaces)"
 										}), /* @__PURE__ */ jsx(Input, {
 											type: "number",
-											min: 9,
+											min: 3,
 											max: 33,
 											className: "h-8",
-											value: selected.w,
-											onChange: (e) => patchSelected({ w: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })
+											value: Math.max(3, Math.min(33, Number(makerOpen && makerRoom ? makerRoom.w : selected.w) || 3)),
+											onChange: (e) => patchRoomDimensions({ w: Math.max(3, Math.min(33, Number(e.target.value) || 3)) })
 										})] }),
 										/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 											className: "text-[10px]",
 											children: "Height (spaces)"
 										}), /* @__PURE__ */ jsx(Input, {
 											type: "number",
-											min: 9,
+											min: 3,
 											max: 33,
 											className: "h-8",
-											value: selected.h,
-											onChange: (e) => patchSelected({ h: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })
+											value: Math.max(3, Math.min(33, Number(makerOpen && makerRoom ? makerRoom.h : selected.h) || 3)),
+											onChange: (e) => patchRoomDimensions({ h: Math.max(3, Math.min(33, Number(e.target.value) || 3)) })
 										})] })
 									]
 								}),
@@ -63130,6 +63559,70 @@ function attachSchedule(npc, settlement) {
 	};
 	return npc;
 }
+function createNpc(worldInput, { settlementId = "", role = "settlement", name = "", occupation = "", seed = "" } = {}) {
+	const world = JSON.parse(JSON.stringify(worldInput || {}));
+	const settlement = (world.settlements || []).find((item) => item.id === settlementId) || (world.settlements || [])[0];
+	if (!settlement) return {
+		world: worldInput,
+		npc: null,
+		error: "No settlement available."
+	};
+	const nation = (world.nations || []).find((item) => item.id === settlement.nationId);
+	const rng = makeRng(seed || `${world.id || "world"}:${settlement.id}:${Date.now()}:${Math.random()}`);
+	const npc = generateNpc({
+		culture: nation?.culture || "Human",
+		role,
+		settlementKind: settlement.kind || "town",
+		rng,
+		settlementId: settlement.id,
+		nationId: nation?.id || ""
+	});
+	if (name.trim()) npc.name = name.trim();
+	if (occupation.trim()) npc.occupation = occupation.trim();
+	const home = settlement.buildings.find((b) => b.category === "Residential") || settlement.buildings[0];
+	const work = settlement.buildings.find((b) => String(b.type || "").toLowerCase().includes(String(npc.occupation || "").split(" ")[0].toLowerCase())) || settlement.buildings.find((b) => b.type === "Tavern" || b.type === "Inn") || settlement.buildings[0];
+	npc.homeBuildingId = home?.id || "";
+	npc.workBuildingId = work?.id || "";
+	attachSchedule(npc, settlement);
+	world.npcs = [...world.npcs || [], npc];
+	world.settlements = (world.settlements || []).map((item) => {
+		if (item.id !== settlement.id) return item;
+		return {
+			...item,
+			npcIds: [...item.npcIds || [], npc.id],
+			buildings: (item.buildings || []).map((building) => {
+				if (home && building.id === home.id) return {
+					...building,
+					residentIds: [...building.residentIds || [], npc.id]
+				};
+				if (work && building.id === work.id) return {
+					...building,
+					staffIds: [...building.staffIds || [], npc.id]
+				};
+				return building;
+			})
+		};
+	});
+	return {
+		world,
+		npc
+	};
+}
+function deleteNpc(worldInput, npcId) {
+	const world = JSON.parse(JSON.stringify(worldInput || {}));
+	if (!(world.npcs || []).find((item) => item.id === npcId)) return worldInput;
+	world.npcs = (world.npcs || []).filter((item) => item.id !== npcId);
+	world.settlements = (world.settlements || []).map((settlement) => ({
+		...settlement,
+		npcIds: (settlement.npcIds || []).filter((id) => id !== npcId),
+		buildings: (settlement.buildings || []).map((building) => ({
+			...building,
+			residentIds: (building.residentIds || []).filter((id) => id !== npcId),
+			staffIds: (building.staffIds || []).filter((id) => id !== npcId)
+		}))
+	}));
+	return world;
+}
 function createKingdom(nation, settlements, era, rng) {
 	const capital = settlements.find((s) => s.kind === "capital") || settlements[0];
 	const capitalNpc = generateNpc({
@@ -64382,8 +64875,8 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		const h = 1e3 / (liveMap.height || 1);
 		const groups = /* @__PURE__ */ new Map();
 		liveMap.cells.forEach((cell) => {
-			const nation = cell.nationId ? nationById.get(cell.nationId) : null;
-			const textured = !nation && useTextures && textures[cell.biome];
+			const nation = showBorders && cell.nationId ? nationById.get(cell.nationId) : null;
+			const textured = useTextures && textures[cell.biome];
 			const key = nation ? `nation:${nation.id}` : `biome:${cell.biome}:${textured ? "tex" : "flat"}`;
 			let group = groups.get(key);
 			if (!group) {
@@ -64401,7 +64894,8 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		liveMap,
 		nationById,
 		useTextures,
-		textures
+		textures,
+		showBorders
 	]);
 	const borderGroups = useMemo(() => {
 		if (!showBorders || !liveMap?.cells?.length) return [];
@@ -66549,6 +67043,85 @@ var REWARD_ITEMS = [
 	"A small land grant",
 	"A guild introduction"
 ];
+function stepsForQuest(typeId, variant, fill) {
+	const opener = fill([
+		"Speak with {patron} in {settlement}.",
+		"Meet the contact at the {settlement} gate.",
+		"Study the reports in {settlement}."
+	][variant % 3]);
+	const road = fill([
+		"Travel to {place} and find the trail.",
+		"Reach the {biome} without being seen.",
+		"Interview witnesses around {place}."
+	][variant % 3]);
+	const returnStep = fill([
+		"Report back to {patron} in {settlement}.",
+		"Bring proof to the {settlement} hall.",
+		"Return to {patron} with the news."
+	][variant % 3]);
+	switch (typeId) {
+		case "hunt": return [
+			opener,
+			road,
+			fill(variant === 1 ? "Clear the {monster} from the {biome}." : "Confront and defeat the {monster}."),
+			fill("Bring proof of the {monster}'s death back to {patron} in {settlement}.")
+		];
+		case "delve": return [
+			opener,
+			fill("Travel to {place} and find the entrance."),
+			fill(variant === 0 ? "Explore the ruin and recover the {item}." : variant === 1 ? "Map the tunnels beneath {place} and return alive." : "Break the seal and destroy what waits inside."),
+			variant === 0 ? fill("Bring the {item} back to {patron} in {settlement}.") : returnStep
+		];
+		case "escort": return [
+			opener,
+			fill("Prepare the caravan and leave {settlement} for {place}."),
+			fill("Protect the cargo and travellers through the {biome}."),
+			fill("Deliver the caravan safely to {place} and report to {patron}.")
+		];
+		case "retrieve": return [
+			opener,
+			fill("Travel to {place} and search the {biome}."),
+			fill(variant === 0 ? "Recover the stolen {item} from the {biome} near {place}." : variant === 1 ? "Find the missing {item} before it leaves the region." : "Retrieve the {item} from the rival without starting a war."),
+			fill("Return the {item} to {patron} in {settlement}.")
+		];
+		case "investigate": return [
+			opener,
+			fill("Interview witnesses and study the reports in {settlement}."),
+			fill(variant === 0 ? "Find out why people are disappearing around {place}." : variant === 1 ? "Investigate the strange lights in the {biome}." : "Uncover who is spreading unrest in {place}."),
+			fill("Confront the culprit and report to {patron} in {settlement}.")
+		];
+		case "diplomacy": return [
+			opener,
+			fill("Travel to {place} with the patron's terms."),
+			fill(variant === 0 ? "Secure a meeting with the {place} council." : variant === 1 ? "Prevent the border dispute from becoming a war." : "Negotiate the release of the prisoners held at {place}."),
+			returnStep
+		];
+		case "trade": return [
+			opener,
+			fill("Travel to {place} and inspect the route."),
+			fill(variant === 0 ? "Open the trade route between {place} and the capital." : variant === 1 ? "Find out why shipments to {place} keep disappearing." : "Deliver seed and tools to {place} before the planting season ends."),
+			fill("Return to {patron} in {settlement} with the signed contract.")
+		];
+		case "defense": return [
+			opener,
+			fill("Reach {place} and inspect its defences."),
+			fill(variant === 0 ? "Defend {place} from the raid out of the {biome}." : variant === 1 ? "Repair the watchtower and organise the militia at {place}." : "Break the siege lines around {place}."),
+			returnStep
+		];
+		case "harvest": return [
+			opener,
+			fill("Travel into the {biome} near {place}."),
+			fill(variant === 0 ? "Gather the {item} without waking its guardians." : variant === 1 ? "Find a reliable supply of the {item} for the settlement." : "Escort the harvesters into the {biome} and back."),
+			fill("Bring the harvest to {patron} in {settlement}.")
+		];
+		default: return [
+			opener,
+			road,
+			fill("Complete the task at {place}."),
+			returnStep
+		];
+	}
+}
 function generateQuest(world, { level = 1, seed = "", patronId = "" } = {}) {
 	const rng = makeRng(`${world?.id}:${seed || Date.now()}:${Math.random()}`);
 	const settlements = world?.settlements || [];
@@ -66577,28 +67150,10 @@ function generateQuest(world, { level = 1, seed = "", patronId = "" } = {}) {
 	const difficulty = Math.max(1, Math.min(20, Number(level) + rng.int(-1, 2)));
 	const tier = difficulty <= 4 ? "local" : difficulty <= 8 ? "regional" : difficulty <= 12 ? "kingdom" : difficulty <= 16 ? "national" : "legendary";
 	const rewardGold = Math.round((100 + difficulty * 75) * (1 + rng.rand() * .4));
-	const steps = [
-		fill(rng.pick([
-			"Speak with {patron} in {settlement}.",
-			"Meet the contact at the {settlement} gate.",
-			"Study the reports in {settlement}."
-		])),
-		fill(rng.pick([
-			"Travel to {place} and find the trail.",
-			"Reach the {biome} without being seen.",
-			"Interview witnesses around {place}."
-		])),
-		fill(rng.pick([
-			"Confront the {monster}.",
-			"Recover the {item}.",
-			"Secure the site and return."
-		])),
-		fill(rng.pick([
-			"Report back to {patron} in {settlement}.",
-			"Bring proof to the {settlement} hall.",
-			"Return the {item} to its owner."
-		]))
-	];
+	const objective = rng.pick(type.objectives);
+	const variant = Math.max(0, type.objectives.indexOf(objective));
+	const objectiveText = fill(objective);
+	const steps = stepsForQuest(type.id, variant, fill);
 	return {
 		id: `quest_${Date.now().toString(36)}_${Math.floor(rng.rand() * 1e5).toString(36)}`,
 		title: fill(rng.pick(type.titles)),
@@ -66619,8 +67174,8 @@ function generateQuest(world, { level = 1, seed = "", patronId = "" } = {}) {
 		biomeLabel: biome.label,
 		level: difficulty,
 		tier,
-		objective: fill(rng.pick(type.objectives)),
-		description: fill(`${patron?.name || "A patron"} needs help. ${rng.pick(type.objectives)} The work is expected to suit a party around level ${difficulty}.`),
+		objective: objectiveText,
+		description: fill(`${patron?.name || "A patron"} needs help. ${objectiveText} The work is expected to suit a party around level ${difficulty}.`),
 		complication: rng.pick(COMPLICATIONS),
 		rewardGold,
 		rewardItems: rng.chance(.35) ? [rng.pick(REWARD_ITEMS)] : [],
@@ -76205,6 +76760,10 @@ function WorldBuilder({ onExit }) {
 	const [peopleNation, setPeopleNation] = useState("__all__");
 	const [peopleSort, setPeopleSort] = useState("name");
 	const [peopleDisposition, setPeopleDisposition] = useState("__all__");
+	const [newNpcSettlement, setNewNpcSettlement] = useState("");
+	const [newNpcRole, setNewNpcRole] = useState("settlement");
+	const [newNpcName, setNewNpcName] = useState("");
+	const [newNpcOccupation, setNewNpcOccupation] = useState("");
 	const [clockOpen, setClockOpen] = useState(false);
 	const [clockDraft, setClockDraft] = useState(null);
 	const [assetStatus, setAssetStatus] = useState(null);
@@ -76287,6 +76846,29 @@ function WorldBuilder({ onExit }) {
 		toast.success(`Created ${next.name}.`);
 	};
 	const updateWorld = (next) => saveWorld(next);
+	const addPerson = () => {
+		if (!world) return;
+		const result = createNpc(world, {
+			settlementId: newNpcSettlement || world.settlements?.[0]?.id || "",
+			role: newNpcRole,
+			name: newNpcName,
+			occupation: newNpcOccupation
+		});
+		if (!result.npc) {
+			toast.error(result.error || "Could not create that person.");
+			return;
+		}
+		saveWorld(result.world);
+		toast.success(`${result.npc.name} added to the world.`);
+		setNewNpcName("");
+		setNewNpcOccupation("");
+	};
+	const removePerson = (npc) => {
+		if (!world || !npc) return;
+		if (!window.confirm(`Remove ${npc.name} from the world?`)) return;
+		saveWorld(deleteNpc(world, npc.id));
+		toast.success(`${npc.name} removed.`);
+	};
 	const resolveEventInWorld = (kingdomId, eventId) => {
 		const kingdom = (world?.kingdoms || []).find((item) => item.id === kingdomId);
 		if (!kingdom) return;
@@ -77656,190 +78238,263 @@ function WorldBuilder({ onExit }) {
 					}),
 					tab === "people" && /* @__PURE__ */ jsxs("div", {
 						className: "space-y-2",
-						children: [/* @__PURE__ */ jsxs("div", {
-							className: "flex flex-wrap items-center gap-1",
-							children: [
-								/* @__PURE__ */ jsx(Input, {
-									className: "h-7 w-56 text-xs",
-									placeholder: "Search people, jobs, traits...",
-									value: peopleQuery,
-									onChange: (e) => setPeopleQuery(e.target.value)
-								}),
-								/* @__PURE__ */ jsxs(Select, {
-									value: peopleNation,
-									onValueChange: setPeopleNation,
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-7 w-48 text-xs",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-										value: "__all__",
-										children: "All nations"
-									}), world.nations.map((nation) => /* @__PURE__ */ jsx(SelectItem, {
-										value: nation.id,
-										children: nation.name
-									}, nation.id))] })]
-								}),
-								/* @__PURE__ */ jsxs(Select, {
-									value: peopleDisposition,
-									onValueChange: setPeopleDisposition,
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex flex-wrap items-center gap-1",
+								children: [
+									/* @__PURE__ */ jsx(Input, {
+										className: "h-7 w-56 text-xs",
+										placeholder: "Search people, jobs, traits...",
+										value: peopleQuery,
+										onChange: (e) => setPeopleQuery(e.target.value)
+									}),
+									/* @__PURE__ */ jsxs(Select, {
+										value: peopleNation,
+										onValueChange: setPeopleNation,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-48 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+											value: "__all__",
+											children: "All nations"
+										}), world.nations.map((nation) => /* @__PURE__ */ jsx(SelectItem, {
+											value: nation.id,
+											children: nation.name
+										}, nation.id))] })]
+									}),
+									/* @__PURE__ */ jsxs(Select, {
+										value: peopleDisposition,
+										onValueChange: setPeopleDisposition,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-36 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+											value: "__all__",
+											children: "All dispositions"
+										}), DISPOSITIONS.map((disposition) => /* @__PURE__ */ jsx(SelectItem, {
+											value: disposition.id,
+											children: disposition.label
+										}, disposition.id))] })]
+									}),
+									/* @__PURE__ */ jsxs(Select, {
+										value: peopleSort,
+										onValueChange: setPeopleSort,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-36 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsxs(SelectContent, { children: [
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "name",
+												children: "Sort: name"
+											}),
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "settlement",
+												children: "Sort: settlement"
+											}),
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "occupation",
+												children: "Sort: occupation"
+											}),
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "disposition",
+												children: "Sort: disposition"
+											})
+										] })]
+									}),
+									/* @__PURE__ */ jsxs("span", {
+										className: "ml-auto text-[10px] text-muted-foreground",
+										children: [people.length, " shown"]
+									}),
+									/* @__PURE__ */ jsxs(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 text-xs",
+										onClick: () => advanceTime(8),
+										children: [
+											/* @__PURE__ */ jsx(Clock, { className: "mr-1 h-3.5 w-3.5" }),
+											" ",
+											timeLabel(world),
+											"  -  +8h"
+										]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-1",
+								children: [
+									/* @__PURE__ */ jsx("span", {
+										className: "px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+										children: "Add person"
+									}),
+									/* @__PURE__ */ jsxs(Select, {
+										value: newNpcSettlement || world.settlements?.[0]?.id || "",
+										onValueChange: setNewNpcSettlement,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-44 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsx(SelectContent, { children: world.settlements.map((settlement) => /* @__PURE__ */ jsx(SelectItem, {
+											value: settlement.id,
+											children: settlement.name
+										}, settlement.id)) })]
+									}),
+									/* @__PURE__ */ jsxs(Select, {
+										value: newNpcRole,
+										onValueChange: setNewNpcRole,
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-7 w-32 text-xs",
+											children: /* @__PURE__ */ jsx(SelectValue, {})
+										}), /* @__PURE__ */ jsxs(SelectContent, { children: [
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "settlement",
+												children: "Local"
+											}),
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "court",
+												children: "Court"
+											}),
+											/* @__PURE__ */ jsx(SelectItem, {
+												value: "wilderness",
+												children: "Wilderness"
+											})
+										] })]
+									}),
+									/* @__PURE__ */ jsx(Input, {
 										className: "h-7 w-36 text-xs",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-										value: "__all__",
-										children: "All dispositions"
-									}), DISPOSITIONS.map((disposition) => /* @__PURE__ */ jsx(SelectItem, {
-										value: disposition.id,
-										children: disposition.label
-									}, disposition.id))] })]
-								}),
-								/* @__PURE__ */ jsxs(Select, {
-									value: peopleSort,
-									onValueChange: setPeopleSort,
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-7 w-36 text-xs",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsxs(SelectContent, { children: [
-										/* @__PURE__ */ jsx(SelectItem, {
-											value: "name",
-											children: "Sort: name"
-										}),
-										/* @__PURE__ */ jsx(SelectItem, {
-											value: "settlement",
-											children: "Sort: settlement"
-										}),
-										/* @__PURE__ */ jsx(SelectItem, {
-											value: "occupation",
-											children: "Sort: occupation"
-										}),
-										/* @__PURE__ */ jsx(SelectItem, {
-											value: "disposition",
-											children: "Sort: disposition"
-										})
-									] })]
-								}),
-								/* @__PURE__ */ jsxs("span", {
-									className: "ml-auto text-[10px] text-muted-foreground",
-									children: [people.length, " shown"]
-								}),
-								/* @__PURE__ */ jsxs(Button, {
-									size: "sm",
-									variant: "outline",
-									className: "h-7 text-xs",
-									onClick: () => advanceTime(8),
-									children: [
-										/* @__PURE__ */ jsx(Clock, { className: "mr-1 h-3.5 w-3.5" }),
-										" ",
-										timeLabel(world),
-										"  -  +8h"
-									]
-								})
-							]
-						}), /* @__PURE__ */ jsx("div", {
-							className: "grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3",
-							children: people.map(({ npc, disposition, settlement }) => {
-								const home = settlement?.buildings?.find((b) => b.id === npc.homeBuildingId);
-								const work = settlement?.buildings?.find((b) => b.id === npc.workBuildingId);
-								const badge = DISPOSITION_BY_ID[disposition] || DISPOSITION_BY_ID.indifferent;
-								return /* @__PURE__ */ jsxs("div", {
-									className: "rounded-md border p-2 text-[10px]",
-									children: [
-										/* @__PURE__ */ jsxs("div", {
-											className: "flex items-start justify-between gap-1",
-											children: [/* @__PURE__ */ jsx("p", {
-												className: "text-xs font-semibold",
-												children: npc.name
-											}), /* @__PURE__ */ jsx("span", {
-												className: `shrink-0 rounded px-1 py-0.5 text-[9px] font-medium ${badge.color} ${badge.bg}`,
-												children: badge.label
-											})]
-										}),
-										/* @__PURE__ */ jsxs("p", {
-											className: "text-muted-foreground",
-											children: [
-												npc.occupation,
-												"  -  ",
-												settlement?.name || "Unknown"
-											]
-										}),
-										/* @__PURE__ */ jsxs("label", {
-											className: "mt-1 flex items-center gap-1",
-											children: [/* @__PURE__ */ jsx("span", {
-												className: "font-medium",
-												children: "Disposition"
-											}), /* @__PURE__ */ jsx("select", {
-												className: "h-6 flex-1 rounded border bg-background px-1 text-[10px]",
-												value: disposition,
-												onChange: (event) => setNpcDisposition(npc.id, event.target.value),
-												children: DISPOSITIONS.map((item) => /* @__PURE__ */ jsx("option", {
-													value: item.id,
-													children: item.label
-												}, item.id))
-											})]
-										}),
-										/* @__PURE__ */ jsxs("p", {
-											className: "mt-1",
-											children: [
+										placeholder: "Name (optional)",
+										value: newNpcName,
+										onChange: (e) => setNewNpcName(e.target.value)
+									}),
+									/* @__PURE__ */ jsx(Input, {
+										className: "h-7 w-40 text-xs",
+										placeholder: "Occupation (optional)",
+										value: newNpcOccupation,
+										onChange: (e) => setNewNpcOccupation(e.target.value)
+									}),
+									/* @__PURE__ */ jsxs(Button, {
+										size: "sm",
+										variant: "outline",
+										className: "h-7 text-xs",
+										onClick: addPerson,
+										children: [/* @__PURE__ */ jsx(Users, { className: "mr-1 h-3.5 w-3.5" }), " Add"]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsx("div", {
+								className: "grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3",
+								children: people.map(({ npc, disposition, settlement }) => {
+									const home = settlement?.buildings?.find((b) => b.id === npc.homeBuildingId);
+									const work = settlement?.buildings?.find((b) => b.id === npc.workBuildingId);
+									const badge = DISPOSITION_BY_ID[disposition] || DISPOSITION_BY_ID.indifferent;
+									return /* @__PURE__ */ jsxs("div", {
+										className: "rounded-md border p-2 text-[10px]",
+										children: [
+											/* @__PURE__ */ jsxs("div", {
+												className: "flex items-start justify-between gap-1",
+												children: [/* @__PURE__ */ jsx("p", {
+													className: "text-xs font-semibold",
+													children: npc.name
+												}), /* @__PURE__ */ jsx("span", {
+													className: `shrink-0 rounded px-1 py-0.5 text-[9px] font-medium ${badge.color} ${badge.bg}`,
+													children: badge.label
+												})]
+											}),
+											/* @__PURE__ */ jsxs("p", {
+												className: "text-muted-foreground",
+												children: [
+													npc.occupation,
+													"  -  ",
+													settlement?.name || "Unknown"
+												]
+											}),
+											/* @__PURE__ */ jsxs("label", {
+												className: "mt-1 flex items-center gap-1",
+												children: [/* @__PURE__ */ jsx("span", {
+													className: "font-medium",
+													children: "Disposition"
+												}), /* @__PURE__ */ jsx("select", {
+													className: "h-6 flex-1 rounded border bg-background px-1 text-[10px]",
+													value: disposition,
+													onChange: (event) => setNpcDisposition(npc.id, event.target.value),
+													children: DISPOSITIONS.map((item) => /* @__PURE__ */ jsx("option", {
+														value: item.id,
+														children: item.label
+													}, item.id))
+												})]
+											}),
+											/* @__PURE__ */ jsxs("p", {
+												className: "mt-1",
+												children: [
+													/* @__PURE__ */ jsx("span", {
+														className: "font-medium",
+														children: "Trait:"
+													}),
+													" ",
+													npc.personality?.trait
+												]
+											}),
+											/* @__PURE__ */ jsxs("p", { children: [
 												/* @__PURE__ */ jsx("span", {
 													className: "font-medium",
-													children: "Trait:"
+													children: "Ideal:"
 												}),
 												" ",
-												npc.personality?.trait
-											]
-										}),
-										/* @__PURE__ */ jsxs("p", { children: [
-											/* @__PURE__ */ jsx("span", {
-												className: "font-medium",
-												children: "Ideal:"
-											}),
-											" ",
-											npc.personality?.ideal
-										] }),
-										/* @__PURE__ */ jsxs("p", { children: [
-											/* @__PURE__ */ jsx("span", {
-												className: "font-medium",
-												children: "Bond:"
-											}),
-											" ",
-											npc.personality?.bond
-										] }),
-										/* @__PURE__ */ jsxs("p", { children: [
-											/* @__PURE__ */ jsx("span", {
-												className: "font-medium",
-												children: "Flaw:"
-											}),
-											" ",
-											npc.personality?.flaw
-										] }),
-										/* @__PURE__ */ jsx("p", {
-											className: "text-muted-foreground",
-											children: npc.personality?.background
-										}),
-										/* @__PURE__ */ jsxs("p", {
-											className: "mt-1 rounded bg-muted/40 px-1 py-0.5 text-muted-foreground",
-											children: [
+												npc.personality?.ideal
+											] }),
+											/* @__PURE__ */ jsxs("p", { children: [
 												/* @__PURE__ */ jsx("span", {
-													className: "font-medium text-foreground",
-													children: "Now:"
+													className: "font-medium",
+													children: "Bond:"
 												}),
 												" ",
-												npc.currentLocation ? currentLocationText(world, npc) : "Unknown"
-											]
-										}),
-										/* @__PURE__ */ jsxs("p", {
-											className: "mt-1 text-muted-foreground",
-											children: [
-												"Home: ",
-												home?.name || "Unknown",
-												"  -  Work: ",
-												work?.name || "Unknown"
-											]
-										})
-									]
-								}, npc.id);
+												npc.personality?.bond
+											] }),
+											/* @__PURE__ */ jsxs("p", { children: [
+												/* @__PURE__ */ jsx("span", {
+													className: "font-medium",
+													children: "Flaw:"
+												}),
+												" ",
+												npc.personality?.flaw
+											] }),
+											/* @__PURE__ */ jsx("p", {
+												className: "text-muted-foreground",
+												children: npc.personality?.background
+											}),
+											/* @__PURE__ */ jsxs("p", {
+												className: "mt-1 rounded bg-muted/40 px-1 py-0.5 text-muted-foreground",
+												children: [
+													/* @__PURE__ */ jsx("span", {
+														className: "font-medium text-foreground",
+														children: "Now:"
+													}),
+													" ",
+													npc.currentLocation ? currentLocationText(world, npc) : "Unknown"
+												]
+											}),
+											/* @__PURE__ */ jsxs("p", {
+												className: "mt-1 text-muted-foreground",
+												children: [
+													"Home: ",
+													home?.name || "Unknown",
+													"  -  Work: ",
+													work?.name || "Unknown"
+												]
+											}),
+											/* @__PURE__ */ jsx("div", {
+												className: "mt-1 flex justify-end",
+												children: /* @__PURE__ */ jsx(Button, {
+													size: "sm",
+													variant: "ghost",
+													className: "h-6 text-[10px] text-destructive",
+													onClick: () => removePerson(npc),
+													children: "Delete person"
+												})
+											})
+										]
+									}, npc.id);
+								})
 							})
-						})]
+						]
 					}),
 					tab === "encounters" && /* @__PURE__ */ jsxs("div", {
 						className: "space-y-2",
@@ -78501,6 +79156,7 @@ function RoomBuilder({ onExit, onArchitect }) {
 	const rooms = settings?.library?.dungeonRooms || [];
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [query, setQuery] = useState("");
+	const [architectType, setArchitectType] = useState("Bedroom");
 	const selected = rooms[selectedIndex] || rooms[0] || null;
 	const setRooms = (next) => setSettings((s) => ({
 		...s,
@@ -78523,6 +79179,39 @@ function RoomBuilder({ onExit, onArchitect }) {
 		setRooms(next);
 		setSelectedIndex(next.length - 1);
 		toast.success("New room added.");
+	};
+	const architectCategory = (type) => {
+		if (/corridor|passage|hall|stairs/i.test(type)) return "Corridor";
+		if (/entrance|gate|porch/i.test(type)) return "Entrance";
+		if (/throne|boss|sanctum/i.test(type)) return "Boss";
+		if (/trap|pit/i.test(type)) return "Trap";
+		return "Chamber";
+	};
+	const addArchitectRoom = () => {
+		const type = architectType;
+		const room = {
+			...blankRoom(rooms.length),
+			name: type,
+			category: architectCategory(type),
+			connector: /corridor|passage|hall/i.test(type) ? "Corridor" : "Doorway",
+			tags: [type.toLowerCase()]
+		};
+		setRooms([...rooms, room]);
+		setSelectedIndex(rooms.length);
+		toast.success(`${type} room added from the Architect list.`);
+	};
+	const addConnectorRoom = () => {
+		const room = {
+			...blankRoom(rooms.length),
+			name: `Connector ${rooms.length + 1}`,
+			category: "Corridor",
+			connector: "Corridor",
+			shape: "Rectangle",
+			tags: ["connector"]
+		};
+		setRooms([...rooms, room]);
+		setSelectedIndex(rooms.length);
+		toast.success("Connector room added.");
 	};
 	const duplicateRoom = () => {
 		if (!selected) return;
@@ -78595,6 +79284,32 @@ function RoomBuilder({ onExit, onArchitect }) {
 					className: "h-8 text-xs",
 					onClick: addRoom,
 					children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " New room"]
+				}),
+				/* @__PURE__ */ jsxs(Select, {
+					value: architectType,
+					onValueChange: setArchitectType,
+					children: [/* @__PURE__ */ jsx(SelectTrigger, {
+						className: "h-8 w-40 text-xs",
+						title: "Architect room types",
+						children: /* @__PURE__ */ jsx(SelectValue, {})
+					}), /* @__PURE__ */ jsx(SelectContent, { children: Object.keys(ROOM_PROFILES).map((type) => /* @__PURE__ */ jsx(SelectItem, {
+						value: type,
+						children: type
+					}, type)) })]
+				}),
+				/* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: "outline",
+					className: "h-8 text-xs",
+					onClick: addArchitectRoom,
+					children: "Add from Architect"
+				}),
+				/* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: "outline",
+					className: "h-8 text-xs",
+					onClick: addConnectorRoom,
+					children: "New connector"
 				}),
 				selected && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs(Button, {
 					size: "sm",
@@ -78688,10 +79403,10 @@ function RoomBuilder({ onExit, onArchitect }) {
 									}), /* @__PURE__ */ jsx(Input, {
 										className: "h-8",
 										type: "number",
-										min: 9,
+										min: 3,
 										max: 33,
 										value: selected.w ?? 9,
-										onChange: (e) => patchSelected({ w: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })
+										onChange: (e) => patchSelected({ w: Math.max(3, Math.min(33, Number(e.target.value) || 3)) })
 									})]
 								}),
 								/* @__PURE__ */ jsxs("label", {
@@ -78702,10 +79417,10 @@ function RoomBuilder({ onExit, onArchitect }) {
 									}), /* @__PURE__ */ jsx(Input, {
 										className: "h-8",
 										type: "number",
-										min: 9,
+										min: 3,
 										max: 33,
 										value: selected.h ?? 9,
-										onChange: (e) => patchSelected({ h: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })
+										onChange: (e) => patchSelected({ h: Math.max(3, Math.min(33, Number(e.target.value) || 3)) })
 									})]
 								}),
 								/* @__PURE__ */ jsxs("label", {
@@ -78767,7 +79482,8 @@ function RoomBuilder({ onExit, onArchitect }) {
 							},
 							onSave: applyPayload,
 							onUpload: addFromPayload,
-							onAdd: addFromPayload
+							onAdd: addFromPayload,
+							onResize: (dims) => patchSelected(dims)
 						}),
 						/* @__PURE__ */ jsxs("p", {
 							className: "text-[10px] text-muted-foreground",

@@ -102,13 +102,25 @@ changing app code, then restart the launcher.
 - **World Builder:** generated buildings can use house artwork with 45° rotation,
   expand their footprint only when neighbouring lots are free, and be nudged to a
   free lot before expanding. Generated maps default to 256×256 spaces, can use a
-  fixed size or a seed-driven random size, and kingdom borders can be hidden.
-  The map supports selecting settlements, adding new ones, painting, moving and
-  deleting with the Edit map tools. Building population is twice its Bedroom
-  rooms; businesses have no Bedrooms unless they are an Inn.
+  fixed size or a seed-driven random size, and the Borders toggle hides the
+  coloured national territory as well as its outlines. The map supports selecting
+  settlements, adding new ones, painting, moving and deleting with the Edit map
+  tools. Building population is twice its Bedroom rooms; businesses have no
+  Bedrooms unless they are an Inn. People can be added to or removed from the
+  People tab.
 - **Room Builder:** a front-page section for designing room shapes and battlefield
   terrain. Saved rooms feed procedural dungeons and kingdom house interiors, and
-  the page links both ways with the Architect.
+  the page links both ways with the Architect. It also includes Architect room
+  types and dedicated connector rooms. Rooms support floor types, reusable floor
+  textures, water, lava, hazards and bridges.
+- **Dungeon Builder:** generated liquids run from a start point to one or two end
+  points, are at least two cells thick and include a bridge. At most two exterior
+  doors are kept on a generated dungeon. The room maker is a focused overlay and
+  no longer overlaps the generated map; drag-selecting text on its grid is
+  disabled.
+- **Quests:** generated quest steps follow a coherent chain from the patron to the
+  objective and back, so a hunt always includes confronting the monster, a
+  retrieval always introduces the item, and rewards are never pulled from nowhere.
 - **Architect:** rented properties cannot add facilities/Bastion rooms or enlarge
   the footprint; business-only rooms need the landlord allowance.
 - **Dungeon Builder:** rooms and halls track floors and door connections; the

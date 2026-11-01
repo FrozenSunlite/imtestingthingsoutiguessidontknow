@@ -533,6 +533,11 @@ export function DungeonGenerator({ onExit, embedded = false }) {
         coverPoints: (footprint.coverPoints || []).map((p) => ({ ...p })),
         trapPoints: (footprint.trapPoints || []).map((p) => ({ ...p })),
         water: (footprint.water || []).map((p) => [...p]),
+        lava: (footprint.lava || []).map((p) => [...p]),
+        bridges: (footprint.bridges || []).map((p) => [...p]),
+        hazardPoints: (footprint.hazardPoints || []).map((p) => ({ ...p })),
+        floorType: footprint.floorType || room.floorType || "stone",
+        floorTextureUrl: footprint.floorTextureUrl || room.floorTextureUrl || "",
         difficult: (footprint.difficult || []).map((p) => [...p]),
         harvest: [...(room.harvest || [])],
       };
@@ -916,6 +921,19 @@ export function DungeonGenerator({ onExit, embedded = false }) {
       ...dungeon,
       rooms: dungeon.rooms.map((r) => (r.id === selected.id ? { ...r, ...patch } : r)),
     });
+    // Keep an open Room Maker in step with width/height and other edits.
+    if (makerRoom?.id === selected.id) {
+      setMakerRoom((room) => (room ? { ...room, ...patch } : room));
+    }
+  };
+
+  const patchRoomDimensions = (patch) => {
+    if (makerOpen && makerRoom) {
+      setMakerRoom((room) => (room ? { ...room, ...patch } : room));
+      if (selected && makerRoom.id === selected.id) patchSelected(patch);
+      return;
+    }
+    patchSelected(patch);
   };
 
   const setRoute = (routeId) => {
@@ -1036,8 +1054,8 @@ export function DungeonGenerator({ onExit, embedded = false }) {
   const resizeRoom = (id, w, h) => {
     if (!dungeon) return;
     const room = dungeon.rooms.find((r) => r.id === id);
-    const nextW = Math.max(9, Math.min(33, Math.round(w)));
-    const nextH = Math.max(9, Math.min(33, Math.round(h)));
+    const nextW = Math.max(3, Math.min(33, Math.round(w)));
+    const nextH = Math.max(3, Math.min(33, Math.round(h)));
     if (room && room.w === nextW && room.h === nextH) return;
     commit({
       ...dungeon,
@@ -1574,51 +1592,58 @@ export function DungeonGenerator({ onExit, embedded = false }) {
             </div>
           )}
           {makerOpen && (
-            <div
-              className={`flex shrink-0 flex-col rounded-md border bg-background ${
-                makerMax ? "h-[calc(100vh-1.5rem)]" : "h-[min(72vh,820px)] min-h-[420px]"
-              }`}
-            >
-              <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Room Maker
-                </p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => setMakerMax((value) => !value)}
-                >
-                  {makerMax ? "Restore" : "Maximize"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => setMakerOpen(false)}
-                >
-                  Hide
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {makerRoom ? (
-                  <RoomShapeBuilder
-                    inline
-                    room={makerRoom}
-                    templates={allRoomTemplates}
-                    templateId={makerTemplateId}
-                    onLoadTemplate={loadMakerTemplate}
-                    onSave={applyMaker}
-                    onUpload={uploadMaker}
-                    onAdd={addMakerRoom}
-                    onOpenChange={() => setMakerOpen(false)}
-                  />
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Select a room on the map to edit its footprint, spawn points and ingress zones,
-                    or load a room template from the Reference Library.
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3">
+              <div
+                className={`flex flex-col overflow-hidden rounded-lg border bg-background shadow-2xl ${
+                  makerMax
+                    ? "h-[96vh] w-[98vw]"
+                    : "h-[min(92vh,920px)] w-[min(1180px,96vw)]"
+                }`}
+              >
+                <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Room Maker
                   </p>
-                )}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      onClick={() => setMakerMax((value) => !value)}
+                    >
+                      {makerMax ? "Restore" : "Maximize"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      onClick={() => setMakerOpen(false)}
+                    >
+                      Hide
+                    </Button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                  {makerRoom ? (
+                    <RoomShapeBuilder
+                      inline
+                      room={makerRoom}
+                      templates={allRoomTemplates}
+                      templateId={makerTemplateId}
+                      onLoadTemplate={loadMakerTemplate}
+                      onSave={applyMaker}
+                      onUpload={uploadMaker}
+                      onAdd={addMakerRoom}
+                      onResize={patchRoomDimensions}
+                      onOpenChange={() => setMakerOpen(false)}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Select a room on the map to edit its footprint, spawn points and ingress zones,
+                      or load a room template from the Reference Library.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1666,11 +1691,11 @@ export function DungeonGenerator({ onExit, embedded = false }) {
                 </div>
                 <div>
                   <Label className="text-[10px]">Width (spaces)</Label>
-                  <Input type="number" min={9} max={33} className="h-8" value={selected.w} onChange={(e) => patchSelected({ w: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })} />
+                  <Input type="number" min={3} max={33} className="h-8" value={Math.max(3, Math.min(33, Number(makerOpen && makerRoom ? makerRoom.w : selected.w) || 3))} onChange={(e) => patchRoomDimensions({ w: Math.max(3, Math.min(33, Number(e.target.value) || 3)) })} />
                 </div>
                 <div>
                   <Label className="text-[10px]">Height (spaces)</Label>
-                  <Input type="number" min={9} max={33} className="h-8" value={selected.h} onChange={(e) => patchSelected({ h: Math.max(9, Math.min(33, Number(e.target.value) || 9)) })} />
+                  <Input type="number" min={3} max={33} className="h-8" value={Math.max(3, Math.min(33, Number(makerOpen && makerRoom ? makerRoom.h : selected.h) || 3))} onChange={(e) => patchRoomDimensions({ h: Math.max(3, Math.min(33, Number(e.target.value) || 3)) })} />
                 </div>
               </div>
               <div>

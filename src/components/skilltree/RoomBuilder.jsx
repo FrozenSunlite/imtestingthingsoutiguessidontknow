@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { RoomShapeBuilder } from "@/components/skilltree/dungeon/RoomShapeBuilder";
 import { DUNGEON_CATEGORIES } from "@/lib/dungeonGen";
+import { ROOM_PROFILES } from "@/lib/facilityRooms";
 import { ArrowLeft, Copy, Home, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ export function RoomBuilder({ onExit, onArchitect }) {
   const rooms = settings?.library?.dungeonRooms || [];
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [query, setQuery] = useState("");
+  const [architectType, setArchitectType] = useState("Bedroom");
   const selected = rooms[selectedIndex] || rooms[0] || null;
 
   const setRooms = (next) =>
@@ -71,6 +73,42 @@ export function RoomBuilder({ onExit, onArchitect }) {
     setRooms(next);
     setSelectedIndex(next.length - 1);
     toast.success("New room added.");
+  };
+
+  const architectCategory = (type) => {
+    if (/corridor|passage|hall|stairs/i.test(type)) return "Corridor";
+    if (/entrance|gate|porch/i.test(type)) return "Entrance";
+    if (/throne|boss|sanctum/i.test(type)) return "Boss";
+    if (/trap|pit/i.test(type)) return "Trap";
+    return "Chamber";
+  };
+
+  const addArchitectRoom = () => {
+    const type = architectType;
+    const room = {
+      ...blankRoom(rooms.length),
+      name: type,
+      category: architectCategory(type),
+      connector: /corridor|passage|hall/i.test(type) ? "Corridor" : "Doorway",
+      tags: [type.toLowerCase()],
+    };
+    setRooms([...rooms, room]);
+    setSelectedIndex(rooms.length);
+    toast.success(`${type} room added from the Architect list.`);
+  };
+
+  const addConnectorRoom = () => {
+    const room = {
+      ...blankRoom(rooms.length),
+      name: `Connector ${rooms.length + 1}`,
+      category: "Corridor",
+      connector: "Corridor",
+      shape: "Rectangle",
+      tags: ["connector"],
+    };
+    setRooms([...rooms, room]);
+    setSelectedIndex(rooms.length);
+    toast.success("Connector room added.");
   };
 
   const duplicateRoom = () => {
@@ -142,6 +180,22 @@ export function RoomBuilder({ onExit, onArchitect }) {
         </div>
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={addRoom}>
           <Plus className="mr-1 h-4 w-4" /> New room
+        </Button>
+        <Select value={architectType} onValueChange={setArchitectType}>
+          <SelectTrigger className="h-8 w-40 text-xs" title="Architect room types">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(ROOM_PROFILES).map((type) => (
+              <SelectItem key={type} value={type}>{type}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={addArchitectRoom}>
+          Add from Architect
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={addConnectorRoom}>
+          New connector
         </Button>
         {selected && (
           <>
@@ -222,12 +276,12 @@ export function RoomBuilder({ onExit, onArchitect }) {
                   <Input
                     className="h-8"
                     type="number"
-                    min={9}
+                    min={3}
                     max={33}
                     value={selected.w ?? 9}
                     onChange={(e) =>
                       patchSelected({
-                        w: Math.max(9, Math.min(33, Number(e.target.value) || 9)),
+                        w: Math.max(3, Math.min(33, Number(e.target.value) || 3)),
                       })
                     }
                   />
@@ -237,12 +291,12 @@ export function RoomBuilder({ onExit, onArchitect }) {
                   <Input
                     className="h-8"
                     type="number"
-                    min={9}
+                    min={3}
                     max={33}
                     value={selected.h ?? 9}
                     onChange={(e) =>
                       patchSelected({
-                        h: Math.max(9, Math.min(33, Number(e.target.value) || 9)),
+                        h: Math.max(3, Math.min(33, Number(e.target.value) || 3)),
                       })
                     }
                   />
@@ -298,6 +352,7 @@ export function RoomBuilder({ onExit, onArchitect }) {
                 onSave={applyPayload}
                 onUpload={addFromPayload}
                 onAdd={addFromPayload}
+                onResize={(dims) => patchSelected(dims)}
               />
               <p className="text-[10px] text-muted-foreground">
                 Saved rooms are used by the Dungeon Builder's procedural generation.

@@ -23,6 +23,8 @@ import { DevelopmentsPanel } from "./DevelopmentsPanel";
 import {
   ERAS,
   SCALES,
+  createNpc,
+  deleteNpc,
   generateWorld,
 } from "@/lib/worldGen";
 import {
@@ -116,6 +118,10 @@ export function WorldBuilder({ onExit }) {
   const [peopleNation, setPeopleNation] = useState("__all__");
   const [peopleSort, setPeopleSort] = useState("name");
   const [peopleDisposition, setPeopleDisposition] = useState("__all__");
+  const [newNpcSettlement, setNewNpcSettlement] = useState("");
+  const [newNpcRole, setNewNpcRole] = useState("settlement");
+  const [newNpcName, setNewNpcName] = useState("");
+  const [newNpcOccupation, setNewNpcOccupation] = useState("");
   const [clockOpen, setClockOpen] = useState(false);
   const [clockDraft, setClockDraft] = useState(null);
   const [assetStatus, setAssetStatus] = useState(null);
@@ -213,6 +219,31 @@ export function WorldBuilder({ onExit }) {
   };
 
   const updateWorld = (next) => saveWorld(next);
+
+  const addPerson = () => {
+    if (!world) return;
+    const result = createNpc(world, {
+      settlementId: newNpcSettlement || world.settlements?.[0]?.id || "",
+      role: newNpcRole,
+      name: newNpcName,
+      occupation: newNpcOccupation,
+    });
+    if (!result.npc) {
+      toast.error(result.error || "Could not create that person.");
+      return;
+    }
+    saveWorld(result.world);
+    toast.success(`${result.npc.name} added to the world.`);
+    setNewNpcName("");
+    setNewNpcOccupation("");
+  };
+
+  const removePerson = (npc) => {
+    if (!world || !npc) return;
+    if (!window.confirm(`Remove ${npc.name} from the world?`)) return;
+    saveWorld(deleteNpc(world, npc.id));
+    toast.success(`${npc.name} removed.`);
+  };
 
   const resolveEventInWorld = (kingdomId, eventId) => {
     const kingdom = (world?.kingdoms || []).find((item) => item.id === kingdomId);
@@ -1456,6 +1487,47 @@ export function WorldBuilder({ onExit }) {
                 <Clock className="mr-1 h-3.5 w-3.5" /> {timeLabel(world)}  -  +8h
               </Button>
             </div>
+            <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/20 p-1">
+              <span className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Add person
+              </span>
+              <Select
+                value={newNpcSettlement || world.settlements?.[0]?.id || ""}
+                onValueChange={setNewNpcSettlement}
+              >
+                <SelectTrigger className="h-7 w-44 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {world.settlements.map((settlement) => (
+                    <SelectItem key={settlement.id} value={settlement.id}>
+                      {settlement.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={newNpcRole} onValueChange={setNewNpcRole}>
+                <SelectTrigger className="h-7 w-32 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="settlement">Local</SelectItem>
+                  <SelectItem value="court">Court</SelectItem>
+                  <SelectItem value="wilderness">Wilderness</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                className="h-7 w-36 text-xs"
+                placeholder="Name (optional)"
+                value={newNpcName}
+                onChange={(e) => setNewNpcName(e.target.value)}
+              />
+              <Input
+                className="h-7 w-40 text-xs"
+                placeholder="Occupation (optional)"
+                value={newNpcOccupation}
+                onChange={(e) => setNewNpcOccupation(e.target.value)}
+              />
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addPerson}>
+                <Users className="mr-1 h-3.5 w-3.5" /> Add
+              </Button>
+            </div>
             <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
               {people.map(({ npc, disposition, settlement }) => {
                 const home = settlement?.buildings?.find((b) => b.id === npc.homeBuildingId);
@@ -1496,6 +1568,16 @@ export function WorldBuilder({ onExit }) {
                     <p className="mt-1 text-muted-foreground">
                       Home: {home?.name || "Unknown"}  -  Work: {work?.name || "Unknown"}
                     </p>
+                    <div className="mt-1 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-[10px] text-destructive"
+                        onClick={() => removePerson(npc)}
+                      >
+                        Delete person
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

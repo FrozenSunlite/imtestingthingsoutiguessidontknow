@@ -1,0 +1,1 @@
+import{g as e}from"./routes-CbTAQmdP.js";export default e();

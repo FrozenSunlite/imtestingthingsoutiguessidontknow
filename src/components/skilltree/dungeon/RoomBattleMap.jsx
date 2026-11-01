@@ -50,8 +50,20 @@ export function RoomBattleMap({ room }) {
   const water = new Set(
     pointList(room.water).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`)
   );
+  const lava = new Set(
+    pointList(room.lava).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`)
+  );
+  const bridges = new Set(
+    pointList(room.bridges).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`)
+  );
   const difficult = new Set(
     pointList(room.difficult).map((p) => `${Number(p.x) + ox},${Number(p.y) + oy}`)
+  );
+  const hazardMarks = new Map(
+    pointList(room.hazardPoints).map((p) => [
+      `${Number(p.x) + ox},${Number(p.y) + oy}`,
+      String(p.type || p.hazard || "Hazard"),
+    ])
   );
   const coverMarks = new Map(
     coverPoints.map((p) => [
@@ -99,12 +111,13 @@ export function RoomBattleMap({ room }) {
         <path d={fillPath} fill="hsl(var(--muted))" fillOpacity="0.28" />
         <path d={outlinePath} fill="none" stroke="hsl(var(--foreground))" strokeWidth="1.4" />
 
-        {/* Water and difficult terrain cover the floor under the markers. */}
+        {/* Water, lava and difficult terrain cover the floor under the markers. */}
         {cells.map(([cx, cy], i) => {
           const key = `${cx},${cy}`;
           const isWater = water.has(key);
+          const isLava = lava.has(key);
           const isDifficult = difficult.has(key);
-          if (!isWater && !isDifficult) return null;
+          if (!isWater && !isLava && !isDifficult) return null;
           return (
             <rect
               key={`surf${i}`}
@@ -112,13 +125,65 @@ export function RoomBattleMap({ room }) {
               y={cy * cell}
               width={cell}
               height={cell}
-              fill={isWater ? "hsl(199 89% 48%)" : "hsl(38 74% 45%)"}
-              fillOpacity={isWater ? 0.28 : 0.22}
-              stroke={isWater ? "hsl(199 89% 40%)" : "hsl(32 80% 38%)"}
-              strokeDasharray={isWater ? undefined : "1.5 1.5"}
+              fill={
+                isLava
+                  ? "hsl(18 90% 50%)"
+                  : isWater
+                    ? "hsl(199 89% 48%)"
+                    : "hsl(38 74% 45%)"
+              }
+              fillOpacity={isLava ? 0.42 : isWater ? 0.28 : 0.22}
+              stroke={
+                isLava
+                  ? "hsl(12 88% 38%)"
+                  : isWater
+                    ? "hsl(199 89% 40%)"
+                    : "hsl(32 80% 38%)"
+              }
+              strokeDasharray={isDifficult && !isWater && !isLava ? "1.5 1.5" : undefined}
               strokeOpacity="0.55"
               strokeWidth="0.6"
             />
+          );
+        })}
+
+        {/* A bridge is a solid plank crossing over liquid. */}
+        {cells.map(([cx, cy], i) => {
+          const key = `${cx},${cy}`;
+          if (!bridges.has(key)) return null;
+          return (
+            <rect
+              key={`bridge${i}`}
+              x={cx * cell + cell * 0.08}
+              y={cy * cell + cell * 0.08}
+              width={cell * 0.84}
+              height={cell * 0.84}
+              fill="hsl(32 55% 62%)"
+              fillOpacity="0.85"
+              stroke="hsl(28 45% 38%)"
+              strokeWidth="0.6"
+            />
+          );
+        })}
+
+        {/* Hazards are labelled so the DM can see what the terrain does. */}
+        {[...hazardMarks].map(([key], i) => {
+          const [cx, cy] = key.split(",").map(Number);
+          return (
+            <g key={`hazard${i}`}>
+              <rect
+                x={cx * cell}
+                y={cy * cell}
+                width={cell}
+                height={cell}
+                fill="hsl(348 80% 50%)"
+                fillOpacity="0.18"
+                stroke="hsl(348 80% 42%)"
+                strokeDasharray="2 2"
+                strokeWidth="0.6"
+              />
+              {label((cx + 0.5) * cell, (cy + 0.65) * cell, "!", "hsl(348 80% 45%)", 7)}
+            </g>
           );
         })}
 
@@ -489,6 +554,9 @@ export function RoomBattleMap({ room }) {
         <span>▭ cover (½ / ¾ / F)</span>
         <span>↕ stairs</span>
         <span className="text-sky-600 dark:text-sky-400">■ water</span>
+        <span className="text-orange-600 dark:text-orange-400">■ lava</span>
+        <span className="text-amber-700 dark:text-amber-300">▬ bridge</span>
+        <span className="text-rose-600 dark:text-rose-400">! hazard</span>
         <span className="text-amber-700 dark:text-amber-500">▨ difficult terrain</span>
         <span>+1 / −1 elevation</span>
         <span>● pillar</span>
