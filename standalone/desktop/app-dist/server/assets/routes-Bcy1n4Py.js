@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Bssnep_8.js";
+import { n as Button, r as cn } from "./router-CSXExMFc.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -10033,6 +10033,33 @@ function useIsMobile(query = "(max-width: 767px)") {
 	return mobile;
 }
 //#endregion
+//#region src/lib/imageBitmap.js
+async function loadImageSource(blob) {
+	if (!blob) throw new Error("No image data");
+	if (typeof createImageBitmap === "function") try {
+		return await createImageBitmap(blob);
+	} catch {}
+	const url = URL.createObjectURL(blob);
+	try {
+		const image = await new Promise((resolve, reject) => {
+			const img = new Image();
+			img.onload = () => resolve(img);
+			img.onerror = () => reject(/* @__PURE__ */ new Error("Could not decode the image"));
+			img.src = url;
+		});
+		const canvas = document.createElement("canvas");
+		canvas.width = image.naturalWidth || image.width;
+		canvas.height = image.naturalHeight || image.height;
+		if (!canvas.width || !canvas.height) throw new Error("Image has no pixels");
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw new Error("Canvas is unavailable");
+		ctx.drawImage(image, 0, 0);
+		return canvas;
+	} finally {
+		URL.revokeObjectURL(url);
+	}
+}
+//#endregion
 //#region src/lib/imageStore.js
 var UPLOAD_ENDPOINT = "/api/upload";
 var MAX_FALLBACK_EDGE = 512;
@@ -10069,7 +10096,7 @@ async function isAnimatedImage(blob) {
 	return false;
 }
 async function toSharpDataUrl(file, maxEdge = MAX_FALLBACK_EDGE) {
-	const bitmap = await createImageBitmap(file);
+	const bitmap = await loadImageSource(file);
 	let w = bitmap.width;
 	let h = bitmap.height;
 	const scale = Math.min(1, maxEdge / Math.max(w, h));
@@ -10139,7 +10166,7 @@ async function optimizeImageUrl(url, { maxEdge = 1280, quality = .82 } = {}) {
 		const blob = await fetchImageBlob(url);
 		if (!String(blob.type || "").startsWith("image/")) return url;
 		if (await isAnimatedImage(blob)) return url;
-		const bitmap = await createImageBitmap(blob);
+		const bitmap = await loadImageSource(blob);
 		const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
 		const w = Math.max(1, Math.round(bitmap.width * scale));
 		const h = Math.max(1, Math.round(bitmap.height * scale));
@@ -13065,6 +13092,12 @@ function SettingsMenu({ open, onClose }) {
 		...DEFAULT_AUDIO_SETTINGS,
 		...settings.audio || {}
 	};
+	const [oggSupported, setOggSupported] = useState(true);
+	useEffect(() => {
+		if (typeof document === "undefined") return;
+		const probe = document.createElement("audio");
+		setOggSupported(!!probe.canPlayType("audio/ogg; codecs=\"vorbis\""));
+	}, []);
 	const setAudio = (patch) => setSettings((s) => ({
 		...s,
 		audio: {
@@ -14080,6 +14113,10 @@ function SettingsMenu({ open, onClose }) {
 												/* @__PURE__ */ jsxs("p", {
 													className: "flex items-center gap-1 text-[10px] text-muted-foreground",
 													children: [/* @__PURE__ */ jsx(Disc3, { className: "h-3 w-3" }), currentTrack ? `Playing: ${currentTrack.title}` : audio.customMusic ? "Custom music is on; default music will not play." : "Nothing playing yet."]
+												}),
+												!oggSupported && /* @__PURE__ */ jsx("p", {
+													className: "text-[10px] leading-relaxed text-amber-600 dark:text-amber-400",
+													children: "This browser cannot play the bundled OGG Vorbis music. Use Chrome, Edge, Opera, Firefox, Samsung Internet or Safari 17.4+."
 												})
 											]
 										})
@@ -38978,13 +39015,23 @@ async function signUri(uri) {
 }
 async function loadBitmap(url) {
 	try {
-		const res = await fetch(url);
-		return await createImageBitmap(await res.blob());
+		return await loadImageSource(await (await fetch(url)).blob());
 	} catch {
 		return new Promise((resolve, reject) => {
 			const img = new Image();
 			img.crossOrigin = "anonymous";
-			img.onload = () => createImageBitmap(img).then(resolve, reject);
+			img.onload = () => {
+				const canvas = document.createElement("canvas");
+				canvas.width = img.naturalWidth || img.width;
+				canvas.height = img.naturalHeight || img.height;
+				const ctx = canvas.getContext("2d");
+				if (!ctx || !canvas.width || !canvas.height) {
+					reject(/* @__PURE__ */ new Error("Could not decode the image"));
+					return;
+				}
+				ctx.drawImage(img, 0, 0);
+				resolve(canvas);
+			};
 			img.onerror = reject;
 			img.src = url;
 		});
@@ -46910,6 +46957,43 @@ function runScreenTransition(action, { outMs = 1e3, inMs = 1e3 } = {}) {
 }
 //#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
+function browserInfo() {
+	if (typeof navigator === "undefined") return {
+		name: "your browser",
+		ios: false
+	};
+	const ua = navigator.userAgent;
+	const ios = /iPad|iPhone|iPod/.test(ua) || navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+	let name = "your browser";
+	if (/SamsungBrowser/i.test(ua)) name = "Samsung Internet";
+	else if (/OPR\/|Opera|OPiOS/i.test(ua)) name = "Opera";
+	else if (/Edg\//i.test(ua)) name = "Edge";
+	else if (/FxiOS|Firefox/i.test(ua)) name = "Firefox";
+	else if (/CriOS/i.test(ua)) name = "Chrome";
+	else if (/Chrome/i.test(ua)) name = "Chrome";
+	else if (/Safari/i.test(ua)) name = "Safari";
+	return {
+		name,
+		ios
+	};
+}
+function installSteps(info) {
+	if (info.ios) return [
+		"Tap the Share button in the browser toolbar.",
+		"Scroll down and tap Add to Home Screen.",
+		"Tap Add. The app then opens from your home screen."
+	];
+	if (info.name === "Firefox") return [
+		"Open the Firefox menu (⋮).",
+		"Choose Install or Add to Home screen.",
+		"If Firefox has no install option, use Chrome, Edge, Opera or Samsung Internet for the installed app."
+	];
+	return [
+		"Open the browser menu (⋮).",
+		"Choose Install app or Add to Home screen.",
+		"Confirm. The app then opens without browser tabs."
+	];
+}
 function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder, onRoomBuilder }) {
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -46920,17 +47004,31 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 	const [libraryOpen, setLibraryOpen] = useState(false);
 	const [creatorOpen, setCreatorOpen] = useState(false);
 	const [installPrompt, setInstallPrompt] = useState(null);
+	const [installHelpOpen, setInstallHelpOpen] = useState(false);
+	const [standalone, setStandalone] = useState(() => {
+		if (typeof window === "undefined") return false;
+		return !!window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+	});
+	const showInstall = !standalone;
+	const installInfo = browserInfo();
 	useEffect(() => {
 		const onPrompt = (event) => {
 			event.preventDefault();
 			setInstallPrompt(event);
 		};
-		const onInstalled = () => setInstallPrompt(null);
+		const onInstalled = () => {
+			setInstallPrompt(null);
+			setStandalone(true);
+		};
 		window.addEventListener("beforeinstallprompt", onPrompt);
 		window.addEventListener("appinstalled", onInstalled);
+		const displayMode = window.matchMedia?.("(display-mode: standalone)");
+		const onDisplayMode = () => setStandalone(!!displayMode?.matches);
+		displayMode?.addEventListener?.("change", onDisplayMode);
 		return () => {
 			window.removeEventListener("beforeinstallprompt", onPrompt);
 			window.removeEventListener("appinstalled", onInstalled);
+			displayMode?.removeEventListener?.("change", onDisplayMode);
 		};
 	}, []);
 	const installApp = async () => {
@@ -46982,9 +47080,9 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 			/* @__PURE__ */ jsxs("div", {
 				className: "z-10 mb-3 flex w-full max-w-md justify-end gap-2 sm:absolute sm:right-4 sm:top-4 sm:mb-0 sm:w-auto",
 				children: [
-					installPrompt && /* @__PURE__ */ jsx("button", {
+					showInstall && /* @__PURE__ */ jsx("button", {
 						type: "button",
-						onClick: installApp,
+						onClick: () => installPrompt ? installApp() : setInstallHelpOpen(true),
 						title: "Install this app on your device",
 						"aria-label": "Install app",
 						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
@@ -47060,6 +47158,24 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 			/* @__PURE__ */ jsx("footer", {
 				className: "mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70",
 				children: "Not for Commercial Resale"
+			}),
+			/* @__PURE__ */ jsx(Dialog, {
+				open: installHelpOpen,
+				onOpenChange: setInstallHelpOpen,
+				children: /* @__PURE__ */ jsxs(DialogContent, {
+					className: "max-w-md",
+					children: [
+						/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Install the app" }), /* @__PURE__ */ jsx(DialogDescription, { children: installInfo.name === "your browser" ? "Use your browser's install or Add to Home Screen option." : `Install from ${installInfo.name}.` })] }),
+						/* @__PURE__ */ jsx("ol", {
+							className: "list-decimal space-y-2 pl-5 text-sm",
+							children: installSteps(installInfo).map((step) => /* @__PURE__ */ jsx("li", { children: step }, step))
+						}),
+						/* @__PURE__ */ jsx("p", {
+							className: "text-[11px] leading-relaxed text-muted-foreground",
+							children: "The web app works in Chrome, Edge, Opera, Firefox, Samsung Internet and Safari. The Android APK does not depend on Chrome. If a download opens a browser you did not intend, change the phone’s default browser or copy the link into the browser you prefer."
+						})
+					]
+				})
 			}),
 			/* @__PURE__ */ jsx(Dialog, {
 				open: newConfirmOpen,
@@ -62033,6 +62149,32 @@ function MetaPanel({ plot, update, isLand, devMode }) {
 			})
 		]
 	});
+}
+//#endregion
+//#region src/lib/clipboard.js
+async function copyText(text) {
+	const value = String(text ?? "");
+	if (!value) return false;
+	try {
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(value);
+			return true;
+		}
+	} catch {}
+	try {
+		const area = document.createElement("textarea");
+		area.value = value;
+		area.setAttribute("readonly", "");
+		area.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+		document.body.appendChild(area);
+		area.select();
+		area.setSelectionRange(0, value.length);
+		const ok = document.execCommand("copy");
+		area.remove();
+		return !!ok;
+	} catch {
+		return false;
+	}
 }
 //#endregion
 //#region src/lib/worldNames.js
@@ -81405,7 +81547,9 @@ function WorldBuilder({ onExit }) {
 		}
 		if (!assetTarget) {
 			toast.success("Sticker imported to the project image folder.");
-			navigator.clipboard?.writeText(url).catch(() => {});
+			copyText(url).then((ok) => {
+				if (!ok) toast.error("Could not copy the image link.");
+			});
 			return;
 		}
 		const nextWorld = {
@@ -84409,7 +84553,7 @@ function UpdatePrompt() {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-md",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Update available" }), /* @__PURE__ */ jsx(DialogDescription, { children: apkUpdate ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device." : "A new version has been downloaded. Apply it now? The app will reload once." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Update available" }), /* @__PURE__ */ jsx(DialogDescription, { children: apkUpdate ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device. If the download opens a browser you did not intend, use Copy link and paste it into Chrome." : "A new version has been downloaded. Apply it now? The app will reload once." })] }),
 				apkUpdate?.remote?.builtAt ? /* @__PURE__ */ jsxs("p", {
 					className: "text-[10px] text-muted-foreground",
 					children: ["Build: ", new Date(apkUpdate.remote.builtAt).toLocaleString()]
@@ -84420,13 +84564,19 @@ function UpdatePrompt() {
 						variant: "outline",
 						onClick: close,
 						children: "Later"
-					}), apkUpdate ? /* @__PURE__ */ jsx(Button, {
+					}), apkUpdate ? /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Button, {
+						variant: "outline",
+						onClick: () => {
+							copyText(apkUpdate.apkUrl).then((ok) => ok ? toast.success("Update link copied.") : toast.error("Could not copy the link."));
+						},
+						children: "Copy link"
+					}), /* @__PURE__ */ jsx(Button, {
 						onClick: () => {
 							openUpdateDownload(apkUpdate.apkUrl);
 							close();
 						},
 						children: "Download update"
-					}) : /* @__PURE__ */ jsx(Button, {
+					})] }) : /* @__PURE__ */ jsx(Button, {
 						onClick: () => {
 							applyServiceWorkerUpdate();
 							close();

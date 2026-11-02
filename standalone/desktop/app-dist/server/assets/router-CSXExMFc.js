@@ -141,7 +141,7 @@ var Toaster$1 = ({ ...props }) => {
 };
 //#endregion
 //#region src/index.css?url
-var src_default = "/assets/index-Cg1Afhhl.css";
+var src_default = "/assets/index-BsBLG0Vh.css";
 //#endregion
 //#region src/routes/__root.jsx
 var Route$1 = createRootRoute({
@@ -160,6 +160,18 @@ var Route$1 = createRootRoute({
 			{
 				name: "theme-color",
 				content: "#0b1020"
+			},
+			{
+				name: "mobile-web-app-capable",
+				content: "yes"
+			},
+			{
+				name: "apple-mobile-web-app-capable",
+				content: "yes"
+			},
+			{
+				name: "apple-mobile-web-app-status-bar-style",
+				content: "black"
 			}
 		],
 		links: [
@@ -201,7 +213,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-s9BU5MH3.js");
+var $$splitComponentImporter = () => import("./routes-Bcy1n4Py.js");
 //#endregion
 //#region src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({

@@ -1,3 +1,5 @@
+import { loadImageSource } from "@/lib/imageBitmap";
+
 // Imported artwork is stored as a project file, not as a giant inline data URL.
 //
 // The desktop launcher (Serve.ps1) answers `POST /api/upload?name=<file>` by
@@ -68,7 +70,7 @@ export async function isAnimatedImage(blob) {
 // Draw the image to a canvas with nearest-neighbour sampling, optionally
 // shrinking it to fit `maxEdge`. Never enlarges (that would blur pixels).
 async function toSharpDataUrl(file, maxEdge = MAX_FALLBACK_EDGE) {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await loadImageSource(file);
   let w = bitmap.width;
   let h = bitmap.height;
   const scale = Math.min(1, maxEdge / Math.max(w, h));
@@ -164,7 +166,7 @@ export async function optimizeImageUrl(url, { maxEdge = 1280, quality = 0.82 } =
     const blob = await fetchImageBlob(url);
     if (!String(blob.type || "").startsWith("image/")) return url;
     if (await isAnimatedImage(blob)) return url;
-    const bitmap = await createImageBitmap(blob);
+    const bitmap = await loadImageSource(blob);
     const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));
     const h = Math.max(1, Math.round(bitmap.height * scale));

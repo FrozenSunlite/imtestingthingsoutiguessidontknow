@@ -38,6 +38,47 @@ import {
   GraduationCap,
 } from "lucide-react";
 
+// Install prompts only exist in Chromium-based browsers. Firefox and Safari
+// use their own menus, so show the right steps instead of hiding the option.
+function browserInfo() {
+  if (typeof navigator === "undefined") return { name: "your browser", ios: false };
+  const ua = navigator.userAgent;
+  const ios =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let name = "your browser";
+  if (/SamsungBrowser/i.test(ua)) name = "Samsung Internet";
+  else if (/OPR\/|Opera|OPiOS/i.test(ua)) name = "Opera";
+  else if (/Edg\//i.test(ua)) name = "Edge";
+  else if (/FxiOS|Firefox/i.test(ua)) name = "Firefox";
+  else if (/CriOS/i.test(ua)) name = "Chrome";
+  else if (/Chrome/i.test(ua)) name = "Chrome";
+  else if (/Safari/i.test(ua)) name = "Safari";
+  return { name, ios };
+}
+
+function installSteps(info) {
+  if (info.ios) {
+    return [
+      "Tap the Share button in the browser toolbar.",
+      "Scroll down and tap Add to Home Screen.",
+      "Tap Add. The app then opens from your home screen.",
+    ];
+  }
+  if (info.name === "Firefox") {
+    return [
+      "Open the Firefox menu (⋮).",
+      "Choose Install or Add to Home screen.",
+      "If Firefox has no install option, use Chrome, Edge, Opera or Samsung Internet for the installed app.",
+    ];
+  }
+  return [
+    "Open the browser menu (⋮).",
+    "Choose Install app or Add to Home screen.",
+    "Confirm. The app then opens without browser tabs.",
+  ];
+}
+
 // First-run main menu: shown before the workspace until an option is picked.
 // Return here anytime from the toolbar's door button.
 export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder, onRoomBuilder }) {
@@ -54,18 +95,35 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [installHelpOpen, setInstallHelpOpen] = useState(false);
+  const [standalone, setStandalone] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      !!window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      window.navigator.standalone === true
+    );
+  });
+  const showInstall = !standalone;
+  const installInfo = browserInfo();
 
   useEffect(() => {
     const onPrompt = (event) => {
       event.preventDefault();
       setInstallPrompt(event);
     };
-    const onInstalled = () => setInstallPrompt(null);
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      setStandalone(true);
+    };
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
+    const displayMode = window.matchMedia?.("(display-mode: standalone)");
+    const onDisplayMode = () => setStandalone(!!displayMode?.matches);
+    displayMode?.addEventListener?.("change", onDisplayMode);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
+      displayMode?.removeEventListener?.("change", onDisplayMode);
     };
   }, []);
 
@@ -127,10 +185,10 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   return (
     <div className="blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10 sm:pt-20">
       <div className="z-10 mb-3 flex w-full max-w-md justify-end gap-2 sm:absolute sm:right-4 sm:top-4 sm:mb-0 sm:w-auto">
-        {installPrompt && (
+        {showInstall && (
           <button
             type="button"
-            onClick={installApp}
+            onClick={() => (installPrompt ? installApp() : setInstallHelpOpen(true))}
             title="Install this app on your device"
             aria-label="Install app"
             className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent"
@@ -280,6 +338,30 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
       <footer className="mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70">
         Not for Commercial Resale
       </footer>
+
+      <Dialog open={installHelpOpen} onOpenChange={setInstallHelpOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Install the app</DialogTitle>
+            <DialogDescription>
+              {installInfo.name === "your browser"
+                ? "Use your browser's install or Add to Home Screen option."
+                : `Install from ${installInfo.name}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="list-decimal space-y-2 pl-5 text-sm">
+            {installSteps(installInfo).map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            The web app works in Chrome, Edge, Opera, Firefox, Samsung Internet and
+            Safari. The Android APK does not depend on Chrome. If a download opens a
+            browser you did not intend, change the phone’s default browser or copy the
+            link into the browser you prefer.
+          </p>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={newConfirmOpen} onOpenChange={setNewConfirmOpen}>
         <DialogContent className="max-w-sm">

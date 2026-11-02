@@ -245,6 +245,21 @@
     blue-fire-sway 5.5s ease-in-out infinite;
 }
 
+/* Mobile browsers (iOS Safari in particular) report a larger 100vh than the
+   visible viewport while their toolbars are showing. dvh tracks the real
+   viewport; browsers without it keep the vh fallback from Tailwind. */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+  .max-h-screen {
+    max-height: 100dvh;
+  }
+}
+
 /* While panning or wheel-zooming, skip expensive per-node paint work. The
    world layer already has one composited transform; shadows, filters and
    transitions are restored as soon as the camera settles. The node's socket

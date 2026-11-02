@@ -13,6 +13,9 @@ export const Route = createRootRoute({
       { title: "I'm Trying's Terrific Talent Tree" },
       { name: "description", content: "Build and play homebrew D&D 5e talent trees with a live character sheet." },
       { name: "theme-color", content: "#0b1020" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black" },
     ],
     // No icon link: the platform adds the app's logo when serving.
     links: [

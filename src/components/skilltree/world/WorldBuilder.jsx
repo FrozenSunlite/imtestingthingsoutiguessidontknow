@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTree, statVars, aggregateResources, profBonusFor } from "@/lib/treeStore";
 import { derivedSheet } from "@/lib/resources";
+import { copyText } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -500,7 +501,9 @@ export function WorldBuilder({ onExit }) {
     }
     if (!assetTarget) {
       toast.success("Sticker imported to the project image folder.");
-      navigator.clipboard?.writeText(url).catch(() => {});
+      copyText(url).then((ok) => {
+        if (!ok) toast.error("Could not copy the image link.");
+      });
       return;
     }
     const nextWorld = {

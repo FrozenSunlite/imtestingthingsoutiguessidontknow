@@ -81,6 +81,12 @@ export function SettingsMenu({ open, onClose }) {
     };
   }, [open]);
   const audio = { ...DEFAULT_AUDIO_SETTINGS, ...(settings.audio || {}) };
+  const [oggSupported, setOggSupported] = useState(true);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const probe = document.createElement("audio");
+    setOggSupported(!!probe.canPlayType('audio/ogg; codecs="vorbis"'));
+  }, []);
   const setAudio = (patch) =>
     setSettings((s) => ({
       ...s,
@@ -893,6 +899,12 @@ export function SettingsMenu({ open, onClose }) {
                         ? "Custom music is on; default music will not play."
                         : "Nothing playing yet."}
                   </p>
+                  {!oggSupported && (
+                    <p className="text-[10px] leading-relaxed text-amber-600 dark:text-amber-400">
+                      This browser cannot play the bundled OGG Vorbis music. Use
+                      Chrome, Edge, Opera, Firefox, Samsung Internet or Safari 17.4+.
+                    </p>
+                  )}
                 </div>
               </div>
 

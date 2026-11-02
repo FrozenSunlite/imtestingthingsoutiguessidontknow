@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { importImage } from "@/lib/imageStore";
+import { loadImageSource } from "@/lib/imageBitmap";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -18,12 +19,23 @@ export async function signUri(uri) {
 async function loadBitmap(url) {
   try {
     const res = await fetch(url);
-    return await createImageBitmap(await res.blob());
+    return await loadImageSource(await res.blob());
   } catch {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => createImageBitmap(img).then(resolve, reject);
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || !canvas.width || !canvas.height) {
+          reject(new Error("Could not decode the image"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas);
+      };
       img.onerror = reject;
       img.src = url;
     });

@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 import { toast } from "sonner";
 
 // Startup update consent. Web/PWA waits for a service worker and asks before
@@ -85,7 +86,7 @@ export function UpdatePrompt() {
           <DialogTitle>Update available</DialogTitle>
           <DialogDescription>
             {apkUpdate
-              ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device."
+              ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device. If the download opens a browser you did not intend, use Copy link and paste it into Chrome."
               : "A new version has been downloaded. Apply it now? The app will reload once."}
           </DialogDescription>
         </DialogHeader>
@@ -99,14 +100,28 @@ export function UpdatePrompt() {
             Later
           </Button>
           {apkUpdate ? (
-            <Button
-              onClick={() => {
-                openUpdateDownload(apkUpdate.apkUrl);
-                close();
-              }}
-            >
-              Download update
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  copyText(apkUpdate.apkUrl).then((ok) =>
+                    ok
+                      ? toast.success("Update link copied.")
+                      : toast.error("Could not copy the link.")
+                  );
+                }}
+              >
+                Copy link
+              </Button>
+              <Button
+                onClick={() => {
+                  openUpdateDownload(apkUpdate.apkUrl);
+                  close();
+                }}
+              >
+                Download update
+              </Button>
+            </>
           ) : (
             <Button
               onClick={() => {
