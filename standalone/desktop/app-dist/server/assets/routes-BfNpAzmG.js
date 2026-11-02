@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CSXExMFc.js";
+import { n as Button, r as cn } from "./router-B6WJca0n.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -47009,7 +47009,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 		if (typeof window === "undefined") return false;
 		return !!window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
 	});
-	const showInstall = !standalone;
+	const showInstall = !standalone && !isNativeApp();
 	const installInfo = browserInfo();
 	useEffect(() => {
 		const onPrompt = (event) => {

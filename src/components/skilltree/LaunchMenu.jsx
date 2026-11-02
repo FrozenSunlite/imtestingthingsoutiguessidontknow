@@ -103,7 +103,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
       window.navigator.standalone === true
     );
   });
-  const showInstall = !standalone;
+  const showInstall = !standalone && !isNativeApp();
   const installInfo = browserInfo();
 
   useEffect(() => {
