@@ -110,6 +110,22 @@ changing app code, then restart the launcher.
   (or added to the home screen) and launched full-screen. Project data still
   lives in the browser origin's local IndexedDB, so a stable HTTPS address is
   needed for long-term use.
+- **Android APK:** Settings → General has a **Download TalentTree.apk** link. The
+  APK bundles the same web build through Capacitor and runs fully offline except
+  for 5eTools API calls (Reference Index fetching and remote images), which need
+  the local server. The APK uses its own app origin, so export a project from the
+  browser and import it in the APK to move data across. To rebuild it:
+
+  ```bash
+  npm run build:standalone
+  npm run apk:prepare     # copies the build into capacitor-web + cap sync
+  npm run apk:build       # Android SDK + JDK 21 required
+  ```
+
+  The debug APK lands in `android/app/build/outputs/apk/debug/app-debug.apk` and
+  `npm run apk:prepare` also refreshes the downloadable copy under
+  `standalone/desktop/app-dist/client/downloads/TalentTree.apk`. The debug build
+  is debug-signed; use a release keystore before distributing it publicly.
 - **Mobile layout:** the launch menu, editor panels, View screen tree drawer and
   Reference Library adapt to phone widths; editing opens as a full-screen panel,
   and the View screen shows skill trees in a closeable drawer.

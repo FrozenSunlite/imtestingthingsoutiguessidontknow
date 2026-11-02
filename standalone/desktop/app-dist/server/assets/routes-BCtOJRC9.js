@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-M81FxXtZ.js";
+import { n as Button, r as cn } from "./router-XVHcXU_P.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -10711,6 +10711,25 @@ function SettingsMenu({ open, onClose }) {
 											variant: "outline",
 											onClick: () => setDevLogs([]),
 											children: "Clear"
+										})
+									]
+								}),
+								!(typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) && /* @__PURE__ */ jsxs("div", {
+									className: "mt-4 space-y-2 border-t pt-3",
+									children: [
+										/* @__PURE__ */ jsx("p", {
+											className: "text-sm font-medium",
+											children: "Android APK"
+										}),
+										/* @__PURE__ */ jsx("p", {
+											className: "text-[10px] text-muted-foreground",
+											children: "Install the bundled Android build. It runs the app locally on the phone, so export your project first if you want to move existing data into the APK."
+										}),
+										/* @__PURE__ */ jsxs("a", {
+											href: "/downloads/TalentTree.apk",
+											download: "TalentTree.apk",
+											className: "inline-flex items-center rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-accent",
+											children: [/* @__PURE__ */ jsx(Download, { className: "mr-1 h-3.5 w-3.5" }), " Download TalentTree.apk"]
 										})
 									]
 								})

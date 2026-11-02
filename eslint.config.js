@@ -11,13 +11,16 @@ export default [
       ".tanstack",
       "standalone/desktop/app-dist",
       "standalone/desktop/userdata",
+      "capacitor-web",
+      "android",
+      "dist-apk",
       "src/routeTree.gen.ts",
       "src/components/ui/**",
     ],
   },
   pluginJs.configs.recommended,
   {
-    files: ["**/*.{js,jsx}"],
+    files: ["**/*.{js,jsx,mjs,cjs}"],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
       parserOptions: { ecmaVersion: "latest", sourceType: "module", ecmaFeatures: { jsx: true } },

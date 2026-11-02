@@ -9,10 +9,14 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "build:standalone": "vite build --config vite.standalone.config.js",
+    "apk:prepare": "node scripts/prepare-apk.mjs",
+    "apk:build": "cd android && gradlew.bat assembleDebug && cd .. && node scripts/publish-apk.mjs",
     "test": "node --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@radix-ui/react-checkbox": "^1.1.4",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -41,6 +45,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
     "@eslint/js": "^9.19.0",
     "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.20",

@@ -18,6 +18,7 @@ $mimes = @{
   ".webmanifest"="application/manifest+json";
   ".jpg"="image/jpeg"; ".jpeg"="image/jpeg"; ".gif"="image/gif"; ".webp"="image/webp"; ".ico"="image/x-icon"
   ".bmp"="image/bmp"; ".avif"="image/avif"; ".woff"="font/woff"; ".woff2"="font/woff2"; ".ttf"="font/ttf"; ".map"="application/json"
+  ".apk"="application/vnd.android.package-archive"
 }
 $url = "http://localhost:$port"
 

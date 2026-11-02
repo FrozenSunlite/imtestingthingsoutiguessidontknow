@@ -1,6 +1,6 @@
 import { useTree } from "@/lib/treeStore";
 import { importImage } from "@/lib/imageStore";
-import { Upload, RotateCcw, Trash2, Archive } from "lucide-react";
+import { Upload, RotateCcw, Trash2, Archive, Download } from "lucide-react";
 import { removeImportFromLibrary } from "@/lib/importHistory";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import {
@@ -520,6 +520,23 @@ export function SettingsMenu({ open, onClose }) {
                 <Button size="sm" variant="outline" onClick={() => setDevLogs([])}>Clear</Button>
               </div>
             )}
+              {!(typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) && (
+                <div className="mt-4 space-y-2 border-t pt-3">
+                  <p className="text-sm font-medium">Android APK</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Install the bundled Android build. It runs the app locally on the
+                    phone, so export your project first if you want to move existing
+                    data into the APK.
+                  </p>
+                  <a
+                    href="/downloads/TalentTree.apk"
+                    download="TalentTree.apk"
+                    className="inline-flex items-center rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-accent"
+                  >
+                    <Download className="mr-1 h-3.5 w-3.5" /> Download TalentTree.apk
+                  </a>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="project" className="mt-3 space-y-3">
