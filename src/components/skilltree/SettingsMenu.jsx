@@ -129,7 +129,10 @@ export function SettingsMenu({ open, onClose }) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent
+        animated={false}
+        className="max-h-[calc(100dvh-2rem)] w-[min(42rem,calc(100vw-2rem))] max-w-2xl overflow-hidden"
+      >
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -138,7 +141,7 @@ export function SettingsMenu({ open, onClose }) {
         </DialogHeader>
 
         <Tabs defaultValue="hotkeys" className="flex max-h-[70vh] flex-col">
-          <TabsList className="w-full justify-start">
+          <TabsList className="h-auto w-full flex-wrap justify-start">
             <TabsTrigger value="hotkeys">Shortcuts & Hotkeys</TabsTrigger>
             <TabsTrigger value="connector">Connectors</TabsTrigger>
             <TabsTrigger value="artwork">Node Artwork</TabsTrigger>
@@ -148,7 +151,7 @@ export function SettingsMenu({ open, onClose }) {
             <TabsTrigger value="help">Help</TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="min-w-0 flex-1 overflow-y-auto pr-1">
             <TabsContent value="hotkeys" className="mt-3">
               <div>
                 <div className="mb-1 flex items-center justify-between">

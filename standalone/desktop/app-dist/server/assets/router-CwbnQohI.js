@@ -142,7 +142,7 @@ var Toaster$1 = ({ ...props }) => {
 };
 //#endregion
 //#region src/index.css?url
-var src_default = "/assets/index-Bl_1qKyF.css";
+var src_default = "/assets/index-DBQ0zTOx.css";
 //#endregion
 //#region src/routes/__root.jsx
 var Route$1 = createRootRoute({
@@ -206,7 +206,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-i7vG2-wr.js");
+var $$splitComponentImporter = () => import("./routes-2TDAt7QC.js");
 //#endregion
 //#region src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({

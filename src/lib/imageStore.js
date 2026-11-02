@@ -264,6 +264,14 @@ export async function inlineImages(payload, { includeRemote = false } = {}) {
 // replaces it with the short `/images/...` reference. If the project server is
 // unavailable the data URL is kept, so an imported project still works.
 export async function rehydrateImages(payload) {
+  // Most project files use short /images/ references; walking every string
+  // asynchronously is prohibitively slow for a 1,000+ node tree. Skip the walk
+  // entirely when there is nothing embedded to restore.
+  try {
+    if (!JSON.stringify(payload).includes("data:image")) return payload;
+  } catch {
+    /* fall through to the normal walk */
+  }
   const cache = new Map();
   const resolve = async (dataUrl) => {
     if (!isDataUrl(dataUrl)) return dataUrl;

@@ -199,7 +199,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
               <Library className="h-5 w-5" />,
               "Reference Library",
               "Browse the reference library",
-              () => runScreenTransition(() => setLibraryOpen(true)),
+              () => setLibraryOpen(true),
               locked
             )}
           </div>

@@ -25,9 +25,12 @@ export const SkillNodeView = memo(function SkillNodeView({
   onHover,
   onHoverMove,
   onHoverEnd,
+  detailLevel = "full",
 }) {
   const unlocked = (node.currentPoints || 0) > 0;
   const dim = !unlocked && !available;
+  const simplified = !!detailLevel && detailLevel !== "full";
+  const minimal = detailLevel === "minimal";
   const size = node.size || 100;
   const max = nodeMaxPoints(node);
   const plan = tierPlan(node);
@@ -48,31 +51,50 @@ export const SkillNodeView = memo(function SkillNodeView({
     : available
       ? "rgba(245,158,11,0.9)"
       : "rgba(148,163,184,0.65)";
-  const artFilter = [
-    dim ? "grayscale(1)" : "",
-    hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
-    hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
-    hasArt ? "drop-shadow(0 -1px 0 rgba(255,255,255,0.18))" : "",
-    hasArt ? "drop-shadow(0 3px 0 rgba(0,0,0,0.8))" : "",
-    hasArt ? "drop-shadow(0 7px 7px rgba(0,0,0,0.45))" : "",
-    hasArt && unlocked ? "drop-shadow(0 0 7px rgba(0,128,0,0.9))" : "",
-    hasArt && unlocked ? "drop-shadow(0 0 14px rgba(0,128,0,0.45))" : "",
-    hasArt && !unlocked && available
-      ? "drop-shadow(0 0 6px rgba(245,158,11,0.35))"
-      : "",
-    hasArt && selected ? "drop-shadow(0 0 5px rgba(0,229,255,0.5))" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const slotShadow = [
-    "inset 0 3px 10px rgba(0,0,0,0.95)",
-    "inset 0 -2px 4px rgba(255,255,255,0.06)",
-    unlocked ? "0 0 8px rgba(0,128,0,0.25)" : "",
-    highlighted ? "0 0 0 2px rgba(245,158,11,0.8)" : "",
-    "0 2px 6px rgba(0,0,0,0.55)",
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const artFilter = minimal
+    ? ""
+    : simplified
+      ? dim
+        ? "grayscale(1)"
+        : [
+            hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+            hasArt ? "drop-shadow(0 1.5px 0 rgba(0,0,0,0.7))" : "",
+            hasArt && unlocked ? "drop-shadow(0 0 5px rgba(0,128,0,0.75))" : "",
+            hasArt && !unlocked && available
+              ? "drop-shadow(0 0 4px rgba(245,158,11,0.3))"
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")
+      : [
+          dim ? "grayscale(1)" : "",
+          hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+          hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+          hasArt ? "drop-shadow(0 -1px 0 rgba(255,255,255,0.18))" : "",
+          hasArt ? "drop-shadow(0 3px 0 rgba(0,0,0,0.8))" : "",
+          hasArt ? "drop-shadow(0 7px 7px rgba(0,0,0,0.45))" : "",
+          hasArt && unlocked ? "drop-shadow(0 0 7px rgba(0,128,0,0.9))" : "",
+          hasArt && unlocked ? "drop-shadow(0 0 14px rgba(0,128,0,0.45))" : "",
+          hasArt && !unlocked && available
+            ? "drop-shadow(0 0 6px rgba(245,158,11,0.35))"
+            : "",
+          hasArt && selected ? "drop-shadow(0 0 5px rgba(0,229,255,0.5))" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+  const slotShadow = minimal
+    ? "inset 0 1px 2px rgba(0,0,0,0.8)"
+    : simplified
+      ? "inset 0 2px 6px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.45)"
+      : [
+          "inset 0 3px 10px rgba(0,0,0,0.95)",
+          "inset 0 -2px 4px rgba(255,255,255,0.06)",
+          unlocked ? "0 0 8px rgba(0,128,0,0.25)" : "",
+          highlighted ? "0 0 0 2px rgba(245,158,11,0.8)" : "",
+          "0 2px 6px rgba(0,0,0,0.55)",
+        ]
+          .filter(Boolean)
+          .join(", ");
 
   return (
     <div
@@ -123,7 +145,13 @@ export const SkillNodeView = memo(function SkillNodeView({
       {/* Recessed socket: the artwork sits in it like a raised button. */}
       <div
         className={`ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${
-          selected ? "border-primary/80" : "border-white/10"
+          selected
+            ? "border-primary/80"
+            : minimal && unlocked
+              ? "border-[#008000]/80"
+              : minimal && available
+                ? "border-amber-400/60"
+                : "border-white/10"
         }`}
         style={{
           background:
@@ -180,7 +208,7 @@ export const SkillNodeView = memo(function SkillNodeView({
       </div>
 
       {/* Quantity: always visible, bottom center between name and node edge */}
-      {!node.__returnNode && (
+      {!minimal && !node.__returnNode && (
         <div
           className={`absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${
             unlocked ? "bg-[#008000]" : "bg-muted-foreground"
@@ -193,7 +221,7 @@ export const SkillNodeView = memo(function SkillNodeView({
         </div>
       )}
 
-      {showNames && (
+      {!minimal && showNames && (
         <div className="pointer-events-none absolute -bottom-8 left-1/2 max-w-[140px] -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-[10px] leading-tight text-foreground shadow-sm">
           {/* Talent (left) and level requirement (right), styled alike */}
           <div className="flex items-baseline justify-between gap-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -216,7 +244,7 @@ export const SkillNodeView = memo(function SkillNodeView({
       {/* Subtree chevron: opposite corner of the refund control, play-only,
           shown when the node is unlocked and owns a subtree with content.
           Opens a chooser of its trees (already-open ones are greyed out). */}
-      {!editable && onOpenSubtree && unlocked &&
+      {!minimal && !editable && onOpenSubtree && unlocked &&
         (node.subtrees || []).some((s) => (s.nodes || []).length > 0) && (
         <button
           onPointerDown={(e) => e.stopPropagation()}
@@ -231,7 +259,7 @@ export const SkillNodeView = memo(function SkillNodeView({
         </button>
       )}
 
-      {!editable && !node.__returnNode && (
+      {!minimal && !editable && !node.__returnNode && (
         <div className="absolute -left-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onPointerDown={(e) => e.stopPropagation()}

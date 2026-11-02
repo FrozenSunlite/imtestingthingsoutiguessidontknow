@@ -252,6 +252,7 @@ export function LibraryMenu({ open, onClose }) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()} modal={false}>
       <DialogContent
         hideOverlay
+        animated={false}
         className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 overflow-hidden max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0"
         style={
           isMobile

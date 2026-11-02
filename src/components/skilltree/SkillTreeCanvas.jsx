@@ -540,7 +540,27 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
      
   }, [tree, region.key, hiddenIds, editable]);
 
+  // Large or zoomed-out trees switch to a cheaper node/connector treatment:
+  // the alpha outline and 3D socket are still there, but with far fewer filters.
+  const detailLevel = useMemo(() => {
+    const zoom = view.zoom || 0.1;
+    if (zoom < 0.28 || visibleNodes.length > 700) return "minimal";
+    if (zoom < 0.5 || visibleNodes.length > 250) return "low";
+    return "full";
+  }, [view.zoom, visibleNodes.length]);
+  const lowDetail = detailLevel !== "full";
+
   const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
+
+  // Availability is status for every visible node; compute it once per tree
+  // change instead of once per node on every selection/hover render.
+  const availableIds = useMemo(() => {
+    const set = new Set();
+    for (const node of visibleNodes) {
+      if (isAvailable(node, nodesById, unlockedNames)) set.add(node.id);
+    }
+    return set;
+  }, [visibleNodes, nodesById, unlockedNames]);
 
   // Blind-run pop-out: nodes that just became hidden shrink away as ghost
   // copies for a moment before disappearing entirely.
@@ -1351,6 +1371,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
           onConnPointerDown={onConnPointerDown}
           onConnSelect={onConnSelect}
           onConnContextMenu={onConnContext}
+          lowDetail={lowDetail}
         />
         {visibleNodes.map((n) => (
           <SkillNodeView
@@ -1359,7 +1380,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
             editable={editable}
             selected={ui.selectedNodeId === n.id || (ui.selectedNodeIds || []).includes(n.id)}
             showNames={ui.showNames}
-            available={isAvailable(n, nodesById, unlockedNames)}
+            available={availableIds.has(n.id)}
             placeholder={settings.placeholderImage}
             placeholderFrame={settings.placeholderFrame}
             highlighted={searchSet?.has(n.id) || false}
@@ -1373,6 +1394,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
             onOpenSubtree={editable ? undefined : (n) => setSubtreePicker(n)}
             onReturnParent={editable ? exitSubtreeEditor : undefined}
             popIn={!!hiddenIds}
+            detailLevel={detailLevel}
           />
         ))}
         {exiting.map((g) => {

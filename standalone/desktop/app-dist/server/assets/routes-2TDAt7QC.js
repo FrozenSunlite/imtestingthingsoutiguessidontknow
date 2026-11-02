@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Df_d8fMp.js";
+import { n as Button, r as cn } from "./router-CwbnQohI.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -9683,6 +9683,9 @@ async function inlineImages(payload, { includeRemote = false } = {}) {
 	});
 }
 async function rehydrateImages(payload) {
+	try {
+		if (!JSON.stringify(payload).includes("data:image")) return payload;
+	} catch {}
 	const cache = /* @__PURE__ */ new Map();
 	const resolve = async (dataUrl) => {
 		if (!isDataUrl(dataUrl)) return dataUrl;
@@ -9710,9 +9713,9 @@ var DialogOverlay = React.forwardRef(({ className, ...props }, ref) => /* @__PUR
 	...props
 }));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
-var DialogContent = React.forwardRef(({ className, children, hideOverlay = false, ...props }, ref) => /* @__PURE__ */ jsxs(DialogPortal, { children: [!hideOverlay && /* @__PURE__ */ jsx(DialogOverlay, {}), /* @__PURE__ */ jsxs(DialogPrimitive.Content, {
+var DialogContent = React.forwardRef(({ className, children, hideOverlay = false, animated = true, ...props }, ref) => /* @__PURE__ */ jsxs(DialogPortal, { children: [!hideOverlay && /* @__PURE__ */ jsx(DialogOverlay, {}), /* @__PURE__ */ jsxs(DialogPrimitive.Content, {
 	ref,
-	className: cn("fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-[ttt-pop-in_160ms_cubic-bezier(0.2,1.5,0.4,1)] data-[state=closed]:animate-[ttt-pop-out_120ms_ease-in] sm:rounded-lg", className),
+	className: cn("fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg", animated && "data-[state=open]:animate-[ttt-pop-in_160ms_cubic-bezier(0.2,1.5,0.4,1)] data-[state=closed]:animate-[ttt-pop-out_120ms_ease-in]", className),
 	...props,
 	children: [children, /* @__PURE__ */ jsxs(DialogPrimitive.Close, {
 		onClick: () => playSfx(SFX.closePopup, { gain: .7 }),
@@ -12444,12 +12447,13 @@ function SettingsMenu({ open, onClose }) {
 		open,
 		onOpenChange: (v) => !v && onClose(),
 		children: /* @__PURE__ */ jsxs(DialogContent, {
-			className: "max-w-2xl",
+			animated: false,
+			className: "max-h-[calc(100dvh-2rem)] w-[min(42rem,calc(100vw-2rem))] max-w-2xl overflow-hidden",
 			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Settings" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Configure hotkeys, connectors, default artwork and tab behavior." })] }), /* @__PURE__ */ jsxs(Tabs, {
 				defaultValue: "hotkeys",
 				className: "flex max-h-[70vh] flex-col",
 				children: [/* @__PURE__ */ jsxs(TabsList, {
-					className: "w-full justify-start",
+					className: "h-auto w-full flex-wrap justify-start",
 					children: [
 						/* @__PURE__ */ jsx(TabsTrigger, {
 							value: "hotkeys",
@@ -12481,7 +12485,7 @@ function SettingsMenu({ open, onClose }) {
 						})
 					]
 				}), /* @__PURE__ */ jsxs("div", {
-					className: "flex-1 overflow-y-auto pr-1",
+					className: "min-w-0 flex-1 overflow-y-auto pr-1",
 					children: [
 						/* @__PURE__ */ jsxs(TabsContent, {
 							value: "hotkeys",
@@ -26339,6 +26343,7 @@ function LibraryMenu({ open, onClose }) {
 		modal: false,
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			hideOverlay: true,
+			animated: false,
 			className: "left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 overflow-hidden max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0",
 			style: isMobile ? void 0 : {
 				width: `min(${libraryWidth}px, calc(100vw - 1rem))`,
@@ -28903,9 +28908,11 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 }
 //#endregion
 //#region src/components/skilltree/SkillNodeView.jsx
-var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd }) {
+var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
 	const unlocked = (node.currentPoints || 0) > 0;
 	const dim = !unlocked && !available;
+	const simplified = !!detailLevel && detailLevel !== "full";
+	const minimal = detailLevel === "minimal";
 	const size = node.size || 100;
 	const max = nodeMaxPoints(node);
 	const plan = tierPlan(node);
@@ -28915,7 +28922,12 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 	const iconBox = `${Math.max(30, 100 - inset * 2)}%`;
 	const hasArt = !!(node.image || placeholder);
 	const outlineColor = unlocked ? "#008000" : available ? "rgba(245,158,11,0.9)" : "rgba(148,163,184,0.65)";
-	const artFilter = [
+	const artFilter = minimal ? "" : simplified ? dim ? "grayscale(1)" : [
+		hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+		hasArt ? "drop-shadow(0 1.5px 0 rgba(0,0,0,0.7))" : "",
+		hasArt && unlocked ? "drop-shadow(0 0 5px rgba(0,128,0,0.75))" : "",
+		hasArt && !unlocked && available ? "drop-shadow(0 0 4px rgba(245,158,11,0.3))" : ""
+	].filter(Boolean).join(" ") : [
 		dim ? "grayscale(1)" : "",
 		hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
 		hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
@@ -28927,7 +28939,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		hasArt && !unlocked && available ? "drop-shadow(0 0 6px rgba(245,158,11,0.35))" : "",
 		hasArt && selected ? "drop-shadow(0 0 5px rgba(0,229,255,0.5))" : ""
 	].filter(Boolean).join(" ");
-	const slotShadow = [
+	const slotShadow = minimal ? "inset 0 1px 2px rgba(0,0,0,0.8)" : simplified ? "inset 0 2px 6px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.45)" : [
 		"inset 0 3px 10px rgba(0,0,0,0.95)",
 		"inset 0 -2px 4px rgba(255,255,255,0.06)",
 		unlocked ? "0 0 8px rgba(0,128,0,0.25)" : "",
@@ -28968,7 +28980,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		className: `group ${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
 		children: [
 			/* @__PURE__ */ jsx("div", {
-				className: `ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : "border-white/10"}`,
+				className: `ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : minimal && unlocked ? "border-[#008000]/80" : minimal && available ? "border-amber-400/60" : "border-white/10"}`,
 				style: {
 					background: "linear-gradient(145deg, rgba(30,41,59,0.92), rgba(2,6,23,0.97))",
 					boxShadow: slotShadow
@@ -29008,7 +29020,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 					}
 				})]
 			}),
-			!node.__returnNode && /* @__PURE__ */ jsxs("div", {
+			!minimal && !node.__returnNode && /* @__PURE__ */ jsxs("div", {
 				className: `absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${unlocked ? "bg-[#008000]" : "bg-muted-foreground"}`,
 				children: [
 					node.currentPoints || 0,
@@ -29020,7 +29032,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 					})
 				]
 			}),
-			showNames && /* @__PURE__ */ jsxs("div", {
+			!minimal && showNames && /* @__PURE__ */ jsxs("div", {
 				className: "pointer-events-none absolute -bottom-8 left-1/2 max-w-[140px] -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-[10px] leading-tight text-foreground shadow-sm",
 				children: [/* @__PURE__ */ jsxs("div", {
 					className: "flex items-baseline justify-between gap-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground",
@@ -29031,7 +29043,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 					] })]
 				}), node.name]
 			}),
-			!editable && onOpenSubtree && unlocked && (node.subtrees || []).some((s) => (s.nodes || []).length > 0) && /* @__PURE__ */ jsx("button", {
+			!minimal && !editable && onOpenSubtree && unlocked && (node.subtrees || []).some((s) => (s.nodes || []).length > 0) && /* @__PURE__ */ jsx("button", {
 				onPointerDown: (e) => e.stopPropagation(),
 				onClick: (e) => {
 					e.stopPropagation();
@@ -29041,7 +29053,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 				title: "Choose one of this skill's subtree trees to open",
 				children: /* @__PURE__ */ jsx(ChevronDown, { className: "h-3 w-3" })
 			}),
-			!editable && !node.__returnNode && /* @__PURE__ */ jsx("div", {
+			!minimal && !editable && !node.__returnNode && /* @__PURE__ */ jsx("div", {
 				className: "absolute -left-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100",
 				children: /* @__PURE__ */ jsx("button", {
 					onPointerDown: (e) => e.stopPropagation(),
@@ -29058,7 +29070,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 });
 //#endregion
 //#region src/components/skilltree/ConnectionLayer.jsx
-var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, visibleIds, style, showArrows, connector, altActive, selectedId, hidden, onConnPointerDown, onConnSelect, onConnContextMenu }) {
+var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, visibleIds, style, showArrows, connector, altActive, selectedId, hidden, onConnPointerDown, onConnSelect, onConnContextMenu, lowDetail = false }) {
 	const visible = useMemo(() => {
 		const set = new Set(visibleIds);
 		return connections.filter((c) => (set.has(c.from) || set.has(c.to)) && !(hidden && (hidden.has(c.from) || hidden.has(c.to))));
@@ -29112,7 +29124,7 @@ var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, vi
 			const cLine = own ? o.dash || "solid" : connector?.dash || "solid";
 			const cDash = cLine === "dotted" ? "0.1 10" : cLine === "dashed" ? "12 8" : void 0;
 			const cCap = cDash ? "round" : void 0;
-			const arrows = showArrows ? connectionArrowPoints(pts, style) : [];
+			const arrows = showArrows && !lowDetail ? connectionArrowPoints(pts, style) : [];
 			return /* @__PURE__ */ jsxs("g", { children: [
 				selected && /* @__PURE__ */ jsx("path", {
 					d,
@@ -30097,7 +30109,23 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		hiddenIds,
 		editable
 	]);
+	const detailLevel = useMemo(() => {
+		const zoom = view.zoom || .1;
+		if (zoom < .28 || visibleNodes.length > 700) return "minimal";
+		if (zoom < .5 || visibleNodes.length > 250) return "low";
+		return "full";
+	}, [view.zoom, visibleNodes.length]);
+	const lowDetail = detailLevel !== "full";
 	const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
+	const availableIds = useMemo(() => {
+		const set = /* @__PURE__ */ new Set();
+		for (const node of visibleNodes) if (isAvailable(node, nodesById, unlockedNames)) set.add(node.id);
+		return set;
+	}, [
+		visibleNodes,
+		nodesById,
+		unlockedNames
+	]);
 	const [exiting, setExiting] = useState([]);
 	const exitingTimer = useRef(null);
 	const prevVisibleRef = useRef({});
@@ -30817,14 +30845,15 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 							selectedId: ui.selectedConnectionId,
 							onConnPointerDown,
 							onConnSelect,
-							onConnContextMenu: onConnContext
+							onConnContextMenu: onConnContext,
+							lowDetail
 						}),
 						visibleNodes.map((n) => /* @__PURE__ */ jsx(SkillNodeView, {
 							node: n,
 							editable,
 							selected: ui.selectedNodeId === n.id || (ui.selectedNodeIds || []).includes(n.id),
 							showNames: ui.showNames,
-							available: isAvailable(n, nodesById, unlockedNames),
+							available: availableIds.has(n.id),
 							placeholder: settings.placeholderImage,
 							placeholderFrame: settings.placeholderFrame,
 							highlighted: searchSet?.has(n.id) || false,
@@ -30837,7 +30866,8 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 							onInvest: onInvestStable,
 							onOpenSubtree: editable ? void 0 : (n) => setSubtreePicker(n),
 							onReturnParent: editable ? exitSubtreeEditor : void 0,
-							popIn: !!hiddenIds
+							popIn: !!hiddenIds,
+							detailLevel
 						}, n.id)),
 						exiting.map((g) => {
 							const s = g.node.size || 100;
@@ -45730,7 +45760,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
-							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => runScreenTransition(() => setRulebookOpen(true)), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => runScreenTransition(() => setLibraryOpen(true)), locked)]
+							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => runScreenTransition(() => setRulebookOpen(true)), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
 						}),
 						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse official, homebrew and prerelease 5eTools data", () => runScreenTransition(() => onReferenceIndex?.()), locked),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character, with or without a talent tree", () => runScreenTransition(() => setCreatorOpen(true))),

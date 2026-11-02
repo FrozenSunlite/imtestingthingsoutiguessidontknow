@@ -20,6 +20,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
   onConnPointerDown,
   onConnSelect,
   onConnContextMenu,
+  lowDetail = false,
 }) {
   const visible = useMemo(() => {
     const set = new Set(visibleIds);
@@ -76,7 +77,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
         const cLine = own ? o.dash || "solid" : connector?.dash || "solid";
         const cDash = cLine === "dotted" ? "0.1 10" : cLine === "dashed" ? "12 8" : undefined;
         const cCap = cDash ? "round" : undefined;
-        const arrows = showArrows ? connectionArrowPoints(pts, style) : [];
+        const arrows = showArrows && !lowDetail ? connectionArrowPoints(pts, style) : [];
         return (
           <g key={c.id}>
             {selected && (

@@ -27,13 +27,15 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-const DialogContent = React.forwardRef(({ className, children, hideOverlay = false, ...props }, ref) => (
+const DialogContent = React.forwardRef(({ className, children, hideOverlay = false, animated = true, ...props }, ref) => (
   <DialogPortal>
     {!hideOverlay && <DialogOverlay />}
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-[ttt-pop-in_160ms_cubic-bezier(0.2,1.5,0.4,1)] data-[state=closed]:animate-[ttt-pop-out_120ms_ease-in] sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
+        animated &&
+          "data-[state=open]:animate-[ttt-pop-in_160ms_cubic-bezier(0.2,1.5,0.4,1)] data-[state=closed]:animate-[ttt-pop-out_120ms_ease-in]",
         className
       )}
       {...props}>
