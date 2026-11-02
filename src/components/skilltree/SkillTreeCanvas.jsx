@@ -825,7 +825,14 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       const ids = tree.nodes
         .filter((n) => n.x >= wx1 && n.x <= wx2 && n.y >= wy1 && n.y <= wy2)
         .map((n) => n.id);
-      setUi((u) => ({ ...u, selectedNodeIds: ids }));
+      setUi((u) => ({
+        ...u,
+        selectedNodeIds: ids,
+        // A one-node box should behave like clicking that node: it becomes the
+        // primary selection so Edit/link actions and the mobile toolbar see it.
+        selectedNodeId: ids.length === 1 ? ids[0] : null,
+        selectedConnectionId: null,
+      }));
     } else if (d.type === "pan") {
       const dx = e.clientX - d.startScreen.x;
       const dy = e.clientY - d.startScreen.y;
@@ -947,6 +954,12 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
           selectedNodeIds: [],
           selectedConnectionId: null,
         }));
+      } else {
+        // Keep the primary selection in step with the final box contents.
+        setUi((u) => {
+          const ids = u.selectedNodeIds || [];
+          return { ...u, selectedNodeId: ids.length === 1 ? ids[0] : null };
+        });
       }
     }
     // A plain left click (no pan) on empty canvas in View mode deselects too.

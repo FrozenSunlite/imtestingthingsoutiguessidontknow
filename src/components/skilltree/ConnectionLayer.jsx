@@ -1,7 +1,8 @@
 import { memo, useMemo } from "react";
 import {
   connectionPath,
-  connectionPoints,
+  trimConnectionPoints,
+  connectionArrowPoints,
   pathThroughPoints,
   isAvailable,
 } from "@/lib/geometry";
@@ -58,11 +59,13 @@ export const ConnectionLayer = memo(function ConnectionLayer({
         const unlocked = (to.currentPoints || 0) > 0;
         const avail = isAvailable(to, nodesById);
         const dim = unlocked ? 1 : avail ? 0.75 : 0.45;
-        const pts = connectionPoints(c, from, to);
+        const pts = trimConnectionPoints(c, from, to);
+        const start = pts[0];
+        const end = pts[pts.length - 1];
         const d =
           (c.bends || []).length > 0
             ? pathThroughPoints(pts, style)
-            : connectionPath(from.x, from.y, to.x, to.y, style);
+            : connectionPath(start.x, start.y, end.x, end.y, style);
         const selected = selectedId === c.id;
         // Per-connector style overrides the global settings when ownStyle is on.
         const own = !!c.ownStyle;
@@ -73,6 +76,7 @@ export const ConnectionLayer = memo(function ConnectionLayer({
         const cLine = own ? o.dash || "solid" : connector?.dash || "solid";
         const cDash = cLine === "dotted" ? "0.1 10" : cLine === "dashed" ? "12 8" : undefined;
         const cCap = cDash ? "round" : undefined;
+        const arrows = showArrows ? connectionArrowPoints(pts, style) : [];
         return (
           <g key={c.id}>
             {selected && (
@@ -96,6 +100,20 @@ export const ConnectionLayer = memo(function ConnectionLayer({
               opacity={cOpacity * dim}
               markerEnd={showArrows ? "url(#arrow-conn)" : undefined}
             />
+            {arrows.map((arrow, index) => (
+              <path
+                key={`arrow-${index}`}
+                d="M -5 -4 L 2 0 L -5 4"
+                fill="none"
+                stroke={cColor}
+                strokeWidth={Math.max(1.4, cThick * 0.85)}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={cOpacity * dim}
+                transform={`translate(${arrow.x} ${arrow.y}) rotate(${arrow.angle})`}
+                style={{ pointerEvents: "none" }}
+              />
+            ))}
             <path
               d={d}
               stroke="transparent"

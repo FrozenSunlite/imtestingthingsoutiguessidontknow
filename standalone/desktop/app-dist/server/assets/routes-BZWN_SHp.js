@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DH47quqy.js";
+import { n as Button, r as cn } from "./router-Hb7Ip7qk.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -281,6 +281,109 @@ function connectionPoints(conn, from, to) {
 			y: to.y
 		}
 	];
+}
+function trimConnectionPoints(conn, from, to, gap = 4) {
+	const points = connectionPoints(conn, from, to);
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	if (!Math.hypot(dx, dy)) return points;
+	const halfFrom = (Number(from.size) || 100) / 2 + gap;
+	const halfTo = (Number(to.size) || 100) / 2 + gap;
+	const denom = Math.max(Math.abs(dx), Math.abs(dy)) || 1;
+	const tFrom = halfFrom / denom;
+	const tTo = halfTo / denom;
+	if (tFrom + tTo >= 1) return points;
+	const next = points.map((point) => ({ ...point }));
+	next[0] = {
+		x: from.x + dx * tFrom,
+		y: from.y + dy * tFrom
+	};
+	next[next.length - 1] = {
+		x: to.x - dx * tTo,
+		y: to.y - dy * tTo
+	};
+	return next;
+}
+function addCubicSamples(out, p0, c1, c2, p3, steps) {
+	for (let step = 1; step <= steps; step += 1) {
+		const t = step / steps;
+		const mt = 1 - t;
+		out.push({
+			x: mt * mt * mt * p0.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * p3.x,
+			y: mt * mt * mt * p0.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * p3.y
+		});
+	}
+}
+function sampleConnector(pts, style = "curved", steps = 14) {
+	if (!pts || pts.length < 2) return [];
+	if (style === "straight") return [pts[0], pts[pts.length - 1]];
+	if (style === "angular") {
+		const out = [{ ...pts[0] }];
+		for (let i = 0; i < pts.length - 1; i += 1) {
+			const a = pts[i];
+			const b = pts[i + 1];
+			for (let step = 1; step <= steps; step += 1) {
+				const t = step / steps;
+				out.push({
+					x: a.x + (b.x - a.x) * t,
+					y: a.y + (b.y - a.y) * t
+				});
+			}
+		}
+		return out;
+	}
+	const out = [{ ...pts[0] }];
+	if (pts.length === 2) {
+		const [a, b] = pts;
+		const mid = (a.x + b.x) / 2;
+		addCubicSamples(out, a, {
+			x: mid,
+			y: a.y
+		}, {
+			x: mid,
+			y: b.y
+		}, b, steps);
+		return out;
+	}
+	for (let i = 0; i < pts.length - 1; i += 1) {
+		const p0 = pts[i - 1] || pts[i];
+		const p1 = pts[i];
+		const p2 = pts[i + 1];
+		const p3 = pts[i + 2] || p2;
+		addCubicSamples(out, p1, {
+			x: p1.x + (p2.x - p0.x) / 6,
+			y: p1.y + (p2.y - p0.y) / 6
+		}, {
+			x: p2.x - (p3.x - p1.x) / 6,
+			y: p2.y - (p3.y - p1.y) / 6
+		}, p2, steps);
+	}
+	return out;
+}
+function connectionArrowPoints(pts, style = "curved") {
+	const samples = sampleConnector(pts, style);
+	if (samples.length < 2) return [];
+	const distances = [0];
+	let total = 0;
+	for (let i = 1; i < samples.length; i += 1) {
+		total += Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y);
+		distances.push(total);
+	}
+	if (total < 80) return [];
+	return (total > 260 ? [.45, .72] : [.5]).map((fraction) => {
+		const target = total * fraction;
+		let i = 1;
+		while (i < distances.length - 1 && distances[i] < target) i += 1;
+		const a = samples[i - 1];
+		const b = samples[i] || a;
+		const span = distances[i] - distances[i - 1] || 1;
+		const t = (target - distances[i - 1]) / span;
+		return {
+			x: a.x + (b.x - a.x) * t,
+			y: a.y + (b.y - a.y) * t,
+			angle: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI
+		};
+	});
 }
 function pathThroughPoints(pts, style = "curved") {
 	if (pts.length < 2) return "";
@@ -28947,8 +29050,10 @@ var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, vi
 			const unlocked = (to.currentPoints || 0) > 0;
 			const avail = isAvailable(to, nodesById);
 			const dim = unlocked ? 1 : avail ? .75 : .45;
-			const pts = connectionPoints(c, from, to);
-			const d = (c.bends || []).length > 0 ? pathThroughPoints(pts, style) : connectionPath(from.x, from.y, to.x, to.y, style);
+			const pts = trimConnectionPoints(c, from, to);
+			const start = pts[0];
+			const end = pts[pts.length - 1];
+			const d = (c.bends || []).length > 0 ? pathThroughPoints(pts, style) : connectionPath(start.x, start.y, end.x, end.y, style);
 			const selected = selectedId === c.id;
 			const own = !!c.ownStyle;
 			const o = c.styleOverride || {};
@@ -28958,6 +29063,7 @@ var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, vi
 			const cLine = own ? o.dash || "solid" : connector?.dash || "solid";
 			const cDash = cLine === "dotted" ? "0.1 10" : cLine === "dashed" ? "12 8" : void 0;
 			const cCap = cDash ? "round" : void 0;
+			const arrows = showArrows ? connectionArrowPoints(pts, style) : [];
 			return /* @__PURE__ */ jsxs("g", { children: [
 				selected && /* @__PURE__ */ jsx("path", {
 					d,
@@ -28978,6 +29084,17 @@ var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, vi
 					opacity: cOpacity * dim,
 					markerEnd: showArrows ? "url(#arrow-conn)" : void 0
 				}),
+				arrows.map((arrow, index) => /* @__PURE__ */ jsx("path", {
+					d: "M -5 -4 L 2 0 L -5 4",
+					fill: "none",
+					stroke: cColor,
+					strokeWidth: Math.max(1.4, cThick * .85),
+					strokeLinecap: "round",
+					strokeLinejoin: "round",
+					opacity: cOpacity * dim,
+					transform: `translate(${arrow.x} ${arrow.y}) rotate(${arrow.angle})`,
+					style: { pointerEvents: "none" }
+				}, `arrow-${index}`)),
 				/* @__PURE__ */ jsx("path", {
 					d,
 					stroke: "transparent",
@@ -30228,7 +30345,9 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			const ids = tree.nodes.filter((n) => n.x >= wx1 && n.x <= wx2 && n.y >= wy1 && n.y <= wy2).map((n) => n.id);
 			setUi((u) => ({
 				...u,
-				selectedNodeIds: ids
+				selectedNodeIds: ids,
+				selectedNodeId: ids.length === 1 ? ids[0] : null,
+				selectedConnectionId: null
 			}));
 		} else if (d.type === "pan") {
 			const dx = e.clientX - d.startScreen.x;
@@ -30330,6 +30449,13 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 				selectedNodeIds: [],
 				selectedConnectionId: null
 			}));
+			else setUi((u) => {
+				const ids = u.selectedNodeIds || [];
+				return {
+					...u,
+					selectedNodeId: ids.length === 1 ? ids[0] : null
+				};
+			});
 		}
 		if (d?.type === "pan" && !d.moved && d.button === 0 && d.fromBackground) setUi((u) => ({
 			...u,
