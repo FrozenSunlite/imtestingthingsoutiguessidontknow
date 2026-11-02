@@ -61,7 +61,11 @@ export function ActionsTab() {
         filtered.map(({ a, i }) => {
           const um = a.usesMode || "atwill";
           return (
-            <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <div
+              key={i}
+              data-entry-name={a.name ? String(a.name) : ""}
+              className="space-y-1.5 rounded-md border p-2"
+            >
               <div className="flex items-center gap-1.5">
                 <InfoTip label="The action's name, e.g. Dodge.">
                   <Input

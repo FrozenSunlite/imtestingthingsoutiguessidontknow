@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DDSHiSXe.js";
+import { n as Button, r as cn } from "./router-CZuvfNg2.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -14582,6 +14582,7 @@ function EntryCard({ entry, onPatch, onDelete, children, dragProps }) {
 	const image = typeof entry?.image === "string" ? entry.image : "";
 	return /* @__PURE__ */ jsxs("div", {
 		...dragProps,
+		"data-entry-name": entryName$1(entry),
 		className: "space-y-1.5 rounded-md border p-2",
 		children: [
 			children,
@@ -14689,6 +14690,7 @@ function AbilityList({ label, entries, onChange, placeholder, dragCategory = "" 
 				className: "mt-1 space-y-1",
 				children: [shown.map(({ e, i }) => /* @__PURE__ */ jsxs("div", {
 					...dragCategory ? benefitDragProps(dragCategory, e.name) : {},
+					"data-entry-name": typeof e.name === "string" ? e.name : "",
 					className: "flex items-center gap-1",
 					children: [
 						/* @__PURE__ */ jsx(InfoTip, {
@@ -14777,6 +14779,7 @@ function NameList({ label, entries, onChange, placeholder, dragCategory = "" }) 
 				className: "mt-1 space-y-1",
 				children: [shown.map(({ v, i }) => /* @__PURE__ */ jsxs("div", {
 					...dragCategory ? benefitDragProps(dragCategory, v) : {},
+					"data-entry-name": typeof v === "string" ? v : "",
 					className: "flex items-center gap-1",
 					children: [/* @__PURE__ */ jsx(InfoTip, {
 						label: "One entry per row — press + to add another.",
@@ -15879,6 +15882,7 @@ function RollTableEditor({ table, onChange, onDelete }) {
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
+		"data-entry-name": table.name ? String(table.name) : "",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center gap-1",
@@ -16127,6 +16131,7 @@ function LootTableEditor({ table, onChange, onDelete }) {
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
+		"data-entry-name": table.name ? String(table.name) : "",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center gap-1",
@@ -16651,6 +16656,7 @@ function PoolEditor({ pool, pools, onChange, onDelete }) {
 	const doRoll = () => setResult(rollLootPool(pool.name, pools));
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
+		"data-entry-name": pool.name ? String(pool.name) : "",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center gap-1",
@@ -16919,6 +16925,7 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 	const weighted = table.mode === "weighted";
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
+		"data-entry-name": table.name ? String(table.name) : "",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center gap-1",
@@ -20986,6 +20993,8 @@ function FiveEToolsImportsTab() {
 					className: "max-h-[55vh] overflow-y-auto rounded-md border p-1",
 					children: [shown.map((e, i) => /* @__PURE__ */ jsxs("button", {
 						type: "button",
+						"data-entry-name": entryName$2(e),
+						"data-entry-open": "",
 						draggable: true,
 						onDragStart: (ev) => {
 							ev.dataTransfer.setData("application/x-5etools-entry", dragPayload(e));
@@ -21682,6 +21691,8 @@ function FiveEToolsCategoryTab({ categoryId }) {
 				className: "max-h-[55vh] overflow-y-auto rounded-md border p-1",
 				children: [shown.map(({ entry, index }) => /* @__PURE__ */ jsxs("button", {
 					type: "button",
+					"data-entry-name": entryName$2(entry),
+					"data-entry-open": "",
 					draggable: true,
 					onDragStart: (ev) => {
 						ev.dataTransfer.setData("application/x-5etools-entry", dragPayload(entry));
@@ -23028,6 +23039,7 @@ function ActionsTab() {
 			}) : filtered.map(({ a, i }) => {
 				const um = a.usesMode || "atwill";
 				return /* @__PURE__ */ jsxs("div", {
+					"data-entry-name": a.name ? String(a.name) : "",
 					className: "space-y-1.5 rounded-md border p-2",
 					children: [
 						/* @__PURE__ */ jsxs("div", {
@@ -23756,6 +23768,7 @@ function SpellsTab() {
 						description: sp.description,
 						image: sp.image
 					}),
+					"data-entry-name": sp.name ? String(sp.name) : "",
 					className: "space-y-1.5 rounded-md border p-2",
 					children: [
 						/* @__PURE__ */ jsxs("div", {
@@ -23794,6 +23807,7 @@ function SpellsTab() {
 						}),
 						/* @__PURE__ */ jsx("div", { children: /* @__PURE__ */ jsxs("button", {
 							type: "button",
+							"data-entry-toggle": open[i] ? "open" : "closed",
 							className: "flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground",
 							onClick: () => setOpen((o) => ({
 								...o,
@@ -25422,12 +25436,14 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 	});
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-md border p-2",
+		"data-entry-name": m.name ? String(m.name) : "",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center gap-1.5",
 				children: [
 					/* @__PURE__ */ jsx("button", {
 						type: "button",
+						"data-entry-toggle": open ? "open" : "closed",
 						onClick: () => setOpen(!open),
 						className: "shrink-0",
 						children: open ? /* @__PURE__ */ jsx(ChevronDown, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(ChevronRight, { className: "h-4 w-4" })
@@ -26986,6 +27002,7 @@ function LibraryMenu({ open, onClose }) {
 	const [tab, setTab] = useState("weapons");
 	const [navOpen, setNavOpen] = useState(true);
 	const [search, setSearch] = useState("");
+	const [focusRequest, setFocusRequest] = useState(null);
 	useEffect(() => {
 		const onTab = (event) => {
 			const next = event?.detail?.tab;
@@ -26994,6 +27011,77 @@ function LibraryMenu({ open, onClose }) {
 		window.addEventListener("skilltree:open-library-tab", onTab);
 		return () => window.removeEventListener("skilltree:open-library-tab", onTab);
 	}, []);
+	useEffect(() => {
+		if (!focusRequest) return void 0;
+		let cancelled = false;
+		let attempts = 0;
+		let timer = 0;
+		let clearedFilters = false;
+		const needle = focusRequest.name.trim().toLowerCase();
+		const panelNow = () => {
+			return document.querySelector("[data-library-dialog]")?.querySelector("[role=\"tabpanel\"][data-state=\"active\"]") || null;
+		};
+		const findRow = (panel) => {
+			if (!panel || !needle) return null;
+			const rows = panel.querySelectorAll("[data-entry-name]");
+			for (const row of rows) if ((row.getAttribute("data-entry-name") || "").trim().toLowerCase() === needle) return row;
+			for (const input of panel.querySelectorAll("input, textarea")) {
+				if ((input.value || "").trim().toLowerCase() !== needle) continue;
+				return input.closest("[data-entry-name]") || input.closest("div.rounded-md") || input;
+			}
+			const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
+			let node = walker.nextNode();
+			while (node) {
+				if ((node.nodeValue || "").trim().toLowerCase() === needle) return node.parentElement;
+				node = walker.nextNode();
+			}
+			return null;
+		};
+		const attempt = () => {
+			if (cancelled) return;
+			const panel = panelNow();
+			if (panel && !clearedFilters) {
+				clearedFilters = true;
+				panel.querySelectorAll("input[placeholder]").forEach((input) => {
+					if (!/^(search|filter)/i.test(input.placeholder || "") || !input.value) return;
+					Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(input, "");
+					input.dispatchEvent(new Event("input", { bubbles: true }));
+				});
+			}
+			const row = findRow(panel);
+			if (row) {
+				const highlight = () => {
+					if (!row.isConnected) return;
+					row.scrollIntoView({
+						block: "start",
+						behavior: "auto"
+					});
+					row.style.boxShadow = "0 0 0 2px hsl(var(--primary))";
+					window.setTimeout(() => {
+						row.style.boxShadow = "";
+					}, 2600);
+				};
+				if (row.matches?.("[data-entry-open]")) row.click?.();
+				const toggle = row.querySelector?.("[data-entry-toggle=\"closed\"]");
+				if (toggle) toggle.click?.();
+				highlight();
+				window.setTimeout(highlight, 60);
+				setFocusRequest(null);
+				return;
+			}
+			attempts += 1;
+			if (attempts > 30) {
+				setFocusRequest(null);
+				return;
+			}
+			timer = window.setTimeout(attempt, 80);
+		};
+		timer = window.setTimeout(attempt, 80);
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timer);
+		};
+	}, [focusRequest]);
 	if (!settings) return null;
 	const lib = settings.library;
 	const importedTabs = Object.keys(lib.fiveETools || {}).filter((key) => Array.isArray(lib.fiveETools[key]) && lib.fiveETools[key].length && !DEDICATED_IMPORTED.has(key)).sort((a, b) => importedCategoryLabel(a).localeCompare(importedCategoryLabel(b))).map((key) => [`imported:${key}`, importedCategoryLabel(key)]);
@@ -27034,6 +27122,7 @@ function LibraryMenu({ open, onClose }) {
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			hideOverlay: true,
 			animated: false,
+			"data-library-dialog": "",
 			className: "left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 overflow-hidden max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0",
 			style: isMobile ? void 0 : {
 				width: `min(${libraryWidth}px, calc(100vw - 1rem))`,
@@ -27104,6 +27193,11 @@ function LibraryMenu({ open, onClose }) {
 										onClick: () => {
 											setTab(g.tabValue);
 											setSearch("");
+											setFocusRequest({
+												tab: g.tabValue,
+												name: hit,
+												seq: Date.now()
+											});
 										},
 										className: "rounded border px-2 py-0.5 text-xs hover:bg-accent",
 										children: hit
@@ -27310,6 +27404,7 @@ function LibraryMenu({ open, onClose }) {
 															description: w.description,
 															image: w.image
 														}),
+														"data-entry-name": w.name ? String(w.name) : "",
 														className: "space-y-1.5 rounded-md border p-2",
 														children: [/* @__PURE__ */ jsxs("div", {
 															className: "grid grid-cols-2 gap-1.5",
@@ -27493,6 +27588,7 @@ function LibraryMenu({ open, onClose }) {
 															description: a.description,
 															image: a.image
 														}),
+														"data-entry-name": a.name ? String(a.name) : "",
 														className: "rounded-md border p-2",
 														children: [/* @__PURE__ */ jsxs("div", {
 															className: "grid grid-cols-2 gap-1.5",

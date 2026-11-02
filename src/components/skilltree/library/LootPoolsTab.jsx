@@ -122,7 +122,7 @@ function PoolEditor({ pool, pools, onChange, onDelete }) {
   const doRoll = () => setResult(rollLootPool(pool.name, pools));
 
   return (
-    <div className="rounded-md border p-2">
+    <div className="rounded-md border p-2" data-entry-name={pool.name ? String(pool.name) : ""}>
       <div className="flex items-center gap-1">
         <button type="button" onClick={() => setOpen(!open)}>
           <ChevronDown

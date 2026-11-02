@@ -228,9 +228,14 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
   const setMovement = (next) =>
     patch({ speeds: next, speed: speedTextFromEntries(next) });
   return (
-    <div className="rounded-md border p-2">
+    <div className="rounded-md border p-2" data-entry-name={m.name ? String(m.name) : ""}>
       <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => setOpen(!open)} className="shrink-0">
+        <button
+          type="button"
+          data-entry-toggle={open ? "open" : "closed"}
+          onClick={() => setOpen(!open)}
+          className="shrink-0"
+        >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
         {m.image && (

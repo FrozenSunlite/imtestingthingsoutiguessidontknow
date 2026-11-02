@@ -375,6 +375,7 @@ export function SpellsTab() {
                 description: sp.description,
                 image: sp.image,
               })}
+              data-entry-name={sp.name ? String(sp.name) : ""}
               className="space-y-1.5 rounded-md border p-2"
             >
               <div className="flex items-center gap-1.5">
@@ -403,6 +404,7 @@ export function SpellsTab() {
               <div>
                 <button
                   type="button"
+                  data-entry-toggle={open[i] ? "open" : "closed"}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => setOpen((o) => ({ ...o, [i]: !o[i] }))}
                 >

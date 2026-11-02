@@ -138,6 +138,8 @@ export function FiveEToolsImportsTab() {
             <button
               key={`${entryName(e)}-${i}`}
               type="button"
+              data-entry-name={entryName(e)}
+              data-entry-open=""
               draggable
               onDragStart={(ev) => {
                 ev.dataTransfer.setData("application/x-5etools-entry", dragPayload(e));

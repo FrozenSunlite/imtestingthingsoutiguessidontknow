@@ -199,6 +199,7 @@ export function LibraryMenu({ open, onClose }) {
   const [tab, setTab] = useState("weapons");
   const [navOpen, setNavOpen] = useState(true);
   const [search, setSearch] = useState("");
+  const [focusRequest, setFocusRequest] = useState(null);
   useEffect(() => {
     const onTab = (event) => {
       const next = event?.detail?.tab;
@@ -207,6 +208,95 @@ export function LibraryMenu({ open, onClose }) {
     window.addEventListener("skilltree:open-library-tab", onTab);
     return () => window.removeEventListener("skilltree:open-library-tab", onTab);
   }, []);
+
+  // A search result should land on the entry itself, not just open its
+  // category. Once the tab panel mounts, clear any tab-local filter that would
+  // hide the row, scroll it into view and flash an outline around it.
+  useEffect(() => {
+    if (!focusRequest) return undefined;
+    let cancelled = false;
+    let attempts = 0;
+    let timer = 0;
+    let clearedFilters = false;
+    const needle = focusRequest.name.trim().toLowerCase();
+
+    const panelNow = () => {
+      const dialog = document.querySelector("[data-library-dialog]");
+      return dialog?.querySelector('[role="tabpanel"][data-state="active"]') || null;
+    };
+
+    const findRow = (panel) => {
+      if (!panel || !needle) return null;
+      const rows = panel.querySelectorAll("[data-entry-name]");
+      for (const row of rows) {
+        const name = (row.getAttribute("data-entry-name") || "").trim().toLowerCase();
+        if (name === needle) return row;
+      }
+      for (const input of panel.querySelectorAll("input, textarea")) {
+        if ((input.value || "").trim().toLowerCase() !== needle) continue;
+        return input.closest("[data-entry-name]") || input.closest("div.rounded-md") || input;
+      }
+      const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node) {
+        if ((node.nodeValue || "").trim().toLowerCase() === needle) {
+          return node.parentElement;
+        }
+        node = walker.nextNode();
+      }
+      return null;
+    };
+
+    const attempt = () => {
+      if (cancelled) return;
+      const panel = panelNow();
+      if (panel && !clearedFilters) {
+        clearedFilters = true;
+        panel.querySelectorAll("input[placeholder]").forEach((input) => {
+          if (!/^(search|filter)/i.test(input.placeholder || "") || !input.value) return;
+          const setter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype,
+            "value"
+          ).set;
+          setter.call(input, "");
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      }
+      const row = findRow(panel);
+      if (row) {
+        const highlight = () => {
+          if (!row.isConnected) return;
+          row.scrollIntoView({ block: "start", behavior: "auto" });
+          row.style.boxShadow = "0 0 0 2px hsl(var(--primary))";
+          window.setTimeout(() => {
+            row.style.boxShadow = "";
+          }, 2600);
+        };
+        if (row.matches?.("[data-entry-open]")) row.click?.();
+        const toggle = row.querySelector?.('[data-entry-toggle="closed"]');
+        if (toggle) toggle.click?.();
+        highlight();
+        // Re-run after the expansion/mount settles; smooth scrolling across a
+        // very long list can stall and leave the row outside the viewport.
+        window.setTimeout(highlight, 60);
+        setFocusRequest(null);
+        return;
+      }
+      attempts += 1;
+      if (attempts > 30) {
+        setFocusRequest(null);
+        return;
+      }
+      timer = window.setTimeout(attempt, 80);
+    };
+
+    timer = window.setTimeout(attempt, 80);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [focusRequest]);
+
   if (!settings) return null;
   const lib = settings.library;
   const importedTabs = Object.keys(lib.fiveETools || {})
@@ -258,6 +348,7 @@ export function LibraryMenu({ open, onClose }) {
       <DialogContent
         hideOverlay
         animated={false}
+        data-library-dialog=""
         className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 overflow-hidden max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0"
         style={
           isMobile
@@ -352,6 +443,11 @@ export function LibraryMenu({ open, onClose }) {
                         onClick={() => {
                           setTab(g.tabValue);
                           setSearch("");
+                          setFocusRequest({
+                            tab: g.tabValue,
+                            name: hit,
+                            seq: Date.now(),
+                          });
                         }}
                         className="rounded border px-2 py-0.5 text-xs hover:bg-accent"
                       >
@@ -506,6 +602,7 @@ export function LibraryMenu({ open, onClose }) {
                         description: w.description,
                         image: w.image,
                       })}
+                      data-entry-name={w.name ? String(w.name) : ""}
                       className="space-y-1.5 rounded-md border p-2"
                     >
                       <div className="grid grid-cols-2 gap-1.5">
@@ -665,6 +762,7 @@ export function LibraryMenu({ open, onClose }) {
                         description: a.description,
                         image: a.image,
                       })}
+                      data-entry-name={a.name ? String(a.name) : ""}
                       className="rounded-md border p-2"
                     >
                       <div className="grid grid-cols-2 gap-1.5">

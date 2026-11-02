@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTree } from "@/lib/treeStore";
-import { matchesQuery } from "@/lib/textSearch";
+import { entryName, matchesQuery } from "@/lib/textSearch";
 import { benefitDragProps } from "@/lib/benefits";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -120,7 +120,11 @@ export function EntryCard({ entry, onPatch, onDelete, children, dragProps }) {
   const [open, setOpen] = useState(false);
   const image = typeof entry?.image === "string" ? entry.image : "";
   return (
-    <div {...dragProps} className="space-y-1.5 rounded-md border p-2">
+    <div
+      {...dragProps}
+      data-entry-name={entryName(entry)}
+      className="space-y-1.5 rounded-md border p-2"
+    >
       {children}
       {image && (
         <img
@@ -220,6 +224,7 @@ export function AbilityList({ label, entries, onChange, placeholder, dragCategor
           <div
             key={i}
             {...(dragCategory ? benefitDragProps(dragCategory, e.name) : {})}
+            data-entry-name={typeof e.name === "string" ? e.name : ""}
             className="flex items-center gap-1"
           >
             <InfoTip label="One entry per row — the assigned ability powers auto-calculated check modifiers.">
@@ -300,6 +305,7 @@ export function NameList({ label, entries, onChange, placeholder, dragCategory =
           <div
             key={i}
             {...(dragCategory ? benefitDragProps(dragCategory, v) : {})}
+            data-entry-name={typeof v === "string" ? v : ""}
             className="flex items-center gap-1"
           >
             <InfoTip label="One entry per row — press + to add another.">

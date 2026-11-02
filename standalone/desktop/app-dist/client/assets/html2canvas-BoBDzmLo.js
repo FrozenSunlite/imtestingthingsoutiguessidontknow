@@ -1,0 +1,1 @@
+import{g as e}from"./routes-CMdGuMVn.js";export default e();

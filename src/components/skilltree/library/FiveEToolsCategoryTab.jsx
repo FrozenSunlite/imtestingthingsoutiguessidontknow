@@ -303,6 +303,8 @@ export function FiveEToolsCategoryTab({ categoryId }) {
               <button
                 key={`${entryName(entry)}-${index}`}
                 type="button"
+                data-entry-name={entryName(entry)}
+                data-entry-open=""
                 draggable
                 onDragStart={(ev) => {
                   ev.dataTransfer.setData("application/x-5etools-entry", dragPayload(entry));
