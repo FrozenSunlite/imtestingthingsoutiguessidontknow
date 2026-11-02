@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { Network } from "lucide-react";
+import { Network, Plus, ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { useTree } from "@/lib/treeStore";
 import {
   displayLevel,
@@ -38,6 +38,7 @@ import { SkillNodeView } from "@/components/skilltree/SkillNodeView";
 import { ConnectionLayer } from "@/components/skilltree/ConnectionLayer";
 import { GridLayer } from "@/components/skilltree/GridLayer";
 import { MiniMap } from "@/components/skilltree/MiniMap";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { AbilityChoiceDialog } from "@/components/skilltree/AbilityChoiceDialog";
 import { SubtreePickerDialog } from "@/components/skilltree/SubtreePickerDialog";
 import { ConnectorMenu } from "@/components/skilltree/ConnectorMenu";
@@ -53,6 +54,7 @@ let lastCentredKey = "";
 const emptyTabs = new Set();
 
 export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundContextMenu }) {
+  const isMobile = useIsMobile();
   const {
     tree,
     nodesById,
@@ -138,6 +140,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   );
 
   const containerRef = useRef(null);
+  const touchPointers = useRef(new Map());
+  const pinchRef = useRef(null);
   const [vp, setVp] = useState({ w: 800, h: 600 });
 
   // Move the camera so a world point sits in the middle of the canvas. The
@@ -609,12 +613,39 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   const onBackgroundPointerDown = (e) => {
     setAltWin(null);
     if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
+    // Track touch contacts for pinch-to-zoom before deciding pan vs marquee.
+    if (e.pointerType === "touch") {
+      const el = containerRef.current;
+      const rect = el ? el.getBoundingClientRect() : { left: 0, top: 0 };
+      touchPointers.current.set(e.pointerId, {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      if (touchPointers.current.size >= 2) {
+        const pts = [...touchPointers.current.values()].slice(0, 2);
+        const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        const base = pendingViewRef.current || viewRef.current;
+        pinchRef.current = {
+          startDist: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
+          startMid: mid,
+          zoom: base.zoom || 0.1,
+          panX: base.panX,
+          panY: base.panY,
+        };
+        dragRef.current = null;
+        setMarquee(null);
+        e.preventDefault();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        return;
+      }
+    }
     // Stop the browser's native drag-selection (blue highlight + caret) from
     // starting on a canvas press — panning and box-selecting are ours.
     e.preventDefault();
     const rect = containerRef.current.getBoundingClientRect();
-    if (e.button === 0 && editable) {
-      // Left-drag in edit mode: box-select nodes.
+    if (e.button === 0 && editable && !isMobile) {
+      // Left-drag in edit mode: box-select nodes. On touch screens a one-finger
+      // drag pans the camera instead; box-select stays a mouse/desktop tool.
       const start = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       dragRef.current = { type: "marquee", startScreen: start };
       setMarquee({ x1: start.x, y1: start.y, x2: start.x, y2: start.y });
@@ -830,6 +861,33 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   ]);
 
   const onPointerMove = (e) => {
+    // Pinch-to-zoom on touch screens: two contacts scale around their midpoint.
+    if (e.pointerType === "touch" && touchPointers.current.has(e.pointerId)) {
+      const rect = containerRef.current.getBoundingClientRect();
+      touchPointers.current.set(e.pointerId, {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      if (pinchRef.current && touchPointers.current.size >= 2) {
+        const pts = [...touchPointers.current.values()].slice(0, 2);
+        const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        const dist = Math.max(
+          1,
+          Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+        );
+        const pin = pinchRef.current;
+        const z = Math.min(2.5, Math.max(0.03, pin.zoom * (dist / pin.startDist)));
+        const wx = (pin.startMid.x - pin.panX) / pin.zoom;
+        const wy = (pin.startMid.y - pin.panY) / pin.zoom;
+        pendingViewRef.current = {
+          zoom: z,
+          panX: mid.x - wx * z,
+          panY: mid.y - wy * z,
+        };
+        scheduleTransform();
+        return;
+      }
+    }
     const d = dragRef.current;
     if (!d) return;
     if (d.type === "marquee") {
@@ -938,7 +996,22 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     }
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e) => {
+    if (e?.pointerType === "touch") {
+      touchPointers.current.delete(e.pointerId);
+      if (pinchRef.current) {
+        if (touchPointers.current.size < 2) {
+          const pv = pendingViewRef.current;
+          if (pv) {
+            pendingViewRef.current = null;
+            setView(pv);
+          }
+          pinchRef.current = null;
+          endNavigation();
+        }
+        return;
+      }
+    }
     const d = dragRef.current;
     // End of a pan gesture: commit the camera to React state in one render.
     if (pendingViewRef.current) {
@@ -1038,6 +1111,63 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     }, 180);
   };
 
+  const commitPendingView = (delay = 180) => {
+    clearTimeout(commitTimer.current);
+    commitTimer.current = setTimeout(() => {
+      const pv = pendingViewRef.current;
+      if (pv) {
+        pendingViewRef.current = null;
+        setView(pv);
+      }
+      endNavigation();
+    }, delay);
+  };
+
+  // On-screen camera controls for touch screens (zoom around the view centre).
+  const zoomViewBy = (factor) => {
+    const base = pendingViewRef.current || viewRef.current;
+    const sx = (vp?.w || 0) / 2;
+    const sy = (vp?.h || 0) / 2;
+    const z = Math.min(2.5, Math.max(0.03, (base.zoom || 0.1) * factor));
+    const wx = (sx - base.panX) / (base.zoom || 0.1);
+    const wy = (sy - base.panY) / (base.zoom || 0.1);
+    pendingViewRef.current = { zoom: z, panX: sx - wx * z, panY: sy - wy * z };
+    scheduleTransform();
+    commitPendingView();
+  };
+
+  const fitView = () => {
+    const nodes = tree?.nodes || [];
+    if (!nodes.length) {
+      centreOnWorld(0, 0);
+      return;
+    }
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const node of nodes) {
+      if (node.x < minX) minX = node.x;
+      if (node.x > maxX) maxX = node.x;
+      if (node.y < minY) minY = node.y;
+      if (node.y > maxY) maxY = node.y;
+    }
+    const pad = 240;
+    const w = Math.max(1, maxX - minX + pad);
+    const h = Math.max(1, maxY - minY + pad);
+    const z = Math.min(
+      2.5,
+      Math.max(0.03, Math.min((vp?.w || 800) / w, (vp?.h || 600) / h))
+    );
+    pendingViewRef.current = {
+      zoom: z,
+      panX: (vp?.w || 800) / 2 - ((minX + maxX) / 2) * z,
+      panY: (vp?.h || 600) / 2 - ((minY + maxY) / 2) * z,
+    };
+    scheduleTransform();
+    commitPendingView(0);
+  };
+
   const onDoubleClick = (e) => {
     if (!editable) return;
     const wasEmpty = !tree?.nodes?.length;
@@ -1048,6 +1178,18 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: id }));
     // The tab's very first node anchors at the world origin — bring the camera
     // to it so a new tree starts centred instead of in a corner.
+    if (wasEmpty) centreOnWorld(0, 0);
+  };
+
+  // Mobile has no double-click convenience, so give the canvas a real Add
+  // button that drops a node at the middle of the current view.
+  const addNodeAtCenter = () => {
+    if (!editable) return;
+    const wasEmpty = !tree?.nodes?.length;
+    const w = screenToWorld((vp?.w || 0) / 2, (vp?.h || 0) / 2);
+    const p = snapPoint(w.x, w.y, grid);
+    const id = addNode(p.x, p.y);
+    setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: id }));
     if (wasEmpty) centreOnWorld(0, 0);
   };
 
@@ -1499,13 +1641,68 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         onClose={() => setSubtreePicker(null)}
       />
 
-      <MiniMap
-        nodes={hiddenIds ? tree.nodes.filter((n) => !hiddenIds.has(n.id)) : tree.nodes}
-        gridBounds={gridBounds}
-        view={view}
-        vp={vp}
-        onJump={jumpTo}
-      />
+      {!isMobile && (
+        <MiniMap
+          nodes={hiddenIds ? tree.nodes.filter((n) => !hiddenIds.has(n.id)) : tree.nodes}
+          gridBounds={gridBounds}
+          view={view}
+          vp={vp}
+          onJump={jumpTo}
+        />
+      )}
+
+      {isMobile && (
+        <>
+          <div className="pointer-events-none absolute left-1/2 top-14 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-background/85 px-2.5 py-1 text-[10px] text-muted-foreground shadow">
+            Drag to pan · Pinch to zoom · + adds a node
+          </div>
+          <div
+            className="absolute bottom-20 right-4 z-20 flex flex-col gap-1 rounded-full border bg-background/90 p-1 shadow-lg"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Zoom in"
+              title="Zoom in"
+              onClick={() => zoomViewBy(1.25)}
+              className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent active:scale-95"
+            >
+              <ZoomIn className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom out"
+              title="Zoom out"
+              onClick={() => zoomViewBy(1 / 1.25)}
+              className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent active:scale-95"
+            >
+              <ZoomOut className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Fit tree"
+              title="Fit the whole tree"
+              onClick={fitView}
+              className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent active:scale-95"
+            >
+              <Maximize className="h-5 w-5" />
+            </button>
+          </div>
+        </>
+      )}
+
+      {isMobile && editable && (
+        <button
+          type="button"
+          aria-label="Add node"
+          title="Add a node in the centre of the view"
+          onClick={addNodeAtCenter}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute bottom-4 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      )}
 
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow">
         {visibleNodes.length} / {tree.nodes.length} nodes · {Math.round((view.zoom || 0.1) * 100)}%

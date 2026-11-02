@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-CwbnQohI.js";
+import { n as Button, r as cn } from "./router-069w8cHR.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft as ArrowLeft$1, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft as ArrowLeft$1, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
@@ -6882,7 +6882,8 @@ var DEFAULT_SETTINGS = {
 		talentLimitEnabled: true,
 		levelZeroTalentPoints: 2
 	},
-	library: DEFAULT_LIBRARY
+	library: DEFAULT_LIBRARY,
+	updateUrl: "https://abc-bennett-graphical-liabilities.trycloudflare.com"
 };
 var normalizeTypeEntry = (e) => typeof e === "string" ? {
 	name: e,
@@ -7909,6 +7910,7 @@ function TreeProvider({ children }) {
 					autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
 					autoSaveInterval: storedSettings.autoSaveInterval || 60,
 					audio: audioSettings,
+					updateUrl: storedSettings.updateUrl ?? DEFAULT_SETTINGS.updateUrl,
 					levelRules: {
 						...DEFAULT_SETTINGS.levelRules,
 						...storedSettings.levelRules || {}
@@ -7981,7 +7983,8 @@ function TreeProvider({ children }) {
 				settings: {
 					rewardCurrency: settings.rewardCurrency,
 					autoSaveToDisk: settings.autoSaveToDisk,
-					levelRules: settings.levelRules
+					levelRules: settings.levelRules,
+					updateUrl: settings.updateUrl
 				},
 				plots: loadPlots()
 			};
@@ -7996,6 +7999,7 @@ function TreeProvider({ children }) {
 		settings.rewardCurrency,
 		settings.autoSaveToDisk,
 		settings.levelRules,
+		settings.updateUrl,
 		dirty
 	]);
 	useEffect(() => {
@@ -11690,6 +11694,167 @@ function removeImportFromLibrary(library, importId) {
 	};
 }
 //#endregion
+//#region src/lib/appUpdates.js
+var listeners$2 = /* @__PURE__ */ new Set();
+var state$1 = {
+	waiting: null,
+	update: null,
+	checking: false,
+	hidden: false
+};
+var registered = false;
+var reloading = false;
+var buildInfoPromise = null;
+var emit$2 = () => listeners$2.forEach((listener) => listener());
+function subscribeUpdates(listener) {
+	listeners$2.add(listener);
+	return () => listeners$2.delete(listener);
+}
+function getUpdateState() {
+	return state$1;
+}
+function useAppUpdates() {
+	return useSyncExternalStore(subscribeUpdates, getUpdateState, getUpdateState);
+}
+function isNativeApp() {
+	if (typeof window === "undefined" || !window.Capacitor) return false;
+	if (typeof window.Capacitor.isNativePlatform === "function") return !!window.Capacitor.isNativePlatform();
+	const platform = window.Capacitor.getPlatform?.();
+	return platform === "android" || platform === "ios";
+}
+function loadBuildInfo() {
+	if (typeof window === "undefined") return Promise.resolve(null);
+	if (!buildInfoPromise) buildInfoPromise = fetch("/app-version.json", { cache: "no-store" }).then((res) => res.ok ? res.json() : null).catch(() => null);
+	return buildInfoPromise;
+}
+function setWaiting(worker) {
+	if (!worker) return;
+	state$1 = {
+		...state$1,
+		waiting: worker,
+		hidden: false
+	};
+	emit$2();
+}
+function registerServiceWorker() {
+	if (typeof window === "undefined" || registered) return;
+	if (!("serviceWorker" in navigator) || false) return;
+	if (isNativeApp()) return;
+	registered = true;
+	navigator.serviceWorker.register("/sw.js").then((reg) => {
+		if (reg.waiting && navigator.serviceWorker.controller) setWaiting(reg.waiting);
+		reg.update().catch(() => {});
+		reg.addEventListener("updatefound", () => {
+			const worker = reg.installing;
+			if (!worker) return;
+			worker.addEventListener("statechange", () => {
+				if (worker.state === "installed" && navigator.serviceWorker.controller) setWaiting(worker);
+			});
+		});
+	}).catch(() => {});
+	navigator.serviceWorker.addEventListener("controllerchange", () => {
+		if (!reloading) return;
+		window.location.reload();
+	});
+}
+function applyServiceWorkerUpdate() {
+	const worker = state$1.waiting;
+	if (!worker) {
+		window.location.reload();
+		return;
+	}
+	reloading = true;
+	worker.postMessage({ type: "SKIP_WAITING" });
+	setTimeout(() => window.location.reload(), 1500);
+}
+function dismissUpdate() {
+	state$1 = {
+		...state$1,
+		update: null,
+		hidden: true
+	};
+	emit$2();
+}
+function resolveApkUrl(base, path) {
+	if (!path) return "";
+	if (/^https?:\/\//i.test(path)) return path;
+	return `${String(base || "").replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+}
+async function checkForUpdates({ baseUrl = "" } = {}) {
+	if (state$1.checking) return { status: "busy" };
+	state$1 = {
+		...state$1,
+		checking: true
+	};
+	emit$2();
+	try {
+		if (!isNativeApp()) {
+			if (state$1.waiting) {
+				state$1 = {
+					...state$1,
+					update: { kind: "sw" },
+					hidden: false
+				};
+				emit$2();
+				return {
+					status: "available",
+					kind: "sw"
+				};
+			}
+			return { status: "current" };
+		}
+		const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+		const local = await loadBuildInfo();
+		if (!base || !local?.builtAt) return { status: "unconfigured" };
+		const res = await fetch(`${base}/update.json`, { cache: "no-store" });
+		if (!res.ok) return { status: "error" };
+		const remote = await res.json();
+		if (!remote?.builtAt) return { status: "error" };
+		if (new Date(remote.builtAt).getTime() > new Date(local.builtAt).getTime()) {
+			state$1 = {
+				...state$1,
+				hidden: false,
+				update: {
+					kind: "apk",
+					remote,
+					apkUrl: resolveApkUrl(base, remote.apk || "/downloads/TalentTree.apk")
+				}
+			};
+			emit$2();
+			return {
+				status: "available",
+				kind: "apk",
+				update: state$1.update
+			};
+		}
+		return { status: "current" };
+	} catch {
+		return { status: "error" };
+	} finally {
+		state$1 = {
+			...state$1,
+			checking: false
+		};
+		emit$2();
+	}
+}
+async function openUpdateDownload(url) {
+	if (!url) return;
+	if (isNativeApp()) try {
+		const { Browser } = await import("@capacitor/browser");
+		await Browser.open({ url });
+		return;
+	} catch {}
+	const a = document.createElement("a");
+	a.href = url;
+	a.target = "_blank";
+	a.rel = "noopener noreferrer";
+	a.download = "TalentTree.apk";
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+}
+//#endregion
 //#region src/lib/useMusicLibrary.js
 var EMPTY = {
 	default: [],
@@ -12358,6 +12523,17 @@ function SettingsMenu({ open, onClose }) {
 	});
 	const [devLogs, setDevLogs] = useState([]);
 	const [backups, setBackups] = useState([]);
+	const [buildInfo, setBuildInfo] = useState(null);
+	useEffect(() => {
+		if (!open) return void 0;
+		let alive = true;
+		loadBuildInfo().then((info) => {
+			if (alive) setBuildInfo(info);
+		});
+		return () => {
+			alive = false;
+		};
+	}, [open]);
 	const audio = {
 		...DEFAULT_AUDIO_SETTINGS,
 		...settings.audio || {}
@@ -12990,6 +13166,51 @@ function SettingsMenu({ open, onClose }) {
 											variant: "outline",
 											onClick: () => setDevLogs([]),
 											children: "Clear"
+										})
+									]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "mt-4 space-y-2 border-t pt-3",
+									children: [
+										/* @__PURE__ */ jsx("p", {
+											className: "text-sm font-medium",
+											children: "Updates"
+										}),
+										/* @__PURE__ */ jsx("p", {
+											className: "text-[10px] text-muted-foreground",
+											children: buildInfo?.builtAt ? `This build: ${new Date(buildInfo.builtAt).toLocaleString()}` : "Build information unavailable."
+										}),
+										isNativeApp() ? /* @__PURE__ */ jsxs(Fragment, { children: [
+											/* @__PURE__ */ jsx(Label, {
+												className: "text-xs",
+												children: "APK update URL"
+											}),
+											/* @__PURE__ */ jsx(Input, {
+												className: "h-8",
+												value: settings.updateUrl || "",
+												onChange: (e) => setSettings((s) => ({
+													...s,
+													updateUrl: e.target.value
+												})),
+												placeholder: "https://your-app-host"
+											}),
+											/* @__PURE__ */ jsxs("p", {
+												className: "text-[10px] text-muted-foreground",
+												children: [
+													"On startup the APK checks ",
+													/* @__PURE__ */ jsx("code", { children: "/update.json" }),
+													" on this host and asks before downloading a newer build."
+												]
+											})
+										] }) : /* @__PURE__ */ jsx("p", {
+											className: "text-[10px] text-muted-foreground",
+											children: "The installed PWA checks for a new version on startup and asks before applying it."
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											variant: "outline",
+											onClick: () => window.dispatchEvent(new Event("skilltree:check-updates")),
+											children: "Check for updates"
 										})
 									]
 								}),
@@ -27801,7 +28022,7 @@ function SearchWindow({ query, setQuery, matches, onPick, onClose }) {
 }
 //#endregion
 //#region src/components/skilltree/SearchBox.jsx
-function SearchBox({ onPick }) {
+function SearchBox({ onPick, fullWidth = false }) {
 	const { tree, setUi } = useTree();
 	const [query, setQuery] = useState("");
 	const [dropOpen, setDropOpen] = useState(false);
@@ -27814,14 +28035,14 @@ function SearchBox({ onPick }) {
 		nextIdx.current = index + 1;
 	};
 	return /* @__PURE__ */ jsxs("div", {
-		className: "relative",
+		className: `relative ${fullWidth ? "w-full" : ""}`,
 		children: [
 			/* @__PURE__ */ jsx(InfoTip, {
 				label: "Search nodes: plain text searches everything; tag a field with n:\"name\", d:\"description\", f:\"flavor\", t:\"talent type\", y:\"category\", a:\"attribute\". Enter jumps to the next match — double-click for the full search window.",
 				children: /* @__PURE__ */ jsxs("div", {
 					className: "relative",
 					children: [/* @__PURE__ */ jsx(Search, { className: "absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" }), /* @__PURE__ */ jsx("input", {
-						className: "h-8 w-56 rounded-md border bg-transparent pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring",
+						className: `h-8 ${fullWidth ? "w-full" : "w-56"} rounded-md border bg-transparent pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring`,
 						placeholder: "Search skills… n:\"Fire Bolt\"",
 						value: query,
 						onChange: (e) => {
@@ -27907,6 +28128,8 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
+	const [moreOpen, setMoreOpen] = useState(false);
+	const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 	useEffect(() => {
 		const openLibrary = () => setLibraryOpen(true);
 		window.addEventListener("skilltree:open-library", openLibrary);
@@ -28040,8 +28263,77 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	}));
 	return /* @__PURE__ */ jsxs("div", { children: [
 		!sheetOnly && usesTree && /* @__PURE__ */ jsx(TabBar, {}),
+		isMobile && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsxs("div", {
+			className: "flex items-center gap-1.5 border-b bg-card px-2 py-1.5",
+			children: [
+				/* @__PURE__ */ jsx(MainMenuButton, {
+					compact: true,
+					onClick: () => setScreen("launch")
+				}),
+				/* @__PURE__ */ jsx(Button, {
+					size: "icon",
+					variant: "ghost",
+					className: "h-8 w-8",
+					title: "Search skills",
+					onClick: () => setMobileSearchOpen((open) => !open),
+					children: /* @__PURE__ */ jsx(Search, { className: "h-4 w-4" })
+				}),
+				/* @__PURE__ */ jsx(Button, {
+					size: "icon",
+					variant: "ghost",
+					className: "h-8 w-8",
+					title: "Save / Load",
+					onClick: () => setSaveOpen(true),
+					children: /* @__PURE__ */ jsx(Save, { className: "h-4 w-4" })
+				}),
+				/* @__PURE__ */ jsx(Button, {
+					size: "icon",
+					variant: "ghost",
+					className: "h-8 w-8",
+					title: "Settings",
+					onClick: () => setSettingsOpen(true),
+					children: /* @__PURE__ */ jsx(Settings, { className: "h-4 w-4" })
+				}),
+				/* @__PURE__ */ jsxs("div", {
+					className: "ml-auto flex items-center gap-1",
+					children: [
+						(!sheetOnly || character.devMode) && /* @__PURE__ */ jsx(Button, {
+							size: "icon",
+							variant: mode === "edit" ? "default" : "ghost",
+							className: "h-8 w-8",
+							title: "Edit mode",
+							"aria-label": "Edit mode",
+							onClick: () => setMode("edit"),
+							children: /* @__PURE__ */ jsx(Pencil, { className: "h-4 w-4" })
+						}),
+						/* @__PURE__ */ jsx(Button, {
+							size: "icon",
+							variant: mode === "sheet" ? "default" : "ghost",
+							className: "h-8 w-8",
+							title: "View character sheet",
+							"aria-label": "View character sheet",
+							onClick: () => setMode("sheet"),
+							children: /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4" })
+						}),
+						/* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							className: "h-8 px-2 text-xs",
+							onClick: () => setMoreOpen((open) => !open),
+							children: [/* @__PURE__ */ jsx(SlidersHorizontal, { className: "mr-1 h-3.5 w-3.5" }), moreOpen ? "Less" : "More"]
+						})
+					]
+				})
+			]
+		}), mobileSearchOpen && /* @__PURE__ */ jsx("div", {
+			className: "border-b bg-card px-2 py-1.5",
+			children: /* @__PURE__ */ jsx(SearchBox, {
+				onPick: pickSearchNode,
+				fullWidth: true
+			})
+		})] }),
 		/* @__PURE__ */ jsxs("div", {
-			className: "max-h-[40vh] overflow-y-auto border-b bg-card px-3 py-2 text-sm",
+			className: `${isMobile && !moreOpen ? "hidden" : ""} max-h-[40vh] overflow-y-auto border-b bg-card px-3 py-2 text-sm`,
 			children: [/* @__PURE__ */ jsxs("div", {
 				className: "flex flex-wrap items-center gap-2",
 				children: [
@@ -29706,6 +29998,7 @@ function CarryGhost() {
 var lastCentredKey = "";
 var emptyTabs = /* @__PURE__ */ new Set();
 function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundContextMenu }) {
+	const isMobile = useIsMobile();
 	const { tree, nodesById, grid, ui, setUi, updateNode, addNode, rotateNodes, deleteNodes, deleteConnection, flipNode, investPoint, pools, character, setCharacter, settings, undo, redo, addBend, moveBend, moveNodes, toggleDependency, copyNodes, cutNodes, pasteClipboard, mergedTree, openSubtreePanel, startCarry, exitSubtreeEditor } = useTree();
 	const view = useView();
 	const setView = useViewSet();
@@ -29741,6 +30034,8 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		clearTimeout(commitTimer.current);
 	}, []);
 	const containerRef = useRef(null);
+	const touchPointers = useRef(/* @__PURE__ */ new Map());
+	const pinchRef = useRef(null);
 	const [vp, setVp] = useState({
 		w: 800,
 		h: 600
@@ -30169,9 +30464,40 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	const onBackgroundPointerDown = (e) => {
 		setAltWin(null);
 		if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
+		if (e.pointerType === "touch") {
+			const el = containerRef.current;
+			const rect = el ? el.getBoundingClientRect() : {
+				left: 0,
+				top: 0
+			};
+			touchPointers.current.set(e.pointerId, {
+				x: e.clientX - rect.left,
+				y: e.clientY - rect.top
+			});
+			if (touchPointers.current.size >= 2) {
+				const pts = [...touchPointers.current.values()].slice(0, 2);
+				const mid = {
+					x: (pts[0].x + pts[1].x) / 2,
+					y: (pts[0].y + pts[1].y) / 2
+				};
+				const base = pendingViewRef.current || viewRef.current;
+				pinchRef.current = {
+					startDist: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
+					startMid: mid,
+					zoom: base.zoom || .1,
+					panX: base.panX,
+					panY: base.panY
+				};
+				dragRef.current = null;
+				setMarquee(null);
+				e.preventDefault();
+				e.currentTarget.setPointerCapture?.(e.pointerId);
+				return;
+			}
+		}
 		e.preventDefault();
 		const rect = containerRef.current.getBoundingClientRect();
-		if (e.button === 0 && editable) {
+		if (e.button === 0 && editable && !isMobile) {
 			const start = {
 				x: e.clientX - rect.left,
 				y: e.clientY - rect.top
@@ -30399,6 +30725,32 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		linkSelectedToConn
 	]);
 	const onPointerMove = (e) => {
+		if (e.pointerType === "touch" && touchPointers.current.has(e.pointerId)) {
+			const rect = containerRef.current.getBoundingClientRect();
+			touchPointers.current.set(e.pointerId, {
+				x: e.clientX - rect.left,
+				y: e.clientY - rect.top
+			});
+			if (pinchRef.current && touchPointers.current.size >= 2) {
+				const pts = [...touchPointers.current.values()].slice(0, 2);
+				const mid = {
+					x: (pts[0].x + pts[1].x) / 2,
+					y: (pts[0].y + pts[1].y) / 2
+				};
+				const dist = Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+				const pin = pinchRef.current;
+				const z = Math.min(2.5, Math.max(.03, pin.zoom * (dist / pin.startDist)));
+				const wx = (pin.startMid.x - pin.panX) / pin.zoom;
+				const wy = (pin.startMid.y - pin.panY) / pin.zoom;
+				pendingViewRef.current = {
+					zoom: z,
+					panX: mid.x - wx * z,
+					panY: mid.y - wy * z
+				};
+				scheduleTransform();
+				return;
+			}
+		}
 		const d = dragRef.current;
 		if (!d) return;
 		if (d.type === "marquee") {
@@ -30492,7 +30844,22 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			moveBend(d.connId, d.bendIndex, w.x, w.y);
 		}
 	};
-	const onPointerUp = () => {
+	const onPointerUp = (e) => {
+		if (e?.pointerType === "touch") {
+			touchPointers.current.delete(e.pointerId);
+			if (pinchRef.current) {
+				if (touchPointers.current.size < 2) {
+					const pv = pendingViewRef.current;
+					if (pv) {
+						pendingViewRef.current = null;
+						setView(pv);
+					}
+					pinchRef.current = null;
+					endNavigation();
+				}
+				return;
+			}
+		}
 		const d = dragRef.current;
 		if (pendingViewRef.current) {
 			const pv = pendingViewRef.current;
@@ -30580,11 +30947,78 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			endNavigation();
 		}, 180);
 	};
+	const commitPendingView = (delay = 180) => {
+		clearTimeout(commitTimer.current);
+		commitTimer.current = setTimeout(() => {
+			const pv = pendingViewRef.current;
+			if (pv) {
+				pendingViewRef.current = null;
+				setView(pv);
+			}
+			endNavigation();
+		}, delay);
+	};
+	const zoomViewBy = (factor) => {
+		const base = pendingViewRef.current || viewRef.current;
+		const sx = (vp?.w || 0) / 2;
+		const sy = (vp?.h || 0) / 2;
+		const z = Math.min(2.5, Math.max(.03, (base.zoom || .1) * factor));
+		const wx = (sx - base.panX) / (base.zoom || .1);
+		const wy = (sy - base.panY) / (base.zoom || .1);
+		pendingViewRef.current = {
+			zoom: z,
+			panX: sx - wx * z,
+			panY: sy - wy * z
+		};
+		scheduleTransform();
+		commitPendingView();
+	};
+	const fitView = () => {
+		const nodes = tree?.nodes || [];
+		if (!nodes.length) {
+			centreOnWorld(0, 0);
+			return;
+		}
+		let minX = Infinity;
+		let maxX = -Infinity;
+		let minY = Infinity;
+		let maxY = -Infinity;
+		for (const node of nodes) {
+			if (node.x < minX) minX = node.x;
+			if (node.x > maxX) maxX = node.x;
+			if (node.y < minY) minY = node.y;
+			if (node.y > maxY) maxY = node.y;
+		}
+		const pad = 240;
+		const w = Math.max(1, maxX - minX + pad);
+		const h = Math.max(1, maxY - minY + pad);
+		const z = Math.min(2.5, Math.max(.03, Math.min((vp?.w || 800) / w, (vp?.h || 600) / h)));
+		pendingViewRef.current = {
+			zoom: z,
+			panX: (vp?.w || 800) / 2 - (minX + maxX) / 2 * z,
+			panY: (vp?.h || 600) / 2 - (minY + maxY) / 2 * z
+		};
+		scheduleTransform();
+		commitPendingView(0);
+	};
 	const onDoubleClick = (e) => {
 		if (!editable) return;
 		const wasEmpty = !tree?.nodes?.length;
 		const rect = containerRef.current.getBoundingClientRect();
 		const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+		const p = snapPoint(w.x, w.y, grid);
+		const id = addNode(p.x, p.y);
+		setUi((u) => ({
+			...u,
+			selectedNodeId: id,
+			editingNodeId: id
+		}));
+		if (wasEmpty) centreOnWorld(0, 0);
+	};
+	const addNodeAtCenter = () => {
+		if (!editable) return;
+		const wasEmpty = !tree?.nodes?.length;
+		const w = screenToWorld((vp?.w || 0) / 2, (vp?.h || 0) / 2);
 		const p = snapPoint(w.x, w.y, grid);
 		const id = addNode(p.x, p.y);
 		setUi((u) => ({
@@ -30958,12 +31392,54 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 					},
 					onClose: () => setSubtreePicker(null)
 				}),
-				/* @__PURE__ */ jsx(MiniMap, {
+				!isMobile && /* @__PURE__ */ jsx(MiniMap, {
 					nodes: hiddenIds ? tree.nodes.filter((n) => !hiddenIds.has(n.id)) : tree.nodes,
 					gridBounds,
 					view,
 					vp,
 					onJump: jumpTo
+				}),
+				isMobile && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("div", {
+					className: "pointer-events-none absolute left-1/2 top-14 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-background/85 px-2.5 py-1 text-[10px] text-muted-foreground shadow",
+					children: "Drag to pan · Pinch to zoom · + adds a node"
+				}), /* @__PURE__ */ jsxs("div", {
+					className: "absolute bottom-20 right-4 z-20 flex flex-col gap-1 rounded-full border bg-background/90 p-1 shadow-lg",
+					onPointerDown: (e) => e.stopPropagation(),
+					children: [
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							"aria-label": "Zoom in",
+							title: "Zoom in",
+							onClick: () => zoomViewBy(1.25),
+							className: "flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent active:scale-95",
+							children: /* @__PURE__ */ jsx(ZoomIn, { className: "h-5 w-5" })
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							"aria-label": "Zoom out",
+							title: "Zoom out",
+							onClick: () => zoomViewBy(1 / 1.25),
+							className: "flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent active:scale-95",
+							children: /* @__PURE__ */ jsx(ZoomOut, { className: "h-5 w-5" })
+						}),
+						/* @__PURE__ */ jsx("button", {
+							type: "button",
+							"aria-label": "Fit tree",
+							title: "Fit the whole tree",
+							onClick: fitView,
+							className: "flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent active:scale-95",
+							children: /* @__PURE__ */ jsx(Maximize, { className: "h-5 w-5" })
+						})
+					]
+				})] }),
+				isMobile && editable && /* @__PURE__ */ jsx("button", {
+					type: "button",
+					"aria-label": "Add node",
+					title: "Add a node in the centre of the view",
+					onClick: addNodeAtCenter,
+					onPointerDown: (e) => e.stopPropagation(),
+					className: "absolute bottom-4 right-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95",
+					children: /* @__PURE__ */ jsx(Plus, { className: "h-6 w-6" })
 				}),
 				/* @__PURE__ */ jsxs("div", {
 					className: "pointer-events-none absolute bottom-3 left-3 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow",
@@ -82969,6 +83445,74 @@ function ScreenTransitionOverlay() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/UpdatePrompt.jsx
+function UpdatePrompt() {
+	const { settings } = useTree();
+	const updates = useAppUpdates();
+	const checkedUrl = useRef("");
+	useEffect(() => {
+		registerServiceWorker();
+	}, []);
+	useEffect(() => {
+		if (!isNativeApp()) return;
+		const url = String(settings?.updateUrl || "").trim();
+		if (!url || url === checkedUrl.current) return;
+		checkedUrl.current = url;
+		checkForUpdates({ baseUrl: url }).then((result) => {
+			if (result.status === "available") toast("A newer APK is available.");
+		});
+	}, [settings?.updateUrl]);
+	useEffect(() => {
+		const onCheck = async () => {
+			const result = await checkForUpdates({ baseUrl: String(settings?.updateUrl || "").trim() });
+			if (result.status === "current") toast.success("You're up to date.");
+			else if (result.status === "unconfigured") toast("Set an update URL in Settings → General first.");
+			else if (result.status === "error") toast.error("Could not check for updates.");
+		};
+		window.addEventListener("skilltree:check-updates", onCheck);
+		return () => window.removeEventListener("skilltree:check-updates", onCheck);
+	}, [settings?.updateUrl]);
+	const apkUpdate = updates.update?.kind === "apk" ? updates.update : null;
+	const serviceWorkerUpdate = !!updates.waiting && !updates.hidden;
+	const open = !!apkUpdate || serviceWorkerUpdate;
+	if (!open) return null;
+	const close = () => dismissUpdate();
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange: (value) => !value && close(),
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-w-md",
+			children: [
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Update available" }), /* @__PURE__ */ jsx(DialogDescription, { children: apkUpdate ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device." : "A new version has been downloaded. Apply it now? The app will reload once." })] }),
+				apkUpdate?.remote?.builtAt ? /* @__PURE__ */ jsxs("p", {
+					className: "text-[10px] text-muted-foreground",
+					children: ["Build: ", new Date(apkUpdate.remote.builtAt).toLocaleString()]
+				}) : null,
+				/* @__PURE__ */ jsxs("div", {
+					className: "flex justify-end gap-2",
+					children: [/* @__PURE__ */ jsx(Button, {
+						variant: "outline",
+						onClick: close,
+						children: "Later"
+					}), apkUpdate ? /* @__PURE__ */ jsx(Button, {
+						onClick: () => {
+							openUpdateDownload(apkUpdate.apkUrl);
+							close();
+						},
+						children: "Download update"
+					}) : /* @__PURE__ */ jsx(Button, {
+						onClick: () => {
+							applyServiceWorkerUpdate();
+							close();
+						},
+						children: "Update now"
+					})]
+				})
+			]
+		})
+	});
+}
+//#endregion
 //#region src/components/skilltree/PresentationSheet.jsx
 var signed = (n) => n >= 0 ? `+${n}` : String(n);
 var SPELL_LEVELS = [
@@ -84908,7 +85452,8 @@ var SplitComponent = () => /* @__PURE__ */ jsxs(TreeProvider, { children: [
 	/* @__PURE__ */ jsx(Workspace, {}),
 	/* @__PURE__ */ jsx(MusicPlayer, {}),
 	/* @__PURE__ */ jsx(ImportStatusBanner, {}),
-	/* @__PURE__ */ jsx(ScreenTransitionOverlay, {})
+	/* @__PURE__ */ jsx(ScreenTransitionOverlay, {}),
+	/* @__PURE__ */ jsx(UpdatePrompt, {})
 ] });
 //#endregion
 export { SplitComponent as component };

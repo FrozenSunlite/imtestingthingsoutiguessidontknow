@@ -1,7 +1,7 @@
 // Copies the freshly built debug APK into the served client folder so
 // Settings → General can offer it as a download, and into the local userdata
 // folder for the launcher. Run after `npm run apk:build`.
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const apk = join("android", "app", "build", "outputs", "apk", "debug", "app-debug.apk");
@@ -20,3 +20,18 @@ for (const target of targets) {
   copyFileSync(apk, target);
   console.log(`copied -> ${target}`);
 }
+
+// Advertise the update only when there is a matching APK to download. Reading
+// the build stamp from the same client folder keeps the APK and update.json in
+// sync; a web-only build never advertises an APK that wasn't rebuilt.
+const clientDir = join("standalone", "desktop", "app-dist", "client");
+const versionFile = join(clientDir, "app-version.json");
+const build = existsSync(versionFile)
+  ? JSON.parse(readFileSync(versionFile, "utf8"))
+  : { builtAt: new Date().toISOString() };
+writeFileSync(
+  join(clientDir, "update.json"),
+  `${JSON.stringify({ ...build, apk: "/downloads/TalentTree.apk" }, null, 2)}\n`
+);
+console.log(`updated -> ${join(clientDir, "update.json")}`);
+

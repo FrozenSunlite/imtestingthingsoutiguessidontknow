@@ -165,6 +165,11 @@ changing app code, then restart the launcher.
   (or added to the home screen) and launched full-screen. Project data still
   lives in the browser origin's local IndexedDB, so a stable HTTPS address is
   needed for long-term use.
+- **Updates:** the installed PWA checks for a new service worker on startup,
+  downloads it in the background and asks before applying it; the Android APK
+  checks a configured update host’s `update.json` on startup and asks before
+  opening the newer APK download. Settings → General shows the current build and
+  has a **Check for updates** button; the APK update host is set there once.
 - **Android APK:** Settings → General has a **Download TalentTree.apk** link. The
   APK bundles the same web build through Capacitor and runs fully offline except
   for 5eTools API calls (Reference Index fetching and remote images), which need
@@ -183,7 +188,11 @@ changing app code, then restart the launcher.
   is debug-signed; use a release keystore before distributing it publicly.
 - **Mobile layout:** the launch menu, editor panels, View screen tree drawer and
   Reference Library adapt to phone widths; editing opens as a full-screen panel,
-  and the View screen shows skill trees in a closeable drawer.
+  and the View screen shows skill trees in a closeable drawer. In Edit mode the
+  toolbar collapses to a compact Menu/Search/Save/Settings/Edit/View bar with a
+  **More** drawer, the minimap is hidden, and a floating **+** button drops a
+  node at the centre of the view. Touch camera controls: one-finger drag pans,
+  pinch zooms, and floating zoom-in/zoom-out/fit buttons cover the rest.
 - **Return nodes:** every subtree starts with a non-investable node named
   “double click to return to the parent node” (only its name is editable).
   Double-clicking it returns to the node the subtree was entered through, at any

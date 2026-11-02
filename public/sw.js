@@ -1,13 +1,18 @@
 // Offline app shell for the installed PWA. 5eTools API calls and project data
 // stay network/local-storage driven; this only makes the interface itself
 // launchable when the connection drops.
-const CACHE = "ttt-shell-v2";
+const BUILD = "2026-11-02T06:54:35.799Z";
+const CACHE = `ttt-shell-v3-${BUILD}`;
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
-  );
+  // Wait for the page to ask before activating, so the user can consent to the
+  // update (and the app can show a prompt on startup).
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

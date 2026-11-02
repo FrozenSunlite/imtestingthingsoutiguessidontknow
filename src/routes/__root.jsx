@@ -1,5 +1,4 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import { Toaster } from "@/components/ui/sonner";
@@ -30,14 +29,6 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  useEffect(() => {
-    if (!import.meta.env.PROD) return;
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      /* offline shell is optional */
-    });
-  }, []);
-
   // The close warning lives in TreeProvider: it asks only while the project
   // has unsaved edits, never on every navigation.
   return (

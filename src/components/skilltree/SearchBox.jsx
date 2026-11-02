@@ -10,7 +10,7 @@ import { Search } from "lucide-react";
 // Enter cycles through all matches. Double-clicking the bar opens the floating
 // search window — draggable and resizable — for the full result list and the
 // syntax reference.
-export function SearchBox({ onPick }) {
+export function SearchBox({ onPick, fullWidth = false }) {
   const { tree, setUi } = useTree();
   const [query, setQuery] = useState("");
   const [dropOpen, setDropOpen] = useState(false);
@@ -26,12 +26,12 @@ export function SearchBox({ onPick }) {
   };
 
   return (
-    <div className="relative">
+    <div className={`relative ${fullWidth ? "w-full" : ""}`}>
       <InfoTip label='Search nodes: plain text searches everything; tag a field with n:"name", d:"description", f:"flavor", t:"talent type", y:"category", a:"attribute". Enter jumps to the next match — double-click for the full search window.'>
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
-            className="h-8 w-56 rounded-md border bg-transparent pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
+            className={`h-8 ${fullWidth ? "w-full" : "w-56"} rounded-md border bg-transparent pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring`}
             placeholder='Search skills… n:"Fire Bolt"'
             value={query}
             onChange={(e) => {

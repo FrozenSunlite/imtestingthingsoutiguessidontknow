@@ -49,6 +49,8 @@ import {
   ChevronsDown,
   BookOpen,
   AppWindow,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
@@ -89,6 +91,8 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   useEffect(() => {
     const openLibrary = () => setLibraryOpen(true);
     window.addEventListener("skilltree:open-library", openLibrary);
@@ -262,7 +266,83 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   return (
     <div>
       {!sheetOnly && usesTree && <TabBar />}
-      <div className="max-h-[40vh] overflow-y-auto border-b bg-card px-3 py-2 text-sm">
+      {isMobile && (
+        <>
+          <div className="flex items-center gap-1.5 border-b bg-card px-2 py-1.5">
+            <MainMenuButton compact onClick={() => setScreen("launch")} />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Search skills"
+              onClick={() => setMobileSearchOpen((open) => !open)}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Save / Load"
+              onClick={() => setSaveOpen(true)}
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <div className="ml-auto flex items-center gap-1">
+              {(!sheetOnly || character.devMode) && (
+                <Button
+                  size="icon"
+                  variant={mode === "edit" ? "default" : "ghost"}
+                  className="h-8 w-8"
+                  title="Edit mode"
+                  aria-label="Edit mode"
+                  onClick={() => setMode("edit")}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                size="icon"
+                variant={mode === "sheet" ? "default" : "ghost"}
+                className="h-8 w-8"
+                title="View character sheet"
+                aria-label="View character sheet"
+                onClick={() => setMode("sheet")}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-2 text-xs"
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                <SlidersHorizontal className="mr-1 h-3.5 w-3.5" />
+                {moreOpen ? "Less" : "More"}
+              </Button>
+            </div>
+          </div>
+          {mobileSearchOpen && (
+            <div className="border-b bg-card px-2 py-1.5">
+              <SearchBox onPick={pickSearchNode} fullWidth />
+            </div>
+          )}
+        </>
+      )}
+      <div
+        className={`${
+          isMobile && !moreOpen ? "hidden" : ""
+        } max-h-[40vh] overflow-y-auto border-b bg-card px-3 py-2 text-sm`}
+      >
       <div className="flex flex-wrap items-center gap-2">
       <InfoTip label="Project name — used for export file names">
         <Input

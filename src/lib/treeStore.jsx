@@ -527,6 +527,10 @@ const DEFAULT_SETTINGS = {
     levelZeroTalentPoints: 2,
   },
   library: DEFAULT_LIBRARY,
+  // Native APK update host. Empty on the web (the service worker handles it).
+  // The current tunnel is a convenient default; change it in Settings if the
+  // hosting address moves.
+  updateUrl: "https://abc-bennett-graphical-liabilities.trycloudflare.com",
 };
 
 // Library list entries used to be plain names; both movement/sense types and
@@ -1689,6 +1693,7 @@ export function TreeProvider({ children }) {
           autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
           autoSaveInterval: storedSettings.autoSaveInterval || 60,
           audio: audioSettings,
+          updateUrl: storedSettings.updateUrl ?? DEFAULT_SETTINGS.updateUrl,
           levelRules: { ...DEFAULT_SETTINGS.levelRules, ...(storedSettings.levelRules || {}) },
           library: mergeLibrary(storedSettings.library),
         });
@@ -1787,13 +1792,14 @@ export function TreeProvider({ children }) {
           rewardCurrency: settings.rewardCurrency,
           autoSaveToDisk: settings.autoSaveToDisk,
           levelRules: settings.levelRules,
+          updateUrl: settings.updateUrl,
         },
         plots: loadPlots(),
       };
       saveProjectToDisk(payload, { name: payload.name }).catch(() => {});
     }, 2500);
     return () => clearTimeout(t);
-  }, [tree, character, pools, settings.library, settings.rewardCurrency, settings.autoSaveToDisk, settings.levelRules, dirty]);
+  }, [tree, character, pools, settings.library, settings.rewardCurrency, settings.autoSaveToDisk, settings.levelRules, settings.updateUrl, dirty]);
 
   // Warn before the program closes only while edits are unsaved. Leaving the
   // workspace for the main menu deliberately does not ask.

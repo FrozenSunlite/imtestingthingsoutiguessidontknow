@@ -4,6 +4,7 @@ import { Upload, RotateCcw, Trash2, Archive, Download, Volume2, VolumeX, Music2,
 import { removeImportFromLibrary } from "@/lib/importHistory";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
 import { DEFAULT_AUDIO_SETTINGS } from "@/lib/audio";
+import { isNativeApp, loadBuildInfo } from "@/lib/appUpdates";
 import { useMusicLibrary } from "@/lib/useMusicLibrary";
 import { useCurrentTrack } from "@/lib/useAudio";
 import { Slider } from "@/components/ui/slider";
@@ -67,6 +68,17 @@ export function SettingsMenu({ open, onClose }) {
     setTheme({ ...theme, custom: { ...customTheme, ...patch } });
   const [devLogs, setDevLogs] = useState([]);
   const [backups, setBackups] = useState([]);
+  const [buildInfo, setBuildInfo] = useState(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    let alive = true;
+    loadBuildInfo().then((info) => {
+      if (alive) setBuildInfo(info);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
   const audio = { ...DEFAULT_AUDIO_SETTINGS, ...(settings.audio || {}) };
   const setAudio = (patch) =>
     setSettings((s) => ({
@@ -537,6 +549,45 @@ export function SettingsMenu({ open, onClose }) {
                 <Button size="sm" variant="outline" onClick={() => setDevLogs([])}>Clear</Button>
               </div>
             )}
+              <div className="mt-4 space-y-2 border-t pt-3">
+                <p className="text-sm font-medium">Updates</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {buildInfo?.builtAt
+                    ? `This build: ${new Date(buildInfo.builtAt).toLocaleString()}`
+                    : "Build information unavailable."}
+                </p>
+                {isNativeApp() ? (
+                  <>
+                    <Label className="text-xs">APK update URL</Label>
+                    <Input
+                      className="h-8"
+                      value={settings.updateUrl || ""}
+                      onChange={(e) =>
+                        setSettings((s) => ({ ...s, updateUrl: e.target.value }))
+                      }
+                      placeholder="https://your-app-host"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      On startup the APK checks <code>/update.json</code> on this
+                      host and asks before downloading a newer build.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground">
+                    The installed PWA checks for a new version on startup and asks
+                    before applying it.
+                  </p>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    window.dispatchEvent(new Event("skilltree:check-updates"))
+                  }
+                >
+                  Check for updates
+                </Button>
+              </div>
               {!(typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) && (
                 <div className="mt-4 space-y-2 border-t pt-3">
                   <p className="text-sm font-medium">Android APK</p>
