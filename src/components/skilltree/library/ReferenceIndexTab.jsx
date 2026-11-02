@@ -177,10 +177,10 @@ const imageFor = (entry, root, filePath) => {
   }
   if (/^https?:/i.test(raw)) return raw;
   const cleaned = raw.replace(/^\/+/, "");
-  const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
-  const candidate = cleaned.startsWith(`${root}/`) || cleaned.startsWith("img/")
-    ? cleaned
-    : `${root}/${dir}/${cleaned}`.replace(/\/+/g, "/");
+  // 5eTools image references are relative to the image root (img/...), including
+  // book/adventure illustration nodes. Without this prefix the local image API
+  // looks in the wrong folder and the rulebook keeps a broken relative URL.
+  const candidate = cleaned.startsWith("img/") ? cleaned : `img/${cleaned}`;
   return `/api/5etools/image?path=${encodeURIComponent(candidate)}`;
 };
 

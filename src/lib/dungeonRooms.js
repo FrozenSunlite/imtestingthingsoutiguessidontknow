@@ -109,25 +109,202 @@ const HARVEST = {
 const slug = (text) =>
   String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
+const OBJECTS_BY_CATEGORY = {
+  Chamber: ["Table", "Chairs", "Braziers", "Tapestries"],
+  Corridor: ["Wall sconces", "Archway", "Debris"],
+  Trap: ["Pressure plate", "Tripwire", "Warning rune"],
+  Puzzle: ["Pedestal", "Sigil", "Lever", "Chime"],
+  Loot: ["Chest", "Urn", "Coin pile", "Strongbox"],
+  Elite: ["War table", "Weapon rack", "Cage", "Braziers"],
+  Boss: ["Throne", "Altar", "Braziers", "Trophies"],
+  Rest: ["Campfire", "Bedrolls", "Supplies", "Water skin"],
+  Shop: ["Counter", "Shelves", "Strongbox", "Crates"],
+  Harvest: ["Gathering tools", "Baskets", "Vein", "Bloom"],
+};
+
+const NAME_OBJECTS = {
+  "Flooded Cistern": ["Cistern", "Valve wheel", "Rusted chains"],
+  "Forgotten Barracks": ["Bunk beds", "Weapon rack", "Footlockers"],
+  "Fungal Conservatory": ["Fungal beds", "Spore jars", "Garden tools"],
+  "Arcane Workshop": ["Workbenches", "Arcane circle", "Shelves"],
+  "Crystal Grotto": ["Crystal clusters", "Mining picks", "Offering bowl"],
+  "Bone Orchard": ["Bone trees", "Offering bowls", "Grave markers"],
+  "Captain's Quarters": ["Bed", "Writing desk", "Sea chest"],
+  "Hidden Spring": ["Spring pool", "Reeds", "Offering stones"],
+  "Treasure Vault": ["Coin piles", "Chests", "Strongbox"],
+  "Abandoned Strongroom": ["Empty chests", "Shelves", "Rubble"],
+  "Armorer's Bolthole": ["Armor stands", "Workbench", "Tool rack"],
+  "Alchemist's Nook": ["Shelves", "Cauldron", "Ingredient jars"],
+  "Ancient Root": ["Root tangle", "Moss", "Carved stones"],
+  "Sealed Treasury": ["Sealed chests", "Ledger", "Coin scales"],
+  "Merchant Cache": ["Packed crates", "Ledger", "Scales"],
+  "Gilded Ossuary": ["Sarcophagi", "Urns", "Candles"],
+  "Reliquary of Coins": ["Reliquary", "Offering trays", "Coin piles"],
+  "Gemstone Alcove": ["Gem clusters", "Cutting tools", "Padded cases"],
+  "Smuggler's Hold": ["Contraband crates", "Rope", "Lantern"],
+  "Offering Chamber": ["Offering altar", "Incense", "Bowls"],
+  "Butcher's Floor": ["Hooks", "Tables", "Bone saw"],
+  "Beast Pen": ["Straw", "Feeding trough", "Chains"],
+  "Duelist's Ring": ["Dueling circle", "Weapon rack", "Sand buckets"],
+  "Shadow Gallery": ["Dark drapes", "Pedestals", "Mirrors"],
+  "Iron Colosseum": ["Spectator benches", "Weapon rack", "Sand"],
+  "Chained Sanctum": ["Chains", "Altar", "Braziers"],
+  "Ritual Chamber": ["Ritual circle", "Candles", "Offering table"],
+  "War Council": ["War table", "Maps", "Chairs"],
+  "Arcane Laboratory": ["Workbenches", "Specimen jars", "Arcane circle"],
+  "Throne of Ash": ["Throne", "Ash braziers", "Banners"],
+  "Drowned Court": ["Throne", "Pool", "Seaweed"],
+  "Frozen Crown": ["Throne", "Ice pillars", "Frozen banners"],
+  "Obsidian Choir": ["Choir stalls", "Obsidian altar", "Candles"],
+  "Sunken Idol": ["Idol", "Pool", "Offerings"],
+  "Crimson Reliquary": ["Reliquary", "Candles", "Blood basin"],
+  "Storm Nexus": ["Conduits", "Braziers", "Conductive rods"],
+  "Hollow Crown": ["Throne", "Broken crown", "Banners"],
+  "Bonfire Camp": ["Bonfire", "Bedrolls", "Cooking pot"],
+  "Safe Alcove": ["Bedroll", "Backpack", "Lantern"],
+  "Quiet Shrine": ["Shrine", "Candles", "Offering bowl"],
+  "Lantern Refuge": ["Lanterns", "Bedrolls", "Supplies"],
+  "Warded Nook": ["Ward stones", "Bedroll", "Candles"],
+  "Mushroom Rest": ["Glowcap beds", "Bedrolls", "Baskets"],
+  "Sealed Camp": ["Sealed tent", "Supplies", "Brazier"],
+  "Watchfire Post": ["Watchfire", "Weapon rack", "Stools"],
+  "Pilgrim's Rest": ["Shrine", "Bedrolls", "Travel packs"],
+};
+
+const unique = (list) => [...new Set((list || []).filter(Boolean))];
+
 function makeRoom(category, name, index) {
   const layout = LAYOUTS[index % LAYOUTS.length];
   const [min, max] = SIZE_BY_CATEGORY[category] || [9, 20];
+  const span = Math.max(0, max - min);
+  let w = min + ((index * 3) % (span + 1));
+  let h = min + ((index * 5 + 2) % (span + 1));
+  if (category === "Corridor") {
+    w = Math.max(5, Math.min(7, min));
+    h = min + ((index * 3) % (span + 1));
+  } else if (category === "Boss" || category === "Elite") {
+    w = Math.max(w, Math.round(max * 0.8));
+    h = Math.max(h, Math.round(max * 0.8));
+  }
+  const cx = Math.floor(w / 2);
+  const cy = Math.floor(h / 2);
+
   const traps = category === "Trap" ? [TRAPS[index % TRAPS.length]] : [];
   if (category === "Trap" && index % 3 === 0) {
     traps.push(TRAPS[(index + 2) % TRAPS.length]);
   }
   const harvest = category === "Harvest" ? HARVEST[name] || ["Rare reagent"] : [];
-  const loot = category === "Loot" ? ["Rank-appropriate treasure cache"] : [];
+  const objects = unique([
+    ...(NAME_OBJECTS[name] || []),
+    ...(OBJECTS_BY_CATEGORY[category] || []),
+  ]).slice(0, 4);
+
+  const coverPoints = [];
+  const addCover = (x, y, cover) => {
+    if (x >= 0 && y >= 0 && x < w && y < h) coverPoints.push({ x, y, cover });
+  };
+  if (/pillars/i.test(layout.cover)) {
+    addCover(1, 1, "half");
+    addCover(w - 2, 1, "half");
+    addCover(1, h - 2, "half");
+    addCover(w - 2, h - 2, "half");
+  } else if (/crates/i.test(layout.cover)) {
+    addCover(cx - 2, cy - 1, "half");
+    addCover(cx + 2, cy + 1, "half");
+    addCover(cx - 1, cy + 2, "half");
+  } else if (/low wall/i.test(layout.cover)) {
+    for (let x = Math.max(1, cx - 3); x <= Math.min(w - 2, cx + 3); x += 1) {
+      addCover(x, cy, "threeQuarter");
+    }
+  } else if (/fog/i.test(layout.cover)) {
+    addCover(cx, cy, "half");
+  }
+
+  const heights = [];
+  if (/raised|tiered/i.test(layout.elevation)) {
+    const height = /\+2/.test(layout.elevation) ? 2 : 1;
+    heights.push({ x: cx, y: cy, height });
+  }
+
+  const water = [];
+  const lava = [];
+  const difficult = [];
+  if (/Flooded|Cistern|Spring|Aqueduct|Weeping|Drowned|Sunken/.test(name)) {
+    water.push([cx - 1, cy], [cx, cy], [cx - 1, cy + 1], [cx, cy + 1]);
+  }
+  if (/Volcanic|Ember|Flame|Forge|Lava/.test(name)) {
+    lava.push([cx, cy], [cx + 1, cy]);
+  }
+  if (/Collapsed|Rubble|Fungal|Orchard|Grove|Broken|Root|Cavern|Irregular/.test(name)) {
+    difficult.push([cx + 1, cy], [cx + 1, cy + 1]);
+  }
+
+  const trapPoints =
+    category === "Trap"
+      ? [
+          { x: cx, y: cy, type: traps[0] || "Trap" },
+          { x: Math.min(w - 2, cx + 2), y: Math.min(h - 2, cy + 2), type: traps[1] || traps[0] || "Trap" },
+        ]
+      : [];
+  const hazardPoints =
+    /Fog|Gloom|Unstable|Ash|Frozen|Storm|Crimson|Drowned/.test(name) ||
+    category === "Trap"
+      ? [{ x: cx, y: Math.max(1, cy - 2), type: /Fog/.test(name) ? "Fog (lightly obscured)" : ENV_BY_CATEGORY[category] || "Hazard" }]
+      : [];
+  const stairs = heights.length ? [{ x: Math.min(w - 2, cx + 1), y: cy }] : [];
+  const ingressPoints =
+    category === "Corridor" || category === "Rest" || category === "Shop"
+      ? [{ x: 1, y: cy, label: "Entrance" }]
+      : [{ x: 1, y: cy, label: "Entrance" }];
+  const spawnPoints =
+    category === "Elite" || category === "Boss" || category === "Trap"
+      ? [{ x: cx, y: Math.max(1, cy - 2), label: category }]
+      : [];
+
+  const loot =
+    category === "Loot"
+      ? ["Rank-appropriate treasure cache"]
+      : category === "Boss"
+        ? ["Boss hoard"]
+        : category === "Elite"
+          ? ["Elite equipment"]
+          : category === "Shop"
+            ? ["Shop stock"]
+            : [];
+
   const environmentEffect =
-    index === 8
-      ? "Unstable ground: difficult terrain in the marked half of the room."
-      : index === 9
-        ? "Unnatural gloom: lightly obscured beyond the room's center."
-        : "";
+    water.length
+      ? "Water is difficult terrain; deeper channels require swimming."
+      : difficult.length
+        ? "Broken ground: the marked cells are difficult terrain."
+        : /Fog/.test(layout.cover)
+          ? "Fog: lightly obscured beyond the room's centre."
+          : index === 8
+            ? "Unstable ground: difficult terrain in the marked half of the room."
+            : index === 9
+              ? "Unnatural gloom: lightly obscured beyond the room's center."
+              : "";
+
+  const floorType = /Fungal|Grove|Orchard|Spring|Harvest/.test(name)
+    ? "grass"
+    : /Drowned|Cistern|Flooded|Aqueduct/.test(name)
+      ? "stone"
+      : category === "Rest"
+        ? "dirt"
+        : category === "Shop"
+          ? "wood"
+          : category === "Boss"
+            ? "marble"
+            : category === "Corridor"
+              ? "stone"
+              : "stone";
+
   return {
     id: `starter-${slug(category)}-${slug(name)}`,
     name,
     category,
+    w,
+    h,
     minW: min,
     maxW: max,
     minH: min,
@@ -137,17 +314,30 @@ function makeRoom(category, name, index) {
     elevation: layout.elevation,
     cover: layout.cover,
     connector: category === "Corridor" ? "Archway" : "Doorway",
-    tags: [category, ...layout.tags, ...(harvest.length ? ["harvest"] : [])],
-    description: `${name} — a ${layout.tags.join(", ")} ${category.toLowerCase()} shaped for tactical play.`,
+    tags: [category, ...layout.tags, ...(harvest.length ? ["harvest"] : []), ...(objects.length ? ["furnished"] : [])],
+    description: `${name} — a ${layout.shape.toLowerCase()} ${category.toLowerCase()} furnished with ${objects.slice(0, 3).join(", ")}.`,
     traps,
     spawns: [],
     loot,
     harvest,
+    objects,
+    coverPoints,
+    heights,
+    water,
+    lava,
+    difficult,
+    trapPoints,
+    hazardPoints,
+    stairs,
+    spawnPoints,
+    ingressPoints,
+    floorType,
     environmentEffect,
-    notes: `${layout.tags.join(" · ")}. Designed for ${category.toLowerCase()} encounters; monsters are placed by the generator.`,
+    notes: `${layout.tags.join(" · ")}. Furnishings: ${objects.join(", ")}.`,
     enabled: true,
     bonfire: category === "Rest" && index === 0,
     cr0Only: false,
+    starterVersion: 2,
   };
 }
 

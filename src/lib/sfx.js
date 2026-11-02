@@ -40,10 +40,13 @@ export function installUiSounds(enabled) {
   let lastError = 0;
 
   const onPointerDown = (event) => {
-    const target = event.target?.closest?.(
-      'button, a, [role=button], [role=tab], [role=menuitem], [role=option], input[type=checkbox], input[type=radio]'
-    );
-    if (!target || target.disabled || target.getAttribute("aria-disabled") === "true") {
+    // Every press on the app is a screen tap: controls, nodes, canvas, labels,
+    // inputs, dialogs. Skip non-primary mouse buttons and the second finger of
+    // a pinch so gestures don't double-tap.
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.isPrimary === false) return;
+    const target = event.target;
+    if (target?.disabled || target?.getAttribute?.("aria-disabled") === "true") {
       return;
     }
     const now = performance.now();

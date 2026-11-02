@@ -1117,7 +1117,12 @@ export function rectCells(w, h) {
 export function roomShapeCells(room) {
   const w = Math.max(1, Math.round(Number(room?.w) || 1));
   const h = Math.max(1, Math.round(Number(room?.h) || 1));
-  if (!Array.isArray(room?.cells) || !room.cells.length) return rectCells(w, h);
+  if (!Array.isArray(room?.cells) || !room.cells.length) {
+    // Starter rooms carry a shape but no painted cells; honor that shape instead
+    // of rendering every one as a plain rectangle.
+    if (room?.shape && room.shape !== "Custom") return shapeCells(w, h, room.shape);
+    return rectCells(w, h);
+  }
   const set = new Set();
   room.cells.forEach((cell) => {
     const x = Number(cell?.[0] ?? cell?.x);

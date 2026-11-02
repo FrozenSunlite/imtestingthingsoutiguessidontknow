@@ -353,6 +353,37 @@ export function RoomBuilder({ onExit, onArchitect }) {
                 onAdd={addFromPayload}
                 onResize={(dims) => patchSelected(dims)}
               />
+              <div className="space-y-2 rounded-md border p-2">
+                <p className="text-xs font-semibold">Room contents</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    ["Objects / furniture", "objects", "Table, chairs, braziers"],
+                    ["Loot", "loot", "Chest, coin pile"],
+                    ["Traps", "traps", "Pressure plate, tripwire"],
+                    ["Harvest", "harvest", "Glowcap, ore, herbs"],
+                  ].map(([label, key, placeholder]) => (
+                    <label key={key} className="space-y-1">
+                      <Label className="text-[10px]">{label}</Label>
+                      <Input
+                        className="h-8"
+                        value={(selected[key] || []).join(", ")}
+                        placeholder={placeholder}
+                        onChange={(e) =>
+                          patchSelected({
+                            [key]: e.target.value
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  These contents travel with the room and appear in generated dungeons and battle maps.
+                </p>
+              </div>
               <p className="text-[10px] text-muted-foreground">
                 Saved rooms are used by the Dungeon Builder's procedural generation.
                 Use <strong>Open Architect</strong> to give kingdom houses a shared

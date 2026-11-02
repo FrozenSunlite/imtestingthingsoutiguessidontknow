@@ -19,7 +19,7 @@ const MAX_FALLBACK_EDGE = 512;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 const REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|apng|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
-const MARKDOWN_IMAGE_RE = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
+const MARKDOWN_IMAGE_RE = /(!\[[^\]]*\]\()([^)\n]+?)(\s+"[^"]*")?(\))/g;
 
 const isDataUrl = (s) => typeof s === "string" && s.startsWith("data:image/");
 const isProjectImage = (s) => typeof s === "string" && s.startsWith("/images/");
@@ -212,9 +212,11 @@ async function mapMarkdownImages(text, resolve) {
   if (!text.includes("![")) return text;
   let out = text;
   for (const match of [...text.matchAll(MARKDOWN_IMAGE_RE)]) {
-    const url = match[2];
+    const url = match[2].trim();
     const next = await resolve(url);
-    if (next !== url) out = out.replace(match[0], match[1] + next + match[3]);
+    if (next !== url) {
+      out = out.replace(match[0], `${match[1]}${next}${match[3] || ""}${match[4] || ")"}`);
+    }
   }
   return out;
 }

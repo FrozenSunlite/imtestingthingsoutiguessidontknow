@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-B9meTmU_.js";
+import { n as Button, r as cn } from "./router-BlfAFqB7.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft as ArrowLeft$1, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
@@ -3322,8 +3322,10 @@ function installUiSounds(enabled) {
 	let lastPopup = 0;
 	let lastError = 0;
 	const onPointerDown = (event) => {
-		const target = event.target?.closest?.("button, a, [role=button], [role=tab], [role=menuitem], [role=option], input[type=checkbox], input[type=radio]");
-		if (!target || target.disabled || target.getAttribute("aria-disabled") === "true") return;
+		if (event.pointerType === "mouse" && event.button !== 0) return;
+		if (event.isPrimary === false) return;
+		const target = event.target;
+		if (target?.disabled || target?.getAttribute?.("aria-disabled") === "true") return;
 		const now = performance.now();
 		if (now - lastTap < 55) return;
 		lastTap = now;
@@ -3752,18 +3754,393 @@ var HARVEST = {
 	]
 };
 var slug$2 = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+var OBJECTS_BY_CATEGORY = {
+	Chamber: [
+		"Table",
+		"Chairs",
+		"Braziers",
+		"Tapestries"
+	],
+	Corridor: [
+		"Wall sconces",
+		"Archway",
+		"Debris"
+	],
+	Trap: [
+		"Pressure plate",
+		"Tripwire",
+		"Warning rune"
+	],
+	Puzzle: [
+		"Pedestal",
+		"Sigil",
+		"Lever",
+		"Chime"
+	],
+	Loot: [
+		"Chest",
+		"Urn",
+		"Coin pile",
+		"Strongbox"
+	],
+	Elite: [
+		"War table",
+		"Weapon rack",
+		"Cage",
+		"Braziers"
+	],
+	Boss: [
+		"Throne",
+		"Altar",
+		"Braziers",
+		"Trophies"
+	],
+	Rest: [
+		"Campfire",
+		"Bedrolls",
+		"Supplies",
+		"Water skin"
+	],
+	Shop: [
+		"Counter",
+		"Shelves",
+		"Strongbox",
+		"Crates"
+	],
+	Harvest: [
+		"Gathering tools",
+		"Baskets",
+		"Vein",
+		"Bloom"
+	]
+};
+var NAME_OBJECTS = {
+	"Flooded Cistern": [
+		"Cistern",
+		"Valve wheel",
+		"Rusted chains"
+	],
+	"Forgotten Barracks": [
+		"Bunk beds",
+		"Weapon rack",
+		"Footlockers"
+	],
+	"Fungal Conservatory": [
+		"Fungal beds",
+		"Spore jars",
+		"Garden tools"
+	],
+	"Arcane Workshop": [
+		"Workbenches",
+		"Arcane circle",
+		"Shelves"
+	],
+	"Crystal Grotto": [
+		"Crystal clusters",
+		"Mining picks",
+		"Offering bowl"
+	],
+	"Bone Orchard": [
+		"Bone trees",
+		"Offering bowls",
+		"Grave markers"
+	],
+	"Captain's Quarters": [
+		"Bed",
+		"Writing desk",
+		"Sea chest"
+	],
+	"Hidden Spring": [
+		"Spring pool",
+		"Reeds",
+		"Offering stones"
+	],
+	"Treasure Vault": [
+		"Coin piles",
+		"Chests",
+		"Strongbox"
+	],
+	"Abandoned Strongroom": [
+		"Empty chests",
+		"Shelves",
+		"Rubble"
+	],
+	"Armorer's Bolthole": [
+		"Armor stands",
+		"Workbench",
+		"Tool rack"
+	],
+	"Alchemist's Nook": [
+		"Shelves",
+		"Cauldron",
+		"Ingredient jars"
+	],
+	"Ancient Root": [
+		"Root tangle",
+		"Moss",
+		"Carved stones"
+	],
+	"Sealed Treasury": [
+		"Sealed chests",
+		"Ledger",
+		"Coin scales"
+	],
+	"Merchant Cache": [
+		"Packed crates",
+		"Ledger",
+		"Scales"
+	],
+	"Gilded Ossuary": [
+		"Sarcophagi",
+		"Urns",
+		"Candles"
+	],
+	"Reliquary of Coins": [
+		"Reliquary",
+		"Offering trays",
+		"Coin piles"
+	],
+	"Gemstone Alcove": [
+		"Gem clusters",
+		"Cutting tools",
+		"Padded cases"
+	],
+	"Smuggler's Hold": [
+		"Contraband crates",
+		"Rope",
+		"Lantern"
+	],
+	"Offering Chamber": [
+		"Offering altar",
+		"Incense",
+		"Bowls"
+	],
+	"Butcher's Floor": [
+		"Hooks",
+		"Tables",
+		"Bone saw"
+	],
+	"Beast Pen": [
+		"Straw",
+		"Feeding trough",
+		"Chains"
+	],
+	"Duelist's Ring": [
+		"Dueling circle",
+		"Weapon rack",
+		"Sand buckets"
+	],
+	"Shadow Gallery": [
+		"Dark drapes",
+		"Pedestals",
+		"Mirrors"
+	],
+	"Iron Colosseum": [
+		"Spectator benches",
+		"Weapon rack",
+		"Sand"
+	],
+	"Chained Sanctum": [
+		"Chains",
+		"Altar",
+		"Braziers"
+	],
+	"Ritual Chamber": [
+		"Ritual circle",
+		"Candles",
+		"Offering table"
+	],
+	"War Council": [
+		"War table",
+		"Maps",
+		"Chairs"
+	],
+	"Arcane Laboratory": [
+		"Workbenches",
+		"Specimen jars",
+		"Arcane circle"
+	],
+	"Throne of Ash": [
+		"Throne",
+		"Ash braziers",
+		"Banners"
+	],
+	"Drowned Court": [
+		"Throne",
+		"Pool",
+		"Seaweed"
+	],
+	"Frozen Crown": [
+		"Throne",
+		"Ice pillars",
+		"Frozen banners"
+	],
+	"Obsidian Choir": [
+		"Choir stalls",
+		"Obsidian altar",
+		"Candles"
+	],
+	"Sunken Idol": [
+		"Idol",
+		"Pool",
+		"Offerings"
+	],
+	"Crimson Reliquary": [
+		"Reliquary",
+		"Candles",
+		"Blood basin"
+	],
+	"Storm Nexus": [
+		"Conduits",
+		"Braziers",
+		"Conductive rods"
+	],
+	"Hollow Crown": [
+		"Throne",
+		"Broken crown",
+		"Banners"
+	],
+	"Bonfire Camp": [
+		"Bonfire",
+		"Bedrolls",
+		"Cooking pot"
+	],
+	"Safe Alcove": [
+		"Bedroll",
+		"Backpack",
+		"Lantern"
+	],
+	"Quiet Shrine": [
+		"Shrine",
+		"Candles",
+		"Offering bowl"
+	],
+	"Lantern Refuge": [
+		"Lanterns",
+		"Bedrolls",
+		"Supplies"
+	],
+	"Warded Nook": [
+		"Ward stones",
+		"Bedroll",
+		"Candles"
+	],
+	"Mushroom Rest": [
+		"Glowcap beds",
+		"Bedrolls",
+		"Baskets"
+	],
+	"Sealed Camp": [
+		"Sealed tent",
+		"Supplies",
+		"Brazier"
+	],
+	"Watchfire Post": [
+		"Watchfire",
+		"Weapon rack",
+		"Stools"
+	],
+	"Pilgrim's Rest": [
+		"Shrine",
+		"Bedrolls",
+		"Travel packs"
+	]
+};
+var unique = (list) => [...new Set((list || []).filter(Boolean))];
 function makeRoom(category, name, index) {
 	const layout = LAYOUTS[index % LAYOUTS.length];
 	const [min, max] = SIZE_BY_CATEGORY[category] || [9, 20];
+	const span = Math.max(0, max - min);
+	let w = min + index * 3 % (span + 1);
+	let h = min + (index * 5 + 2) % (span + 1);
+	if (category === "Corridor") {
+		w = Math.max(5, Math.min(7, min));
+		h = min + index * 3 % (span + 1);
+	} else if (category === "Boss" || category === "Elite") {
+		w = Math.max(w, Math.round(max * .8));
+		h = Math.max(h, Math.round(max * .8));
+	}
+	const cx = Math.floor(w / 2);
+	const cy = Math.floor(h / 2);
 	const traps = category === "Trap" ? [TRAPS[index % TRAPS.length]] : [];
 	if (category === "Trap" && index % 3 === 0) traps.push(TRAPS[(index + 2) % TRAPS.length]);
 	const harvest = category === "Harvest" ? HARVEST[name] || ["Rare reagent"] : [];
-	const loot = category === "Loot" ? ["Rank-appropriate treasure cache"] : [];
-	const environmentEffect = index === 8 ? "Unstable ground: difficult terrain in the marked half of the room." : index === 9 ? "Unnatural gloom: lightly obscured beyond the room's center." : "";
+	const objects = unique([...NAME_OBJECTS[name] || [], ...OBJECTS_BY_CATEGORY[category] || []]).slice(0, 4);
+	const coverPoints = [];
+	const addCover = (x, y, cover) => {
+		if (x >= 0 && y >= 0 && x < w && y < h) coverPoints.push({
+			x,
+			y,
+			cover
+		});
+	};
+	if (/pillars/i.test(layout.cover)) {
+		addCover(1, 1, "half");
+		addCover(w - 2, 1, "half");
+		addCover(1, h - 2, "half");
+		addCover(w - 2, h - 2, "half");
+	} else if (/crates/i.test(layout.cover)) {
+		addCover(cx - 2, cy - 1, "half");
+		addCover(cx + 2, cy + 1, "half");
+		addCover(cx - 1, cy + 2, "half");
+	} else if (/low wall/i.test(layout.cover)) for (let x = Math.max(1, cx - 3); x <= Math.min(w - 2, cx + 3); x += 1) addCover(x, cy, "threeQuarter");
+	else if (/fog/i.test(layout.cover)) addCover(cx, cy, "half");
+	const heights = [];
+	if (/raised|tiered/i.test(layout.elevation)) {
+		const height = /\+2/.test(layout.elevation) ? 2 : 1;
+		heights.push({
+			x: cx,
+			y: cy,
+			height
+		});
+	}
+	const water = [];
+	const lava = [];
+	const difficult = [];
+	if (/Flooded|Cistern|Spring|Aqueduct|Weeping|Drowned|Sunken/.test(name)) water.push([cx - 1, cy], [cx, cy], [cx - 1, cy + 1], [cx, cy + 1]);
+	if (/Volcanic|Ember|Flame|Forge|Lava/.test(name)) lava.push([cx, cy], [cx + 1, cy]);
+	if (/Collapsed|Rubble|Fungal|Orchard|Grove|Broken|Root|Cavern|Irregular/.test(name)) difficult.push([cx + 1, cy], [cx + 1, cy + 1]);
+	const trapPoints = category === "Trap" ? [{
+		x: cx,
+		y: cy,
+		type: traps[0] || "Trap"
+	}, {
+		x: Math.min(w - 2, cx + 2),
+		y: Math.min(h - 2, cy + 2),
+		type: traps[1] || traps[0] || "Trap"
+	}] : [];
+	const hazardPoints = /Fog|Gloom|Unstable|Ash|Frozen|Storm|Crimson|Drowned/.test(name) || category === "Trap" ? [{
+		x: cx,
+		y: Math.max(1, cy - 2),
+		type: /Fog/.test(name) ? "Fog (lightly obscured)" : ENV_BY_CATEGORY[category] || "Hazard"
+	}] : [];
+	const stairs = heights.length ? [{
+		x: Math.min(w - 2, cx + 1),
+		y: cy
+	}] : [];
+	const ingressPoints = category === "Corridor" || category === "Rest" || category === "Shop" ? [{
+		x: 1,
+		y: cy,
+		label: "Entrance"
+	}] : [{
+		x: 1,
+		y: cy,
+		label: "Entrance"
+	}];
+	const spawnPoints = category === "Elite" || category === "Boss" || category === "Trap" ? [{
+		x: cx,
+		y: Math.max(1, cy - 2),
+		label: category
+	}] : [];
+	const loot = category === "Loot" ? ["Rank-appropriate treasure cache"] : category === "Boss" ? ["Boss hoard"] : category === "Elite" ? ["Elite equipment"] : category === "Shop" ? ["Shop stock"] : [];
+	const environmentEffect = water.length ? "Water is difficult terrain; deeper channels require swimming." : difficult.length ? "Broken ground: the marked cells are difficult terrain." : /Fog/.test(layout.cover) ? "Fog: lightly obscured beyond the room's centre." : index === 8 ? "Unstable ground: difficult terrain in the marked half of the room." : index === 9 ? "Unnatural gloom: lightly obscured beyond the room's center." : "";
+	const floorType = /Fungal|Grove|Orchard|Spring|Harvest/.test(name) ? "grass" : /Drowned|Cistern|Flooded|Aqueduct/.test(name) ? "stone" : category === "Rest" ? "dirt" : category === "Shop" ? "wood" : category === "Boss" ? "marble" : category === "Corridor" ? "stone" : "stone";
 	return {
 		id: `starter-${slug$2(category)}-${slug$2(name)}`,
 		name,
 		category,
+		w,
+		h,
 		minW: min,
 		maxW: max,
 		minH: min,
@@ -3776,18 +4153,32 @@ function makeRoom(category, name, index) {
 		tags: [
 			category,
 			...layout.tags,
-			...harvest.length ? ["harvest"] : []
+			...harvest.length ? ["harvest"] : [],
+			...objects.length ? ["furnished"] : []
 		],
-		description: `${name} — a ${layout.tags.join(", ")} ${category.toLowerCase()} shaped for tactical play.`,
+		description: `${name} — a ${layout.shape.toLowerCase()} ${category.toLowerCase()} furnished with ${objects.slice(0, 3).join(", ")}.`,
 		traps,
 		spawns: [],
 		loot,
 		harvest,
+		objects,
+		coverPoints,
+		heights,
+		water,
+		lava,
+		difficult,
+		trapPoints,
+		hazardPoints,
+		stairs,
+		spawnPoints,
+		ingressPoints,
+		floorType,
 		environmentEffect,
-		notes: `${layout.tags.join(" · ")}. Designed for ${category.toLowerCase()} encounters; monsters are placed by the generator.`,
+		notes: `${layout.tags.join(" · ")}. Furnishings: ${objects.join(", ")}.`,
 		enabled: true,
 		bonfire: category === "Rest" && index === 0,
-		cr0Only: false
+		cr0Only: false,
+		starterVersion: 2
 	};
 }
 var STARTER_DUNGEON_ROOMS = Object.entries(CATEGORY_ROOMS).flatMap(([category, names]) => names.map((name, index) => makeRoom(category, name, index)));
@@ -6550,7 +6941,8 @@ var DEFAULT_LIBRARY = {
 		traps: [...r.traps || []],
 		spawns: [...r.spawns || []],
 		loot: [...r.loot || []],
-		harvest: [...r.harvest || []]
+		harvest: [...r.harvest || []],
+		objects: [...r.objects || []]
 	})),
 	dungeonRoomsSeeded: true,
 	dungeonDraft: null,
@@ -7027,12 +7419,30 @@ function mergeLibrary(lib) {
 			const existing = Array.isArray(lib?.dungeonRooms) ? lib.dungeonRooms : [];
 			const seeded = !!lib?.dungeonRoomsSeeded;
 			const ids = new Set(existing.map((r) => r.id));
-			return (seeded ? existing : [...existing, ...STARTER_DUNGEON_ROOMS.filter((r) => !ids.has(r.id))]).map((r) => ({
+			const freshById = new Map(STARTER_DUNGEON_ROOMS.map((r) => [r.id, r]));
+			return (seeded ? existing : [...existing, ...STARTER_DUNGEON_ROOMS.filter((r) => !ids.has(r.id))]).map((room) => {
+				const fresh = freshById.get(room?.id);
+				if (!fresh) return room;
+				if (Number(room.starterVersion) >= 2) return room;
+				const hasGrid = room.cells?.length || room.w || room.h || room.objects?.length || room.coverPoints?.length || room.heights?.length || room.water?.length || room.lava?.length || room.difficult?.length || room.trapPoints?.length || room.hazardPoints?.length || room.stairs?.length || room.spawnPoints?.length || room.ingressPoints?.length;
+				const oldDefault = /Designed for .* encounters/i.test(room.notes || "") || /shaped for tactical play/i.test(room.description || "");
+				if (hasGrid || !oldDefault) return {
+					...room,
+					starterVersion: room.starterVersion || 1
+				};
+				return {
+					...fresh,
+					name: room.name || fresh.name,
+					category: room.category || fresh.category,
+					enabled: room.enabled !== false
+				};
+			}).map((r) => ({
 				...r,
 				traps: [...r.traps || []],
 				spawns: [...r.spawns || []],
 				loot: [...r.loot || []],
-				harvest: [...r.harvest || []]
+				harvest: [...r.harvest || []],
+				objects: [...r.objects || []]
 			}));
 		})(),
 		dungeonRoomsSeeded: true,
@@ -9511,7 +9921,7 @@ var UPLOAD_ENDPOINT = "/api/upload";
 var MAX_FALLBACK_EDGE = 512;
 var MAX_UPLOAD_BYTES = 26214400;
 var REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|apng|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
-var MARKDOWN_IMAGE_RE$1 = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
+var MARKDOWN_IMAGE_RE$1 = /(!\[[^\]]*\]\()([^)\n]+?)(\s+"[^"]*")?(\))/g;
 var isDataUrl = (s) => typeof s === "string" && s.startsWith("data:image/");
 var isProjectImage = (s) => typeof s === "string" && s.startsWith("/images/");
 var isRemoteImage = (s) => typeof s === "string" && REMOTE_IMAGE_RE.test(s);
@@ -9652,9 +10062,9 @@ async function mapMarkdownImages(text, resolve) {
 	if (!text.includes("![")) return text;
 	let out = text;
 	for (const match of [...text.matchAll(MARKDOWN_IMAGE_RE$1)]) {
-		const url = match[2];
+		const url = match[2].trim();
 		const next = await resolve(url);
-		if (next !== url) out = out.replace(match[0], match[1] + next + match[3]);
+		if (next !== url) out = out.replace(match[0], `${match[1]}${next}${match[3] || ""}${match[4] || ")"}`);
 	}
 	return out;
 }
@@ -19173,7 +19583,10 @@ function rectCells(w, h) {
 function roomShapeCells(room) {
 	const w = Math.max(1, Math.round(Number(room?.w) || 1));
 	const h = Math.max(1, Math.round(Number(room?.h) || 1));
-	if (!Array.isArray(room?.cells) || !room.cells.length) return rectCells(w, h);
+	if (!Array.isArray(room?.cells) || !room.cells.length) {
+		if (room?.shape && room.shape !== "Custom") return shapeCells(w, h, room.shape);
+		return rectCells(w, h);
+	}
 	const set = /* @__PURE__ */ new Set();
 	room.cells.forEach((cell) => {
 		const x = Number(cell?.[0] ?? cell?.x);
@@ -51802,7 +52215,10 @@ var imageUrl = (kind, entry) => {
 	const raw = entryImage(entry);
 	if (!raw) return "";
 	if (/^(https?:|data:|\/images\/|\/api\/)/i.test(raw)) return raw;
-	if (!kind || kind === "data") return `/api/5etools/image?path=${encodeURIComponent(raw.replace(/^\/+/, ""))}`;
+	if (!kind || kind === "data") {
+		const rel = /^img\//i.test(raw) ? raw.replace(/^\/+/, "") : `img/${raw.replace(/^\/+/, "")}`;
+		return `/api/5etools/image?path=${encodeURIComponent(rel)}`;
+	}
 	return `/api/5etools/brew-image?kind=${encodeURIComponent(kind)}&path=${encodeURIComponent(raw.replace(/^\/+/, ""))}`;
 };
 var BulkLibrary = class {
@@ -52399,8 +52815,7 @@ var imageFor = (entry, root, filePath) => {
 	}
 	if (/^https?:/i.test(raw)) return raw;
 	const cleaned = raw.replace(/^\/+/, "");
-	const dir = filePath?.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
-	const candidate = cleaned.startsWith(`${root}/`) || cleaned.startsWith("img/") ? cleaned : `${root}/${dir}/${cleaned}`.replace(/\/+/g, "/");
+	const candidate = cleaned.startsWith("img/") ? cleaned : `img/${cleaned}`;
 	return `/api/5etools/image?path=${encodeURIComponent(candidate)}`;
 };
 function ReferenceIndexTab() {
@@ -54092,7 +54507,7 @@ function ReferenceIndexPage({ onExit }) {
 					className: "h-8 w-8",
 					title: "Back",
 					onClick: onExit,
-					children: /* @__PURE__ */ jsx(ArrowLeft$1, { className: "h-4 w-4" })
+					children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
 				}),
 				/* @__PURE__ */ jsx("span", {
 					className: "flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary",
@@ -75285,7 +75700,7 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 						variant: "ghost",
 						className: "h-7 text-xs",
 						onClick: () => onSelectSettlement?.(""),
-						children: [/* @__PURE__ */ jsx(ArrowLeft$1, { className: "mr-1 h-3.5 w-3.5" }), " All settlements"]
+						children: [/* @__PURE__ */ jsx(ArrowLeft, { className: "mr-1 h-3.5 w-3.5" }), " All settlements"]
 					}),
 					/* @__PURE__ */ jsxs(Select, {
 						value: settlement.id,
@@ -81042,12 +81457,9 @@ function WorldBuilder({ onExit }) {
 		className: "flex h-full flex-col bg-background",
 		children: [/* @__PURE__ */ jsxs("header", {
 			className: "flex items-center gap-2 border-b px-3 py-2",
-			children: [/* @__PURE__ */ jsx(Button, {
-				size: "icon",
-				variant: "outline",
-				className: "h-8 w-8",
-				onClick: onExit,
-				children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+			children: [/* @__PURE__ */ jsx(MainMenuButton, {
+				compact: true,
+				onClick: onExit
 			}), /* @__PURE__ */ jsx("h1", {
 				className: "font-display text-base font-semibold",
 				children: "World Builder"
@@ -82978,6 +83390,55 @@ function RoomBuilder({ onExit, onArchitect }) {
 							onUpload: addFromPayload,
 							onAdd: addFromPayload,
 							onResize: (dims) => patchSelected(dims)
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "space-y-2 rounded-md border p-2",
+							children: [
+								/* @__PURE__ */ jsx("p", {
+									className: "text-xs font-semibold",
+									children: "Room contents"
+								}),
+								/* @__PURE__ */ jsx("div", {
+									className: "grid gap-2 sm:grid-cols-2",
+									children: [
+										[
+											"Objects / furniture",
+											"objects",
+											"Table, chairs, braziers"
+										],
+										[
+											"Loot",
+											"loot",
+											"Chest, coin pile"
+										],
+										[
+											"Traps",
+											"traps",
+											"Pressure plate, tripwire"
+										],
+										[
+											"Harvest",
+											"harvest",
+											"Glowcap, ore, herbs"
+										]
+									].map(([label, key, placeholder]) => /* @__PURE__ */ jsxs("label", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: label
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											value: (selected[key] || []).join(", "),
+											placeholder,
+											onChange: (e) => patchSelected({ [key]: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
+										})]
+									}, key))
+								}),
+								/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: "These contents travel with the room and appear in generated dungeons and battle maps."
+								})
+							]
 						}),
 						/* @__PURE__ */ jsxs("p", {
 							className: "text-[10px] text-muted-foreground",

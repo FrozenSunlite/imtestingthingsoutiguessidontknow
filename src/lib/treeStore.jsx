@@ -233,6 +233,7 @@ export const DEFAULT_LIBRARY = {
     spawns: [...(r.spawns || [])],
     loot: [...(r.loot || [])],
     harvest: [...(r.harvest || [])],
+    objects: [...(r.objects || [])],
   })),
   dungeonRoomsSeeded: true,
   dungeonDraft: null,
@@ -678,18 +679,55 @@ function mergeLibrary(lib) {
       const existing = Array.isArray(lib?.dungeonRooms) ? lib.dungeonRooms : [];
       const seeded = !!lib?.dungeonRoomsSeeded;
       const ids = new Set(existing.map((r) => r.id));
-      const rooms = seeded
-        ? existing
-        : [
-            ...existing,
-            ...STARTER_DUNGEON_ROOMS.filter((r) => !ids.has(r.id)),
-          ];
+      const freshById = new Map(STARTER_DUNGEON_ROOMS.map((r) => [r.id, r]));
+      const rooms = (
+        seeded
+          ? existing
+          : [
+              ...existing,
+              ...STARTER_DUNGEON_ROOMS.filter((r) => !ids.has(r.id)),
+            ]
+      ).map((room) => {
+        const fresh = freshById.get(room?.id);
+        if (!fresh) return room;
+        if (Number(room.starterVersion) >= 2) return room;
+        // Upgrade untouched pre-v2 starter rooms to the furnished, shaped
+        // versions while leaving user-painted/edited rooms alone.
+        const hasGrid =
+          room.cells?.length ||
+          room.w ||
+          room.h ||
+          room.objects?.length ||
+          room.coverPoints?.length ||
+          room.heights?.length ||
+          room.water?.length ||
+          room.lava?.length ||
+          room.difficult?.length ||
+          room.trapPoints?.length ||
+          room.hazardPoints?.length ||
+          room.stairs?.length ||
+          room.spawnPoints?.length ||
+          room.ingressPoints?.length;
+        const oldDefault =
+          /Designed for .* encounters/i.test(room.notes || "") ||
+          /shaped for tactical play/i.test(room.description || "");
+        if (hasGrid || !oldDefault) {
+          return { ...room, starterVersion: room.starterVersion || 1 };
+        }
+        return {
+          ...fresh,
+          name: room.name || fresh.name,
+          category: room.category || fresh.category,
+          enabled: room.enabled !== false,
+        };
+      });
       return rooms.map((r) => ({
         ...r,
         traps: [...(r.traps || [])],
         spawns: [...(r.spawns || [])],
         loot: [...(r.loot || [])],
         harvest: [...(r.harvest || [])],
+        objects: [...(r.objects || [])],
       }));
     })(),
     dungeonRoomsSeeded: true,

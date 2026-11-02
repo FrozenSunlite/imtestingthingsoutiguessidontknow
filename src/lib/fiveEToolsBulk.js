@@ -42,7 +42,10 @@ const imageUrl = (kind, entry) => {
   if (!raw) return "";
   if (/^(https?:|data:|\/images\/|\/api\/)/i.test(raw)) return raw;
   if (!kind || kind === "data") {
-    return `/api/5etools/image?path=${encodeURIComponent(raw.replace(/^\/+/, ""))}`;
+    const rel = /^img\//i.test(raw)
+      ? raw.replace(/^\/+/, "")
+      : `img/${raw.replace(/^\/+/, "")}`;
+    return `/api/5etools/image?path=${encodeURIComponent(rel)}`;
   }
   return `/api/5etools/brew-image?kind=${encodeURIComponent(kind)}&path=${encodeURIComponent(
     raw.replace(/^\/+/, "")

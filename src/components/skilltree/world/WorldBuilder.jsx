@@ -1028,9 +1028,7 @@ export function WorldBuilder({ onExit }) {
     return (
       <div className="flex h-full flex-col bg-background">
         <header className="flex items-center gap-2 border-b px-3 py-2">
-          <Button size="icon" variant="outline" className="h-8 w-8" onClick={onExit}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <MainMenuButton compact onClick={onExit} />
           <h1 className="font-display text-base font-semibold">World Builder</h1>
         </header>
         <div className="mx-auto w-full max-w-3xl overflow-y-auto p-3">
