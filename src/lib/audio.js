@@ -68,6 +68,9 @@ function ensureMusicElement() {
     const el = new Audio();
     el.preload = "auto";
     el.volume = 0;
+    el.setAttribute("data-ttt-music", "");
+    el.style.display = "none";
+    document.body.appendChild(el);
     el.addEventListener("ended", () => music.onEnded?.());
     music.el = el;
   }
@@ -133,7 +136,9 @@ export function configureAudio(settings) {
 export async function playMusicTrack(track, { fadeMs = FADE_MS } = {}) {
   const el = ensureMusicElement();
   if (!el || !track?.file) return false;
-  if (!el.paused && el.currentSrc) await fadeMusic(0, fadeMs);
+  // An ended element is already silent; don't make the next song wait for a
+  // pointless one-second fade-out.
+  if (!el.paused && !el.ended && el.currentSrc) await fadeMusic(0, fadeMs);
   el.pause();
   el.src = track.file;
   el.currentTime = 0;
@@ -147,6 +152,15 @@ export async function playMusicTrack(track, { fadeMs = FADE_MS } = {}) {
   music.needsGesture = false;
   await fadeMusic(musicTarget(), fadeMs);
   return true;
+}
+
+// Warm the browser cache for the next track so the hand-off at the end of a
+// song starts immediately instead of buffering from the server again.
+const prefetched = new Set();
+export function prefetchMusic(file) {
+  if (!file || typeof fetch === "undefined" || prefetched.has(file)) return;
+  prefetched.add(file);
+  fetch(file, { cache: "force-cache" }).catch(() => prefetched.delete(file));
 }
 
 export async function pauseMusic(fadeMs = FADE_MS) {

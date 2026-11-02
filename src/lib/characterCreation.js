@@ -28,11 +28,58 @@ export const CREATION_MODES = [
     hint: "Add a class (and its subclass) on top of the tree.",
   },
   {
+    id: "race-class",
+    label: "Race + class",
+    hint: "No talent tree — start from just a race and class.",
+  },
+  {
     id: "all",
     label: "Talent tree + race + class",
     hint: "Everything: tree, race, class and subclass.",
   },
 ];
+
+export const modeUsesTree = (mode) => mode !== "race-class";
+
+// 2014 subclasses unlock at different levels; everything else defaults to 3.
+const CLASSIC_SUBCLASS_LEVELS = {
+  cleric: 1,
+  sorcerer: 1,
+  warlock: 1,
+  wizard: 2,
+  druid: 2,
+};
+
+// Imported class tabs record the first subclass branch level, which is exact
+// even for homebrew classes. Older tabs fall back to the class's edition rules.
+export function subclassUnlockLevel(settings, tree, className, classSource) {
+  if (!className) return 3;
+  const tabs = [tree, ...(tree?.tabs || [])].filter(Boolean);
+  const matches = tabs.filter((tab) => {
+    if (tab.className) return tab.className === className;
+    return String(tab.name || "").startsWith(`Class: ${className}`);
+  });
+  const tab =
+    matches.find(
+      (candidate) =>
+        classSource &&
+        (candidate.classSource === classSource ||
+          String(candidate.name).includes(`(${classSource})`))
+    ) || matches[0];
+  if (tab) {
+    const levels = (tab.nodes || [])
+      .filter(
+        (node) =>
+          node.subclassFeature ||
+          (node.featureGroup && node.featureGroup !== "Class")
+      )
+      .map((node) => Number(node.levelReq) || 0)
+      .filter((level) => level > 0);
+    if (levels.length) return Math.min(...levels);
+  }
+  if (String(classSource || "").toUpperCase() === "XPHB") return 3;
+  return CLASSIC_SUBCLASS_LEVELS[String(className).toLowerCase()] || 3;
+}
 
 const listFor = (settings, category) =>
   Array.isArray(settings?.library?.fiveETools?.[category])

@@ -19,6 +19,7 @@ import { WorldBuilder } from "@/components/skilltree/world/WorldBuilder";
 import { RoomBuilder } from "@/components/skilltree/RoomBuilder";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
 import { MusicPlayer } from "@/components/skilltree/MusicPlayer";
+import { ImportStatusBanner } from "@/components/skilltree/ImportStatusBanner";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
 import { Loader2 } from "lucide-react";
@@ -27,7 +28,7 @@ import { OnboardingTour } from "@/components/skilltree/OnboardingTour";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
 function Workspace() {
-  const { mode, loading, tree, ui, screen, setScreen, enterApp, sideTrees, setSideTree } = useTree();
+  const { mode, loading, tree, ui, screen, setScreen, enterApp, sideTrees, setSideTree, character } = useTree();
   const [ctx, setCtx] = useState(null); // {x, y, node}
   const [homebuilder, setHomebuilder] = useState(false);
   const [dmScreen, setDmScreen] = useState(false);
@@ -39,6 +40,7 @@ function Workspace() {
   const [exportOpen, setExportOpen] = useState(false);
   const [poolWins, setPoolWins] = useState([]);
   const isMobile = useIsMobile();
+  const usesTree = character?.creation?.usesTree !== false;
   const mobileTreesOpen =
     isMobile &&
     ((sideTrees?.left && !sideTrees.left.closed) ||
@@ -177,11 +179,11 @@ function Workspace() {
         )}
         {mode === "sheet" && (
           <div className="flex flex-1 overflow-hidden">
-            {!isMobile && <ViewTreeColumn />}
+            {!isMobile && usesTree && <ViewTreeColumn />}
             <div className="flex-1 overflow-auto bg-muted/50 p-1 sm:p-3 md:p-6">
               <ViewSheet onExport={() => setExportOpen(true)} />
             </div>
-            {isMobile && mobileTreesOpen && (
+            {isMobile && usesTree && mobileTreesOpen && (
               <div className="fixed inset-0 z-40 flex flex-col bg-background">
                 <div className="flex items-center justify-between border-b px-3 py-2">
                   <span className="text-sm font-semibold">Skill trees</span>
@@ -253,6 +255,7 @@ export const Route = createFileRoute("/")({
     <TreeProvider>
       <Workspace />
       <MusicPlayer />
+      <ImportStatusBanner />
     </TreeProvider>
   ),
   head: () => ({

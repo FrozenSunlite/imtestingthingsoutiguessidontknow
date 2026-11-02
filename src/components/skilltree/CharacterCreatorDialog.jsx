@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import {
   COIN_TYPES,
@@ -7,9 +7,12 @@ import {
   backgroundOptionGroups,
   classChoices,
   featChoices,
+  modeUsesTree,
   raceChoices,
   subclassChoices,
+  subclassUnlockLevel,
 } from "@/lib/characterCreation";
+import { rehydrateImages } from "@/lib/imageStore";
 import {
   Dialog,
   DialogContent,
@@ -28,13 +31,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Coins, Sparkles, Swords, TreePine, UserRound } from "lucide-react";
+import { Coins, Sparkles, Swords, TreePine, Upload, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const MODE_ICONS = {
   tree: TreePine,
   "tree-race": UserRound,
   "tree-class": Swords,
+  "race-class": Users,
   all: Sparkles,
 };
 
@@ -50,12 +54,13 @@ function Field({ label, hint, children }) {
   );
 }
 
-function ChoiceSelect({ value, onChange, options, placeholder, manualLabel = "Type a name" }) {
+function ChoiceSelect({ value, onChange, options, placeholder, manualLabel = "Type a name", disabled = false }) {
   if (!options.length) {
     return (
       <Input
         value={value || ""}
         placeholder={manualLabel}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
     );
@@ -64,6 +69,7 @@ function ChoiceSelect({ value, onChange, options, placeholder, manualLabel = "Ty
     <Select
       value={options.some((option) => option.id === value) ? value : ""}
       onValueChange={onChange}
+      disabled={disabled}
     >
       <SelectTrigger className="h-9">
         <SelectValue placeholder={placeholder} />
@@ -82,7 +88,7 @@ function ChoiceSelect({ value, onChange, options, placeholder, manualLabel = "Ty
 // Multi-source character creation: the current talent tree is always the base,
 // and race, class/subclass, background (or an origin feat) are added on top.
 export function CharacterCreatorDialog({ open, onClose }) {
-  const { character, setCharacter, enterApp, settings } = useTree();
+  const { character, setCharacter, enterApp, settings, tree, importTree } = useTree();
 
   const classes = useMemo(() => classChoices(settings), [settings]);
   const races = useMemo(() => raceChoices(settings), [settings]);
@@ -91,6 +97,7 @@ export function CharacterCreatorDialog({ open, onClose }) {
 
   const [name, setName] = useState("");
   const [mode, setMode] = useState("all");
+  const [startingLevel, setStartingLevel] = useState("1");
   const [raceId, setRaceId] = useState("");
   const [classId, setClassId] = useState("");
   const [subclassId, setSubclassId] = useState("");
@@ -100,10 +107,19 @@ export function CharacterCreatorDialog({ open, onClose }) {
   const [optionChoices, setOptionChoices] = useState({});
   const [currency, setCurrency] = useState("gp");
   const [amount, setAmount] = useState("0");
+  const treeFileRef = useRef(null);
+  const seededRef = useRef(false);
 
-  // Re-seed the form from the working character each time it opens.
+  // Re-seed the form from the working character each time it opens. Settings
+  // can change while the dialog is open (for example an imported tree carrying
+  // a Reference Library), so only the first open seeds the fields.
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      seededRef.current = false;
+      return;
+    }
+    if (seededRef.current) return;
+    seededRef.current = true;
     const creation = character?.creation || {};
     const firstClass = (character?.classes || [])[0];
     const classEntry = classes.find(
@@ -137,19 +153,32 @@ export function CharacterCreatorDialog({ open, onClose }) {
     );
     setName(character?.name || "");
     setMode(creation.mode || (character?.class && character.class !== "Dilettante" ? "all" : "tree"));
-    setRaceId(raceEntry?.id || "");
-    setClassId(classEntry?.id || "");
-    setSubclassId(subEntry?.id || "");
-    setBackgroundId(backgroundEntry?.id || "");
+    setStartingLevel(String(creation.startingLevel || character?.level || 1));
+    setRaceId(raceEntry?.id || (races.length ? "" : creation.race?.name || character?.race || ""));
+    setClassId(classEntry?.id || (classes.length ? "" : firstClass?.name || character?.class || ""));
+    setSubclassId(
+      subEntry?.id ||
+        (subOptions.length ? "" : firstClass?.subclass || character?.subclass || "")
+    );
+    setBackgroundId(
+      backgroundEntry?.id ||
+        (backgrounds.length ? "" : creation.background?.name || character?.background || "")
+    );
     setUseOriginFeat(!!creation.originFeat);
-    setFeatId(featEntry?.id || "");
+    setFeatId(
+      featEntry?.id || (feats.length ? "" : creation.originFeat?.name || "")
+    );
     setOptionChoices(creation.background?.options || {});
     setCurrency(creation.startingCurrency?.type || "gp");
     setAmount(String(creation.startingCurrency?.amount ?? 0));
   }, [open, character, classes, races, backgrounds, feats, settings]);
 
-  const showRace = mode === "tree-race" || mode === "all";
-  const showClass = mode === "tree-class" || mode === "all";
+  const showRace =
+    mode === "tree-race" || mode === "race-class" || mode === "all";
+  const showClass =
+    mode === "tree-class" || mode === "race-class" || mode === "all";
+  const usesTree = modeUsesTree(mode);
+  const startLevel = Math.max(1, Math.min(20, Number(startingLevel) || 1));
 
   const race = races.find((option) => option.id === raceId);
   const raceName = race?.name || (races.length ? "" : raceId);
@@ -166,6 +195,17 @@ export function CharacterCreatorDialog({ open, onClose }) {
   const subclass = subclasses.find((option) => option.id === subclassId);
   const subclassName = subclass?.name || (subclasses.length ? "" : subclassId);
   const subclassSource = subclass?.source || "";
+  const subclassUnlock = subclassUnlockLevel(
+    settings,
+    tree,
+    className,
+    classSource
+  );
+  const subclassLocked = !!className && startLevel < subclassUnlock;
+
+  useEffect(() => {
+    if (subclassLocked) setSubclassId("");
+  }, [subclassLocked]);
 
   const background = backgrounds.find((option) => option.id === backgroundId);
   const backgroundName = background?.name || (backgrounds.length ? "" : backgroundId);
@@ -204,16 +244,19 @@ export function CharacterCreatorDialog({ open, onClose }) {
     }
 
     const hitDie = baseClass?.entry?.hd?.faces;
+    const chosenSubclass = subclassLocked ? "" : subclassName;
     const creation = {
       mode,
+      usesTree,
+      startingLevel: startLevel,
       race: showRace && raceName ? { name: raceName, source: raceSource } : null,
       class:
         showClass && className
           ? {
               name: className,
               source: classSource,
-              subclass: subclassName || "",
-              subclassSource: subclassName ? subclassSource : "",
+              subclass: chosenSubclass,
+              subclassSource: chosenSubclass ? subclassSource : "",
             }
           : null,
       background:
@@ -229,10 +272,11 @@ export function CharacterCreatorDialog({ open, onClose }) {
     setCharacter({
       ...character,
       name: name.trim() || character?.name || "Unnamed Character",
-      level: 1,
+      level: startLevel,
+      hitDiceCount: startLevel,
       race: showRace && raceName ? raceName : "Heritage",
       class: showClass && className ? className : "Dilettante",
-      subclass: showClass ? subclassName || "" : "",
+      subclass: showClass ? chosenSubclass : "",
       background: useOriginFeat ? "" : backgroundName || "",
       originFeat: useOriginFeat ? featName || "" : "",
       hitDiceSize: hitDie ? `d${hitDie}` : character?.hitDiceSize || "d6",
@@ -242,9 +286,9 @@ export function CharacterCreatorDialog({ open, onClose }) {
               {
                 name: className,
                 source: classSource,
-                subclass: subclassName || "",
-                subclassSource: subclassName ? subclassSource : "",
-                level: 1,
+                subclass: chosenSubclass,
+                subclassSource: chosenSubclass ? subclassSource : "",
+                level: startLevel,
               },
             ]
           : [],
@@ -256,6 +300,30 @@ export function CharacterCreatorDialog({ open, onClose }) {
     );
     enterApp("sheet", { sheetOnly: true });
     onClose();
+  };
+
+  const treeHasContent = (tree?.nodes || []).length > 0;
+  const importTreeFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        if (!parsed || typeof parsed !== "object") {
+          throw new Error("That file is empty or not a talent tree.");
+        }
+        const hydrated = await rehydrateImages(parsed);
+        importTree(hydrated, "overwrite");
+        if (!usesTree) setMode("all");
+        toast.success(`Talent tree imported from ${file.name}.`);
+      } catch (error) {
+        toast.error(error?.message || "Could not import that talent tree.");
+      }
+    };
+    reader.onerror = () => toast.error("Could not read that file.");
+    reader.readAsText(file);
+    event.target.value = "";
   };
 
   return (
@@ -270,13 +338,24 @@ export function CharacterCreatorDialog({ open, onClose }) {
         </DialogHeader>
 
         <div className="space-y-4">
-          <Field label="Name">
-            <Input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Character name"
-            />
-          </Field>
+          <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+            <Field label="Name">
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Character name"
+              />
+            </Field>
+            <Field label="Starting level" hint="1–20">
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={startingLevel}
+                onChange={(event) => setStartingLevel(event.target.value)}
+              />
+            </Field>
+          </div>
 
           <div className="space-y-2">
             <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -308,6 +387,43 @@ export function CharacterCreatorDialog({ open, onClose }) {
                 );
               })}
             </div>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <TreePine className="h-4 w-4" /> Talent tree
+                </p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {usesTree
+                    ? treeHasContent
+                      ? `${tree.name || "Current tree"} · ${tree.nodes.length} nodes`
+                      : "No talent tree loaded yet."
+                    : "This build has no talent tree."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => treeFileRef.current?.click()}
+              >
+                <Upload className="mr-1 h-3.5 w-3.5" /> Import talent tree
+              </Button>
+              <input
+                ref={treeFileRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={importTreeFile}
+              />
+            </div>
+            <p className="mt-1.5 text-[10px] text-muted-foreground">
+              Importing replaces the current tree. Talent tree points are hidden
+              when a build does not use a tree.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -347,9 +463,11 @@ export function CharacterCreatorDialog({ open, onClose }) {
               <Field
                 label="Subclass"
                 hint={
-                  subclasses.length
-                    ? "Shared subclasses appear under every class that owns them."
-                    : "No subclass for this class yet."
+                  subclassLocked
+                    ? `${className} unlocks its subclass at class level ${subclassUnlock}. Raise the starting level first.`
+                    : subclasses.length
+                      ? "Shared subclasses appear under every class that owns them."
+                      : "No subclass for this class yet."
                 }
               >
                 <ChoiceSelect
@@ -358,6 +476,7 @@ export function CharacterCreatorDialog({ open, onClose }) {
                   options={subclasses}
                   placeholder="Choose a subclass (optional)"
                   manualLabel="Subclass name (optional)"
+                  disabled={subclassLocked}
                 />
               </Field>
             )}

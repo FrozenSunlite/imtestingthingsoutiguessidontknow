@@ -83,6 +83,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   // panning the canvas never re-renders the toolbar.
   const setView = useViewSet();
   const isMobile = useIsMobile();
+  const usesTree = character?.creation?.usesTree !== false;
   const fileRef = useRef(null);
   const [importData, setImportData] = useState(null);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -260,7 +261,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 
   return (
     <div>
-      <TabBar />
+      {!sheetOnly && usesTree && <TabBar />}
       <div className="max-h-[40vh] overflow-y-auto border-b bg-card px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
       <InfoTip label="Project name — used for export file names">
@@ -480,7 +481,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
       </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        {pointTypesFor(settings).map((pt) => (
+        {usesTree && pointTypesFor(settings).map((pt) => (
           <div
             key={pt.id}
             className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs"

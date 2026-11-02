@@ -109,7 +109,9 @@ changing app code, then restart the launcher.
   sliders (music starts at 30%, effects at 50%) and mute buttons. Music shuffles by
   default with a song dropdown, fades out and in over one second, and shows a
   bottom-right “Now Playing - SONG” popup (spinning record, six seconds, can be
-  turned off). Tracks live in `public/music`; `public/music/Custom` is only used
+  turned off). The next shuffled song is chosen and preloaded while the current
+  one plays, so the hand-off at the end of a track is immediate. Tracks live in
+  `public/music`; `public/music/Custom` is only used
   when **Custom music** is enabled, and default music is disabled while it is on.
   Rebuild the library after adding files:
 
@@ -120,13 +122,22 @@ changing app code, then restart the launcher.
 
   Sound effects go in `public/sounds`; an effect named `click` is wired to
   buttons, links, tabs and checkboxes automatically.
-- **Character Creator:** the launch menu offers four builds — talent tree only,
-  tree + race, tree + class, or all three. Classes and subclasses come from
-  imported 5eTools data (2014 and 2024 editions stay separate, and shared
-  subclasses appear under each class that owns them). The creator also picks a
-  starting currency and amount. Backgrounds only show `Feature:`-tagged entries
-  on the Character tab; the full background text is on the Fluff tab, backgrounds
-  with choices prompt for one, and an origin feat can replace the background.
+- **Character Creator:** available from the main menu even before a project
+  exists, and the creator itself can import a talent tree. The four tree builds
+  (tree only, tree + race, tree + class, all) plus **race + class** with no tree.
+  Pick a starting level (1–20); the subclass picker stays disabled until that
+  class's subclass level (3 by default, or the imported class tab's first
+  subclass feature; 2014 Cleric/Sorcerer/Warlock open at 1, Wizard/Druid at 2).
+  Classes and subclasses come from imported 5eTools data (2014 and 2024 editions
+  stay separate, and shared subclasses appear under each class that owns them).
+  The creator also picks a starting currency and amount. Builds that do not use a
+  tree hide the talent-point counters and the tree tabs. Backgrounds only show
+  `Feature:`-tagged entries on the Character tab; the full background text is on
+  the Fluff tab, backgrounds with choices prompt for one, and an origin feat can
+  replace the background.
+- **Background 5eTools imports:** imports keep running if you leave the Reference
+  Index. A progress card in the bottom-left reports each stage and turns into an
+  “Import finished” popup with the entry/tab counts when it completes.
 - **Level up:** the level-up dialog chooses which class gains the level, filters
   benefits to that class and subclass, supports multiclassing into another class,
   and keeps per-class levels alongside the total character level.

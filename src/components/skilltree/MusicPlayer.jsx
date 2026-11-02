@@ -10,6 +10,7 @@ import {
   installClickSounds,
   pauseMusic,
   playMusicTrack,
+  prefetchMusic,
   resumeMusic,
   setCurrentTrack,
   setMusicEndedHandler,
@@ -60,6 +61,9 @@ export function MusicPlayer() {
   const [needsGesture, setNeedsGesture] = useState(false);
   const toastTimer = useRef(null);
   const pendingTrack = useRef(null);
+  const nextUp = useRef(null);
+  const lastHandledTrack = useRef("");
+  const advancing = useRef(false);
 
   const startTrack = useCallback(async (track) => {
     if (!track?.file) return false;
@@ -68,6 +72,11 @@ export function MusicPlayer() {
     if (ok) {
       pendingTrack.current = null;
       setCurrentTrack(track);
+      // Decide and cache the next song now, so the end-of-song hand-off does
+      // not wait on the network.
+      const upcoming = pickNextRef.current(track.file);
+      nextUp.current = upcoming;
+      if (upcoming) prefetchMusic(upcoming.file);
       if (audioRef.current.nowPlaying) {
         setToastTrack(track);
         clearTimeout(toastTimer.current);
@@ -91,6 +100,8 @@ export function MusicPlayer() {
     const index = list.findIndex((t) => t.file === exclude);
     return list[(index + 1) % list.length];
   }, []);
+  const pickNextRef = useRef(pickNext);
+  pickNextRef.current = pickNext;
 
   // Volume, mute and effect settings apply immediately.
   useEffect(() => {
@@ -117,9 +128,13 @@ export function MusicPlayer() {
         return;
       }
       const currentFile = getCurrentTrack()?.file;
-      const chosen = audio.track ? list.find((t) => t.file === audio.track) : null;
-      if (chosen && chosen.file !== currentFile) {
-        await startTrack(chosen);
+      const requested =
+        audio.track && audio.track !== lastHandledTrack.current
+          ? list.find((t) => t.file === audio.track)
+          : null;
+      if (requested) {
+        lastHandledTrack.current = audio.track;
+        if (requested.file !== currentFile) await startTrack(requested);
         return;
       }
       if (currentFile && list.some((t) => t.file === currentFile)) {
@@ -129,7 +144,7 @@ export function MusicPlayer() {
         }
         return;
       }
-      const next = chosen || pickNext(currentFile);
+      const next = pickNext(currentFile);
       if (next) await startTrack(next);
     };
     run();
@@ -157,11 +172,22 @@ export function MusicPlayer() {
     };
   }, [needsGesture, pickNext]);
 
-  // Advance at the end of a track, honouring shuffle.
+  // Advance at the end of a track, honouring shuffle. The next song is chosen
+  // and prefetched when the current one starts, so this begins immediately.
   useEffect(() => {
     setMusicEndedHandler(() => {
-      const next = pickNext(getCurrentTrack()?.file);
-      if (next) startTrackRef.current(next);
+      if (advancing.current) return;
+      const list = playlistRef.current;
+      let next = nextUp.current;
+      if (!next || !list.some((t) => t.file === next.file)) {
+        next = pickNextRef.current(getCurrentTrack()?.file);
+      }
+      nextUp.current = null;
+      if (!next) return;
+      advancing.current = true;
+      startTrackRef.current(next).finally(() => {
+        advancing.current = false;
+      });
     });
     return () => setMusicEndedHandler(null);
   }, [pickNext]);

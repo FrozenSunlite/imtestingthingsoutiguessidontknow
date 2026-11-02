@@ -159,19 +159,19 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
 
         <div className="space-y-3">
           {menuBtn(
-            <Plus className="h-5 w-5" />,
-            "New",
-            "Start a fresh skill tree",
-            () => setNewConfirmOpen(true)
+            <Play className="h-5 w-5" />,
+            "Continue",
+            "Resume current tree without clearing",
+            () => enterApp("edit"),
+            locked
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {menuBtn(
-              <Play className="h-5 w-5" />,
-              "Continue",
-              "Resume current tree without clearing",
-              () => enterApp("edit"),
-              locked
+              <Plus className="h-5 w-5" />,
+              "New",
+              "Start a fresh skill tree",
+              () => setNewConfirmOpen(true)
             )}
             {menuBtn(
               <FolderOpen className="h-5 w-5" />,
@@ -209,9 +209,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
           {menuBtn(
             <Wand2 className="h-5 w-5" />,
             "Character Creator",
-            "Build a character in the working sheet",
-            () => setCreatorOpen(true),
-            locked
+            "Build a character, with or without a talent tree",
+            () => setCreatorOpen(true)
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {menuBtn(
@@ -240,7 +239,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
               "World Builder",
               "Create a setting, kingdoms, settlements and people",
               () => onWorldbuilder?.(),
-              false
+              locked
             )}
           </div>
           {menuBtn(

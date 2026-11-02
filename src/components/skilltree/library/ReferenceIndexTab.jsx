@@ -36,6 +36,12 @@ import { ReferenceEntryPreview } from "./ReferenceEntryPreview";
 import { VirtualList } from "./VirtualList";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
 import { cacheFiveEToolsSource, cachedFiveEToolsSource } from "@/lib/fiveEToolsCache";
+import {
+  beginImport,
+  updateImport,
+  finishImport,
+  failImport,
+} from "@/lib/importStatus";
 import { importImageFromUrl, importImagesInText } from "@/lib/imageStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -892,6 +898,13 @@ export function ReferenceIndexTab() {
     activeImportRef.current = importId;
     importTabIdsRef.current = [];
     setImporting(picked.length);
+    beginImport({
+      label:
+        activeCategory.kind === "classes"
+          ? "Importing class tabs"
+          : `Importing ${activeCategory.label}`,
+      total: picked.length,
+    });
     let done = 0;
 
     // Class bundles bypass importEntry(), so save their artwork first and
@@ -963,6 +976,7 @@ export function ReferenceIndexTab() {
           done += 1;
         }
         setImporting(Math.max(0, picked.length - done));
+        updateImport({ done, total: picked.length, detail: `Class: ${entryName(base)}` });
         await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
       }
     } else {
@@ -970,6 +984,7 @@ export function ReferenceIndexTab() {
         await importEntry(activeCategory, entry);
         done += 1;
         setImporting(picked.length - done);
+        updateImport({ done, total: picked.length, detail: entryName(entry) });
         await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
       }
     }
@@ -979,6 +994,14 @@ export function ReferenceIndexTab() {
     creditAuthorsFor(picked);
     recordSession(importId, { count: done, tabIds: importTabIdsRef.current });
     activeImportRef.current = "";
+    finishImport({
+      count: done,
+      tabs: importTabIdsRef.current.length,
+      label:
+        activeCategory.kind === "classes"
+          ? "Class tabs imported"
+          : `${activeCategory.label} imported`,
+    });
     toast.success(
       activeCategory.kind === "classes"
         ? `Imported ${done} class tab${done === 1 ? "" : "s"}.`
@@ -991,9 +1014,15 @@ export function ReferenceIndexTab() {
     const importId = newImportId();
     activeImportRef.current = importId;
     importTabIdsRef.current = [];
+    beginImport({ label: `Importing ${entryName(preview)}`, total: 1 });
     await importEntry(activeCategory, preview);
     recordSession(importId, { count: 1, tabIds: importTabIdsRef.current });
     activeImportRef.current = "";
+    finishImport({
+      count: 1,
+      tabs: importTabIdsRef.current.length,
+      label: `${entryName(preview)} imported`,
+    });
     creditAuthorsFor([preview]);
     toast.success(`Imported ${entryName(preview)}.`);
   };
@@ -1067,6 +1096,12 @@ export function ReferenceIndexTab() {
     let errors = 0;
     const total = chosen.length;
     const pause = Math.max(0, Math.min(5000, Number(delay) || 0));
+    beginImport({
+      label: sourceLabel
+        ? `Importing source ${sourceLabel}`
+        : `Importing ${total} file${total === 1 ? "" : "s"}`,
+      total,
+    });
     setBulk({ total, done: 0, entries: 0, tabs: 0, errors: 0, current: "" });
     try {
       const batchSize = 8;
@@ -1148,6 +1183,13 @@ export function ReferenceIndexTab() {
           errors,
           current: batch[batch.length - 1] || "",
         });
+        updateImport({
+          done,
+          total,
+          detail: `${entryTotal} entries${tabTotal ? ` · ${tabTotal} tabs` : ""}${
+            errors ? ` · ${errors} failed` : ""
+          }`,
+        });
         // Yield so progress/cancel stay responsive between batches.
         await new Promise((r) => setTimeout(r, 0));
       }
@@ -1166,6 +1208,14 @@ export function ReferenceIndexTab() {
             : `${root} · brew files`,
       });
       if (creditNames.size) addCreditNames([...creditNames]);
+      finishImport({
+        count: entryTotal,
+        tabs: tabTotal,
+        errors,
+        label: sourceLabel
+          ? `Source ${sourceLabel} imported`
+          : `${done} file${done === 1 ? "" : "s"} imported`,
+      });
       if (bulkCancelRef.current) {
         toast(`Stopped after ${done} of ${total} files. Imported data is kept.`);
       } else {
@@ -1187,6 +1237,7 @@ export function ReferenceIndexTab() {
         }
       }
     } catch (err) {
+      failImport(err);
       toast.error(`Bulk import stopped: ${err.message || err}`);
     } finally {
       activeImportRef.current = "";
@@ -1445,6 +1496,10 @@ export function ReferenceIndexTab() {
           {bulk.current && (
             <p className="truncate text-[10px] text-muted-foreground">{bulk.current}</p>
           )}
+          <p className="text-[10px] text-muted-foreground">
+            You can leave this page — the import keeps running and reports when it
+            finishes.
+          </p>
         </div>
       )}
 
