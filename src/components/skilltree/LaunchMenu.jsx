@@ -129,7 +129,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             () => setNewConfirmOpen(true)
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {menuBtn(
               <Play className="h-5 w-5" />,
               "Continue",
@@ -145,7 +145,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {menuBtn(
               <BookOpen className="h-5 w-5" />,
               "Rulebook",
@@ -177,7 +177,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             () => enterApp("sheet", { sheetOnly: true }),
             locked
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {menuBtn(
               <Home className="h-5 w-5" />,
               "Architect",

@@ -601,6 +601,9 @@ function mergeLibrary(lib) {
       if (!skillByName.has("technology")) {
         l.skills.push({ name: "Technology", ability: "INT" });
       }
+      if (!skillByName.has("presence")) {
+        l.skills.push({ name: "Presence", ability: "CHA" });
+      }
       l.tools = norm("tools", "tool");
       l.artisanTools = norm("artisanTools", "tool");
       l.gamingSets = norm("gamingSets", "tool");

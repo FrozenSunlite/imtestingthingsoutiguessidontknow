@@ -43,7 +43,7 @@ import { nodeMaxPoints, withTiers } from "@/lib/nodeTiers";
 // Library list entries can be plain names (older saves) or {name, ability}.
 const entryName = (e) => (typeof e === "string" ? e : e?.name || "");
 
-export function NodeEditorPanel() {
+export function NodeEditorPanel({ mobile = false }) {
   const {
     tree,
     nodesById,
@@ -62,6 +62,7 @@ export function NodeEditorPanel() {
   const [imagePickerField, setImagePickerField] = useState("");
   // Panel width persists across sessions and is shared with the View panel.
   const [width] = usePanelWidth();
+  const panelWidth = mobile ? "100%" : width;
   const [uploading, setUploading] = useState(false);
   const imageFileRef = useRef(null);
   const frameFileRef = useRef(null);
@@ -86,7 +87,7 @@ export function NodeEditorPanel() {
     return (
       <div
         className="flex h-full flex-col items-center justify-center border-l bg-card p-6 text-center text-sm text-muted-foreground"
-        style={{ width }}
+        style={{ width: panelWidth }}
       >
         Select a node and click <span className="font-semibold">Edit</span> in its right-click menu, or
         double-click empty canvas to create one.
@@ -100,8 +101,8 @@ export function NodeEditorPanel() {
   // The return node is a navigation marker: only its name is editable.
   if (node.__returnNode) {
     return (
-      <div className="relative flex h-full flex-col border-l bg-card" style={{ width }}>
-        <PanelResizer />
+      <div className="relative flex h-full flex-col border-l bg-card" style={{ width: panelWidth }}>
+        {!mobile && <PanelResizer />}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h3 className="text-sm font-semibold">Return Node</h3>
           <Button size="sm" variant="ghost" onClick={() => setUi((u) => ({ ...u, editingNodeId: null }))}>
@@ -164,9 +165,9 @@ export function NodeEditorPanel() {
   };
 
   return (
-    <div className="relative flex h-full flex-col border-l bg-card" style={{ width }}>
+    <div className="relative flex h-full flex-col border-l bg-card" style={{ width: panelWidth }}>
       {/* Shared drag handle to resize the editor */}
-      <PanelResizer />
+      {!mobile && <PanelResizer />}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h3 className="text-sm font-semibold">Edit Node</h3>
         <Button size="sm" variant="ghost" onClick={() => setUi((u) => ({ ...u, editingNodeId: null }))}>

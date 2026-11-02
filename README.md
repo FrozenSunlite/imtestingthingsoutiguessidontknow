@@ -103,7 +103,11 @@ changing app code, then restart the launcher.
   abbreviation across a category or the whole repository, and the Reference
   Library's **5eTools Imports** tab has a shortcut that opens it with the source
   prefilled.
-- **Skills:** Religion uses Wisdom and Technology uses Intelligence by default.
+- **Skills:** Religion uses Wisdom, Technology uses Intelligence, and Presence is
+  a Charisma skill for composure, first impressions and social self-presentation.
+- **Mobile layout:** the launch menu, editor panels, View screen tree drawer and
+  Reference Library adapt to phone widths; editing opens as a full-screen panel,
+  and the View screen shows skill trees in a closeable drawer.
 - **Return nodes:** every subtree starts with a non-investable node named
   “double click to return to the parent node” (only its name is editable).
   Double-clicking it returns to the node the subtree was entered through, at any

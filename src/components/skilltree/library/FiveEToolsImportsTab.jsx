@@ -132,7 +132,7 @@ export function FiveEToolsImportsTab() {
         Drag an entry onto the workspace to create a node with its full stat block and text in the
         description.
       </p>
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(260px,1.1fr)] gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(260px,1.1fr)] gap-2 max-md:grid-cols-1">
         <div className="max-h-[55vh] overflow-y-auto rounded-md border p-1">
           {shown.map((e, i) => (
             <button

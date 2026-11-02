@@ -11,6 +11,7 @@ import {
   statVars,
 } from "@/lib/treeStore";
 import { statOr10 } from "@/lib/skills";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { pointTypesFor, pointTypeById, levelZeroPointsFor } from "@/lib/pointTypes";
 import { inlineImages, rehydrateImages } from "@/lib/imageStore";
 import {
@@ -81,6 +82,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   // Only moves the camera — subscribes to the setter, not the view, so
   // panning the canvas never re-renders the toolbar.
   const setView = useViewSet();
+  const isMobile = useIsMobile();
   const fileRef = useRef(null);
   const [importData, setImportData] = useState(null);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -331,6 +333,18 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
             </Button>
           </InfoTip>
         </div>
+        {isMobile && mode === "edit" && ui.selectedNodeId && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() =>
+              setUi((u) => ({ ...u, editingNodeId: u.selectedNodeId }))
+            }
+          >
+            <Pencil className="mr-1 h-4 w-4" /> Edit selected
+          </Button>
+        )}
       </div>
       </div>
 

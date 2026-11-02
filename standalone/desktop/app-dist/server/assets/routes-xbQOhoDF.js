@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-HkIBwOcJ.js";
+import { n as Button, r as cn } from "./router-CZcfJrUR.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -1889,6 +1889,7 @@ var DEFAULT_SKILL_ABILITIES = {
 	Perception: "WIS",
 	Performance: "CHA",
 	Persuasion: "CHA",
+	Presence: "CHA",
 	Religion: "WIS",
 	"Sleight of Hand": "DEX",
 	Stealth: "DEX",
@@ -6503,6 +6504,10 @@ function mergeLibrary(lib) {
 				name: "Technology",
 				ability: "INT"
 			});
+			if (!skillByName.has("presence")) l.skills.push({
+				name: "Presence",
+				ability: "CHA"
+			});
 			l.tools = norm("tools", "tool");
 			l.artisanTools = norm("artisanTools", "tool");
 			l.gamingSets = norm("gamingSets", "tool");
@@ -9002,6 +9007,27 @@ function poolUsage(tree, pointTypes = DEFAULT_POINT_TYPES) {
 		}
 	});
 	return usage;
+}
+//#endregion
+//#region src/hooks/use-is-mobile.js
+function useIsMobile(query = "(max-width: 767px)") {
+	const [mobile, setMobile] = useState(() => {
+		if (typeof window === "undefined" || !window.matchMedia) return false;
+		return window.matchMedia(query).matches;
+	});
+	useEffect(() => {
+		if (typeof window === "undefined" || !window.matchMedia) return void 0;
+		const mql = window.matchMedia(query);
+		const onChange = () => setMobile(mql.matches);
+		onChange();
+		if (mql.addEventListener) mql.addEventListener("change", onChange);
+		else mql.addListener(onChange);
+		return () => {
+			if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+			else mql.removeListener(onChange);
+		};
+	}, [query]);
+	return mobile;
 }
 //#endregion
 //#region src/lib/imageStore.js
@@ -19034,7 +19060,7 @@ function FiveEToolsImportsTab() {
 				children: "Drag an entry onto the workspace to create a node with its full stat block and text in the description."
 			}),
 			/* @__PURE__ */ jsxs("div", {
-				className: "grid grid-cols-[minmax(0,1fr)_minmax(260px,1.1fr)] gap-2",
+				className: "grid grid-cols-[minmax(0,1fr)_minmax(260px,1.1fr)] gap-2 max-md:grid-cols-1",
 				children: [/* @__PURE__ */ jsxs("div", {
 					className: "max-h-[55vh] overflow-y-auto rounded-md border p-1",
 					children: [shown.map((e, i) => /* @__PURE__ */ jsxs("button", {
@@ -19730,7 +19756,7 @@ function FiveEToolsCategoryTab({ categoryId }) {
 				" category, and import entries — or add one here."
 			]
 		}) : /* @__PURE__ */ jsxs("div", {
-			className: "grid grid-cols-[minmax(0,1fr)_minmax(280px,1.15fr)] gap-2",
+			className: "grid grid-cols-[minmax(0,1fr)_minmax(280px,1.15fr)] gap-2 max-md:grid-cols-1",
 			children: [/* @__PURE__ */ jsxs("div", {
 				className: "max-h-[55vh] overflow-y-auto rounded-md border p-1",
 				children: [shown.map(({ entry, index }) => /* @__PURE__ */ jsxs("button", {
@@ -25017,7 +25043,7 @@ function LibraryMenu({ open, onClose }) {
 		modal: false,
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			hideOverlay: true,
-			className: "left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto",
+			className: "left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0",
 			onInteractOutside: (e) => e.preventDefault(),
 			children: [
 				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Weapons, armor, gear and lists used as suggestions when a node grants a proficiency." })] }),
@@ -25038,7 +25064,7 @@ function LibraryMenu({ open, onClose }) {
 					children: [navOpen && /* @__PURE__ */ jsxs("div", {
 						className: "flex w-full shrink-0 flex-col gap-1 md:w-48",
 						children: [/* @__PURE__ */ jsx(TabsList, {
-							className: "flex h-[55vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1",
+							className: "flex h-[26vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1 md:h-[55vh]",
 							children: tabGroups.map(([groupLabel, entries]) => /* @__PURE__ */ jsxs("div", {
 								className: "w-full",
 								children: [/* @__PURE__ */ jsx("div", {
@@ -26528,6 +26554,7 @@ function SearchBox({ onPick }) {
 function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	const { tree, mode, setMode, setScreen, grid, setGrid, ui, setUi, pools, setPools, character, setCharacter, importTree, invertPrerequisites, setTree, settings, mergedTree, sheetOnly } = useTree();
 	const setView = useViewSet();
+	const isMobile = useIsMobile();
 	const fileRef = useRef(null);
 	const [importData, setImportData] = useState(null);
 	const [saveOpen, setSaveOpen] = useState(false);
@@ -26768,6 +26795,16 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 										children: [/* @__PURE__ */ jsx(Eye, { className: "mr-1 h-4 w-4" }), " View"]
 									})
 								})]
+							}),
+							isMobile && mode === "edit" && ui.selectedNodeId && /* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-8 text-xs",
+								onClick: () => setUi((u) => ({
+									...u,
+									editingNodeId: u.selectedNodeId
+								})),
+								children: [/* @__PURE__ */ jsx(Pencil, { className: "mr-1 h-4 w-4" }), " Edit selected"]
 							})
 						]
 					})
@@ -32804,12 +32841,13 @@ function NodeImagePicker({ open, onClose, folder = "Icons", onFolderChange, onPi
 //#endregion
 //#region src/components/skilltree/NodeEditorPanel.jsx
 var entryName = (e) => typeof e === "string" ? e : e?.name || "";
-function NodeEditorPanel() {
+function NodeEditorPanel({ mobile = false }) {
 	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, setSettings } = useTree();
 	const [search, setSearch] = useState("");
 	const [exSearch, setExSearch] = useState("");
 	const [imagePickerField, setImagePickerField] = useState("");
 	const [width] = usePanelWidth();
+	const panelWidth = mobile ? "100%" : width;
 	const [uploading, setUploading] = useState(false);
 	const imageFileRef = useRef(null);
 	const frameFileRef = useRef(null);
@@ -32826,7 +32864,7 @@ function NodeEditorPanel() {
 	const node = ui.editingNodeId ? nodesById[ui.editingNodeId] : null;
 	if (!node) return /* @__PURE__ */ jsxs("div", {
 		className: "flex h-full flex-col items-center justify-center border-l bg-card p-6 text-center text-sm text-muted-foreground",
-		style: { width },
+		style: { width: panelWidth },
 		children: [
 			"Select a node and click ",
 			/* @__PURE__ */ jsx("span", {
@@ -32843,9 +32881,9 @@ function NodeEditorPanel() {
 	const set = (patch) => updateNode(node.id, patch);
 	if (node.__returnNode) return /* @__PURE__ */ jsxs("div", {
 		className: "relative flex h-full flex-col border-l bg-card",
-		style: { width },
+		style: { width: panelWidth },
 		children: [
-			/* @__PURE__ */ jsx(PanelResizer, {}),
+			!mobile && /* @__PURE__ */ jsx(PanelResizer, {}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-between border-b px-4 py-3",
 				children: [/* @__PURE__ */ jsx("h3", {
@@ -32895,9 +32933,9 @@ function NodeEditorPanel() {
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "relative flex h-full flex-col border-l bg-card",
-		style: { width },
+		style: { width: panelWidth },
 		children: [
-			/* @__PURE__ */ jsx(PanelResizer, {}),
+			!mobile && /* @__PURE__ */ jsx(PanelResizer, {}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-between border-b px-4 py-3",
 				children: [/* @__PURE__ */ jsx("h3", {
@@ -33846,7 +33884,7 @@ function NodeEditorPanel() {
 }
 //#endregion
 //#region src/components/skilltree/ConnectorEditorPanel.jsx
-function ConnectorEditorPanel() {
+function ConnectorEditorPanel({ mobile = false }) {
 	const { tree, nodesById, ui, setUi, updateConnection, removeBend } = useTree();
 	const [panelWidth] = usePanelWidth();
 	const conn = tree.connections.find((c) => c.id === ui.selectedConnectionId);
@@ -33858,10 +33896,10 @@ function ConnectorEditorPanel() {
 		...patch
 	} });
 	return /* @__PURE__ */ jsxs("div", {
-		className: "relative flex h-full flex-col border-l bg-card",
-		style: { width: panelWidth },
+		className: `relative flex h-full flex-col bg-card ${mobile ? "w-full border-0" : "border-l"}`,
+		style: mobile ? void 0 : { width: panelWidth },
 		children: [
-			/* @__PURE__ */ jsx(PanelResizer, {}),
+			!mobile && /* @__PURE__ */ jsx(PanelResizer, {}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex items-center justify-between border-b px-4 py-3",
 				children: [/* @__PURE__ */ jsx("h3", {
@@ -43322,7 +43360,7 @@ function StackSplitter({ value = .5, onChange, min = .18 }) {
 //#endregion
 //#region src/components/skilltree/ViewTreeColumn.jsx
 var SPLIT_KEY = "skilltree:sideSplit";
-function ViewTreeColumn() {
+function ViewTreeColumn({ mobile = false }) {
 	const { sideTrees } = useTree();
 	const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1920 : window.innerWidth);
 	const maxWidth = Math.max(520, Math.round(viewportWidth * .6));
@@ -43350,10 +43388,10 @@ function ViewTreeColumn() {
 		} catch {}
 	};
 	return /* @__PURE__ */ jsxs("div", {
-		className: "relative flex min-h-0 shrink-0 flex-col border-r bg-card",
-		style: { width },
+		className: `relative flex min-h-0 flex-col bg-card ${mobile ? "h-full w-full" : "shrink-0 border-r"}`,
+		style: mobile ? void 0 : { width },
 		children: [
-			/* @__PURE__ */ jsx(PanelResizer, {
+			!mobile && /* @__PURE__ */ jsx(PanelResizer, {
 				width,
 				onResize: setWidth,
 				edge: "right",
@@ -43694,17 +43732,17 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 					children: [
 						menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", () => setNewConfirmOpen(true)),
 						/* @__PURE__ */ jsxs("div", {
-							className: "grid grid-cols-2 gap-3",
+							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
 							children: [menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit"), locked), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
 						}),
 						/* @__PURE__ */ jsxs("div", {
-							className: "grid grid-cols-2 gap-3",
+							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
 							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
 						}),
 						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse official, homebrew and prerelease 5eTools data", () => onReferenceIndex?.(), locked),
 						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true }), locked),
 						/* @__PURE__ */ jsxs("div", {
-							className: "grid grid-cols-2 gap-3",
+							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
 							children: [
 								menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked),
 								menuBtn(/* @__PURE__ */ jsx(Map$1, { className: "h-5 w-5" }), "Dungeon Builder", "Build or roll a dungeon or spire", () => onDungeon?.(), locked),
@@ -82136,7 +82174,7 @@ function OnboardingTour() {
 //#endregion
 //#region src/routes/index.jsx?tsr-split=component
 function Workspace() {
-	const { mode, loading, tree, ui, screen, setScreen, enterApp } = useTree();
+	const { mode, loading, tree, ui, screen, setScreen, enterApp, sideTrees, setSideTree } = useTree();
 	const [ctx, setCtx] = useState(null);
 	const [homebuilder, setHomebuilder] = useState(false);
 	const [dmScreen, setDmScreen] = useState(false);
@@ -82147,6 +82185,24 @@ function Workspace() {
 	const [sendRows, setSendRows] = useState(null);
 	const [exportOpen, setExportOpen] = useState(false);
 	const [poolWins, setPoolWins] = useState([]);
+	const isMobile = useIsMobile();
+	const mobileTreesOpen = isMobile && (sideTrees?.left && !sideTrees.left.closed || sideTrees?.right && !sideTrees.right.closed);
+	const closeMobileTrees = () => {
+		if (sideTrees?.left) setSideTree("left", {
+			...sideTrees.left,
+			closed: true
+		});
+		if (sideTrees?.right) setSideTree("right", {
+			...sideTrees.right,
+			closed: true
+		});
+	};
+	const mobileDefaultsApplied = useRef(false);
+	useEffect(() => {
+		if (!isMobile || mobileDefaultsApplied.current) return;
+		mobileDefaultsApplied.current = true;
+		closeMobileTrees();
+	}, [isMobile]);
 	useEffect(() => {
 		const openDungeon = () => {
 			setScreen("launch");
@@ -82255,12 +82311,39 @@ function Workspace() {
 					}),
 					mode === "sheet" && /* @__PURE__ */ jsxs("div", {
 						className: "flex flex-1 overflow-hidden",
-						children: [/* @__PURE__ */ jsx(ViewTreeColumn, {}), /* @__PURE__ */ jsx("div", {
-							className: "flex-1 overflow-auto bg-muted/50 p-3 sm:p-6",
-							children: /* @__PURE__ */ jsx(ViewSheet, { onExport: () => setExportOpen(true) })
-						})]
+						children: [
+							!isMobile && /* @__PURE__ */ jsx(ViewTreeColumn, {}),
+							/* @__PURE__ */ jsx("div", {
+								className: "flex-1 overflow-auto bg-muted/50 p-1 sm:p-3 md:p-6",
+								children: /* @__PURE__ */ jsx(ViewSheet, { onExport: () => setExportOpen(true) })
+							}),
+							isMobile && mobileTreesOpen && /* @__PURE__ */ jsxs("div", {
+								className: "fixed inset-0 z-40 flex flex-col bg-background",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "flex items-center justify-between border-b px-3 py-2",
+									children: [/* @__PURE__ */ jsx("span", {
+										className: "text-sm font-semibold",
+										children: "Skill trees"
+									}), /* @__PURE__ */ jsx("button", {
+										type: "button",
+										className: "rounded border px-2 py-1 text-xs",
+										onClick: closeMobileTrees,
+										children: "Close"
+									})]
+								}), /* @__PURE__ */ jsx("div", {
+									className: "min-h-0 flex-1",
+									children: /* @__PURE__ */ jsx(ViewTreeColumn, { mobile: true })
+								})]
+							})
+						]
 					}),
-					mode === "edit" && (ui.selectedConnectionId ? /* @__PURE__ */ jsx(ConnectorEditorPanel, {}) : /* @__PURE__ */ jsx(NodeEditorPanel, {})),
+					mode === "edit" && (ui.selectedConnectionId ? isMobile ? /* @__PURE__ */ jsx("div", {
+						className: "fixed inset-0 z-40 bg-background",
+						children: /* @__PURE__ */ jsx(ConnectorEditorPanel, { mobile: true })
+					}) : /* @__PURE__ */ jsx(ConnectorEditorPanel, {}) : ui.editingNodeId ? isMobile ? /* @__PURE__ */ jsx("div", {
+						className: "fixed inset-0 z-40 bg-background",
+						children: /* @__PURE__ */ jsx(NodeEditorPanel, { mobile: true })
+					}) : /* @__PURE__ */ jsx(NodeEditorPanel, {}) : !isMobile && /* @__PURE__ */ jsx(NodeEditorPanel, {})),
 					/* @__PURE__ */ jsx(PoolWindows, {
 						wins: poolWins,
 						setWins: setPoolWins

@@ -19,6 +19,7 @@ export const DEFAULT_SKILL_ABILITIES = {
   Perception: "WIS",
   Performance: "CHA",
   Persuasion: "CHA",
+  Presence: "CHA",
   Religion: "WIS",
   "Sleight of Hand": "DEX",
   Stealth: "DEX",

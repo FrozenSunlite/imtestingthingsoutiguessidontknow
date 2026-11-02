@@ -242,7 +242,7 @@ export function LibraryMenu({ open, onClose }) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()} modal={false}>
       <DialogContent
         hideOverlay
-        className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto"
+        className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
@@ -269,7 +269,7 @@ export function LibraryMenu({ open, onClose }) {
         >
           {navOpen && (
             <div className="flex w-full shrink-0 flex-col gap-1 md:w-48">
-              <TabsList className="flex h-[55vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1">
+              <TabsList className="flex h-[26vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1 md:h-[55vh]">
                 {tabGroups.map(([groupLabel, entries]) => (
                   <div key={groupLabel} className="w-full">
                     <div className="px-2 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">

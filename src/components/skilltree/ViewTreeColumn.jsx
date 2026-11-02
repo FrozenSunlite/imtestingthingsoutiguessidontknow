@@ -11,7 +11,7 @@ const SPLIT_KEY = "skilltree:sideSplit";
 // standard tree on top and the second tree underneath it. One vertical border
 // sets their shared width, and the horizontal splitter sets how the height is
 // divided between them.
-export function ViewTreeColumn() {
+export function ViewTreeColumn({ mobile = false }) {
   const { sideTrees } = useTree();
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1920 : window.innerWidth
@@ -53,16 +53,20 @@ export function ViewTreeColumn() {
 
   return (
     <div
-      className="relative flex min-h-0 shrink-0 flex-col border-r bg-card"
-      style={{ width }}
+      className={`relative flex min-h-0 flex-col bg-card ${
+        mobile ? "h-full w-full" : "shrink-0 border-r"
+      }`}
+      style={mobile ? undefined : { width }}
     >
-      <PanelResizer
-        width={width}
-        onResize={setWidth}
-        edge="right"
-        min={260}
-        max={maxWidth}
-      />
+      {!mobile && (
+        <PanelResizer
+          width={width}
+          onResize={setWidth}
+          edge="right"
+          min={260}
+          max={maxWidth}
+        />
+      )}
       {left && (
         <div
           className="flex min-h-0 min-w-0 flex-col"

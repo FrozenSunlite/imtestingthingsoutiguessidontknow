@@ -14,7 +14,7 @@ import { X } from "lucide-react";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "@/components/skilltree/PanelResizer";
 
-export function ConnectorEditorPanel() {
+export function ConnectorEditorPanel({ mobile = false }) {
   const { tree, nodesById, ui, setUi, updateConnection, removeBend } = useTree();
   const [panelWidth] = usePanelWidth();
   const conn = tree.connections.find((c) => c.id === ui.selectedConnectionId);
@@ -26,8 +26,11 @@ export function ConnectorEditorPanel() {
     updateConnection(conn.id, { styleOverride: { ...ov, ...patch } });
 
   return (
-    <div className="relative flex h-full flex-col border-l bg-card" style={{ width: panelWidth }}>
-      <PanelResizer />
+    <div
+      className={`relative flex h-full flex-col bg-card ${mobile ? "w-full border-0" : "border-l"}`}
+      style={mobile ? undefined : { width: panelWidth }}
+    >
+      {!mobile && <PanelResizer />}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h3 className="text-sm font-semibold">Edit Connector</h3>
         <Button

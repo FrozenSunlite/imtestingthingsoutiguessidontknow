@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { TreeProvider, useTree } from "@/lib/treeStore";
 import { Toolbar } from "@/components/skilltree/Toolbar";
@@ -23,9 +23,10 @@ import { PoolWindows } from "@/components/skilltree/PoolWindows";
 import { Loader2 } from "lucide-react";
 import { CommandPalette } from "@/components/skilltree/CommandPalette";
 import { OnboardingTour } from "@/components/skilltree/OnboardingTour";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 function Workspace() {
-  const { mode, loading, tree, ui, screen, setScreen, enterApp } = useTree();
+  const { mode, loading, tree, ui, screen, setScreen, enterApp, sideTrees, setSideTree } = useTree();
   const [ctx, setCtx] = useState(null); // {x, y, node}
   const [homebuilder, setHomebuilder] = useState(false);
   const [dmScreen, setDmScreen] = useState(false);
@@ -36,6 +37,21 @@ function Workspace() {
   const [sendRows, setSendRows] = useState(null); // "send to subtree" chooser
   const [exportOpen, setExportOpen] = useState(false);
   const [poolWins, setPoolWins] = useState([]);
+  const isMobile = useIsMobile();
+  const mobileTreesOpen =
+    isMobile &&
+    ((sideTrees?.left && !sideTrees.left.closed) ||
+      (sideTrees?.right && !sideTrees.right.closed));
+  const closeMobileTrees = () => {
+    if (sideTrees?.left) setSideTree("left", { ...sideTrees.left, closed: true });
+    if (sideTrees?.right) setSideTree("right", { ...sideTrees.right, closed: true });
+  };
+  const mobileDefaultsApplied = useRef(false);
+  useEffect(() => {
+    if (!isMobile || mobileDefaultsApplied.current) return;
+    mobileDefaultsApplied.current = true;
+    closeMobileTrees();
+  }, [isMobile]);
   useEffect(() => {
     const openDungeon = () => {
       setScreen("launch");
@@ -160,14 +176,49 @@ function Workspace() {
         )}
         {mode === "sheet" && (
           <div className="flex flex-1 overflow-hidden">
-            <ViewTreeColumn />
-            <div className="flex-1 overflow-auto bg-muted/50 p-3 sm:p-6">
+            {!isMobile && <ViewTreeColumn />}
+            <div className="flex-1 overflow-auto bg-muted/50 p-1 sm:p-3 md:p-6">
               <ViewSheet onExport={() => setExportOpen(true)} />
             </div>
+            {isMobile && mobileTreesOpen && (
+              <div className="fixed inset-0 z-40 flex flex-col bg-background">
+                <div className="flex items-center justify-between border-b px-3 py-2">
+                  <span className="text-sm font-semibold">Skill trees</span>
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1 text-xs"
+                    onClick={closeMobileTrees}
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <ViewTreeColumn mobile />
+                </div>
+              </div>
+            )}
           </div>
         )}
         {mode === "edit" &&
-          (ui.selectedConnectionId ? <ConnectorEditorPanel /> : <NodeEditorPanel />)}
+          (ui.selectedConnectionId ? (
+            isMobile ? (
+              <div className="fixed inset-0 z-40 bg-background">
+                <ConnectorEditorPanel mobile />
+              </div>
+            ) : (
+              <ConnectorEditorPanel />
+            )
+          ) : ui.editingNodeId ? (
+            isMobile ? (
+              <div className="fixed inset-0 z-40 bg-background">
+                <NodeEditorPanel mobile />
+              </div>
+            ) : (
+              <NodeEditorPanel />
+            )
+          ) : (
+            !isMobile && <NodeEditorPanel />
+          ))}
         <PoolWindows wins={poolWins} setWins={setPoolWins} />
         <PinnedNodeCard />
         <CommandPalette />
