@@ -247,8 +247,10 @@
 
 /* While panning or wheel-zooming, skip expensive per-node paint work. The
    world layer already has one composited transform; shadows, filters and
-   transitions are restored as soon as the camera settles. */
-[data-navigating="true"] [data-node-id] * {
+   transitions are restored as soon as the camera settles. The node's socket
+   and alpha-outline layers are exempt: stripping and restoring those after a
+   zoom reads as a visible "pop" on every node. */
+[data-navigating="true"] [data-node-id] *:not(.ttt-node-art):not(.ttt-node-slot) {
   box-shadow: none !important;
   text-shadow: none !important;
   filter: none !important;

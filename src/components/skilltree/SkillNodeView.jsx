@@ -122,7 +122,7 @@ export const SkillNodeView = memo(function SkillNodeView({
     >
       {/* Recessed socket: the artwork sits in it like a raised button. */}
       <div
-        className={`pointer-events-none absolute inset-0 rounded-2xl border ${
+        className={`ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${
           selected ? "border-primary/80" : "border-white/10"
         }`}
         style={{
@@ -140,7 +140,7 @@ export const SkillNodeView = memo(function SkillNodeView({
           transformOrigin: "center",
           filter: artFilter,
         }}
-        className={`absolute inset-0 flex items-center justify-center overflow-hidden ${
+        className={`ttt-node-art absolute inset-0 flex items-center justify-center overflow-hidden ${
           dim ? "opacity-40" : ""
         }`}
       >
@@ -148,7 +148,7 @@ export const SkillNodeView = memo(function SkillNodeView({
         {node.image ? (
           <IconArt
             src={node.image}
-            circular={!!frame}
+            circular={!!frame && node.circularCrop !== false}
             iconBox={iconBox}
             size={size}
             fallbackSrc={placeholder}
@@ -157,7 +157,7 @@ export const SkillNodeView = memo(function SkillNodeView({
         ) : placeholder ? (
           <IconArt
             src={placeholder}
-            circular={!!frame}
+            circular={!!frame && node.circularCrop !== false}
             iconBox={iconBox}
             size={size}
             className="opacity-70"

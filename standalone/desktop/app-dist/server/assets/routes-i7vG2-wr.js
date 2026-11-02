@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-QyTBpHcU.js";
+import { n as Button, r as cn } from "./router-Df_d8fMp.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -28968,7 +28968,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		className: `group ${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
 		children: [
 			/* @__PURE__ */ jsx("div", {
-				className: `pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : "border-white/10"}`,
+				className: `ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : "border-white/10"}`,
 				style: {
 					background: "linear-gradient(145deg, rgba(30,41,59,0.92), rgba(2,6,23,0.97))",
 					boxShadow: slotShadow
@@ -28980,17 +28980,17 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 					transformOrigin: "center",
 					filter: artFilter
 				},
-				className: `absolute inset-0 flex items-center justify-center overflow-hidden ${dim ? "opacity-40" : ""}`,
+				className: `ttt-node-art absolute inset-0 flex items-center justify-center overflow-hidden ${dim ? "opacity-40" : ""}`,
 				children: [node.image ? /* @__PURE__ */ jsx(IconArt, {
 					src: node.image,
-					circular: !!frame,
+					circular: !!frame && node.circularCrop !== false,
 					iconBox,
 					size,
 					fallbackSrc: placeholder,
 					hideOnInvalid: true
 				}) : placeholder ? /* @__PURE__ */ jsx(IconArt, {
 					src: placeholder,
-					circular: !!frame,
+					circular: !!frame && node.circularCrop !== false,
 					iconBox,
 					size,
 					className: "opacity-70",
@@ -34230,6 +34230,7 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 		]
 	});
 	const set = (patch) => updateNode(node.id, patch);
+	const hasFrame = !!(node.frameImage || settings?.placeholderFrame);
 	if (node.__returnNode) return /* @__PURE__ */ jsxs("div", {
 		className: "relative flex h-full flex-col border-l bg-card",
 		style: { width: panelWidth },
@@ -35125,10 +35126,24 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 								})]
 							}),
 							/* @__PURE__ */ jsxs("div", {
+								className: "flex items-start justify-between gap-2 rounded-md border p-2",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "min-w-0 space-y-0.5",
+									children: [/* @__PURE__ */ jsx(Label, { children: "Circular crop" }), /* @__PURE__ */ jsxs("p", {
+										className: "text-[10px] text-muted-foreground",
+										children: ["Clip the artwork to the frame's inner circle. Turn this off to keep the full image visible behind the frame.", !hasFrame ? " Add a frame image to use this." : ""]
+									})]
+								}), /* @__PURE__ */ jsx(Switch, {
+									checked: node.circularCrop !== false,
+									disabled: !hasFrame,
+									onCheckedChange: (value) => set({ circularCrop: value })
+								})]
+							}),
+							/* @__PURE__ */ jsxs("div", {
 								className: "space-y-1",
 								children: [/* @__PURE__ */ jsx(InfoTip, {
 									label: "Trims the artwork inward so it stays inside the frame's border art (0 = edge to edge).",
-									children: /* @__PURE__ */ jsx(Label, { children: "Icon inset (circular crop)" })
+									children: /* @__PURE__ */ jsxs(Label, { children: ["Icon inset ", node.circularCrop !== false ? "(circular crop)" : ""] })
 								}), /* @__PURE__ */ jsxs("div", {
 									className: "flex items-center gap-2",
 									children: [/* @__PURE__ */ jsx("input", {

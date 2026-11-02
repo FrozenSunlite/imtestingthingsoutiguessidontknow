@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -99,6 +100,7 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
   }
 
   const set = (patch) => updateNode(node.id, patch);
+  const hasFrame = !!(node.frameImage || settings?.placeholderFrame);
 
   // The return node is a navigation marker: only its name is editable.
   if (node.__returnNode) {
@@ -926,9 +928,25 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
             </div>
           </div>
 
+          <div className="flex items-start justify-between gap-2 rounded-md border p-2">
+            <div className="min-w-0 space-y-0.5">
+              <Label>Circular crop</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Clip the artwork to the frame's inner circle. Turn this off to
+                keep the full image visible behind the frame.
+                {!hasFrame ? " Add a frame image to use this." : ""}
+              </p>
+            </div>
+            <Switch
+              checked={node.circularCrop !== false}
+              disabled={!hasFrame}
+              onCheckedChange={(value) => set({ circularCrop: value })}
+            />
+          </div>
+
           <div className="space-y-1">
             <InfoTip label="Trims the artwork inward so it stays inside the frame's border art (0 = edge to edge).">
-              <Label>Icon inset (circular crop)</Label>
+              <Label>Icon inset {node.circularCrop !== false ? "(circular crop)" : ""}</Label>
             </InfoTip>
             <div className="flex items-center gap-2">
               <input

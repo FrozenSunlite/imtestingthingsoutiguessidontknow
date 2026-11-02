@@ -149,7 +149,8 @@ changing app code, then restart the launcher.
   animated WebP**, and the original animation frames are preserved when the
   project server, export/import or the PWA/APK fallback stores the image. Nodes
   render as recessed 3D slots; the artwork’s outline and glow follow the image’s
-  transparent pixels, and earned nodes glow **#008000** green.
+  transparent pixels, and earned nodes glow **#008000** green. The frame’s
+  circular crop is a per-node **Circular crop** toggle in Appearance.
 - **Motion:** main-menu section changes fade through black (one second out, one
   second in). Dialogs pop open from near-zero size and pop closed again when a
   choice is made. The desktop Edit panel slides in only while a node is being
