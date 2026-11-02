@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { Button } from "@/components/ui/button";
+import { TutorialVisual } from "@/components/skilltree/TutorialVisual";
+import { setTutorialOpen } from "@/lib/tutorialState";
 import {
   BookOpen,
   ChevronLeft,
@@ -9,6 +11,7 @@ import {
   GitBranch,
   Globe2,
   GripVertical,
+  HelpCircle,
   Home,
   Keyboard,
   Layers,
@@ -36,7 +39,7 @@ const STEPS = [
       "The launch menu is the hub. Every major tool can be opened from there.",
       "Use Ctrl/⌘+K at any time to search the whole project.",
     ],
-    tip: "If you are brand new, follow the steps in order once. You can reopen this tutorial from Settings → Help.",
+    tip: "Follow the steps in order once. Reopen it any time from Settings → Help → Start tutorial, or the Tutorial button at the top of the launch menu.",
   },
   {
     id: "launch",
@@ -298,6 +301,18 @@ export function OnboardingTour() {
   const [step, setStep] = useState(0);
   const bodyRef = useRef(null);
 
+  const close = useCallback(() => {
+    setOpen(false);
+    setSettings((s) => (s.tourDone ? s : { ...s, tourDone: true }));
+  }, [setSettings]);
+
+  // The update prompt is a modal dialog. It listens to this so it can wait for
+  // the tutorial to close instead of disabling the tutorial underneath it.
+  useEffect(() => {
+    setTutorialOpen(open);
+    return () => setTutorialOpen(false);
+  }, [open]);
+
   useEffect(() => {
     const start = () => {
       setStep(0);
@@ -311,14 +326,19 @@ export function OnboardingTour() {
     bodyRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [step]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, close]);
+
   if (!open) return null;
 
   const item = STEPS[step];
   const Icon = item.icon;
-  const close = () => {
-    setOpen(false);
-    if (!settings?.tourDone) setSettings((s) => ({ ...s, tourDone: true }));
-  };
   const runAction = () => {
     if (!item.action) return;
     close();
@@ -326,7 +346,12 @@ export function OnboardingTour() {
   };
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-3">
+    <div
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-label="New player tutorial"
+    >
       <div className="flex max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-xl border bg-background shadow-2xl">
         <aside className="hidden w-56 shrink-0 flex-col border-r bg-muted/20 sm:flex">
           <div className="border-b px-3 py-2">
@@ -374,7 +399,25 @@ export function OnboardingTour() {
           </header>
 
           <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="mb-3 overflow-x-auto rounded-lg border bg-card shadow-sm">
+              {/* Keep the diagram wide enough to read on a phone; swipe it. */}
+              <div className="min-w-[540px] sm:min-w-0">
+                <TutorialVisual kind={item.id} />
+              </div>
+            </div>
             <p className="text-sm leading-relaxed text-muted-foreground">{item.intro}</p>
+            {step === 0 && (
+              <div className="mt-3 flex gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2">
+                <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">Reopen this tutorial any time</p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Open <strong>Settings → Help → Start tutorial</strong>, or use the{" "}
+                    <strong>Tutorial</strong> button at the top of the launch menu.
+                  </p>
+                </div>
+              </div>
+            )}
             <ul className="mt-3 space-y-1.5">
               {item.points.map((point, index) => (
                 <li key={index} className="flex gap-2 text-xs leading-relaxed">

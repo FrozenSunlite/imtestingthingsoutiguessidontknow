@@ -1,0 +1,1 @@
+import{g as e}from"./routes-DmTRNdoo.js";export default e();

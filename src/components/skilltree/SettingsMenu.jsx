@@ -85,6 +85,16 @@ export function SettingsMenu({ open, onClose }) {
       ...s,
       audio: { ...DEFAULT_AUDIO_SETTINGS, ...(s.audio || {}), ...patch },
     }));
+  // Radix keeps the modal pointer-events/aria-hidden lock during its exit
+  // animation. Close Settings first and start the tour once that lock is gone,
+  // otherwise the tutorial is visible but cannot be clicked.
+  const startTutorial = () => {
+    onClose?.();
+    window.setTimeout(
+      () => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial")),
+      180
+    );
+  };
   const musicLibrary = useMusicLibrary();
   const currentTrack = useCurrentTrack();
   const trackOptions = audio.customMusic ? musicLibrary.custom : musicLibrary.default;
@@ -746,7 +756,7 @@ export function SettingsMenu({ open, onClose }) {
                   variant="outline"
                   onClick={() => {
                     setSettings((s) => ({ ...s, tourDone: false }));
-                    window.dispatchEvent(new CustomEvent("skilltree:start-tutorial"));
+                    startTutorial();
                   }}
                 >
                   Open the tutorial
@@ -927,7 +937,7 @@ export function SettingsMenu({ open, onClose }) {
                 <Button
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial"))}
+                  onClick={startTutorial}
                 >
                   Start tutorial
                 </Button>

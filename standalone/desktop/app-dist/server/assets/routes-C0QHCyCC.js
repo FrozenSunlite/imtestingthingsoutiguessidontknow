@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-fVCpKi2H.js";
+import { n as Button, r as cn } from "./router-BerwtIIq.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, GraduationCap, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, HelpCircle, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
@@ -12134,7 +12134,7 @@ function removeImportFromLibrary(library, importId) {
 }
 //#endregion
 //#region src/lib/appUpdates.js
-var listeners$2 = /* @__PURE__ */ new Set();
+var listeners$3 = /* @__PURE__ */ new Set();
 var state$1 = {
 	waiting: null,
 	update: null,
@@ -12144,10 +12144,10 @@ var state$1 = {
 var registered = false;
 var reloading = false;
 var buildInfoPromise = null;
-var emit$2 = () => listeners$2.forEach((listener) => listener());
+var emit$2 = () => listeners$3.forEach((listener) => listener());
 function subscribeUpdates(listener) {
-	listeners$2.add(listener);
-	return () => listeners$2.delete(listener);
+	listeners$3.add(listener);
+	return () => listeners$3.delete(listener);
 }
 function getUpdateState() {
 	return state$1;
@@ -12985,6 +12985,10 @@ function SettingsMenu({ open, onClose }) {
 			...patch
 		}
 	}));
+	const startTutorial = () => {
+		onClose?.();
+		window.setTimeout(() => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial")), 180);
+	};
 	const musicLibrary = useMusicLibrary();
 	const currentTrack = useCurrentTrack();
 	const trackOptions = audio.customMusic ? musicLibrary.custom : musicLibrary.default;
@@ -13857,7 +13861,7 @@ function SettingsMenu({ open, onClose }) {
 												...s,
 												tourDone: false
 											}));
-											window.dispatchEvent(new CustomEvent("skilltree:start-tutorial"));
+											startTutorial();
 										},
 										children: "Open the tutorial"
 									})]
@@ -14063,7 +14067,7 @@ function SettingsMenu({ open, onClose }) {
 									/* @__PURE__ */ jsx(Button, {
 										size: "sm",
 										className: "h-7 text-xs",
-										onClick: () => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial")),
+										onClick: startTutorial,
 										children: "Start tutorial"
 									})
 								]
@@ -41186,7 +41190,7 @@ var fmtSigned = (n) => {
 	return x >= 0 ? `+${x}` : `${x}`;
 };
 var CAT_LABEL = Object.fromEntries(ACTION_CATEGORIES);
-function Row$1({ label, children }) {
+function Row$2({ label, children }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "flex gap-1.5 text-[11px] leading-snug",
 		children: [/* @__PURE__ */ jsx("span", {
@@ -41219,7 +41223,7 @@ function ScalingBlock({ scaling, level }) {
 	rows.forEach((r, i) => {
 		if (level >= Number(r.atLevel)) active = i;
 	});
-	return /* @__PURE__ */ jsx(Row$1, {
+	return /* @__PURE__ */ jsx(Row$2, {
 		label: "Cantrip scaling",
 		children: /* @__PURE__ */ jsx("span", {
 			className: "block space-y-0.5",
@@ -41246,7 +41250,7 @@ var ord = (n) => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
 function UpcastBlock({ scaling, note }) {
 	const rows = (scaling || []).filter((r) => Number(r?.atSlot) > 0).sort((a, b) => Number(a.atSlot) - Number(b.atSlot));
 	if (!rows.length && !note) return null;
-	return /* @__PURE__ */ jsx(Row$1, {
+	return /* @__PURE__ */ jsx(Row$2, {
 		label: "At higher levels",
 		children: /* @__PURE__ */ jsxs("span", {
 			className: "block space-y-0.5",
@@ -41308,27 +41312,27 @@ function SpellDetails({ spell, character, sheet = {} }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "mt-1 space-y-1 rounded border bg-muted/30 p-1.5",
 		children: [
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Casting time",
 				children: spell.castingTime || "—"
 			}),
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Range",
 				children: feetToSpacesText(spell.range) || "-"
 			}),
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Duration",
 				children: spell.duration || "—"
 			}),
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Components",
 				children: componentsText(spell) || "—"
 			}),
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Attack/Save",
 				children: saveText(spell)
 			}),
-			spell.saveType === "save" && /* @__PURE__ */ jsxs(Row$1, {
+			spell.saveType === "save" && /* @__PURE__ */ jsxs(Row$2, {
 				label: "Save DC",
 				children: [/* @__PURE__ */ jsx("span", {
 					className: "font-mono font-semibold",
@@ -41342,7 +41346,7 @@ function SpellDetails({ spell, character, sheet = {} }) {
 					]
 				})]
 			}),
-			spell.saveType === "attack" && !(spell.attackKind === "item" && spell.attackMod === "weapon") && /* @__PURE__ */ jsxs(Row$1, {
+			spell.saveType === "attack" && !(spell.attackKind === "item" && spell.attackMod === "weapon") && /* @__PURE__ */ jsxs(Row$2, {
 				label: "Attack bonus",
 				children: [/* @__PURE__ */ jsx("span", {
 					className: "font-mono font-semibold",
@@ -41356,19 +41360,19 @@ function SpellDetails({ spell, character, sheet = {} }) {
 					]
 				})]
 			}),
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Targets",
 				children: spell.targets || "—"
 			}),
-			/* @__PURE__ */ jsx(Row$1, {
+			/* @__PURE__ */ jsx(Row$2, {
 				label: "Area of effect",
 				children: feetToSpacesText(aoeText(spell)) || "-"
 			}),
-			spell.repeats ? /* @__PURE__ */ jsx(Row$1, {
+			spell.repeats ? /* @__PURE__ */ jsx(Row$2, {
 				label: "Repeats",
 				children: spell.repeats
 			}) : null,
-			spell.description ? /* @__PURE__ */ jsx(Row$1, {
+			spell.description ? /* @__PURE__ */ jsx(Row$2, {
 				label: "Effect",
 				children: spell.description
 			}) : null,
@@ -46515,13 +46519,13 @@ var state = {
 	active: false,
 	phase: "idle"
 };
-var listeners$1 = /* @__PURE__ */ new Set();
+var listeners$2 = /* @__PURE__ */ new Set();
 var outTimer = 0;
 var inTimer = 0;
-var emit$1 = () => listeners$1.forEach((listener) => listener());
+var emit$1 = () => listeners$2.forEach((listener) => listener());
 function subscribeScreenTransition(listener) {
-	listeners$1.add(listener);
-	return () => listeners$1.delete(listener);
+	listeners$2.add(listener);
+	return () => listeners$2.delete(listener);
 }
 function getScreenTransition() {
 	return state;
@@ -46635,6 +46639,14 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 						"aria-label": "Install app",
 						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
 						children: /* @__PURE__ */ jsx(Smartphone, { className: "h-5 w-5" })
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						onClick: () => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial")),
+						title: "Open the tutorial",
+						"aria-label": "Open the tutorial",
+						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
+						children: /* @__PURE__ */ jsx(GraduationCap, { className: "h-5 w-5" })
 					}),
 					/* @__PURE__ */ jsx("button", {
 						type: "button",
@@ -52677,13 +52689,13 @@ var initial = {
 	error: ""
 };
 var current = initial;
-var listeners = /* @__PURE__ */ new Set();
+var listeners$1 = /* @__PURE__ */ new Set();
 function emit() {
-	listeners.forEach((listener) => listener());
+	listeners$1.forEach((listener) => listener());
 }
 function subscribeImportStatus(listener) {
-	listeners.add(listener);
-	return () => listeners.delete(listener);
+	listeners$1.add(listener);
+	return () => listeners$1.delete(listener);
 }
 function getImportStatus() {
 	return current;
@@ -57298,7 +57310,7 @@ function SelectedPanel({ plot, selection, update }) {
 					title: f.name || f.type,
 					sub: bf ? bf.seatOfPower ? "Seat of Power · 4×4 · Bastion only · free · does not count against known facilities" : `${f.type} · Level ${bf.level} special facility — claimed free, no gold or build time` : `${f.type} · ${area} spaces · ${gp.toLocaleString()} gp · ${weeks} wk`
 				}),
-				/* @__PURE__ */ jsx(Row, {
+				/* @__PURE__ */ jsx(Row$1, {
 					label: "Name",
 					children: /* @__PURE__ */ jsx(Input, {
 						className: "h-8",
@@ -57306,7 +57318,7 @@ function SelectedPanel({ plot, selection, update }) {
 						onChange: (e) => updFac(update, f.id, { name: e.target.value })
 					})
 				}),
-				/* @__PURE__ */ jsx(Row, {
+				/* @__PURE__ */ jsx(Row$1, {
 					label: "Floor texture",
 					children: /* @__PURE__ */ jsxs("select", {
 						className: "h-8 w-full rounded border bg-background px-1 text-xs",
@@ -57363,7 +57375,7 @@ function SelectedPanel({ plot, selection, update }) {
 					className: "text-[11px] text-muted-foreground",
 					children: bf ? bf.seatOfPower ? "Seat of Power. This 4×4 throne room is a Bastion-only special facility. It is free, and it does not count against your known Bastion facilities." : `Level ${bf.level} special facility${bf.prereq ? ` — requires ${bf.prereq}` : ""}. ${bf.hirelings} hireling${bf.hirelings === 1 ? "" : "s"}. Can be swapped for another qualifying facility on a level-up.` : def.desc
 				}),
-				def.resizable && /* @__PURE__ */ jsxs(Row, {
+				def.resizable && /* @__PURE__ */ jsxs(Row$1, {
 					label: `Size (${def.minSpaces || 1}+ spaces)`,
 					children: [
 						/* @__PURE__ */ jsx(SizeInput, {
@@ -57409,7 +57421,7 @@ function SelectedPanel({ plot, selection, update }) {
 					title: fu.type,
 					sub: `${fu.w * fu.h} spaces · ${25 * fu.w * fu.h} gp · ${Math.ceil(fu.w * fu.h / 4)} wk`
 				}),
-				/* @__PURE__ */ jsx(Row, {
+				/* @__PURE__ */ jsx(Row$1, {
 					label: "Label (optional)",
 					children: /* @__PURE__ */ jsx(Input, {
 						className: "h-8",
@@ -57418,7 +57430,7 @@ function SelectedPanel({ plot, selection, update }) {
 						onChange: (e) => updFur(update, fu.id, { label: e.target.value })
 					})
 				}),
-				def.options && /* @__PURE__ */ jsx(Row, {
+				def.options && /* @__PURE__ */ jsx(Row$1, {
 					label: "Chosen at creation",
 					children: /* @__PURE__ */ jsx(Input, {
 						className: "h-8",
@@ -57427,7 +57439,7 @@ function SelectedPanel({ plot, selection, update }) {
 						onChange: (e) => updFur(update, fu.id, { option: e.target.value })
 					})
 				}),
-				/* @__PURE__ */ jsxs(Row, {
+				/* @__PURE__ */ jsxs(Row$1, {
 					label: "Size (spaces)",
 					children: [
 						/* @__PURE__ */ jsx(SizeInput, {
@@ -57543,7 +57555,7 @@ function Header({ title, sub }) {
 		children: sub
 	})] });
 }
-function Row({ label, children }) {
+function Row$1({ label, children }) {
 	return /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 		className: "text-[10px] uppercase tracking-widest text-muted-foreground",
 		children: label
@@ -83987,11 +83999,33 @@ function ScreenTransitionOverlay() {
 	});
 }
 //#endregion
+//#region src/lib/tutorialState.js
+var tutorialOpen = false;
+var listeners = /* @__PURE__ */ new Set();
+function setTutorialOpen(value) {
+	const next = !!value;
+	if (next === tutorialOpen) return;
+	tutorialOpen = next;
+	listeners.forEach((listener) => listener());
+}
+function isTutorialOpen() {
+	return tutorialOpen;
+}
+function subscribeTutorialOpen(listener) {
+	listeners.add(listener);
+	return () => listeners.delete(listener);
+}
+//#endregion
 //#region src/components/skilltree/UpdatePrompt.jsx
 function UpdatePrompt() {
 	const { settings } = useTree();
 	const updates = useAppUpdates();
 	const checkedUrl = useRef("");
+	const [tutorialOpen, setTutorialOpenState] = useState(isTutorialOpen);
+	useEffect(() => {
+		setTutorialOpenState(isTutorialOpen());
+		return subscribeTutorialOpen(() => setTutorialOpenState(isTutorialOpen()));
+	}, []);
 	useEffect(() => {
 		registerServiceWorker();
 	}, []);
@@ -84016,7 +84050,7 @@ function UpdatePrompt() {
 	}, [settings?.updateUrl]);
 	const apkUpdate = updates.update?.kind === "apk" ? updates.update : null;
 	const serviceWorkerUpdate = !!updates.waiting && !updates.hidden;
-	const open = !!apkUpdate || serviceWorkerUpdate;
+	const open = (!!apkUpdate || serviceWorkerUpdate) && !tutorialOpen;
 	if (!open) return null;
 	const close = () => dismissUpdate();
 	return /* @__PURE__ */ jsx(Dialog, {
@@ -85327,6 +85361,2494 @@ function CommandPalette() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/TutorialVisual.jsx
+var BG = "hsl(var(--background))";
+var CARD = "hsl(var(--card))";
+var BORDER = "hsl(var(--border))";
+var MUTED = "hsl(var(--muted))";
+var INK = "hsl(var(--foreground))";
+var SUB = "hsl(var(--muted-foreground))";
+var HOT = "#22d3ee";
+var FONT = "ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
+function Frame({ label, children }) {
+	return /* @__PURE__ */ jsxs("svg", {
+		viewBox: "0 0 720 280",
+		className: "h-auto w-full",
+		role: "img",
+		"aria-label": label,
+		style: { fontFamily: FONT },
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "1",
+				y: "1",
+				width: "718",
+				height: "278",
+				rx: "14",
+				fill: BG,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M1 15a14 14 0 0 1 14-14h690a14 14 0 0 1 14 14v17H1z",
+				fill: CARD
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "17",
+				r: "4",
+				fill: "#f87171"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "33",
+				cy: "17",
+				r: "4",
+				fill: "#fbbf24"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "46",
+				cy: "17",
+				r: "4",
+				fill: "#4ade80"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "62",
+				y: "21",
+				fontSize: "11",
+				fill: SUB,
+				children: label
+			}),
+			children
+		]
+	});
+}
+function Tag({ x, y, children, filled = false }) {
+	const px = Number(x);
+	const py = Number(y);
+	const width = Math.max(46, String(children).length * 5.9 + 16);
+	return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("rect", {
+		x: px,
+		y: py,
+		width,
+		height: "18",
+		rx: "9",
+		fill: filled ? HOT : BG,
+		stroke: filled ? HOT : BORDER,
+		opacity: filled ? .95 : 1
+	}), /* @__PURE__ */ jsx("text", {
+		x: px + width / 2,
+		y: py + 12.5,
+		textAnchor: "middle",
+		fontSize: "9.5",
+		fontWeight: "600",
+		fill: filled ? "#083344" : SUB,
+		children
+	})] });
+}
+function Callout({ x1, y1, x2, y2, children, anchor = "start" }) {
+	const ax = Number(x1);
+	const ay = Number(y1);
+	const bx = Number(x2);
+	const by = Number(y2);
+	return /* @__PURE__ */ jsxs("g", { children: [
+		/* @__PURE__ */ jsx("path", {
+			d: `M${ax} ${ay} L${bx} ${by}`,
+			stroke: HOT,
+			strokeWidth: "1.2",
+			strokeDasharray: "3 2",
+			fill: "none"
+		}),
+		/* @__PURE__ */ jsx("circle", {
+			cx: ax,
+			cy: ay,
+			r: "2.6",
+			fill: HOT
+		}),
+		/* @__PURE__ */ jsx("text", {
+			x: bx + (anchor === "end" ? -4 : 4),
+			y: by + 3,
+			textAnchor: anchor,
+			fontSize: "10",
+			fontWeight: "600",
+			fill: HOT,
+			children
+		})
+	] });
+}
+function Row({ x, y, w, label, active = false, height = 24 }) {
+	const px = Number(x);
+	const py = Number(y);
+	const pw = Number(w);
+	const ph = Number(height);
+	return /* @__PURE__ */ jsxs("g", { children: [
+		/* @__PURE__ */ jsx("rect", {
+			x: px,
+			y: py,
+			width: pw,
+			height: ph,
+			rx: "6",
+			fill: active ? HOT : CARD,
+			fillOpacity: active ? .14 : 1,
+			stroke: active ? HOT : BORDER
+		}),
+		/* @__PURE__ */ jsx("circle", {
+			cx: px + 13,
+			cy: py + ph / 2,
+			r: "4.5",
+			fill: active ? HOT : SUB,
+			opacity: active ? 1 : .5
+		}),
+		/* @__PURE__ */ jsx("text", {
+			x: px + 25,
+			y: py + ph / 2 + 3.5,
+			fontSize: "10.5",
+			fontWeight: active ? 700 : 500,
+			fill: active ? INK : SUB,
+			children: label
+		})
+	] });
+}
+function Node({ x, y, label, active = false, r = 17 }) {
+	const px = Number(x);
+	const py = Number(y);
+	const pr = Number(r);
+	return /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
+		cx: px,
+		cy: py,
+		r: pr,
+		fill: active ? HOT : CARD,
+		fillOpacity: active ? .18 : 1,
+		stroke: active ? HOT : BORDER,
+		strokeWidth: active ? 2 : 1.4
+	}), /* @__PURE__ */ jsx("text", {
+		x: px,
+		y: py + 3.5,
+		textAnchor: "middle",
+		fontSize: "9",
+		fontWeight: "700",
+		fill: active ? INK : SUB,
+		children: label
+	})] });
+}
+function LaunchVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Launch menu",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "48",
+				width: "330",
+				height: "206",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "54",
+				y: "70",
+				fontSize: "12",
+				fontWeight: "700",
+				fill: INK,
+				children: "I'm Trying's Terrific Talent Tree"
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "54",
+				y: "82",
+				w: "290",
+				label: "Continue",
+				active: true
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "54",
+				y: "112",
+				w: "138",
+				label: "New"
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "206",
+				y: "112",
+				w: "138",
+				label: "Save / Load"
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "54",
+				y: "142",
+				w: "138",
+				label: "Reference Index"
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "206",
+				y: "142",
+				w: "138",
+				label: "Character"
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "54",
+				y: "172",
+				w: "138",
+				label: "Dungeon"
+			}),
+			/* @__PURE__ */ jsx(Row, {
+				x: "206",
+				y: "172",
+				w: "138",
+				label: "World"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "386",
+				y: "48",
+				width: "300",
+				height: "206",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "404",
+				y: "70",
+				fontSize: "11",
+				fontWeight: "700",
+				fill: INK,
+				children: "The hub for every tool"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "404",
+				y: "88",
+				fontSize: "9.5",
+				fill: SUB,
+				children: "New starts fresh · Continue resumes · Save / Load moves a project"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "404",
+				y: "104",
+				width: "264",
+				height: "54",
+				rx: "8",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "416",
+				y: "122",
+				fontSize: "9.5",
+				fill: SUB,
+				children: "Project data stays on this device."
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "416",
+				y: "138",
+				fontSize: "9.5",
+				fill: SUB,
+				children: "No account, no cloud step."
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "404",
+				y: "172",
+				children: "Ctrl/⌘+K searches everything"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "404",
+				y: "198",
+				filled: true,
+				children: "Settings → Help → Start tutorial"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "404",
+				y1: "207",
+				x2: "356",
+				y2: "242",
+				children: "Reopen the tutorial any time"
+			})
+		]
+	});
+}
+function CanvasVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Tree workspace",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "30",
+				y: "46",
+				width: "46",
+				height: "212",
+				rx: "8",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5
+			].map((i) => /* @__PURE__ */ jsx("rect", {
+				x: "40",
+				y: 58 + i * 31,
+				width: "26",
+				height: "22",
+				rx: "4",
+				fill: MUTED,
+				stroke: BORDER
+			}, i)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "88",
+				y: "46",
+				width: "410",
+				height: "212",
+				rx: "8",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			[
+				120,
+				200,
+				280,
+				360,
+				440
+			].map((x) => /* @__PURE__ */ jsx("line", {
+				x1: x,
+				y1: "56",
+				x2: x,
+				y2: "248",
+				stroke: BORDER,
+				strokeWidth: "0.6",
+				opacity: "0.55"
+			}, x)),
+			[
+				90,
+				140,
+				190,
+				240
+			].map((y) => /* @__PURE__ */ jsx("line", {
+				x1: "98",
+				y1: y,
+				x2: "488",
+				y2: y,
+				stroke: BORDER,
+				strokeWidth: "0.6",
+				opacity: "0.55"
+			}, y)),
+			/* @__PURE__ */ jsx("path", {
+				d: "M170 150 L240 110 L310 150 L380 110",
+				stroke: SUB,
+				strokeWidth: "1.8",
+				fill: "none"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M240 110 L250 190 L330 195",
+				stroke: SUB,
+				strokeWidth: "1.8",
+				fill: "none"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 170,
+				y: 150,
+				label: "Root",
+				active: true
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 240,
+				y: 110,
+				label: "A"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 310,
+				y: 150,
+				label: "B"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 380,
+				y: 110,
+				label: "C"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 250,
+				y: 190,
+				label: "D"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 330,
+				y: 195,
+				label: "E"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "510",
+				y: "46",
+				width: "180",
+				height: "212",
+				rx: "8",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "526",
+				y: "68",
+				fontSize: "11",
+				fontWeight: "700",
+				fill: INK,
+				children: "Node editor"
+			}),
+			[
+				"Name",
+				"Type",
+				"Points",
+				"Description",
+				"Image"
+			].map((label, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("text", {
+				x: "526",
+				y: 92 + i * 26,
+				fontSize: "9",
+				fill: SUB,
+				children: label
+			}), /* @__PURE__ */ jsx("rect", {
+				x: "526",
+				y: 97 + i * 26,
+				width: "148",
+				height: "14",
+				rx: "4",
+				fill: MUTED,
+				stroke: BORDER
+			})] }, label)),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "53",
+				y1: "72",
+				x2: "36",
+				y2: "42",
+				children: "Toolbar"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "318",
+				y1: "182",
+				x2: "334",
+				y2: "214",
+				children: "Canvas"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "690",
+				y1: "70",
+				x2: "694",
+				y2: "36",
+				anchor: "end",
+				children: "Editor"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "98",
+				y: "232",
+				children: "Scroll = zoom · right-drag = pan"
+			})
+		]
+	});
+}
+function TabsVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Tabs and subtrees",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "652",
+				height: "30",
+				rx: "8",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "42",
+				y: "52",
+				width: "112",
+				height: "18",
+				rx: "6",
+				fill: CARD,
+				stroke: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "98",
+				y: "65",
+				textAnchor: "middle",
+				fontSize: "9.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Class tree"
+			}),
+			[
+				"Heritage",
+				"Specialization",
+				"+ Add tab"
+			].map((label, i) => /* @__PURE__ */ jsx("text", {
+				x: 176 + i * 128,
+				y: "65",
+				fontSize: "9.5",
+				fill: SUB,
+				children: label
+			}, label)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "88",
+				width: "652",
+				height: "170",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 130,
+				y: 150,
+				label: "Base",
+				active: true
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 240,
+				y: 110,
+				label: "A"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 240,
+				y: 190,
+				label: "B"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 350,
+				y: 150,
+				label: "C"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M147 150 L223 112 M147 150 L223 188 M257 112 L333 148 M257 190 L333 152",
+				stroke: SUB,
+				strokeWidth: "1.6",
+				fill: "none"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "420",
+				y: "106",
+				width: "230",
+				height: "132",
+				rx: "8",
+				fill: BG,
+				stroke: HOT,
+				strokeDasharray: "4 3"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "438",
+				y: "128",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: HOT,
+				children: "Subtree"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "438",
+				y: "144",
+				fontSize: "9",
+				fill: SUB,
+				children: "A nested tree attached to one node."
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 470,
+				y: 190,
+				label: "S1"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 550,
+				y: 170,
+				label: "S2"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 600,
+				y: 210,
+				label: "S3"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M487 188 L533 173 M567 173 L590 203",
+				stroke: SUB,
+				strokeWidth: "1.4",
+				fill: "none"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "150",
+				y1: "60",
+				x2: "150",
+				y2: "34",
+				children: "One tab = one tree"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "420",
+				y1: "170",
+				x2: "392",
+				y2: "244",
+				anchor: "end",
+				children: "Nested subtree"
+			})
+		]
+	});
+}
+function NodeVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Editing a node",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "330",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 190,
+				y: 145,
+				label: "Fireball",
+				active: true,
+				r: 38
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "118",
+				y: "196",
+				filled: true,
+				children: "Selected node"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "382",
+				y: "46",
+				width: "308",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "398",
+				y: "68",
+				fontSize: "11",
+				fontWeight: "700",
+				fill: INK,
+				children: "Node editor"
+			}),
+			[
+				["Name", "Fireball"],
+				["Type", "Talent · active"],
+				["Cost / max", "1 point · 3 ranks"],
+				["Prerequisite", "Elemental Focus"]
+			].map(([label, value], i) => /* @__PURE__ */ jsxs("g", { children: [
+				/* @__PURE__ */ jsx("text", {
+					x: "398",
+					y: 90 + i * 30,
+					fontSize: "8.5",
+					fill: SUB,
+					children: label
+				}),
+				/* @__PURE__ */ jsx("rect", {
+					x: "398",
+					y: 95 + i * 30,
+					width: "276",
+					height: "16",
+					rx: "4",
+					fill: MUTED,
+					stroke: BORDER
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "406",
+					y: 106 + i * 30,
+					fontSize: "9.5",
+					fill: INK,
+					children: value
+				})
+			] }, label)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "398",
+				y: "212",
+				width: "82",
+				height: "30",
+				rx: "6",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "439",
+				y: "231",
+				textAnchor: "middle",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Upload image"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "490",
+				y: "212",
+				width: "184",
+				height: "30",
+				rx: "6",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "504",
+				y: "231",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Description supports [[links]]"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "398",
+				y1: "66",
+				x2: "362",
+				y2: "34",
+				anchor: "end",
+				children: "Everything about the node"
+			})
+		]
+	});
+}
+function PointsVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Points and prerequisites",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "652",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 130,
+				y: 140,
+				label: "Root",
+				active: true
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 280,
+				y: 100,
+				label: "A"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 280,
+				y: 190,
+				label: "B"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 440,
+				y: 145,
+				label: "C"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M147 140 L261 103 M147 140 L261 187 M299 104 L420 141",
+				stroke: SUB,
+				strokeWidth: "1.8",
+				fill: "none"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "205",
+				cy: "120",
+				r: "10",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "205",
+				y: "124",
+				textAnchor: "middle",
+				fontSize: "12",
+				fontWeight: "700",
+				fill: "#083344",
+				children: "+"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "330",
+				cy: "145",
+				r: "10",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "330",
+				y: "149",
+				textAnchor: "middle",
+				fontSize: "12",
+				fontWeight: "700",
+				fill: SUB,
+				children: "−"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "60",
+				y: "66",
+				children: "Talent points 4 / 7"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "212",
+				y: "66",
+				children: "Heritage 1 / 3"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "364",
+				y: "66",
+				children: "Attribute 2 / 5"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "440",
+				y: "204",
+				filled: true,
+				children: "Unlocks when A has a point"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "420",
+				y1: "145",
+				x2: "432",
+				y2: "82",
+				anchor: "end",
+				children: "Prerequisite gate"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "60",
+				y: "236",
+				fontSize: "9",
+				fill: SUB,
+				children: "Click + to invest · click − to refund · undo works on points too."
+			})
+		]
+	});
+}
+function CharacterVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Character sheet",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "200",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Details & abilities"
+			}),
+			[
+				"STR 16  +3",
+				"DEX 14  +2",
+				"CON 15  +2",
+				"INT 10  +0",
+				"WIS 12  +1",
+				"CHA 8  −1"
+			].map((row, i) => /* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: 90 + i * 24,
+				fontSize: "9.5",
+				fill: SUB,
+				children: row
+			}, row)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "246",
+				y: "46",
+				width: "220",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "260",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Vitals & skills"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "260",
+				y: "80",
+				width: "190",
+				height: "34",
+				rx: "6",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "270",
+				y: "94",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Hit points"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "270",
+				y: "108",
+				fontSize: "12",
+				fontWeight: "700",
+				fill: INK,
+				children: "42 / 48"
+			}),
+			[
+				"Athletics +5",
+				"Arcana +2",
+				"Stealth +4",
+				"Perception +3"
+			].map((row, i) => /* @__PURE__ */ jsx("text", {
+				x: "260",
+				y: 138 + i * 22,
+				fontSize: "9.5",
+				fill: SUB,
+				children: row
+			}, row)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "478",
+				y: "46",
+				width: "212",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "492",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Actions & inventory"
+			}),
+			[
+				"Attack",
+				"Spell",
+				"Short rest",
+				"Long rest"
+			].map((row, i) => /* @__PURE__ */ jsx(Row, {
+				x: "492",
+				y: 80 + i * 30,
+				w: "184",
+				label: row,
+				height: 24
+			}, row)),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "492",
+				y: "210",
+				children: "Weight 38 / 90 lb"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "100",
+				y1: "46",
+				x2: "100",
+				y2: "30",
+				children: "Filled in by the tree"
+			})
+		]
+	});
+}
+function IndexVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Reference Index",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "196",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Source & category"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "48",
+				y: "78",
+				width: "168",
+				height: "20",
+				rx: "5",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "56",
+				y: "92",
+				fontSize: "9",
+				fill: SUB,
+				children: "5eTools · official"
+			}),
+			[
+				"Spells",
+				"Monsters",
+				"Items",
+				"Conditions"
+			].map((row, i) => /* @__PURE__ */ jsx(Row, {
+				x: "48",
+				y: 110 + i * 30,
+				w: "168",
+				label: row,
+				active: i === 0,
+				height: 24
+			}, row)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "246",
+				y: "46",
+				width: "240",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "260",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Files"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "260",
+				y: "78",
+				width: "212",
+				height: "18",
+				rx: "4",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "268",
+				y: "91",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Find a file…"
+			}),
+			[
+				"book-phb.json",
+				"book-xge.json",
+				"spells.json"
+			].map((row, i) => /* @__PURE__ */ jsx(Row, {
+				x: "260",
+				y: 104 + i * 28,
+				w: "212",
+				label: row,
+				height: 22
+			}, row)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "502",
+				y: "46",
+				width: "188",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "516",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Preview"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "516",
+				y: "88",
+				fontSize: "9",
+				fill: SUB,
+				children: "Fireball"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "516",
+				y: "98",
+				width: "160",
+				height: "44",
+				rx: "5",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "524",
+				y: "116",
+				fontSize: "8",
+				fill: SUB,
+				children: "3rd-level evocation"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "524",
+				y: "130",
+				fontSize: "8",
+				fill: SUB,
+				children: "8d6 fire damage…"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "516",
+				y: "154",
+				width: "160",
+				height: "22",
+				rx: "5",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "596",
+				y: "169",
+				textAnchor: "middle",
+				fontSize: "9",
+				fontWeight: "700",
+				fill: "#083344",
+				children: "Import selected"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "516",
+				y: "182",
+				width: "160",
+				height: "22",
+				rx: "5",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "596",
+				y: "197",
+				textAnchor: "middle",
+				fontSize: "9",
+				fill: SUB,
+				children: "Import all"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "516",
+				y: "216",
+				children: "Import history can undo"
+			})
+		]
+	});
+}
+function LibraryVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Reference Library",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "300",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			[
+				"Monsters",
+				"Spells",
+				"Items",
+				"Rooms"
+			].map((row, i) => /* @__PURE__ */ jsx("rect", {
+				x: 44 + i * 70,
+				y: "54",
+				width: "64",
+				height: "22",
+				rx: "5",
+				fill: i === 0 ? HOT : MUTED,
+				fillOpacity: i === 0 ? .16 : 1,
+				stroke: i === 0 ? HOT : BORDER
+			}, row)),
+			[
+				"Monsters",
+				"Spells",
+				"Items",
+				"Rooms"
+			].map((row, i) => /* @__PURE__ */ jsx("text", {
+				x: 76 + i * 70,
+				y: "69",
+				textAnchor: "middle",
+				fontSize: "8.5",
+				fontWeight: i === 0 ? 700 : 500,
+				fill: i === 0 ? INK : SUB,
+				children: row
+			}, row)),
+			[
+				"Ancient Red Dragon",
+				"Adult Black Dragon",
+				"Goblin Boss",
+				"Owlbear",
+				"Stirge"
+			].map((row, i) => /* @__PURE__ */ jsxs("g", { children: [
+				/* @__PURE__ */ jsx("rect", {
+					x: "44",
+					y: 88 + i * 30,
+					width: "280",
+					height: "24",
+					rx: "5",
+					fill: i === 0 ? MUTED : BG,
+					stroke: BORDER
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "54",
+					y: 104 + i * 30,
+					fontSize: "9",
+					fill: SUB,
+					children: row
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "300",
+					y: 104 + i * 30,
+					textAnchor: "end",
+					fontSize: "8",
+					fill: SUB,
+					children: "CR"
+				})
+			] }, row)),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "44",
+				y: "240",
+				children: "Editable: imports are a starting point"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "358",
+				y: "46",
+				width: "328",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "374",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Drag an entry onto the canvas"
+			}),
+			/* @__PURE__ */ jsx(Node, {
+				x: 520,
+				y: 160,
+				label: "Dragon",
+				active: true,
+				r: 30
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M340 160 C380 160 420 160 486 160",
+				stroke: HOT,
+				strokeWidth: "2",
+				fill: "none",
+				strokeDasharray: "5 4"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M478 153 L488 160 L478 167",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "392",
+				y: "200",
+				filled: true,
+				children: "Drop here"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "374",
+				y: "236",
+				fontSize: "9",
+				fill: SUB,
+				children: "Name, stat block, text and artwork arrive together."
+			})
+		]
+	});
+}
+function DragVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Drag data onto the workspace",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "280",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "5eTools Imports"
+			}),
+			[
+				"Fireball",
+				"Mage Armor",
+				"Shield",
+				"Misty Step"
+			].map((row, i) => /* @__PURE__ */ jsxs("g", { children: [
+				/* @__PURE__ */ jsx("rect", {
+					x: "48",
+					y: 80 + i * 34,
+					width: "252",
+					height: "26",
+					rx: "5",
+					fill: i === 1 ? MUTED : BG,
+					stroke: i === 1 ? HOT : BORDER,
+					strokeDasharray: i === 1 ? "4 2" : void 0
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "58",
+					y: 97 + i * 34,
+					fontSize: "9",
+					fill: SUB,
+					children: row
+				}),
+				i === 1 && /* @__PURE__ */ jsx("text", {
+					x: "292",
+					y: 97 + i * 34,
+					textAnchor: "end",
+					fontSize: "8",
+					fill: HOT,
+					children: "grabbed"
+				})
+			] }, row)),
+			/* @__PURE__ */ jsx(Node, {
+				x: 470,
+				y: 140,
+				label: "New",
+				active: true,
+				r: 34
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M300 108 C360 108 404 122 436 138",
+				stroke: HOT,
+				strokeWidth: "2.2",
+				fill: "none",
+				strokeDasharray: "6 4"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M428 130 L440 139 L426 145",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "330",
+				y: "166",
+				filled: true,
+				children: "Drop to create a node"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "330",
+				y: "200",
+				fontSize: "9",
+				fill: SUB,
+				children: "The entry text and artwork come with it."
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "330",
+				y: "216",
+				width: "320",
+				height: "28",
+				rx: "6",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "342",
+				y: "234",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Ctrl/⌘+K also finds entries you have not imported yet."
+			})
+		]
+	});
+}
+function RulebookVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Rulebook",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "170",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Contents"
+			}),
+			[
+				"Credits",
+				"Chapter 1",
+				"Chapter 2",
+				"Appendix"
+			].map((row, i) => /* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: 92 + i * 24,
+				fontSize: "9.5",
+				fill: i === 1 ? HOT : SUB,
+				fontWeight: i === 1 ? 700 : 400,
+				children: row
+			}, row)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "216",
+				y: "46",
+				width: "474",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "238",
+				y: "76",
+				fontSize: "15",
+				fontWeight: "700",
+				fill: INK,
+				children: "Chapter 1 · The Sundered Coast"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "238",
+				y: "88",
+				width: "180",
+				height: "2",
+				fill: HOT
+			}),
+			[
+				0,
+				1,
+				2,
+				3
+			].map((i) => /* @__PURE__ */ jsx("rect", {
+				x: "238",
+				y: 106 + i * 12,
+				width: i === 3 ? 260 : 420,
+				height: "5",
+				rx: "2.5",
+				fill: SUB,
+				opacity: "0.45"
+			}, i)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "238",
+				y: "164",
+				width: "230",
+				height: "76",
+				rx: "6",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "353",
+				y: "206",
+				textAnchor: "middle",
+				fontSize: "9",
+				fill: SUB,
+				children: "Illustration"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "484",
+				y: "164",
+				children: "Image"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "540",
+				y: "164",
+				children: "Page break"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "484",
+				y: "188",
+				children: ".md"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "528",
+				y: "188",
+				children: "Print / PDF"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "484",
+				y: "226",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Markdown, Homebrewery style."
+			})
+		]
+	});
+}
+function DungeonVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Dungeon Builder",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "500",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			[
+				[
+					70,
+					70,
+					90,
+					56
+				],
+				[
+					170,
+					70,
+					74,
+					56
+				],
+				[
+					70,
+					136,
+					60,
+					66
+				],
+				[
+					138,
+					146,
+					90,
+					56
+				],
+				[
+					254,
+					70,
+					110,
+					100
+				],
+				[
+					374,
+					106,
+					120,
+					76
+				],
+				[
+					254,
+					182,
+					240,
+					20
+				]
+			].map(([x, y, w, h], i) => /* @__PURE__ */ jsx("rect", {
+				x,
+				y,
+				width: w,
+				height: h,
+				rx: "3",
+				fill: HOT,
+				fillOpacity: i === 4 ? .16 : .07,
+				stroke: i === 4 ? HOT : BORDER
+			}, i)),
+			/* @__PURE__ */ jsx("text", {
+				x: "94",
+				y: "102",
+				textAnchor: "middle",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "1"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "207",
+				y: "102",
+				textAnchor: "middle",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "2"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "183",
+				y: "178",
+				textAnchor: "middle",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "3"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "309",
+				y: "126",
+				textAnchor: "middle",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "4"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "434",
+				y: "148",
+				textAnchor: "middle",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "5"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "309",
+				cy: "118",
+				r: "4",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "319",
+				y: "121",
+				fontSize: "8.5",
+				fill: HOT,
+				children: "current"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "180",
+				y1: "178",
+				x2: "170",
+				y2: "238",
+				anchor: "end",
+				children: "Fog of war in Session"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "550",
+				y: "46",
+				width: "140",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "564",
+				y: "68",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "Generate"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "564",
+				y: "78",
+				children: "Dungeon"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "564",
+				y: "102",
+				children: "Spire"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "564",
+				y: "130",
+				width: "112",
+				height: "20",
+				rx: "5",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "572",
+				y: "144",
+				fontSize: "8.5",
+				fill: SUB,
+				children: "Rank · seed"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "564",
+				y: "160",
+				width: "112",
+				height: "24",
+				rx: "5",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "620",
+				y: "176",
+				textAnchor: "middle",
+				fontSize: "9",
+				fontWeight: "700",
+				fill: "#083344",
+				children: "Generate"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "564",
+				y: "194",
+				children: "Export PNG/PDF"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "564",
+				y: "218",
+				children: "Universal VTT"
+			})
+		]
+	});
+}
+function WorldVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "World Builder",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "500",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M60 210 C90 150 120 160 140 120 C160 80 220 92 250 70 C290 40 360 60 400 90 C440 120 470 118 500 150 L500 240 L60 240 Z",
+				fill: HOT,
+				fillOpacity: "0.08",
+				stroke: HOT,
+				strokeOpacity: "0.4"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M120 180 C170 160 210 190 260 150 C300 118 350 140 420 120",
+				stroke: SUB,
+				strokeWidth: "1.6",
+				fill: "none",
+				strokeDasharray: "4 3"
+			}),
+			[
+				[
+					120,
+					180,
+					"Capital"
+				],
+				[
+					260,
+					150,
+					"Port"
+				],
+				[
+					420,
+					120,
+					"Keep"
+				],
+				[
+					330,
+					190,
+					"Village"
+				]
+			].map(([x, y, label]) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("circle", {
+				cx: x,
+				cy: y,
+				r: "5",
+				fill: HOT
+			}), /* @__PURE__ */ jsx("text", {
+				x: x + 9,
+				y: y + 3,
+				fontSize: "8.5",
+				fill: SUB,
+				children: label
+			})] }, label)),
+			/* @__PURE__ */ jsx("text", {
+				x: "70",
+				y: "70",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "The Sundered Coast"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "60",
+				y: "220",
+				children: "Zoom · drag · paint territory · draw roads"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "550",
+				y: "46",
+				width: "140",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			[
+				"Realms",
+				"Kingdoms",
+				"Settlements",
+				"People",
+				"Quests",
+				"Clock"
+			].map((row, i) => /* @__PURE__ */ jsx(Row, {
+				x: "562",
+				y: 58 + i * 29,
+				w: "116",
+				label: row,
+				active: i === 2,
+				height: 22
+			}, row)),
+			/* @__PURE__ */ jsx("text", {
+				x: "562",
+				y: "244",
+				fontSize: "8",
+				fill: SUB,
+				children: "Monthly kingdom turns"
+			})
+		]
+	});
+}
+function ArchitectVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Architect",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "500",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			[
+				0,
+				1,
+				2,
+				3,
+				4
+			].map((i) => /* @__PURE__ */ jsx("line", {
+				x1: 70 + i * 88,
+				y1: "66",
+				x2: 70 + i * 88,
+				y2: "234",
+				stroke: BORDER,
+				strokeWidth: "0.7"
+			}, `v${i}`)),
+			[
+				0,
+				1,
+				2,
+				3
+			].map((i) => /* @__PURE__ */ jsx("line", {
+				x1: 70,
+				y1: 74 + i * 40,
+				x2: 422,
+				y2: 74 + i * 40,
+				stroke: BORDER,
+				strokeWidth: "0.7"
+			}, `h${i}`)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "70",
+				y: "74",
+				width: "176",
+				height: "120",
+				rx: "3",
+				fill: MUTED,
+				stroke: INK,
+				strokeWidth: "1.4"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "246",
+				y: "74",
+				width: "176",
+				height: "80",
+				rx: "3",
+				fill: MUTED,
+				stroke: INK,
+				strokeWidth: "1.4"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "246",
+				y: "154",
+				width: "88",
+				height: "80",
+				rx: "3",
+				fill: MUTED,
+				stroke: INK,
+				strokeWidth: "1.4"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "334",
+				y: "154",
+				width: "88",
+				height: "80",
+				rx: "3",
+				fill: MUTED,
+				stroke: INK,
+				strokeWidth: "1.4"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "158",
+				y: "112",
+				textAnchor: "middle",
+				fontSize: "9",
+				fill: SUB,
+				children: "Great room"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "334",
+				y: "110",
+				textAnchor: "middle",
+				fontSize: "9",
+				fill: SUB,
+				children: "Kitchen"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "290",
+				y: "196",
+				textAnchor: "middle",
+				fontSize: "9",
+				fill: SUB,
+				children: "Bed"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "378",
+				y: "196",
+				textAnchor: "middle",
+				fontSize: "9",
+				fill: SUB,
+				children: "Bed"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "150",
+				y: "194",
+				width: "34",
+				height: "16",
+				rx: "2",
+				fill: SUB,
+				opacity: "0.4"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "360",
+				y: "88",
+				width: "30",
+				height: "18",
+				rx: "2",
+				fill: SUB,
+				opacity: "0.4"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M246 194 L270 194 M334 194 L358 194",
+				stroke: CARD,
+				strokeWidth: "4"
+			}),
+			/* @__PURE__ */ jsx("path", {
+				d: "M158 154 L158 174 M178 154 L178 174 M166 154 L166 166",
+				stroke: INK,
+				strokeWidth: "1.2"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "70",
+				y: "222",
+				children: "Walls · doors · stairs · furniture"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "550",
+				y: "46",
+				width: "140",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "564",
+				y: "68",
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: "Property"
+			}),
+			[
+				["Build cost", "4,850 gp"],
+				["Build time", "6 weeks"],
+				["Upkeep", "35 gp / mo"],
+				["Space", "18 / 24"]
+			].map(([k, v], i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("text", {
+				x: "564",
+				y: 92 + i * 30,
+				fontSize: "8",
+				fill: SUB,
+				children: k
+			}), /* @__PURE__ */ jsx("text", {
+				x: "564",
+				y: 104 + i * 30,
+				fontSize: "10",
+				fontWeight: "700",
+				fill: INK,
+				children: v
+			})] }, k)),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "564",
+				y: "220",
+				filled: true,
+				children: "Buy land tiles"
+			})
+		]
+	});
+}
+function DmVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "DM Screen",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "300",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "48",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Dice"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "90",
+				cy: "118",
+				r: "26",
+				fill: HOT,
+				fillOpacity: "0.14",
+				stroke: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "90",
+				y: "123",
+				textAnchor: "middle",
+				fontSize: "16",
+				fontWeight: "700",
+				fill: INK,
+				children: "d20"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "168",
+				cy: "118",
+				r: "22",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "168",
+				y: "122",
+				textAnchor: "middle",
+				fontSize: "11",
+				fill: SUB,
+				children: "d12"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "232",
+				cy: "118",
+				r: "22",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "232",
+				y: "122",
+				textAnchor: "middle",
+				fontSize: "11",
+				fill: SUB,
+				children: "d8"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "62",
+				y: "164",
+				width: "180",
+				height: "26",
+				rx: "6",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "152",
+				y: "181",
+				textAnchor: "middle",
+				fontSize: "9.5",
+				fontWeight: "700",
+				fill: "#083344",
+				children: "Roll 1d20 + 5"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "62",
+				y: "204",
+				children: "Advantage / disadvantage"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "350",
+				y: "46",
+				width: "336",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "366",
+				y: "68",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Initiative & conditions"
+			}),
+			[
+				[
+					"1",
+					"Ancient Red Dragon",
+					"21"
+				],
+				[
+					"2",
+					"Kaelen",
+					"18"
+				],
+				[
+					"3",
+					"Goblin boss",
+					"15"
+				],
+				[
+					"4",
+					"Mira",
+					"12"
+				]
+			].map(([n, name, init], i) => /* @__PURE__ */ jsxs("g", { children: [
+				/* @__PURE__ */ jsx("rect", {
+					x: "366",
+					y: 80 + i * 32,
+					width: "304",
+					height: "26",
+					rx: "5",
+					fill: i === 1 ? MUTED : BG,
+					stroke: BORDER
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "378",
+					y: 97 + i * 32,
+					fontSize: "9",
+					fontWeight: "700",
+					fill: SUB,
+					children: n
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "396",
+					y: 97 + i * 32,
+					fontSize: "9.5",
+					fill: INK,
+					children: name
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "652",
+					y: 97 + i * 32,
+					textAnchor: "end",
+					fontSize: "9",
+					fontWeight: "700",
+					fill: HOT,
+					children: init
+				})
+			] }, name)),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "366",
+				y: "212",
+				children: "HP · conditions · activity log"
+			})
+		]
+	});
+}
+function SaveVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Save and load",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "652",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "52",
+				y: "70",
+				fontSize: "11",
+				fontWeight: "700",
+				fill: INK,
+				children: "Save / Load"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "52",
+				y: "82",
+				filled: true,
+				children: "Project bundle"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "176",
+				y: "82",
+				children: "Tree only"
+			}),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "262",
+				y: "82",
+				children: "Sheet only"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "52",
+				y: "114",
+				width: "300",
+				height: "60",
+				rx: "7",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "66",
+				y: "134",
+				fontSize: "9",
+				fill: SUB,
+				children: "Exports tree + sheet + plots + library"
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "66",
+				y: "152",
+				fontSize: "9",
+				fill: SUB,
+				children: "Artwork is embedded in the file."
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "52",
+				y: "186",
+				width: "120",
+				height: "26",
+				rx: "6",
+				fill: HOT
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "112",
+				y: "203",
+				textAnchor: "middle",
+				fontSize: "9.5",
+				fontWeight: "700",
+				fill: "#083344",
+				children: "Save file"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "184",
+				y: "186",
+				width: "120",
+				height: "26",
+				rx: "6",
+				fill: MUTED,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "244",
+				y: "203",
+				textAnchor: "middle",
+				fontSize: "9.5",
+				fill: SUB,
+				children: "Load file"
+			}),
+			/* @__PURE__ */ jsx("rect", {
+				x: "378",
+				y: "114",
+				width: "288",
+				height: "98",
+				rx: "7",
+				fill: BG,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "392",
+				y: "134",
+				fontSize: "9.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Rotating backups"
+			}),
+			[
+				"10:32 · before import",
+				"09:58 · before new project",
+				"Yesterday · manual"
+			].map((row, i) => /* @__PURE__ */ jsxs("g", { children: [/* @__PURE__ */ jsx("text", {
+				x: "392",
+				y: 154 + i * 18,
+				fontSize: "8.5",
+				fill: SUB,
+				children: row
+			}), /* @__PURE__ */ jsx("text", {
+				x: "646",
+				y: 154 + i * 18,
+				textAnchor: "end",
+				fontSize: "8",
+				fill: HOT,
+				children: "Restore"
+			})] }, row)),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "378",
+				y: "222",
+				children: "Settings → Project"
+			}),
+			/* @__PURE__ */ jsx(Callout, {
+				x1: "52",
+				y1: "82",
+				x2: "14",
+				y2: "60",
+				children: "Portable backup"
+			})
+		]
+	});
+}
+function ShortcutsVisual() {
+	return /* @__PURE__ */ jsxs(Frame, {
+		label: "Shortcuts",
+		children: [
+			/* @__PURE__ */ jsx("rect", {
+				x: "34",
+				y: "46",
+				width: "652",
+				height: "212",
+				rx: "10",
+				fill: CARD,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "52",
+				y: "70",
+				fontSize: "10.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Keyboard shortcuts"
+			}),
+			[
+				[
+					"Ctrl",
+					"K",
+					"Search everything"
+				],
+				[
+					"Ctrl",
+					"Z",
+					"Undo"
+				],
+				[
+					"Ctrl",
+					"Shift",
+					"Z",
+					"Redo"
+				],
+				[
+					"Alt",
+					"Click",
+					"Connect two nodes"
+				],
+				[
+					"Del",
+					"",
+					"Delete selection"
+				],
+				[
+					"R",
+					"",
+					"Rotate"
+				]
+			].map(([k1, k2, label], i) => /* @__PURE__ */ jsxs("g", { children: [
+				/* @__PURE__ */ jsx("rect", {
+					x: "52",
+					y: 84 + i * 26,
+					width: "34",
+					height: "20",
+					rx: "4",
+					fill: MUTED,
+					stroke: BORDER
+				}),
+				/* @__PURE__ */ jsx("text", {
+					x: "69",
+					y: 98 + i * 26,
+					textAnchor: "middle",
+					fontSize: "8.5",
+					fontWeight: "600",
+					fill: INK,
+					children: k1
+				}),
+				k2 && /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx("rect", {
+					x: "94",
+					y: 84 + i * 26,
+					width: "34",
+					height: "20",
+					rx: "4",
+					fill: MUTED,
+					stroke: BORDER
+				}), /* @__PURE__ */ jsx("text", {
+					x: "111",
+					y: 98 + i * 26,
+					textAnchor: "middle",
+					fontSize: "8.5",
+					fontWeight: "600",
+					fill: INK,
+					children: k2
+				})] }),
+				/* @__PURE__ */ jsx("text", {
+					x: "146",
+					y: 98 + i * 26,
+					fontSize: "9",
+					fill: SUB,
+					children: label
+				})
+			] }, label)),
+			/* @__PURE__ */ jsx("rect", {
+				x: "360",
+				y: "84",
+				width: "306",
+				height: "152",
+				rx: "8",
+				fill: BG,
+				stroke: BORDER
+			}),
+			/* @__PURE__ */ jsx("text", {
+				x: "376",
+				y: "106",
+				fontSize: "9.5",
+				fontWeight: "700",
+				fill: INK,
+				children: "Rebind in Settings"
+			}),
+			[
+				"Shortcuts & Hotkeys",
+				"Connectors",
+				"Node Artwork"
+			].map((row, i) => /* @__PURE__ */ jsx(Row, {
+				x: "376",
+				y: 118 + i * 30,
+				w: "274",
+				label: row,
+				active: i === 0,
+				height: 24
+			}, row)),
+			/* @__PURE__ */ jsx(Tag, {
+				x: "376",
+				y: "212",
+				children: "Help has quick-reference cards too"
+			})
+		]
+	});
+}
+var VISUALS = {
+	welcome: LaunchVisual,
+	launch: LaunchVisual,
+	canvas: CanvasVisual,
+	tabs: TabsVisual,
+	node: NodeVisual,
+	points: PointsVisual,
+	character: CharacterVisual,
+	index: IndexVisual,
+	library: LibraryVisual,
+	drag: DragVisual,
+	rulebook: RulebookVisual,
+	dungeon: DungeonVisual,
+	world: WorldVisual,
+	architect: ArchitectVisual,
+	dm: DmVisual,
+	save: SaveVisual,
+	shortcuts: ShortcutsVisual
+};
+function TutorialVisual({ kind }) {
+	const Visual = VISUALS[kind] || LaunchVisual;
+	return /* @__PURE__ */ jsx(Visual, {});
+}
+//#endregion
 //#region src/components/skilltree/OnboardingTour.jsx
 var STEPS = [
 	{
@@ -85340,7 +87862,7 @@ var STEPS = [
 			"The launch menu is the hub. Every major tool can be opened from there.",
 			"Use Ctrl/⌘+K at any time to search the whole project."
 		],
-		tip: "If you are brand new, follow the steps in order once. You can reopen this tutorial from Settings → Help."
+		tip: "Follow the steps in order once. Reopen it any time from Settings → Help → Start tutorial, or the Tutorial button at the top of the launch menu."
 	},
 	{
 		id: "launch",
@@ -85619,6 +88141,17 @@ function OnboardingTour() {
 	const [open, setOpen] = useState(() => !settings?.tourDone);
 	const [step, setStep] = useState(0);
 	const bodyRef = useRef(null);
+	const close = useCallback(() => {
+		setOpen(false);
+		setSettings((s) => s.tourDone ? s : {
+			...s,
+			tourDone: true
+		});
+	}, [setSettings]);
+	useEffect(() => {
+		setTutorialOpen(open);
+		return () => setTutorialOpen(false);
+	}, [open]);
 	useEffect(() => {
 		const start = () => {
 			setStep(0);
@@ -85633,16 +88166,17 @@ function OnboardingTour() {
 			behavior: "auto"
 		});
 	}, [step]);
+	useEffect(() => {
+		if (!open) return void 0;
+		const onKey = (event) => {
+			if (event.key === "Escape") close();
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [open, close]);
 	if (!open) return null;
 	const item = STEPS[step];
 	const Icon = item.icon;
-	const close = () => {
-		setOpen(false);
-		if (!settings?.tourDone) setSettings((s) => ({
-			...s,
-			tourDone: true
-		}));
-	};
 	const runAction = () => {
 		if (!item.action) return;
 		close();
@@ -85650,6 +88184,9 @@ function OnboardingTour() {
 	};
 	return /* @__PURE__ */ jsx("div", {
 		className: "fixed inset-0 z-[95] flex items-center justify-center bg-black/70 p-3",
+		role: "dialog",
+		"aria-modal": "true",
+		"aria-label": "New player tutorial",
 		children: /* @__PURE__ */ jsxs("div", {
 			className: "flex max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-xl border bg-background shadow-2xl",
 			children: [/* @__PURE__ */ jsxs("aside", {
@@ -85717,9 +88254,36 @@ function OnboardingTour() {
 						ref: bodyRef,
 						className: "min-h-0 flex-1 overflow-y-auto px-4 py-3",
 						children: [
+							/* @__PURE__ */ jsx("div", {
+								className: "mb-3 overflow-x-auto rounded-lg border bg-card shadow-sm",
+								children: /* @__PURE__ */ jsx("div", {
+									className: "min-w-[540px] sm:min-w-0",
+									children: /* @__PURE__ */ jsx(TutorialVisual, { kind: item.id })
+								})
+							}),
 							/* @__PURE__ */ jsx("p", {
 								className: "text-sm leading-relaxed text-muted-foreground",
 								children: item.intro
+							}),
+							step === 0 && /* @__PURE__ */ jsxs("div", {
+								className: "mt-3 flex gap-2 rounded-md border border-primary/40 bg-primary/5 px-3 py-2",
+								children: [/* @__PURE__ */ jsx(HelpCircle, { className: "mt-0.5 h-4 w-4 shrink-0 text-primary" }), /* @__PURE__ */ jsxs("div", {
+									className: "min-w-0",
+									children: [/* @__PURE__ */ jsx("p", {
+										className: "text-xs font-semibold",
+										children: "Reopen this tutorial any time"
+									}), /* @__PURE__ */ jsxs("p", {
+										className: "text-[11px] leading-relaxed text-muted-foreground",
+										children: [
+											"Open ",
+											/* @__PURE__ */ jsx("strong", { children: "Settings → Help → Start tutorial" }),
+											", or use the",
+											" ",
+											/* @__PURE__ */ jsx("strong", { children: "Tutorial" }),
+											" button at the top of the launch menu."
+										]
+									})]
+								})]
 							}),
 							/* @__PURE__ */ jsx("ul", {
 								className: "mt-3 space-y-1.5",

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
+import { isTutorialOpen, subscribeTutorialOpen } from "@/lib/tutorialState";
 import {
   applyServiceWorkerUpdate,
   checkForUpdates,
@@ -25,6 +26,14 @@ export function UpdatePrompt() {
   const { settings } = useTree();
   const updates = useAppUpdates();
   const checkedUrl = useRef("");
+  const [tutorialOpen, setTutorialOpenState] = useState(isTutorialOpen);
+
+  useEffect(() => {
+    // Sync on subscribe too: the tour may have opened before this component's
+    // effects ran, since it lives inside the workspace subtree.
+    setTutorialOpenState(isTutorialOpen());
+    return subscribeTutorialOpen(() => setTutorialOpenState(isTutorialOpen()));
+  }, []);
 
   useEffect(() => {
     registerServiceWorker();
@@ -62,7 +71,9 @@ export function UpdatePrompt() {
 
   const apkUpdate = updates.update?.kind === "apk" ? updates.update : null;
   const serviceWorkerUpdate = !!updates.waiting && !updates.hidden;
-  const open = !!apkUpdate || serviceWorkerUpdate;
+  // A modal update dialog under the tutorial disables tutorial clicks. Wait
+  // until the tour is closed, then show the pending update.
+  const open = (!!apkUpdate || serviceWorkerUpdate) && !tutorialOpen;
   if (!open) return null;
 
   const close = () => dismissUpdate();

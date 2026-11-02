@@ -33,6 +33,7 @@ import {
   Globe2,
   Boxes,
   Smartphone,
+  GraduationCap,
 } from "lucide-react";
 
 // First-run main menu: shown before the workspace until an option is picked.
@@ -130,6 +131,15 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             <Smartphone className="h-5 w-5" />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial"))}
+          title="Open the tutorial"
+          aria-label="Open the tutorial"
+          className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent"
+        >
+          <GraduationCap className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
