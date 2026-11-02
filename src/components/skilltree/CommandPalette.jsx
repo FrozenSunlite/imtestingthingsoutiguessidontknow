@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { Input } from "@/components/ui/input";
+import { entryName } from "@/lib/textSearch";
 import { Search } from "lucide-react";
 
 // Global Ctrl/Cmd+K command palette. It searches nodes, tabs, library entries,
@@ -65,10 +66,11 @@ export function CommandPalette() {
     Object.entries(library).forEach(([key, value]) => {
       if (!Array.isArray(value)) return;
       value.forEach((entry) => {
-        if (!entry || typeof entry !== "object" || !entry.name) return;
+        const label = entryName(entry);
+        if (!label) return;
         add({
           kind: "Library",
-          label: entry.name,
+          label,
           detail: key,
           run: () => {
             window.dispatchEvent(
@@ -82,7 +84,7 @@ export function CommandPalette() {
     Object.entries(library.lists || {}).forEach(([key, value]) => {
       if (!Array.isArray(value)) return;
       value.forEach((entry) => {
-        const label = typeof entry === "string" ? entry : entry?.name;
+        const label = entryName(entry);
         if (!label) return;
         add({
           kind: "List",
@@ -100,10 +102,11 @@ export function CommandPalette() {
     Object.entries(library.fiveETools || {}).forEach(([key, value]) => {
       if (!Array.isArray(value)) return;
       value.forEach((entry) => {
-        if (!entry?.name) return;
+        const label = entryName(entry);
+        if (!label) return;
         add({
           kind: "5eTools",
-          label: entry.name,
+          label,
           detail: `${key}${entry.source ? ` · ${entry.source}` : ""}`,
           run: () => {
             window.dispatchEvent(new CustomEvent("skilltree:open-library"));

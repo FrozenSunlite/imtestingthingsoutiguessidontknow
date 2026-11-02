@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C8RcjWjP.js";
+import { n as Button, r as cn } from "./router-DDSHiSXe.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -4540,7 +4540,7 @@ function entriesFromRaw(raw, preferredProp = "") {
 	if (raw.name) return [raw];
 	return [];
 }
-var entryName$1 = (entry) => String(entry?.name || entry?.title || entry?.caption || entry?.abbreviation || entry?.id || "Untitled");
+var entryName$2 = (entry) => String(entry?.name || entry?.title || entry?.caption || entry?.abbreviation || entry?.id || "Untitled");
 var entrySource = (entry) => [entry?.source, entry?.page ? `p.${entry.page}` : ""].filter(Boolean).join(" ");
 var entryMeta = (entry) => {
 	const bits = [];
@@ -10782,7 +10782,7 @@ function featuresFrom(raw, entry, subclass) {
 	const list = subclass ? raw.subclassFeature || [] : raw.classFeature || [];
 	return (subclass ? entry.subclassFeatures || [] : entry.classFeatures || []).map((ref) => featureFromRef(ref, list, subclass)).filter(Boolean).map((f) => ({
 		level: Number(f.level) || 0,
-		name: clean(f.name || entryName$1(f)),
+		name: clean(f.name || entryName$2(f)),
 		text: clean(f.entries)
 	})).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
 }
@@ -11399,7 +11399,7 @@ function entryDetails(categoryId, entry, raw, context = {}) {
 	};
 	const image = entryImage(entry);
 	return {
-		name: body.name || entryName$1(entry),
+		name: body.name || entryName$2(entry),
 		source: clean(entry.source || entry.classSource || entry.id),
 		page: entry.page,
 		edition: clean(entry.edition),
@@ -11515,7 +11515,7 @@ function subclassUnlockLevel(settings, tree, className, classSource) {
 }
 var listFor = (settings, category) => Array.isArray(settings?.library?.fiveETools?.[category]) ? settings.library.fiveETools[category] : [];
 var isSubclassEntry$1 = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
-var keyOf$2 = (entry) => `${entryName$1(entry)}|${entry?.source || entry?.classSource || ""}`;
+var keyOf$2 = (entry) => `${entryName$2(entry)}|${entry?.source || entry?.classSource || ""}`;
 var uniqueEntries = (entries) => {
 	const seen = /* @__PURE__ */ new Set();
 	return entries.filter((entry) => {
@@ -11537,10 +11537,10 @@ function classChoices(settings) {
 function subclassChoices(settings, className, classSource) {
 	return uniqueEntries(listFor(settings, "classes").filter((entry) => isSubclassEntry$1(entry) && entry.className === className && (!classSource || !entry.classSource || entry.classSource === classSource))).map((entry) => ({
 		id: `${keyOf$2(entry)}|${entry.classSource || ""}`,
-		name: entryName$1(entry),
+		name: entryName$2(entry),
 		source: entry.source || "",
 		entry,
-		label: `${entryName$1(entry)}${entry.source ? ` (${entry.source})` : ""}`
+		label: `${entryName$2(entry)}${entry.source ? ` (${entry.source})` : ""}`
 	})).sort((a, b) => a.label.localeCompare(b.label));
 }
 function raceChoices(settings) {
@@ -11571,7 +11571,7 @@ function featChoices(settings) {
 	})).sort((a, b) => a.label.localeCompare(b.label));
 }
 function findBackground(settings, name, source) {
-	return listFor(settings, "backgrounds").find((entry) => entryName$1(entry) === name && (!source || entry.source === source)) || null;
+	return listFor(settings, "backgrounds").find((entry) => entryName$2(entry) === name && (!source || entry.source === source)) || null;
 }
 function backgroundFeatureLines(entry) {
 	const out = [];
@@ -11605,7 +11605,7 @@ function backgroundInfo(settings, character) {
 	if (!entry) return null;
 	const details = entryDetails("backgrounds", entry);
 	return {
-		name: entryName$1(entry),
+		name: entryName$2(entry),
 		source: entry.source || "",
 		entry,
 		details,
@@ -11652,7 +11652,7 @@ function backgroundOptionGroups(entry) {
 		if (nodes.type === "options" && Array.isArray(nodes.entries)) {
 			const choices = nodes.entries.map((option, index) => ({
 				id: `${index}`,
-				label: entryName$1(option) || `Option ${index + 1}`
+				label: entryName$2(option) || `Option ${index + 1}`
 			})).filter((choice) => choice.label);
 			if (choices.length > 1) groups.push({
 				id: `options-${groups.length}`,
@@ -14095,6 +14095,16 @@ function normText(value) {
 		s = "";
 	}
 	return s.normalize("NFKC").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+function entryName$1(value) {
+	if (value == null) return "";
+	if (typeof value === "string" || typeof value === "number") return String(value);
+	if (typeof value === "object") {
+		const name = value.name;
+		if (typeof name === "string" || typeof name === "number") return String(name);
+		if (name && typeof name === "object") return entryName$1(name);
+	}
+	return "";
 }
 function matchesQuery(value, query) {
 	const q = normText(query);
@@ -20877,13 +20887,13 @@ function FiveEToolsImportsTab() {
 	const [sourceShortcut, setSourceShortcut] = useState("");
 	const active = categories.includes(category) ? category : categories[0] || "";
 	const list = data[active] || [];
-	const shown = useMemo(() => list.filter((e) => `${entryName$1(e)} ${entrySource(e)}`.toLowerCase().includes(query.trim().toLowerCase())), [list, query]);
+	const shown = useMemo(() => list.filter((e) => `${entryName$2(e)} ${entrySource(e)}`.toLowerCase().includes(query.trim().toLowerCase())), [list, query]);
 	const details = useMemo(() => preview ? entryDetails(active, preview, null) : null, [active, preview]);
 	const dragPayload = (entry) => {
 		const d = entryDetails(active, entry, null);
 		const image = typeof entry?.image === "string" && /^(data:|\/images\/|\/api\/|https?:)/i.test(entry.image) ? entry.image : "";
 		return JSON.stringify({
-			name: entryName$1(entry),
+			name: entryName$2(entry),
 			flavor: `${labelFor(active)} · ${entrySource(entry)}`.trim(),
 			description: entryDetailsMarkdown(d),
 			image,
@@ -20986,12 +20996,12 @@ function FiveEToolsImportsTab() {
 						className: `flex w-full cursor-grab items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] active:cursor-grabbing ${preview === e ? "bg-accent" : "hover:bg-accent/50"}`,
 						children: [/* @__PURE__ */ jsx("span", {
 							className: "min-w-0 flex-1 truncate font-medium",
-							children: String(entryName$1(e))
+							children: String(entryName$2(e))
 						}), /* @__PURE__ */ jsx("span", {
 							className: "shrink-0 text-[10px] text-muted-foreground",
 							children: String(entrySource(e))
 						})]
-					}, `${entryName$1(e)}-${i}`)), shown.length === 0 && /* @__PURE__ */ jsx("p", {
+					}, `${entryName$2(e)}-${i}`)), shown.length === 0 && /* @__PURE__ */ jsx("p", {
 						className: "p-2 text-xs text-muted-foreground",
 						children: "No matches."
 					})]
@@ -21516,14 +21526,14 @@ function FiveEToolsCategoryTab({ categoryId }) {
 	const shown = useMemo(() => data.map((entry, index) => ({
 		entry,
 		index
-	})).filter(({ entry }) => `${entryName$1(entry)} ${entrySource(entry)}`.toLowerCase().includes(query.trim().toLowerCase())), [data, query]);
+	})).filter(({ entry }) => `${entryName$2(entry)} ${entrySource(entry)}`.toLowerCase().includes(query.trim().toLowerCase())), [data, query]);
 	const details = useMemo(() => preview ? entryDetails(categoryId, preview, null) : null, [categoryId, preview]);
 	const dragPayload = (entry) => {
 		const d = entryDetails(categoryId, entry, null);
 		const rawImage = entry?.image || entry?.img;
 		const image = typeof rawImage === "string" && /^(data:|\/images\/|\/api\/|https?:)/i.test(rawImage) ? rawImage : "";
 		return JSON.stringify({
-			name: entryName$1(entry),
+			name: entryName$2(entry),
 			flavor: `${label} · ${entrySource(entry)}`.trim(),
 			description: entryDetailsMarkdown(d),
 			image,
@@ -21682,12 +21692,12 @@ function FiveEToolsCategoryTab({ categoryId }) {
 					className: `flex w-full cursor-grab items-center gap-2 rounded px-1.5 py-1 text-left text-xs active:cursor-grabbing ${preview === entry ? "bg-accent" : "hover:bg-accent/50"}`,
 					children: [/* @__PURE__ */ jsx("span", {
 						className: "min-w-0 flex-1 truncate font-medium",
-						children: String(entryName$1(entry))
+						children: String(entryName$2(entry))
 					}), /* @__PURE__ */ jsx("span", {
 						className: "shrink-0 text-[10px] text-muted-foreground",
 						children: String(entrySource(entry))
 					})]
-				}, `${entryName$1(entry)}-${index}`)), shown.length === 0 && /* @__PURE__ */ jsx("p", {
+				}, `${entryName$2(entry)}-${index}`)), shown.length === 0 && /* @__PURE__ */ jsx("p", {
 					className: "p-2 text-xs text-muted-foreground",
 					children: "No matches."
 				})]
@@ -21909,8 +21919,8 @@ function DuplicatesTab() {
 	const groups = useMemo(() => {
 		const groups = /* @__PURE__ */ new Map();
 		const add = (sourceKey, index, entry, label) => {
-			if (!entry || typeof entry !== "object" || !entryName$1(entry)) return;
-			const name = String(entryName$1(entry)).trim();
+			if (!entry || typeof entry !== "object" || !entryName$2(entry)) return;
+			const name = String(entryName$2(entry)).trim();
 			const key = name.toLowerCase();
 			if (!groups.has(key)) groups.set(key, {
 				key,
@@ -27005,11 +27015,18 @@ function LibraryMenu({ open, onClose }) {
 		value,
 		lib.fiveETools?.[value.slice(9)] || []
 	])];
-	const results = q ? searchCategories.map(([cat, tabValue, entries]) => ({
-		cat,
-		tabValue,
-		hits: entries.filter((e) => matchesQuery(e?.name, q)).slice(0, 8)
-	})).filter((g) => g.hits.length) : [];
+	const results = q ? searchCategories.map(([cat, tabValue, entries]) => {
+		const seen = /* @__PURE__ */ new Set();
+		return {
+			cat,
+			tabValue,
+			hits: (Array.isArray(entries) ? entries : []).map((entry) => entryName$1(entry)).filter((name) => {
+				if (!name || !matchesQuery(name, q) || seen.has(name)) return false;
+				seen.add(name);
+				return true;
+			}).slice(0, 8)
+		};
+	}).filter((g) => g.hits.length) : [];
 	return /* @__PURE__ */ jsx(Dialog, {
 		open,
 		onOpenChange: (v) => !v && onClose(),
@@ -27083,14 +27100,14 @@ function LibraryMenu({ open, onClose }) {
 									children: g.cat
 								}), /* @__PURE__ */ jsx("div", {
 									className: "mt-0.5 flex flex-wrap gap-1",
-									children: g.hits.map((h) => /* @__PURE__ */ jsx("button", {
+									children: g.hits.map((hit, index) => /* @__PURE__ */ jsx("button", {
 										onClick: () => {
 											setTab(g.tabValue);
 											setSearch("");
 										},
 										className: "rounded border px-2 py-0.5 text-xs hover:bg-accent",
-										children: h.name
-									}, h.name))
+										children: hit
+									}, `${g.tabValue}-${index}-${hit}`))
 								})] }, g.cat))]
 							}) : /* @__PURE__ */ jsxs("div", {
 								className: "max-h-[50vh] overflow-y-auto pt-3",
@@ -52337,7 +52354,7 @@ var BulkLibrary = class {
 		}
 		if (!this.rawCache.has(catId)) {
 			const arr = Array.isArray(this.rawDraft[catId]) ? [...this.rawDraft[catId]] : [];
-			const index = new Map(arr.map((entry, i) => [`${entryName$1(entry)}|${sourceOf$1(entry)}`, i]));
+			const index = new Map(arr.map((entry, i) => [`${entryName$2(entry)}|${sourceOf$1(entry)}`, i]));
 			this.rawCache.set(catId, {
 				arr,
 				index
@@ -52349,7 +52366,7 @@ var BulkLibrary = class {
 	upsertRaw(catId, entry) {
 		if (!entry || !catId) return;
 		const { arr, index } = this.raw(catId);
-		const key = `${entryName$1(entry)}|${sourceOf$1(entry)}`;
+		const key = `${entryName$2(entry)}|${sourceOf$1(entry)}`;
 		const i = index.get(key);
 		if (i != null) {
 			if (JSON.stringify(arr[i]) === JSON.stringify(entry)) return;
@@ -52471,7 +52488,7 @@ function tabsForBrewFile(category, entries, raw, info) {
 			matching.forEach((s) => used.add(s));
 			const features = featuresForClassBundle(base, matching, raw);
 			if (features.length) tabs.push({
-				name: `Class: ${entryName$1(base)}`,
+				name: `Class: ${entryName$2(base)}`,
 				features,
 				meta: {
 					category: category.label,
@@ -52483,7 +52500,7 @@ function tabsForBrewFile(category, entries, raw, info) {
 		subs.filter((s) => !used.has(s)).forEach((sub) => {
 			const features = featuresForEntry(category.id, sub, raw);
 			if (features.length) tabs.push({
-				name: `Subclass: ${entryName$1(sub)}`,
+				name: `Subclass: ${entryName$2(sub)}`,
 				features,
 				meta: {
 					category: category.label,
@@ -52948,10 +52965,10 @@ function ReferenceIndexTab() {
 	}, [entries]);
 	const shown = entries.filter((e) => {
 		const q = query.trim().toLowerCase();
-		if (q && !`${entryName$1(e)} ${entryMeta(e)} ${sourceOf(e)}`.toLowerCase().includes(q)) return false;
+		if (q && !`${entryName$2(e)} ${entryMeta(e)} ${sourceOf(e)}`.toLowerCase().includes(q)) return false;
 		if (sourceFilter !== "__all__" && sourceOf(e) !== sourceFilter) return false;
 		return true;
-	}).sort((a, b) => sourceOf(a).localeCompare(sourceOf(b)) || String(entryName$1(a)).localeCompare(String(entryName$1(b))));
+	}).sort((a, b) => sourceOf(a).localeCompare(sourceOf(b)) || String(entryName$2(a)).localeCompare(String(entryName$2(b))));
 	const imported = settings?.library?.fiveETools || {};
 	const rawForEntry = (entry) => entry?.__filePath && rawByPath.current.get(entry.__filePath) || raw;
 	const previewCategoryId = useMemo(() => {
@@ -53159,7 +53176,7 @@ function ReferenceIndexTab() {
 					const rawCategory = categoryForProps(info?.props || []) || (categoryId !== "__all__" ? categoryId : "");
 					if (rawCategory === "classes" || rawCategory === "books" || /(^|\/)class\//.test(file.path) || /(^|\/)book\//.test(file.path)) rawByPath.current.set(file.path, data);
 					entriesFromRaw(data, info?.props?.[0]).forEach((entry) => {
-						const key = `${rawCategory}|${entryName$1(entry)}|${sourceOf(entry)}`;
+						const key = `${rawCategory}|${entryName$2(entry)}|${sourceOf(entry)}`;
 						if (seen.has(key)) return;
 						seen.add(key);
 						combined.push({
@@ -53322,8 +53339,8 @@ function ReferenceIndexTab() {
 		setSettings((s) => {
 			const map = { ...s.library.fiveETools || {} };
 			const list = Array.isArray(map[catId]) ? [...map[catId]] : [];
-			const key = `${entryName$1(entry)}|${sourceOf(entry)}`;
-			const i = list.findIndex((x) => `${entryName$1(x)}|${sourceOf(x)}` === key);
+			const key = `${entryName$2(entry)}|${sourceOf(entry)}`;
+			const i = list.findIndex((x) => `${entryName$2(x)}|${sourceOf(x)}` === key);
 			if (i >= 0) {
 				if (JSON.stringify(list[i]) === JSON.stringify(entry)) return s;
 				list[i] = entry;
@@ -53488,7 +53505,7 @@ function ReferenceIndexTab() {
 			const features = featuresForEntry(cat.id, entry, rawForEntry(entry));
 			if (features.length) {
 				const subclass = !!entry.shortName || !!entry.subclassShortName;
-				const tabId = addImportedTab(`${subclass ? "Subclass" : "Class"}: ${entryName$1(entry)}`, features, {
+				const tabId = addImportedTab(`${subclass ? "Subclass" : "Class"}: ${entryName$2(entry)}`, features, {
 					category: cat.label,
 					layout: "class",
 					className: subclass ? entry.className : entry.name
@@ -53504,7 +53521,7 @@ function ReferenceIndexTab() {
 			}));
 			const features = featuresForEntry(cat.id, entry, rawForEntry(entry));
 			if (features.length) {
-				const tabId = addImportedTab(`${cat.label.replace(/^Other /, "")}: ${entryName$1(entry)}`, features, { category: cat.label });
+				const tabId = addImportedTab(`${cat.label.replace(/^Other /, "")}: ${entryName$2(entry)}`, features, { category: cat.label });
 				if (tabId) importTabIdsRef.current.push(tabId);
 			}
 			return true;
@@ -53564,7 +53581,7 @@ function ReferenceIndexTab() {
 					}));
 					const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
 					if (features.length) {
-						const tabId = addImportedTab(`Subclass: ${entryName$1(s)}${s.source ? ` (${s.source})` : ""}`, features, {
+						const tabId = addImportedTab(`Subclass: ${entryName$2(s)}${s.source ? ` (${s.source})` : ""}`, features, {
 							category: activeCategory.label,
 							layout: "class",
 							className: s.className,
@@ -53586,7 +53603,7 @@ function ReferenceIndexTab() {
 				})));
 				const features = featuresForClassBundle(base, selectedSubs, rawForEntry(base) || rawForEntry(selectedSubs[0]));
 				if (features.length) {
-					const tabId = addImportedTab(`Class: ${entryName$1(base)}${base.source ? ` (${base.source})` : ""}`, features, {
+					const tabId = addImportedTab(`Class: ${entryName$2(base)}${base.source ? ` (${base.source})` : ""}`, features, {
 						category: activeCategory.label,
 						layout: "class",
 						className: base.name,
@@ -53599,7 +53616,7 @@ function ReferenceIndexTab() {
 				updateImport({
 					done,
 					total: picked.length,
-					detail: `Class: ${entryName$1(base)}`
+					detail: `Class: ${entryName$2(base)}`
 				});
 				await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
 			}
@@ -53610,7 +53627,7 @@ function ReferenceIndexTab() {
 			updateImport({
 				done,
 				total: picked.length,
-				detail: entryName$1(entry)
+				detail: entryName$2(entry)
 			});
 			await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
 		}
@@ -53635,7 +53652,7 @@ function ReferenceIndexTab() {
 		activeImportRef.current = importId;
 		importTabIdsRef.current = [];
 		beginImport({
-			label: `Importing ${entryName$1(preview)}`,
+			label: `Importing ${entryName$2(preview)}`,
 			total: 1
 		});
 		await importEntry(activeCategory, preview);
@@ -53647,10 +53664,10 @@ function ReferenceIndexTab() {
 		finishImport({
 			count: 1,
 			tabs: importTabIdsRef.current.length,
-			label: `${entryName$1(preview)} imported`
+			label: `${entryName$2(preview)} imported`
 		});
 		creditAuthorsFor([preview]);
-		toast.success(`Imported ${entryName$1(preview)}.`);
+		toast.success(`Imported ${entryName$2(preview)}.`);
 	};
 	const categoryForBrew = (info) => {
 		const id = categoryForProps(info?.props || []);
@@ -54400,7 +54417,7 @@ function ReferenceIndexTab() {
 									/* @__PURE__ */ jsx(VirtualList, {
 										items: shown,
 										rowHeight: 46,
-										getKey: (e, idx) => `${entryName$1(e)}-${entryIndex.get(e) ?? idx}`,
+										getKey: (e, idx) => `${entryName$2(e)}-${entryIndex.get(e) ?? idx}`,
 										className: "min-h-0 flex-1",
 										render: (e) => {
 											const i = entryIndex.get(e);
@@ -54420,7 +54437,7 @@ function ReferenceIndexTab() {
 															className: "flex items-center justify-between gap-1",
 															children: [/* @__PURE__ */ jsx("span", {
 																className: "min-w-0 truncate font-medium",
-																children: String(entryName$1(e))
+																children: String(entryName$2(e))
 															}), /* @__PURE__ */ jsx("span", {
 																className: "shrink-0 rounded bg-muted px-1 py-0.5 text-[8px] uppercase tracking-wide text-muted-foreground",
 																children: sourceOf(e) || "—"
@@ -85217,10 +85234,11 @@ function CommandPalette() {
 		Object.entries(library).forEach(([key, value]) => {
 			if (!Array.isArray(value)) return;
 			value.forEach((entry) => {
-				if (!entry || typeof entry !== "object" || !entry.name) return;
+				const label = entryName$1(entry);
+				if (!label) return;
 				add({
 					kind: "Library",
-					label: entry.name,
+					label,
 					detail: key,
 					run: () => {
 						window.dispatchEvent(new CustomEvent("skilltree:open-library-tab", { detail: { tab: key } }));
@@ -85232,7 +85250,7 @@ function CommandPalette() {
 		Object.entries(library.lists || {}).forEach(([key, value]) => {
 			if (!Array.isArray(value)) return;
 			value.forEach((entry) => {
-				const label = typeof entry === "string" ? entry : entry?.name;
+				const label = entryName$1(entry);
 				if (!label) return;
 				add({
 					kind: "List",
@@ -85248,10 +85266,11 @@ function CommandPalette() {
 		Object.entries(library.fiveETools || {}).forEach(([key, value]) => {
 			if (!Array.isArray(value)) return;
 			value.forEach((entry) => {
-				if (!entry?.name) return;
+				const label = entryName$1(entry);
+				if (!label) return;
 				add({
 					kind: "5eTools",
-					label: entry.name,
+					label,
 					detail: `${key}${entry.source ? ` · ${entry.source}` : ""}`,
 					run: () => {
 						window.dispatchEvent(new CustomEvent("skilltree:open-library"));

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTree } from "@/lib/treeStore";
-import { matchesQuery } from "@/lib/textSearch";
+import { entryName, matchesQuery } from "@/lib/textSearch";
 import { AbilityList } from "@/components/skilltree/library/shared";
 import { ShopTab } from "@/components/skilltree/library/ShopTab";
 import {
@@ -238,13 +238,18 @@ export function LibraryMenu({ open, onClose }) {
   ];
   const results = q
     ? searchCategories
-        .map(([cat, tabValue, entries]) => ({
-          cat,
-          tabValue,
-          hits: entries
-            .filter((e) => matchesQuery(e?.name, q))
-            .slice(0, 8),
-        }))
+        .map(([cat, tabValue, entries]) => {
+          const seen = new Set();
+          const hits = (Array.isArray(entries) ? entries : [])
+            .map((entry) => entryName(entry))
+            .filter((name) => {
+              if (!name || !matchesQuery(name, q) || seen.has(name)) return false;
+              seen.add(name);
+              return true;
+            })
+            .slice(0, 8);
+          return { cat, tabValue, hits };
+        })
         .filter((g) => g.hits.length)
     : [];
 
@@ -341,16 +346,16 @@ export function LibraryMenu({ open, onClose }) {
                     {g.cat}
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-1">
-                    {g.hits.map((h) => (
+                    {g.hits.map((hit, index) => (
                       <button
-                        key={h.name}
+                        key={`${g.tabValue}-${index}-${hit}`}
                         onClick={() => {
                           setTab(g.tabValue);
                           setSearch("");
                         }}
                         className="rounded border px-2 py-0.5 text-xs hover:bg-accent"
                       >
-                        {h.name}
+                        {hit}
                       </button>
                     ))}
                   </div>

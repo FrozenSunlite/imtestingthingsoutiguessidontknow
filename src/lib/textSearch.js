@@ -20,6 +20,20 @@ export function normText(value) {
     .trim();
 }
 
+// Library entries come as strings, {name}, {name, description} or (from older
+// imports) a nested name object. Return a printable title without ever handing
+// an object to React.
+export function entryName(value) {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    const name = value.name;
+    if (typeof name === "string" || typeof name === "number") return String(name);
+    if (name && typeof name === "object") return entryName(name);
+  }
+  return "";
+}
+
 // True when `value` contains the search `query` (empty query matches all).
 export function matchesQuery(value, query) {
   const q = normText(query);
