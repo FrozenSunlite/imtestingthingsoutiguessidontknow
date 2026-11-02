@@ -68,6 +68,7 @@ import {
 import { toast } from "sonner";
 import { saveProjectToDisk } from "@/lib/projectFiles";
 import { loadPlots } from "@/lib/homesteadStore";
+import { SRD_SEED_VERSION, fetchAndMergeSrdSeed } from "@/lib/srdSeed";
 
 export const TIME_PERIODS = ["Medieval", "Renaissance", "Modern", "Futuristic"];
 
@@ -118,19 +119,15 @@ export const DEFAULT_LIBRARY = {
   ],
   // Spells start empty — the spell list is built by the character, not preset.
   spells: [],
-  weaponCategories: ["Simple", "Martial", "Advanced", "Blaster", "Firearm"],
+  weaponCategories: ["Simple", "Martial"],
   armorTypes: ["Light", "Medium", "Heavy", "Shield"],
   vehicleCategories: ["Land", "Sea", "Sky", "Space"],
   spellSchools: [
     "Abjuration", "Conjuration", "Divination", "Enchantment",
     "Evocation", "Illusion", "Necromancy", "Transmutation",
   ],
-  spellSubschools: [
-    { name: "Dunamancy", parent: "" },
-    { name: "Chronurgy", parent: "Dunamancy" },
-    { name: "Graviturgy", parent: "Dunamancy" },
-    { name: "Sangromancy", parent: "" },
-  ],
+  // SRD spells have no subschools; the field stays editable for homebrew.
+  spellSubschools: [],
   triggers: [
     "On Attack", "On Hit", "On Miss", "On Critical Hit", "On Critical Miss",
     "On Kill", "On Being Hit", "On Taking Damage", "On Dropping to 0 HP",
@@ -214,7 +211,6 @@ export const DEFAULT_LIBRARY = {
   // Custom resources tracked on the sheet. A resource can carry a scaling die
   // (e.g. a Martial Arts-style d6 → d10) that the sheet displays next to it.
   resources: [
-    { name: "Arcanovital Energy", color: "#a855f7", dieSize: "", description: "" },
     { name: "Channel Divinity", color: "#f59e0b", dieSize: "", description: "" },
     { name: "Metamagic Points", color: "#ec4899", dieSize: "", description: "" },
     { name: "Ki Points", color: "#22c55e", dieSize: "", description: "" },
@@ -518,6 +514,8 @@ const DEFAULT_SETTINGS = {
   // Currency suffix used by dungeon rewards and Architect payouts.
   rewardCurrency: "gp",
   tourDone: false,
+  // Set once the bundled SRD 5.1/5.2 reference content has been merged.
+  srdSeedVersion: 0,
   // Per-level defaults used when a level has no row in the Reference Library.
   levelRules: {
     talentPoints: 1,
@@ -979,6 +977,7 @@ export function TreeProvider({ children }) {
   // when the program is closed — backing out to the menu never nags.
   const [dirty, setDirty] = useState(false);
   const hydratedRef = useRef(false);
+  const srdSeedStartedRef = useRef(false);
   const markDirty = useCallback(() => setDirty(true), []);
   const clearDirty = useCallback(() => setDirty(false), []);
 
@@ -1731,6 +1730,7 @@ export function TreeProvider({ children }) {
           cameraStartNode: storedSettings.cameraStartNode || "",
           rewardCurrency: storedSettings.rewardCurrency || "gp",
           tourDone: !!storedSettings.tourDone,
+          srdSeedVersion: Number(storedSettings.srdSeedVersion) || 0,
           autoSave: storedSettings.autoSave !== false,
           autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
           autoSaveInterval: storedSettings.autoSaveInterval || 60,
@@ -1777,6 +1777,33 @@ export function TreeProvider({ children }) {
       alive = false;
     };
   }, []);
+
+  // Merge the bundled SRD 5.1/5.2 reference content once per project. Only
+  // missing entries are added: a user's imports and hand edits always win.
+  // 5eTools imports stay optional and are stored per person.
+  useEffect(() => {
+    if (loading || !hydratedRef.current || srdSeedStartedRef.current) return;
+    if (Number(settings?.srdSeedVersion) >= SRD_SEED_VERSION) return;
+    srdSeedStartedRef.current = true;
+    let alive = true;
+    fetchAndMergeSrdSeed(settings?.library || {})
+      .then(({ library, added }) => {
+        if (!alive) return;
+        setSettings((s) => ({ ...s, library, srdSeedVersion: SRD_SEED_VERSION }));
+        if (added) {
+          toast.success("SRD reference data added", {
+            description: `${added} entries from the free SRD 5.1 and 5.2 documents (CC-BY 4.0).`,
+          });
+        }
+      })
+      .catch(() => {
+        // Leave the version unset so the next launch retries.
+        srdSeedStartedRef.current = false;
+      });
+    return () => {
+      alive = false;
+    };
+  }, [loading, settings?.srdSeedVersion, settings?.library, setSettings]);
 
   // Autosave the working project so Continue resumes where the player left
   // off. IndexedDB has no practical size cap, so big trees and save bundles no

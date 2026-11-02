@@ -68,6 +68,27 @@ changing app code, then restart the launcher.
 - **Backups:** the JSON export is the durable, portable format — use it to move
   trees or characters between machines.
 
+## SRD content and licensing
+
+The default Reference Library is seeded from the free **System Reference
+Document 5.1** and **System Reference Document 5.2** only, using entries flagged
+`srd` / `srd52` in 5eTools data. Both documents are licensed under
+[CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode); the required
+attribution is shown in **Settings → Help → SRD reference content**, in
+`public/srd/README.md`, and in the seed file itself. No SRD artwork is included.
+
+5eTools imports remain optional and project-local: importing extra material is a
+per-person choice and is not part of the shipped defaults.
+
+The bundled music and sound-effect files are **not** covered by the SRD licence.
+Check their own licences before redistributing them with the app.
+
+Regenerate the seed after changing the 5eTools source checkout:
+
+```bash
+npm run srd:build -- "E:/path/to/5etools/data"
+```
+
 ## Feature notes
 
 - **Reference Index** reads local, downloaded or homebrew 5eTools data. Books

@@ -367,6 +367,10 @@ export function LibraryMenu({ open, onClose }) {
           <DialogTitle>Reference Library</DialogTitle>
           <DialogDescription>
             Weapons, armor, gear and lists used as suggestions when a node grants a proficiency.
+            <span className="mt-1 block text-[10px]">
+              Includes free SRD 5.1 and SRD 5.2 reference content under CC-BY 4.0. Extra
+              5eTools imports stay optional and project-local.
+            </span>
           </DialogDescription>
         </DialogHeader>
 

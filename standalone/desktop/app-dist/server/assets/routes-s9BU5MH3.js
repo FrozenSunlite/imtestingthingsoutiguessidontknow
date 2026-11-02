@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CQY39TTw.js";
+import { n as Button, r as cn } from "./router-Bssnep_8.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6438,6 +6438,89 @@ async function deleteProjectFile(file, { backup = false } = {}) {
 		return false;
 	}
 }
+//#endregion
+//#region src/lib/srdSeed.js
+var SRD_SEED_URL = "/srd/srd-seed.json";
+var SRD_ATTRIBUTION = {
+	srd51: "This work includes material taken from the System Reference Document 5.1 (\"SRD 5.1\") by Wizards of the Coast LLC, available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.",
+	srd52: "This work includes material from the System Reference Document 5.2 (\"SRD 5.2\") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+};
+var seedPromise = null;
+function loadSrdSeed() {
+	if (!seedPromise) seedPromise = fetch(SRD_SEED_URL, { cache: "force-cache" }).then((response) => {
+		if (!response.ok) throw new Error("Could not load the SRD reference data.");
+		return response.json();
+	}).catch((error) => {
+		seedPromise = null;
+		throw error;
+	});
+	return seedPromise;
+}
+var nameOf = (entry) => String(typeof entry === "string" ? entry : entry?.name || "").trim().toLowerCase();
+function mergeSrdSeed(library, seed) {
+	if (!library || !seed?.library) return {
+		library,
+		added: 0
+	};
+	const next = { ...library };
+	let added = 0;
+	const mergeList = (key, incoming) => {
+		if (!Array.isArray(incoming)) return;
+		const existing = Array.isArray(next[key]) ? [...next[key]] : [];
+		const seen = new Set(existing.map(nameOf));
+		for (const entry of incoming) {
+			const name = nameOf(entry);
+			if (!name || seen.has(name)) continue;
+			seen.add(name);
+			existing.push(entry);
+			added += 1;
+		}
+		next[key] = existing;
+	};
+	for (const [key, value] of Object.entries(seed.library)) {
+		if (key === "lists" || key === "fiveETools") continue;
+		mergeList(key, value);
+	}
+	const lists = { ...next.lists || {} };
+	for (const [key, value] of Object.entries(seed.library.lists || {})) {
+		if (!Array.isArray(value)) continue;
+		const existing = Array.isArray(lists[key]) ? [...lists[key]] : [];
+		const seen = new Set(existing.map(nameOf));
+		for (const entry of value) {
+			const name = nameOf(entry);
+			if (!name || seen.has(name)) continue;
+			seen.add(name);
+			existing.push(entry);
+			added += 1;
+		}
+		lists[key] = existing;
+	}
+	next.lists = lists;
+	const raw = { ...next.fiveETools || {} };
+	for (const [category, value] of Object.entries(seed.library.fiveETools || {})) {
+		if (!Array.isArray(value)) continue;
+		const existing = Array.isArray(raw[category]) ? [...raw[category]] : [];
+		const seen = new Set(existing.map((entry) => `${nameOf(entry)}|${String(entry?.source || "").toLowerCase()}`));
+		for (const entry of value) {
+			const name = nameOf(entry);
+			if (!name) continue;
+			const key = `${name}|${String(entry?.source || "").toLowerCase()}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			existing.push(entry);
+			added += 1;
+		}
+		raw[category] = existing;
+	}
+	next.fiveETools = raw;
+	return {
+		library: next,
+		added
+	};
+}
+async function fetchAndMergeSrdSeed(library) {
+	return mergeSrdSeed(library, await loadSrdSeed());
+}
 var DEFAULT_LIBRARY = {
 	levels: [],
 	attributes: [
@@ -6617,13 +6700,7 @@ var DEFAULT_LIBRARY = {
 		}
 	],
 	spells: [],
-	weaponCategories: [
-		"Simple",
-		"Martial",
-		"Advanced",
-		"Blaster",
-		"Firearm"
-	],
+	weaponCategories: ["Simple", "Martial"],
 	armorTypes: [
 		"Light",
 		"Medium",
@@ -6646,24 +6723,7 @@ var DEFAULT_LIBRARY = {
 		"Necromancy",
 		"Transmutation"
 	],
-	spellSubschools: [
-		{
-			name: "Dunamancy",
-			parent: ""
-		},
-		{
-			name: "Chronurgy",
-			parent: "Dunamancy"
-		},
-		{
-			name: "Graviturgy",
-			parent: "Dunamancy"
-		},
-		{
-			name: "Sangromancy",
-			parent: ""
-		}
-	],
+	spellSubschools: [],
 	triggers: [
 		"On Attack",
 		"On Hit",
@@ -6938,12 +6998,6 @@ var DEFAULT_LIBRARY = {
 	})),
 	dieScaling: DEFAULT_DIE_SCALING.map((name) => ({ name })),
 	resources: [
-		{
-			name: "Arcanovital Energy",
-			color: "#a855f7",
-			dieSize: "",
-			description: ""
-		},
 		{
 			name: "Channel Divinity",
 			color: "#f59e0b",
@@ -7291,6 +7345,7 @@ var DEFAULT_SETTINGS = {
 	audio: { ...DEFAULT_AUDIO_SETTINGS },
 	rewardCurrency: "gp",
 	tourDone: false,
+	srdSeedVersion: 0,
 	levelRules: {
 		talentPoints: 1,
 		heritagePoints: 0,
@@ -7687,6 +7742,7 @@ function TreeProvider({ children }) {
 	const [treeRaw, setTreeRaw] = useState(null);
 	const [dirty, setDirty] = useState(false);
 	const hydratedRef = useRef(false);
+	const srdSeedStartedRef = useRef(false);
 	const markDirty = useCallback(() => setDirty(true), []);
 	const clearDirty = useCallback(() => setDirty(false), []);
 	const setTree = useCallback((updater) => {
@@ -8351,6 +8407,7 @@ function TreeProvider({ children }) {
 					cameraStartNode: storedSettings.cameraStartNode || "",
 					rewardCurrency: storedSettings.rewardCurrency || "gp",
 					tourDone: !!storedSettings.tourDone,
+					srdSeedVersion: Number(storedSettings.srdSeedVersion) || 0,
 					autoSave: storedSettings.autoSave !== false,
 					autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
 					autoSaveInterval: storedSettings.autoSaveInterval || 60,
@@ -8390,6 +8447,31 @@ function TreeProvider({ children }) {
 			alive = false;
 		};
 	}, []);
+	useEffect(() => {
+		if (loading || !hydratedRef.current || srdSeedStartedRef.current) return;
+		if (Number(settings?.srdSeedVersion) >= 1) return;
+		srdSeedStartedRef.current = true;
+		let alive = true;
+		fetchAndMergeSrdSeed(settings?.library || {}).then(({ library, added }) => {
+			if (!alive) return;
+			setSettings((s) => ({
+				...s,
+				library,
+				srdSeedVersion: 1
+			}));
+			if (added) toast.success("SRD reference data added", { description: `${added} entries from the free SRD 5.1 and 5.2 documents (CC-BY 4.0).` });
+		}).catch(() => {
+			srdSeedStartedRef.current = false;
+		});
+		return () => {
+			alive = false;
+		};
+	}, [
+		loading,
+		settings?.srdSeedVersion,
+		settings?.library,
+		setSettings
+	]);
 	useEffect(() => {
 		if (!tree || !hydratedRef.current) return;
 		const t = setTimeout(() => {
@@ -12995,6 +13077,20 @@ function SettingsMenu({ open, onClose }) {
 		onClose?.();
 		window.setTimeout(() => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial")), 180);
 	};
+	const addSrdData = async () => {
+		try {
+			const merged = await fetchAndMergeSrdSeed(settings.library || {});
+			setSettings((s) => ({
+				...s,
+				library: merged.library,
+				srdSeedVersion: 1
+			}));
+			if (merged.added) toast.success("SRD reference data merged", { description: `${merged.added} missing entries were added. Existing entries were left untouched.` });
+			else toast("SRD reference data is already present.");
+		} catch {
+			toast.error("Could not load the bundled SRD reference data.");
+		}
+	};
 	const musicLibrary = useMusicLibrary();
 	const currentTrack = useCurrentTrack();
 	const trackOptions = audio.customMusic ? musicLibrary.custom : musicLibrary.default;
@@ -14059,25 +14155,58 @@ function SettingsMenu({ open, onClose }) {
 						/* @__PURE__ */ jsxs(TabsContent, {
 							value: "help",
 							className: "mt-3",
-							children: [/* @__PURE__ */ jsxs("div", {
-								className: "mb-3 space-y-1 rounded-md border p-2",
-								children: [
-									/* @__PURE__ */ jsx("p", {
-										className: "text-xs font-semibold",
-										children: "New player tutorial"
-									}),
-									/* @__PURE__ */ jsx("p", {
-										className: "text-[10px] text-muted-foreground",
-										children: "A guided walkthrough of every part of the program: the canvas, importing, the Reference Library, rulebook, dungeons, Architect, DM tools and saving."
-									}),
-									/* @__PURE__ */ jsx(Button, {
-										size: "sm",
-										className: "h-7 text-xs",
-										onClick: startTutorial,
-										children: "Start tutorial"
-									})
-								]
-							}), /* @__PURE__ */ jsx(HelpContent, {})]
+							children: [
+								/* @__PURE__ */ jsxs("div", {
+									className: "mb-3 space-y-1 rounded-md border p-2",
+									children: [
+										/* @__PURE__ */ jsx("p", {
+											className: "text-xs font-semibold",
+											children: "New player tutorial"
+										}),
+										/* @__PURE__ */ jsx("p", {
+											className: "text-[10px] text-muted-foreground",
+											children: "A guided walkthrough of every part of the program: the canvas, importing, the Reference Library, rulebook, dungeons, Architect, DM tools and saving."
+										}),
+										/* @__PURE__ */ jsx(Button, {
+											size: "sm",
+											className: "h-7 text-xs",
+											onClick: startTutorial,
+											children: "Start tutorial"
+										})
+									]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "mb-3 space-y-2 rounded-md border p-2",
+									children: [
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex flex-wrap items-center justify-between gap-2",
+											children: [/* @__PURE__ */ jsx("p", {
+												className: "text-xs font-semibold",
+												children: "SRD reference content"
+											}), /* @__PURE__ */ jsx(Button, {
+												size: "sm",
+												variant: "outline",
+												className: "h-7 text-xs",
+												onClick: addSrdData,
+												children: "Merge SRD data"
+											})]
+										}),
+										/* @__PURE__ */ jsx("p", {
+											className: "text-[10px] leading-relaxed text-muted-foreground",
+											children: "The default Reference Library includes free material from SRD 5.1 and SRD 5.2 under CC-BY 4.0. Importing extra 5eTools data remains optional and is stored only in your project."
+										}),
+										/* @__PURE__ */ jsx("p", {
+											className: "text-[9px] leading-relaxed text-muted-foreground",
+											children: SRD_ATTRIBUTION.srd51
+										}),
+										/* @__PURE__ */ jsx("p", {
+											className: "text-[9px] leading-relaxed text-muted-foreground",
+											children: SRD_ATTRIBUTION.srd52
+										})
+									]
+								}),
+								/* @__PURE__ */ jsx(HelpContent, {})
+							]
 						})
 					]
 				})]
@@ -27134,7 +27263,10 @@ function LibraryMenu({ open, onClose }) {
 			children: [/* @__PURE__ */ jsxs("div", {
 				className: "min-w-0 max-h-[calc(100vh-3.5rem)] w-full overflow-auto pr-1",
 				children: [
-					/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Weapons, armor, gear and lists used as suggestions when a node grants a proficiency." })] }),
+					/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsxs(DialogDescription, { children: ["Weapons, armor, gear and lists used as suggestions when a node grants a proficiency.", /* @__PURE__ */ jsx("span", {
+						className: "mt-1 block text-[10px]",
+						children: "Includes free SRD 5.1 and SRD 5.2 reference content under CC-BY 4.0. Extra 5eTools imports stay optional and project-local."
+					})] })] }),
 					/* @__PURE__ */ jsx(InfoTip, {
 						label: "Search every tab; click a result to jump to it.",
 						children: /* @__PURE__ */ jsx(Input, {

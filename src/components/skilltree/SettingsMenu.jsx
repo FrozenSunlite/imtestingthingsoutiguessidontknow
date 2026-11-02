@@ -32,6 +32,7 @@ import { HelpContent } from "@/components/skilltree/HelpContent";
 import { useTheme, COLOR_TEMPLATES, DEFAULT_CUSTOM, FONT_OPTIONS } from "@/lib/useTheme";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { SRD_ATTRIBUTION, SRD_SEED_VERSION, fetchAndMergeSrdSeed } from "@/lib/srdSeed";
 
 // Editable hotkeys (rebindable).
 const HOTKEY_LABELS = [
@@ -94,6 +95,25 @@ export function SettingsMenu({ open, onClose }) {
       () => window.dispatchEvent(new CustomEvent("skilltree:start-tutorial")),
       180
     );
+  };
+  const addSrdData = async () => {
+    try {
+      const merged = await fetchAndMergeSrdSeed(settings.library || {});
+      setSettings((s) => ({
+        ...s,
+        library: merged.library,
+        srdSeedVersion: SRD_SEED_VERSION,
+      }));
+      if (merged.added) {
+        toast.success("SRD reference data merged", {
+          description: `${merged.added} missing entries were added. Existing entries were left untouched.`,
+        });
+      } else {
+        toast("SRD reference data is already present.");
+      }
+    } catch {
+      toast.error("Could not load the bundled SRD reference data.");
+    }
   };
   const musicLibrary = useMusicLibrary();
   const currentTrack = useCurrentTrack();
@@ -941,6 +961,30 @@ export function SettingsMenu({ open, onClose }) {
                 >
                   Start tutorial
                 </Button>
+              </div>
+              <div className="mb-3 space-y-2 rounded-md border p-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold">SRD reference content</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={addSrdData}
+                  >
+                    Merge SRD data
+                  </Button>
+                </div>
+                <p className="text-[10px] leading-relaxed text-muted-foreground">
+                  The default Reference Library includes free material from SRD 5.1 and SRD 5.2
+                  under CC-BY 4.0. Importing extra 5eTools data remains optional and is stored
+                  only in your project.
+                </p>
+                <p className="text-[9px] leading-relaxed text-muted-foreground">
+                  {SRD_ATTRIBUTION.srd51}
+                </p>
+                <p className="text-[9px] leading-relaxed text-muted-foreground">
+                  {SRD_ATTRIBUTION.srd52}
+                </p>
               </div>
               <HelpContent />
             </TabsContent>
