@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B6WJca0n.js";
+import { n as Button, r as cn } from "./router-CORCb3eJ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -9,6 +9,7 @@ import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDo
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
+import { CapacitorHttp } from "@capacitor/core";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -12334,6 +12335,20 @@ function resolveApkUrl(base, path) {
 	if (/^https?:\/\//i.test(path)) return path;
 	return `${String(base || "").replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
+async function fetchRemoteUpdate(url) {
+	if (isNativeApp()) try {
+		const response = await CapacitorHttp.get({
+			url,
+			headers: { Accept: "application/json" },
+			responseType: "json"
+		});
+		if (response.status < 200 || response.status >= 300) throw new Error(`update host returned ${response.status}`);
+		return typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+	} catch {}
+	const response = await fetch(url, { cache: "no-store" });
+	if (!response.ok) throw new Error(`update host returned ${response.status}`);
+	return response.json();
+}
 async function checkForUpdates({ baseUrl = "" } = {}) {
 	if (state$1.checking) return { status: "busy" };
 	state$1 = {
@@ -12360,9 +12375,7 @@ async function checkForUpdates({ baseUrl = "" } = {}) {
 		const base = String(baseUrl || "").trim().replace(/\/+$/, "");
 		const local = await loadBuildInfo();
 		if (!base || !local?.builtAt) return { status: "unconfigured" };
-		const res = await fetch(`${base}/update.json`, { cache: "no-store" });
-		if (!res.ok) return { status: "error" };
-		const remote = await res.json();
+		const remote = await fetchRemoteUpdate(`${base}/update.json`);
 		if (!remote?.builtAt) return { status: "error" };
 		if (new Date(remote.builtAt).getTime() > new Date(local.builtAt).getTime()) {
 			state$1 = {
@@ -12394,11 +12407,6 @@ async function checkForUpdates({ baseUrl = "" } = {}) {
 }
 async function openUpdateDownload(url) {
 	if (!url) return;
-	if (isNativeApp()) try {
-		const { Browser } = await import("@capacitor/browser");
-		await Browser.open({ url });
-		return;
-	} catch {}
 	const a = document.createElement("a");
 	a.href = url;
 	a.target = "_blank";
@@ -12407,6 +12415,57 @@ async function openUpdateDownload(url) {
 	document.body.appendChild(a);
 	a.click();
 	a.remove();
+}
+async function downloadAndInstallApk(url, { onProgress } = {}) {
+	if (!url) return {
+		ok: false,
+		reason: "missing"
+	};
+	if (!isNativeApp()) return {
+		ok: false,
+		reason: "web"
+	};
+	try {
+		const [{ FileTransfer }, { Filesystem, Directory }, { FileOpener }] = await Promise.all([
+			import("@capacitor/file-transfer"),
+			import("@capacitor/filesystem"),
+			import("@capacitor-community/file-opener")
+		]);
+		const { uri } = await Filesystem.getUri({
+			directory: Directory.Cache,
+			path: "TalentTree-update.apk"
+		});
+		let listener = null;
+		if (onProgress && typeof FileTransfer.addListener === "function") listener = await FileTransfer.addListener("progress", (progress) => {
+			if (progress?.type === "download") onProgress(progress);
+		});
+		try {
+			await FileTransfer.downloadFile({
+				url,
+				path: uri,
+				progress: !!onProgress
+			});
+		} finally {
+			try {
+				await listener?.remove?.();
+			} catch {}
+		}
+		await FileOpener.open({
+			filePath: uri,
+			contentType: "application/vnd.android.package-archive",
+			openWithDefault: true
+		});
+		return {
+			ok: true,
+			path: uri
+		};
+	} catch (error) {
+		return {
+			ok: false,
+			reason: "error",
+			error
+		};
+	}
 }
 //#endregion
 //#region src/lib/useMusicLibrary.js
@@ -84516,6 +84575,8 @@ function UpdatePrompt() {
 	const updates = useAppUpdates();
 	const checkedUrl = useRef("");
 	const [tutorialOpen, setTutorialOpenState] = useState(isTutorialOpen);
+	const [installing, setInstalling] = useState(false);
+	const [downloadProgress, setDownloadProgress] = useState(null);
 	useEffect(() => {
 		setTutorialOpenState(isTutorialOpen());
 		return subscribeTutorialOpen(() => setTutorialOpenState(isTutorialOpen()));
@@ -84547,13 +84608,32 @@ function UpdatePrompt() {
 	const open = (!!apkUpdate || serviceWorkerUpdate) && !tutorialOpen;
 	if (!open) return null;
 	const close = () => dismissUpdate();
+	const installApk = async () => {
+		if (!apkUpdate || installing) return;
+		if (!isNativeApp()) {
+			openUpdateDownload(apkUpdate.apkUrl);
+			close();
+			return;
+		}
+		setInstalling(true);
+		setDownloadProgress(null);
+		const result = await downloadAndInstallApk(apkUpdate.apkUrl, { onProgress: (progress) => {
+			setDownloadProgress(progress?.contentLength ? Math.min(1, progress.bytes / progress.contentLength) : null);
+		} });
+		setInstalling(false);
+		if (result.ok) {
+			close();
+			return;
+		}
+		toast.error("Could not start the installer", { description: "Allow “Install unknown apps” for Talent Tree in Android settings, then try again. You can also use Copy link." });
+	};
 	return /* @__PURE__ */ jsx(Dialog, {
 		open,
 		onOpenChange: (value) => !value && close(),
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			className: "max-w-md",
 			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Update available" }), /* @__PURE__ */ jsx(DialogDescription, { children: apkUpdate ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device. If the download opens a browser you did not intend, use Copy link and paste it into Chrome." : "A new version has been downloaded. Apply it now? The app will reload once." })] }),
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Update available" }), /* @__PURE__ */ jsx(DialogDescription, { children: apkUpdate ? "A newer Android build is available. The app downloads it in the background and opens Android's installer; your local project data stays on the device. Android may ask you to allow installs from Talent Tree the first time." : "A new version has been downloaded. Apply it now? The app will reload once." })] }),
 				apkUpdate?.remote?.builtAt ? /* @__PURE__ */ jsxs("p", {
 					className: "text-[10px] text-muted-foreground",
 					children: ["Build: ", new Date(apkUpdate.remote.builtAt).toLocaleString()]
@@ -84571,11 +84651,9 @@ function UpdatePrompt() {
 						},
 						children: "Copy link"
 					}), /* @__PURE__ */ jsx(Button, {
-						onClick: () => {
-							openUpdateDownload(apkUpdate.apkUrl);
-							close();
-						},
-						children: "Download update"
+						onClick: installApk,
+						disabled: installing,
+						children: installing ? downloadProgress != null ? `Downloading… ${Math.round(downloadProgress * 100)}%` : "Downloading…" : isNativeApp() ? "Download & install" : "Download update"
 					})] }) : /* @__PURE__ */ jsx(Button, {
 						onClick: () => {
 							applyServiceWorkerUpdate();

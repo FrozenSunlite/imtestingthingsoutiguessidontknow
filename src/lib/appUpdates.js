@@ -4,6 +4,7 @@
 // - Native APK: compares the bundled build time with a published update.json
 //   and offers the new APK for download.
 import { useSyncExternalStore } from "react";
+import { CapacitorHttp } from "@capacitor/core";
 
 const listeners = new Set();
 let state = { waiting: null, update: null, checking: false, hidden: false };
@@ -110,6 +111,30 @@ function resolveApkUrl(base, path) {
   return `${root}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+// Native WebViews are served from https://localhost, so a plain fetch to the
+// update host is a cross-origin request and is blocked when the host has no
+// CORS headers. CapacitorHttp performs the request natively instead.
+async function fetchRemoteUpdate(url) {
+  if (isNativeApp()) {
+    try {
+      const response = await CapacitorHttp.get({
+        url,
+        headers: { Accept: "application/json" },
+        responseType: "json",
+      });
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`update host returned ${response.status}`);
+      }
+      return typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+    } catch {
+      /* fall through to fetch; useful in a browser preview of the APK */
+    }
+  }
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`update host returned ${response.status}`);
+  return response.json();
+}
+
 // Web checks are handled by the waiting service worker. Native installs compare
 // their bundled build time with a user-configured update host.
 export async function checkForUpdates({ baseUrl = "" } = {}) {
@@ -130,9 +155,7 @@ export async function checkForUpdates({ baseUrl = "" } = {}) {
     const local = await loadBuildInfo();
     if (!base || !local?.builtAt) return { status: "unconfigured" };
 
-    const res = await fetch(`${base}/update.json`, { cache: "no-store" });
-    if (!res.ok) return { status: "error" };
-    const remote = await res.json();
+    const remote = await fetchRemoteUpdate(`${base}/update.json`);
     if (!remote?.builtAt) return { status: "error" };
 
     if (new Date(remote.builtAt).getTime() > new Date(local.builtAt).getTime()) {
@@ -157,19 +180,10 @@ export async function checkForUpdates({ baseUrl = "" } = {}) {
   }
 }
 
-// Native download: open in the system browser if the Capacitor Browser plugin
-// is available, otherwise fall back to a normal external window.
+// Browser/PWA download fallback. Native builds use downloadAndInstallApk()
+// below, so the phone's default browser is never involved.
 export async function openUpdateDownload(url) {
   if (!url) return;
-  if (isNativeApp()) {
-    try {
-      const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url });
-      return;
-    } catch {
-      /* fall through */
-    }
-  }
   const a = document.createElement("a");
   a.href = url;
   a.target = "_blank";
@@ -178,4 +192,43 @@ export async function openUpdateDownload(url) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+// Native Android update path: download the APK inside the app, then hand it to
+// Android's package installer. No browser, no CORS, no default-browser prompt.
+export async function downloadAndInstallApk(url, { onProgress } = {}) {
+  if (!url) return { ok: false, reason: "missing" };
+  if (!isNativeApp()) return { ok: false, reason: "web" };
+  try {
+    const [{ FileTransfer }, { Filesystem, Directory }, { FileOpener }] = await Promise.all([
+      import("@capacitor/file-transfer"),
+      import("@capacitor/filesystem"),
+      import("@capacitor-community/file-opener"),
+    ]);
+    const path = "TalentTree-update.apk";
+    const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path });
+    let listener = null;
+    if (onProgress && typeof FileTransfer.addListener === "function") {
+      listener = await FileTransfer.addListener("progress", (progress) => {
+        if (progress?.type === "download") onProgress(progress);
+      });
+    }
+    try {
+      await FileTransfer.downloadFile({ url, path: uri, progress: !!onProgress });
+    } finally {
+      try {
+        await listener?.remove?.();
+      } catch {
+        /* the download already finished; cleanup must not hide that */
+      }
+    }
+    await FileOpener.open({
+      filePath: uri,
+      contentType: "application/vnd.android.package-archive",
+      openWithDefault: true,
+    });
+    return { ok: true, path: uri };
+  } catch (error) {
+    return { ok: false, reason: "error", error };
+  }
 }

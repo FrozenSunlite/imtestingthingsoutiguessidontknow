@@ -5,6 +5,7 @@ import {
   applyServiceWorkerUpdate,
   checkForUpdates,
   dismissUpdate,
+  downloadAndInstallApk,
   isNativeApp,
   openUpdateDownload,
   registerServiceWorker,
@@ -28,6 +29,8 @@ export function UpdatePrompt() {
   const updates = useAppUpdates();
   const checkedUrl = useRef("");
   const [tutorialOpen, setTutorialOpenState] = useState(isTutorialOpen);
+  const [installing, setInstalling] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
 
   useEffect(() => {
     // Sync on subscribe too: the tour may have opened before this component's
@@ -79,6 +82,35 @@ export function UpdatePrompt() {
 
   const close = () => dismissUpdate();
 
+  const installApk = async () => {
+    if (!apkUpdate || installing) return;
+    if (!isNativeApp()) {
+      openUpdateDownload(apkUpdate.apkUrl);
+      close();
+      return;
+    }
+    setInstalling(true);
+    setDownloadProgress(null);
+    const result = await downloadAndInstallApk(apkUpdate.apkUrl, {
+      onProgress: (progress) => {
+        setDownloadProgress(
+          progress?.contentLength
+            ? Math.min(1, progress.bytes / progress.contentLength)
+            : null
+        );
+      },
+    });
+    setInstalling(false);
+    if (result.ok) {
+      close();
+      return;
+    }
+    toast.error("Could not start the installer", {
+      description:
+        "Allow “Install unknown apps” for Talent Tree in Android settings, then try again. You can also use Copy link.",
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={(value) => !value && close()}>
       <DialogContent className="max-w-md">
@@ -86,7 +118,7 @@ export function UpdatePrompt() {
           <DialogTitle>Update available</DialogTitle>
           <DialogDescription>
             {apkUpdate
-              ? "A newer Android build is available. Download it now and install it over this app; your local project data stays on the device. If the download opens a browser you did not intend, use Copy link and paste it into Chrome."
+              ? "A newer Android build is available. The app downloads it in the background and opens Android's installer; your local project data stays on the device. Android may ask you to allow installs from Talent Tree the first time."
               : "A new version has been downloaded. Apply it now? The app will reload once."}
           </DialogDescription>
         </DialogHeader>
@@ -113,13 +145,14 @@ export function UpdatePrompt() {
               >
                 Copy link
               </Button>
-              <Button
-                onClick={() => {
-                  openUpdateDownload(apkUpdate.apkUrl);
-                  close();
-                }}
-              >
-                Download update
+              <Button onClick={installApk} disabled={installing}>
+                {installing
+                  ? downloadProgress != null
+                    ? `Downloading… ${Math.round(downloadProgress * 100)}%`
+                    : "Downloading…"
+                  : isNativeApp()
+                    ? "Download & install"
+                    : "Download update"}
               </Button>
             </>
           ) : (
