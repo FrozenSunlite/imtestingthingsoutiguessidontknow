@@ -3,17 +3,17 @@ var tsrStartManifest = () => ({ routes: {
 	__root__: {
 		filePath: "E:/Tryings Terrific Talent Tree/Talent Tree/Standalone/src/routes/__root.jsx",
 		children: ["/"],
-		preloads: ["/assets/index-DCsP9YW5.js", "/assets/rolldown-runtime-hePW80VL.js"],
+		preloads: ["/assets/index-C7pC57qc.js", "/assets/rolldown-runtime-hePW80VL.js"],
 		scripts: [{ attrs: {
 			type: "module",
 			async: !0,
-			src: "/assets/index-DCsP9YW5.js"
+			src: "/assets/index-C7pC57qc.js"
 		} }]
 	},
 	"/": {
 		filePath: "E:/Tryings Terrific Talent Tree/Talent Tree/Standalone/src/routes/index.jsx",
 		children: void 0,
-		preloads: ["/assets/routes-DX1zUXwc.js", "/assets/typeof-B5XbjTb1.js"]
+		preloads: ["/assets/routes-BD9_UCGn.js", "/assets/typeof-B5XbjTb1.js"]
 	}
 } });
 //#endregion

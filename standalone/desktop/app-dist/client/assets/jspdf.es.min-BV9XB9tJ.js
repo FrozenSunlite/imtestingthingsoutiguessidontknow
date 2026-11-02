@@ -1,1 +1,0 @@
-import{n as e}from"./routes-DX1zUXwc.js";export{e as default,e as jsPDF};

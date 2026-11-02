@@ -118,8 +118,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   );
 
   return (
-    <div className="blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10">
-      <div className="absolute right-4 top-4 z-10 flex gap-2">
+    <div className="blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10 sm:pt-20">
+      <div className="z-10 mb-3 flex w-full max-w-md justify-end gap-2 sm:absolute sm:right-4 sm:top-4 sm:mb-0 sm:w-auto">
         {installPrompt && (
           <button
             type="button"
