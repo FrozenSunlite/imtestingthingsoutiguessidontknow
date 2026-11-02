@@ -603,6 +603,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         type: "pan",
         startScreen: { x: e.clientX, y: e.clientY },
         startPan: { x: viewRef.current.panX, y: viewRef.current.panY },
+        button: e.button,
+        fromBackground: true,
       };
     }
     (e.currentTarget).setPointerCapture?.(e.pointerId);
@@ -938,8 +940,24 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     if (d?.type === "marquee") {
       setMarquee(null);
       if (!d.moved) {
-        setUi((u) => ({ ...u, selectedNodeId: null, selectedNodeIds: [], selectedConnectionId: null }));
+        setUi((u) => ({
+          ...u,
+          selectedNodeId: null,
+          editingNodeId: null,
+          selectedNodeIds: [],
+          selectedConnectionId: null,
+        }));
       }
+    }
+    // A plain left click (no pan) on empty canvas in View mode deselects too.
+    if (d?.type === "pan" && !d.moved && d.button === 0 && d.fromBackground) {
+      setUi((u) => ({
+        ...u,
+        selectedNodeId: null,
+        editingNodeId: null,
+        selectedNodeIds: [],
+        selectedConnectionId: null,
+      }));
     }
     dragRef.current = null;
   };

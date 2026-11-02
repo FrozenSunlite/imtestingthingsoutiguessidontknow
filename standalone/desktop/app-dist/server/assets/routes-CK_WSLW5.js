@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-3cg8Pmuu.js";
+import { n as Button, r as cn } from "./router-DH47quqy.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -30001,7 +30001,9 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			startPan: {
 				x: viewRef.current.panX,
 				y: viewRef.current.panY
-			}
+			},
+			button: e.button,
+			fromBackground: true
 		};
 		e.currentTarget.setPointerCapture?.(e.pointerId);
 	};
@@ -30324,10 +30326,18 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			if (!d.moved) setUi((u) => ({
 				...u,
 				selectedNodeId: null,
+				editingNodeId: null,
 				selectedNodeIds: [],
 				selectedConnectionId: null
 			}));
 		}
+		if (d?.type === "pan" && !d.moved && d.button === 0 && d.fromBackground) setUi((u) => ({
+			...u,
+			selectedNodeId: null,
+			editingNodeId: null,
+			selectedNodeIds: [],
+			selectedConnectionId: null
+		}));
 		dragRef.current = null;
 	};
 	const onConnSelect = useCallback((e, conn) => {
