@@ -41,7 +41,6 @@ import {
   Download,
   Save,
   ArrowLeftRight,
-  DoorOpen,
   ZoomIn,
   ZoomOut,
   Maximize,
@@ -55,6 +54,7 @@ import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
 import { TabBar } from "@/components/skilltree/TabBar";
 import { InfoTip } from "@/components/skilltree/InfoTip";
+import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
 import { SearchBox } from "@/components/skilltree/SearchBox";
 import { Database } from "lucide-react";
 
@@ -300,11 +300,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
         {/* Back to the main menu sits next to Settings. Returning to the menu
             keeps the working project; only closing the program while dirty
             warns, so there is no exit dialog here. */}
-        <InfoTip label="Back to the main menu">
-          <Button size="sm" variant="outline" onClick={() => setScreen("launch")}>
-            <DoorOpen className="mr-1 h-4 w-4" /> Menu
-          </Button>
-        </InfoTip>
+        <MainMenuButton onClick={() => setScreen("launch")} />
         <InfoTip label="Settings: hotkeys, camera start, connectors, default artwork">
           <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
             <Settings className="mr-1 h-4 w-4" /> Settings

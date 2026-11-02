@@ -7,7 +7,6 @@ import {
   configureAudio,
   getCurrentTrack,
   getMusicElement,
-  installClickSounds,
   pauseMusic,
   playMusicTrack,
   prefetchMusic,
@@ -15,6 +14,7 @@ import {
   setCurrentTrack,
   setMusicEndedHandler,
 } from "@/lib/audio";
+import { installUiSounds } from "@/lib/sfx";
 import { useMusicLibrary } from "@/lib/useMusicLibrary";
 
 // A small vinyl record: grooves, a coloured label and a centre hole.
@@ -110,7 +110,7 @@ export function MusicPlayer() {
 
   useEffect(() => {
     if (!audio.sfxEnabled) return undefined;
-    return installClickSounds(true);
+    return installUiSounds(true);
   }, [audio.sfxEnabled]);
 
   // Play the right thing whenever the selection, playlist or power changes.

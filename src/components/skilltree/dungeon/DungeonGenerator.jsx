@@ -33,7 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Dices, Download, Plus, Save, Trash2 } from "lucide-react";
+import { Dices, Download, Plus, Save, Trash2 } from "lucide-react";
+import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
 import { toast } from "sonner";
 
 const lines = (arr) => (arr || []).join("\n");
@@ -1134,9 +1135,7 @@ export function DungeonGenerator({ onExit, embedded = false }) {
     <div className={`flex flex-col bg-background text-foreground ${embedded ? "h-[74vh] min-h-[560px]" : "h-screen"}`}>
       <header className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
         {!embedded && (
-          <Button size="icon" variant="outline" className="h-8 w-8" title="Back to menu" onClick={onExit}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <MainMenuButton compact onClick={onExit} />
         )}
         <div className="min-w-0">
           <h1 className="font-display text-base font-semibold leading-tight">

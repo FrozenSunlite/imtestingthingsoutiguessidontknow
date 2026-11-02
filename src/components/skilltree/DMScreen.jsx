@@ -10,7 +10,8 @@ import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerator";
 import { loadDmTracker, DM_TRACKER_KEY } from "@/lib/dmTrackerStore";
 import { parseMaxHp, dexMod } from "@/lib/dmLoot";
-import { Swords, DoorOpen, BookOpen } from "lucide-react";
+import { Swords, BookOpen } from "lucide-react";
+import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
 
 // The Dungeon Master's Screen as its own full-screen section: a combat
 // tracker that pulls monsters from the reference library, encounter and
@@ -76,9 +77,7 @@ export function DMScreen({ onExit }) {
           <Button size="sm" variant="outline" onClick={() => setLibOpen(true)}>
             <BookOpen className="mr-1 h-4 w-4" /> Reference Library
           </Button>
-          <Button size="sm" variant="outline" onClick={onExit}>
-            <DoorOpen className="mr-1 h-4 w-4" /> Back to menu
-          </Button>
+          <MainMenuButton onClick={onExit} />
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">

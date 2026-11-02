@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 
 const classKey = (entry) => `${entry.name}|${entry.source || ""}`;
 
@@ -155,6 +157,7 @@ export function LevelUpDialog({ open, onClose }) {
 
   const confirm = (gain) => {
     if (isNew && !activeClassName) {
+      playSfx(SFX.error, { gain: 0.7 });
       toast.error("Choose the class to multiclass into.");
       return;
     }

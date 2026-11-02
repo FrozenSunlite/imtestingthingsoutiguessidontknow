@@ -21,7 +21,8 @@ import {
   DEFAULT_SENSES,
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
-import { DEFAULT_AUDIO_SETTINGS } from "@/lib/audio";
+import { DEFAULT_AUDIO_SETTINGS, playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
 import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
 import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";
@@ -1071,6 +1072,7 @@ export function TreeProvider({ children }) {
         })),
       };
     });
+    if (Number(points) > 0) playSfx(SFX.unlockNode, { gain: 0.5 });
   }, []);
 
   // Patch one subtree instance. Structural edits on a shared subtree also
@@ -1893,6 +1895,7 @@ export function TreeProvider({ children }) {
           : t.connections,
       };
     });
+    playSfx(SFX.placeNode, { gain: 0.6 });
     return id;
   }, []);
 
@@ -2261,6 +2264,7 @@ export function TreeProvider({ children }) {
           }),
         };
       });
+      if (Number(delta) > 0) playSfx(SFX.unlockNode, { gain: 0.5 });
     },
     []
   );

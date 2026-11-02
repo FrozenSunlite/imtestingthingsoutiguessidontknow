@@ -13,7 +13,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteSelectionFromPlot, copySelection, pasteClipboard, selectionValid } from "@/lib/homesteadEdit";
 import { toast } from "sonner";
-import { ArrowLeft, Boxes, Download, Home, Store, Castle, Plus, Trash2, Pencil, Upload, Wrench } from "lucide-react";
+import { Boxes, Download, Home, Store, Castle, Plus, Trash2, Pencil, Upload, Wrench } from "lucide-react";
+import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
 import {
   loadPlots, savePlots, newPlot,
 } from "@/lib/homesteadStore";
@@ -312,7 +313,7 @@ export default function Homebuilder({ onExit, onRoomBuilder }) {
             </Button>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={onExit}><ArrowLeft className="h-4 w-4" /> Back to menu</Button>
+        <MainMenuButton onClick={onExit} variant="ghost" />
         <PlotSetupDialog kind={setupKind} onClose={() => setSetupKind(null)} onCreate={createPlot} />
       </div>
     );
@@ -420,9 +421,7 @@ export default function Homebuilder({ onExit, onRoomBuilder }) {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2">
-        <Button size="icon" variant="outline" className="h-8 w-8" title="Back to menu" onClick={onExit}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <MainMenuButton compact onClick={onExit} />
         <Select value={activeId} onValueChange={(v) => { setActiveId(v); const p = plots.find((x) => x.id === v); setFloorId(p?.floors[0]?.id || null); setSelection(null); setTool(null); }}>
           <SelectTrigger className="h-8 w-52"><SelectValue placeholder="Plot…" /></SelectTrigger>
           <SelectContent>

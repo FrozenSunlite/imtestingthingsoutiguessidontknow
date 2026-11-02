@@ -69,6 +69,9 @@ import { TriggersTab } from "./library/TriggersTab";
 import { StatusEffectsTab } from "./library/StatusEffectsTab";
 import { MonstersTab } from "./library/MonstersTab";
 import { UpgradesTab } from "./library/UpgradesTab";
+import { PanelResizer } from "./PanelResizer";
+import { usePanelWidth } from "@/hooks/use-panel-width";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 const DEDICATED_IMPORTED = new Set([
   "backgrounds",
@@ -182,6 +185,13 @@ const SEARCH_CATEGORIES = (lib) => [
 
 export function LibraryMenu({ open, onClose }) {
   const { settings, setSettings } = useTree();
+  const isMobile = useIsMobile();
+  const [libraryWidth, setLibraryWidth] = usePanelWidth(
+    960,
+    420,
+    1600,
+    "skilltree:libraryWidth"
+  );
   const [weaponQuery, setWeaponQuery] = useState("");
   const [weaponSub, setWeaponSub] = useState("__all__");
   const [armorQuery, setArmorQuery] = useState("");
@@ -242,9 +252,20 @@ export function LibraryMenu({ open, onClose }) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose()} modal={false}>
       <DialogContent
         hideOverlay
-        className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0"
+        className="left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 overflow-hidden max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0"
+        style={
+          isMobile
+            ? undefined
+            : {
+                width: `min(${libraryWidth}px, calc(100vw - 1rem))`,
+                minWidth: 0,
+                maxWidth: "calc(100vw - 1rem)",
+                gridTemplateColumns: "minmax(0, 1fr)",
+              }
+        }
         onInteractOutside={(e) => e.preventDefault()}
       >
+        <div className="min-w-0 max-h-[calc(100vh-3.5rem)] w-full overflow-auto pr-1">
         <DialogHeader>
           <DialogTitle>Reference Library</DialogTitle>
           <DialogDescription>
@@ -866,6 +887,16 @@ export function LibraryMenu({ open, onClose }) {
             )}
           </div>
         </Tabs>
+        </div>
+        {!isMobile && (
+          <PanelResizer
+            edge="right"
+            width={libraryWidth}
+            onResize={setLibraryWidth}
+            min={420}
+            max={1600}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

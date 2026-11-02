@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/select";
 import { Coins, Sparkles, Swords, TreePine, Upload, UserRound, Users } from "lucide-react";
 import { toast } from "sonner";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 
 const MODE_ICONS = {
   tree: TreePine,
@@ -109,6 +111,10 @@ export function CharacterCreatorDialog({ open, onClose }) {
   const [amount, setAmount] = useState("0");
   const treeFileRef = useRef(null);
   const seededRef = useRef(false);
+  const fail = (message) => {
+    playSfx(SFX.error, { gain: 0.7 });
+    toast.error(message);
+  };
 
   // Re-seed the form from the working character each time it opens. Settings
   // can change while the dialog is open (for example an imported tree carrying
@@ -221,19 +227,19 @@ export function CharacterCreatorDialog({ open, onClose }) {
 
   const create = () => {
     if (showRace && !raceName) {
-      toast.error("Choose a race (or switch to a mode without a race).");
+      fail("Choose a race (or switch to a mode without a race).");
       return;
     }
     if (showClass && !className) {
-      toast.error("Choose a class (or switch to a mode without a class).");
+      fail("Choose a class (or switch to a mode without a class).");
       return;
     }
     if (!useOriginFeat && backgroundName && optionGroups.some((group) => !optionChoices[group.id])) {
-      toast.error("This background has options — pick one for each group.");
+      fail("This background has options - pick one for each group.");
       return;
     }
     if (useOriginFeat && !featName) {
-      toast.error("Choose an origin feat, or turn the replacement off.");
+      fail("Choose an origin feat, or turn the replacement off.");
       return;
     }
 
@@ -318,10 +324,10 @@ export function CharacterCreatorDialog({ open, onClose }) {
         if (!usesTree) setMode("all");
         toast.success(`Talent tree imported from ${file.name}.`);
       } catch (error) {
-        toast.error(error?.message || "Could not import that talent tree.");
+        fail(error?.message || "Could not import that talent tree.");
       }
     };
-    reader.onerror = () => toast.error("Could not read that file.");
+    reader.onerror = () => fail("Could not read that file.");
     reader.readAsText(file);
     event.target.value = "";
   };

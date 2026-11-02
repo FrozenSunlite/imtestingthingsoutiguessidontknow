@@ -1,0 +1,1 @@
+import{g as e}from"./routes-sQuqMiSg.js";export default e();

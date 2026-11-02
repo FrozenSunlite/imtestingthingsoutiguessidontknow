@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 import { nodeTypesFor, pointTypesFor, poolForNodeType } from "@/lib/pointTypes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -598,6 +600,7 @@ export function NodeEditorPanel({ mobile = false }) {
                     key={n.id}
                     onClick={() => {
                       toggleDependency(n.id, node.id);
+                      playSfx(SFX.connector, { gain: 0.55 });
                       setSearch("");
                     }}
                     className="block w-full truncate px-2 py-1 text-left text-xs hover:bg-accent"

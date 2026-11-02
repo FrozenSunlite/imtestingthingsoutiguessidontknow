@@ -1,12 +1,23 @@
+import { useEffect } from "react";
 import { CheckCircle2, Loader2, TriangleAlert, X } from "lucide-react";
 import { dismissImport } from "@/lib/importStatus";
 import { useImportStatus } from "@/lib/useImportStatus";
 import { Button } from "@/components/ui/button";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 
 // Visible on every screen. The importer keeps running after the Reference
 // Index closes, so this is the only place that reports progress/completion.
 export function ImportStatusBanner() {
   const status = useImportStatus();
+  useEffect(() => {
+    if (status.state === "done") {
+      playSfx(SFX.importFinished, { gain: 0.85 });
+    } else if (status.state === "error") {
+      playSfx(SFX.error, { gain: 0.75 });
+    }
+  }, [status.state, status.finishedAt]);
+
   if (!status || status.state === "idle") return null;
 
   const percent =

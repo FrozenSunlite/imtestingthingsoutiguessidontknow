@@ -1,5 +1,7 @@
 import { useTree } from "@/lib/treeStore";
 import { snapPoint } from "@/lib/geometry";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import {
   RotateCw,
@@ -167,6 +169,7 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
     const id = addNode(node.x + 140, node.y);
     updateNode(id, { talentType: node.talentType || "", size: node.size || 100 });
     toggleDependency(node.id, id);
+    playSfx(SFX.connector, { gain: 0.55 });
     setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: id }));
   };
 

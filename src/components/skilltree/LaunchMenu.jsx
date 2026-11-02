@@ -3,6 +3,8 @@ import { useTree } from "@/lib/treeStore";
 import { Button } from "@/components/ui/button";
 import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
 import { CharacterCreatorDialog } from "@/components/skilltree/CharacterCreatorDialog";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
 import Rulebook from "@/components/rulebook/Rulebook";
@@ -171,7 +173,10 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
               <Plus className="h-5 w-5" />,
               "New",
               "Start a fresh skill tree",
-              () => setNewConfirmOpen(true)
+              () => {
+                playSfx(SFX.newProject, { gain: 0.65 });
+                setNewConfirmOpen(true);
+              }
             )}
             {menuBtn(
               <FolderOpen className="h-5 w-5" />,

@@ -43,6 +43,15 @@ let sfxEnabled = true;
 let soundManifestPromise = null;
 let soundIndex = null;
 
+// Looping resize sound. The source keeps looping silently between pointer
+// moves, so resuming while the mouse is still held is seamless.
+const RESIZE_SFX_FILE = "/sounds/Window Resize.ogg";
+let resizeBufferPromise = null;
+let resizeNode = null;
+let resizeRequested = false;
+let resizeMoved = false;
+let resizeIdleTimer = 0;
+
 // The track that is currently loaded (not necessarily audible while muted).
 let currentTrack = null;
 const trackListeners = new Set();
@@ -129,6 +138,13 @@ export function configureAudio(settings) {
   sfxEnabled = settings?.sfxEnabled !== false;
   const el = music.el;
   if (el && !el.paused && !music.fadeFrame) el.volume = musicTarget();
+  if (resizeNode && sfxContext) {
+    resizeNode.gain.gain.setTargetAtTime(
+      resizeGainTarget(),
+      sfxContext.currentTime,
+      0.02
+    );
+  }
 }
 
 // Starts a track from silence, fades the current one out first. Throws when
@@ -241,6 +257,83 @@ function ensureSfxContext() {
   return sfxContext;
 }
 
+function resizeGainTarget() {
+  return sfxMuted || !sfxEnabled ? 0 : clamp(sfxVolume * 0.55);
+}
+
+function scheduleResizeIdle() {
+  clearTimeout(resizeIdleTimer);
+  resizeIdleTimer = setTimeout(() => {
+    resizeIdleTimer = 0;
+    if (!resizeNode || !sfxContext) return;
+    resizeNode.gain.gain.setTargetAtTime(0, sfxContext.currentTime, 0.04);
+  }, 120);
+}
+
+// Starts the looped drag sound, but keeps it silent until the pointer actually
+// moves. The loop source keeps running at zero gain while the mouse is held.
+export function startResizeSfx() {
+  if (!sfxEnabled || sfxMuted || sfxVolume <= 0) return;
+  const ctx = ensureSfxContext();
+  if (!ctx) return;
+  resizeRequested = true;
+  resizeMoved = false;
+  scheduleResizeIdle();
+  if (resizeNode) return;
+  if (!resizeBufferPromise) {
+    resizeBufferPromise = fetch(RESIZE_SFX_FILE)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error("missing"))))
+      .then((data) => ctx.decodeAudioData(data))
+      .catch(() => null);
+  }
+  resizeBufferPromise.then((buffer) => {
+    if (!buffer || !resizeRequested || resizeNode) return;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    source.connect(gain).connect(ctx.destination);
+    source.start();
+    resizeNode = { source, gain };
+    if (resizeMoved) noteResizeActivity();
+  });
+}
+
+export function noteResizeActivity() {
+  if (!resizeRequested) return;
+  resizeMoved = true;
+  if (!resizeNode || !sfxContext) {
+    scheduleResizeIdle();
+    return;
+  }
+  resizeNode.gain.gain.cancelScheduledValues(sfxContext.currentTime);
+  resizeNode.gain.gain.setTargetAtTime(
+    resizeGainTarget(),
+    sfxContext.currentTime,
+    0.02
+  );
+  scheduleResizeIdle();
+}
+
+export function stopResizeSfx() {
+  resizeRequested = false;
+  resizeMoved = false;
+  clearTimeout(resizeIdleTimer);
+  resizeIdleTimer = 0;
+  const node = resizeNode;
+  resizeNode = null;
+  if (!node || !sfxContext) return;
+  const now = sfxContext.currentTime;
+  node.gain.gain.cancelScheduledValues(now);
+  node.gain.gain.setTargetAtTime(0, now, 0.02);
+  try {
+    node.source.stop(now + 0.12);
+  } catch {
+    /* already stopped */
+  }
+}
+
 export async function playSfx(name, { gain = 1 } = {}) {
   if (!name || !sfxEnabled || sfxMuted || sfxVolume <= 0) return;
   const keys = [String(name).toLowerCase()];
@@ -271,22 +364,4 @@ export async function playSfx(name, { gain = 1 } = {}) {
   // First call may arrive before the manifest is loaded.
   await loadSoundManifest();
   if (soundIndex?.size) await playSfx(name, { gain });
-}
-
-// A single delegated click sound makes every button/row feel responsive once
-// the user drops a "click" effect into public/sounds. Rate-limited so drags
-// and rapid clicks don't machine-gun.
-let lastClickAt = 0;
-export function installClickSounds(enabled) {
-  if (typeof document === "undefined" || !enabled) return () => {};
-  const handler = (event) => {
-    const target = event.target?.closest?.("button, a, [role=button], [role=tab], input[type=checkbox]");
-    if (!target || target.disabled) return;
-    const now = performance.now();
-    if (now - lastClickAt < 55) return;
-    lastClickAt = now;
-    playSfx("click", { gain: 0.7 });
-  };
-  document.addEventListener("pointerdown", handler, true);
-  return () => document.removeEventListener("pointerdown", handler, true);
 }

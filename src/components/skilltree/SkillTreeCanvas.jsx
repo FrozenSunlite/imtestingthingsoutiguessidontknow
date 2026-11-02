@@ -42,6 +42,8 @@ import { AbilityChoiceDialog } from "@/components/skilltree/AbilityChoiceDialog"
 import { SubtreePickerDialog } from "@/components/skilltree/SubtreePickerDialog";
 import { ConnectorMenu } from "@/components/skilltree/ConnectorMenu";
 import { CarryGhost } from "@/components/skilltree/CarryGhost";
+import { playSfx } from "@/lib/audio";
+import { SFX } from "@/lib/sfx";
 
 // Camera framing bookkeeping. Module scope on purpose: it must survive canvas
 // unmounts, so returning from the character sheet keeps the current view.
@@ -628,7 +630,10 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     // Link mode (context menu or Alt+click): clicking a node completes the
     // link and exits the mode instead of selecting it.
     if (editable && ui.linkingFromId) {
-      if (ui.linkingFromId !== node.id) toggleDependency(ui.linkingFromId, node.id);
+      if (ui.linkingFromId !== node.id) {
+        toggleDependency(ui.linkingFromId, node.id);
+        playSfx(SFX.connector, { gain: 0.55 });
+      }
       linkDoneRef.current = true;
       setUi((u) => ({ ...u, linkingFromId: null }));
       return;
@@ -640,6 +645,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     if (editable && e.altKey) {
       if (ui.selectedNodeId && ui.selectedNodeId !== node.id) {
         toggleDependency(ui.selectedNodeId, node.id);
+        playSfx(SFX.connector, { gain: 0.55 });
         linkDoneRef.current = true;
         return;
       }
@@ -713,6 +719,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
         size: from?.size || 100,
       });
       toggleDependency(conn.from, id);
+      playSfx(SFX.connector, { gain: 0.55 });
       addBend(conn.id, world.x, world.y, 0);
       setUi((u) => ({
         ...u,
@@ -731,6 +738,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     (conn, world) => {
       if (!ui.selectedNodeId) return;
       toggleDependency(ui.selectedNodeId, conn.to);
+      playSfx(SFX.connector, { gain: 0.55 });
       addBend(conn.id, world.x, world.y, 0);
       setConnMenu(null);
     },

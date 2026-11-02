@@ -68,7 +68,6 @@ import {
   resolveKingdomEvent,
 } from "@/lib/kingdom";
 import {
-  ArrowLeft,
   Castle,
   Clock,
   Compass,
@@ -87,6 +86,7 @@ import {
   Swords,
   Users,
 } from "lucide-react";
+import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
 
 const TABS = [
   ["overview", "Overview", Compass],
@@ -1043,9 +1043,7 @@ export function WorldBuilder({ onExit }) {
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2">
-        <Button size="icon" variant="outline" className="h-8 w-8" onClick={onExit}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <MainMenuButton compact onClick={onExit} />
         <div className="min-w-0">
           <h1 className="truncate font-display text-base font-semibold">{world.name}</h1>
           <p className="text-[10px] text-muted-foreground">

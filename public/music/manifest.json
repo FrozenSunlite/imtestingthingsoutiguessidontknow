@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T04:55:29.530Z",
+  "generatedAt": "2026-11-02T05:14:28.027Z",
   "default": [
     {
       "title": "Abandon",
@@ -48,10 +48,6 @@
     {
       "title": "Entrance",
       "file": "/music/Entrance.ogg"
-    },
-    {
-      "title": "Gone",
-      "file": "/music/Gone.ogg"
     },
     {
       "title": "Helpless",

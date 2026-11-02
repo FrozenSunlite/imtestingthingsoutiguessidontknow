@@ -12,6 +12,7 @@
     "apk:prepare": "node scripts/prepare-apk.mjs",
     "apk:build": "cd android && gradlew.bat assembleDebug && cd .. && node scripts/publish-apk.mjs",
     "music:import": "node scripts/import-music.mjs",
+    "sounds:import": "node scripts/import-sounds.mjs",
     "sounds:index": "node scripts/index-sounds.mjs",
     "test": "node --test tests/*.test.mjs",
     "preview": "vite preview"

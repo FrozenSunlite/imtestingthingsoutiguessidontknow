@@ -121,7 +121,11 @@ changing app code, then restart the launcher.
   ```
 
   Sound effects go in `public/sounds`; an effect named `click` is wired to
-  buttons, links, tabs and checkboxes automatically.
+  buttons, links, tabs and checkboxes automatically. The imported pack also
+  provides dedicated taps, node placement/unlock, connector creation, dialog
+  pop-ups, errors, import completion, the standardized **Main Menu** button, and
+  a seamless panel/dialog resize loop that pauses when the pointer stops and
+  ends on release.
 - **Character Creator:** available from the main menu even before a project
   exists, and the creator itself can import a talent tree. The four tree builds
   (tree only, tree + race, tree + class, all) plus **race + class** with no tree.

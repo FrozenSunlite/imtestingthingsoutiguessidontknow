@@ -1,3 +1,60 @@
 {
-  "sounds": []
+  "sounds": [
+    {
+      "name": "5e Import Finished",
+      "file": "/sounds/5e Import Finished.ogg"
+    },
+    {
+      "name": "Clicking New",
+      "file": "/sounds/Clicking New.ogg"
+    },
+    {
+      "name": "Creating a Connector",
+      "file": "/sounds/Creating a Connector.ogg"
+    },
+    {
+      "name": "Error",
+      "file": "/sounds/Error.ogg"
+    },
+    {
+      "name": "Placing a Node",
+      "file": "/sounds/Placing a Node.ogg"
+    },
+    {
+      "name": "Pop-Up noise",
+      "file": "/sounds/Pop-Up noise.ogg"
+    },
+    {
+      "name": "Return to Main Menu",
+      "file": "/sounds/Return to Main Menu.ogg"
+    },
+    {
+      "name": "Tap Variant 1",
+      "file": "/sounds/Tap Variant 1.ogg"
+    },
+    {
+      "name": "Tap Variant 2",
+      "file": "/sounds/Tap Variant 2.ogg"
+    },
+    {
+      "name": "Tap Variant 3",
+      "file": "/sounds/Tap Variant 3.ogg"
+    },
+    {
+      "name": "Tap Variant 4",
+      "file": "/sounds/Tap Variant 4.ogg"
+    },
+    {
+      "name": "Tap Variant 5",
+      "file": "/sounds/Tap Variant 5.ogg"
+    },
+    {
+      "name": "Unlocking a Node",
+      "file": "/sounds/Unlocking a Node.ogg"
+    },
+    {
+      "name": "Window Resize",
+      "file": "/sounds/Window Resize.ogg"
+    }
+  ]
 }

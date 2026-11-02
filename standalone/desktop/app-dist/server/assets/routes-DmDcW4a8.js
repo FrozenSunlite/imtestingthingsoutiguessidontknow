@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-BvWfsiGQ.js";
+import { n as Button, r as cn } from "./router-BxaZfB_s.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft as ArrowLeft$1, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
@@ -2941,6 +2941,12 @@ var sfxMuted = false;
 var sfxEnabled = true;
 var soundManifestPromise = null;
 var soundIndex = null;
+var RESIZE_SFX_FILE = "/sounds/Window Resize.ogg";
+var resizeBufferPromise = null;
+var resizeNode = null;
+var resizeRequested = false;
+var resizeMoved = false;
+var resizeIdleTimer = 0;
 var currentTrack = null;
 var trackListeners = /* @__PURE__ */ new Set();
 function setCurrentTrack(track) {
@@ -3015,6 +3021,7 @@ function configureAudio(settings) {
 	sfxEnabled = settings?.sfxEnabled !== false;
 	const el = music.el;
 	if (el && !el.paused && !music.fadeFrame) el.volume = musicTarget();
+	if (resizeNode && sfxContext) resizeNode.gain.gain.setTargetAtTime(resizeGainTarget(), sfxContext.currentTime, .02);
 }
 async function playMusicTrack(track, { fadeMs = FADE_MS } = {}) {
 	const el = ensureMusicElement();
@@ -3078,6 +3085,9 @@ function loadSoundManifest() {
 	});
 	return soundManifestPromise;
 }
+function listSoundEffects() {
+	return loadSoundManifest();
+}
 function ensureSfxContext() {
 	if (typeof window === "undefined") return null;
 	if (!sfxContext) {
@@ -3087,6 +3097,68 @@ function ensureSfxContext() {
 	}
 	if (sfxContext.state === "suspended") sfxContext.resume().catch(() => {});
 	return sfxContext;
+}
+function resizeGainTarget() {
+	return sfxMuted || !sfxEnabled ? 0 : clamp$7(sfxVolume * .55);
+}
+function scheduleResizeIdle() {
+	clearTimeout(resizeIdleTimer);
+	resizeIdleTimer = setTimeout(() => {
+		resizeIdleTimer = 0;
+		if (!resizeNode || !sfxContext) return;
+		resizeNode.gain.gain.setTargetAtTime(0, sfxContext.currentTime, .04);
+	}, 120);
+}
+function startResizeSfx() {
+	if (!sfxEnabled || sfxMuted || sfxVolume <= 0) return;
+	const ctx = ensureSfxContext();
+	if (!ctx) return;
+	resizeRequested = true;
+	resizeMoved = false;
+	scheduleResizeIdle();
+	if (resizeNode) return;
+	if (!resizeBufferPromise) resizeBufferPromise = fetch(RESIZE_SFX_FILE).then((res) => res.ok ? res.arrayBuffer() : Promise.reject(/* @__PURE__ */ new Error("missing"))).then((data) => ctx.decodeAudioData(data)).catch(() => null);
+	resizeBufferPromise.then((buffer) => {
+		if (!buffer || !resizeRequested || resizeNode) return;
+		const source = ctx.createBufferSource();
+		source.buffer = buffer;
+		source.loop = true;
+		const gain = ctx.createGain();
+		gain.gain.value = 0;
+		source.connect(gain).connect(ctx.destination);
+		source.start();
+		resizeNode = {
+			source,
+			gain
+		};
+		if (resizeMoved) noteResizeActivity();
+	});
+}
+function noteResizeActivity() {
+	if (!resizeRequested) return;
+	resizeMoved = true;
+	if (!resizeNode || !sfxContext) {
+		scheduleResizeIdle();
+		return;
+	}
+	resizeNode.gain.gain.cancelScheduledValues(sfxContext.currentTime);
+	resizeNode.gain.gain.setTargetAtTime(resizeGainTarget(), sfxContext.currentTime, .02);
+	scheduleResizeIdle();
+}
+function stopResizeSfx() {
+	resizeRequested = false;
+	resizeMoved = false;
+	clearTimeout(resizeIdleTimer);
+	resizeIdleTimer = 0;
+	const node = resizeNode;
+	resizeNode = null;
+	if (!node || !sfxContext) return;
+	const now = sfxContext.currentTime;
+	node.gain.gain.cancelScheduledValues(now);
+	node.gain.gain.setTargetAtTime(0, now, .02);
+	try {
+		node.source.stop(now + .12);
+	} catch {}
 }
 async function playSfx(name, { gain = 1 } = {}) {
 	if (!name || !sfxEnabled || sfxMuted || sfxVolume <= 0) return;
@@ -3116,19 +3188,74 @@ async function playSfx(name, { gain = 1 } = {}) {
 	await loadSoundManifest();
 	if (soundIndex?.size) await playSfx(name, { gain });
 }
-var lastClickAt = 0;
-function installClickSounds(enabled) {
+//#endregion
+//#region src/lib/sfx.js
+var SFX = {
+	tap: [
+		"Tap Variant 1",
+		"Tap Variant 2",
+		"Tap Variant 3",
+		"Tap Variant 4",
+		"Tap Variant 5"
+	],
+	newProject: "Clicking New",
+	connector: "Creating a Connector",
+	error: "Error",
+	placeNode: "Placing a Node",
+	popup: "Pop-Up noise",
+	unlockNode: "Unlocking a Node",
+	importFinished: "5e Import Finished",
+	mainMenu: "Return to Main Menu"
+};
+function playTapSfx() {
+	const variants = SFX.tap;
+	return playSfx(variants[Math.floor(Math.random() * variants.length)], { gain: .55 });
+}
+function installUiSounds(enabled) {
 	if (typeof document === "undefined" || !enabled) return () => {};
-	const handler = (event) => {
-		const target = event.target?.closest?.("button, a, [role=button], [role=tab], input[type=checkbox]");
-		if (!target || target.disabled) return;
+	listSoundEffects();
+	let lastTap = 0;
+	let lastPopup = 0;
+	let lastError = 0;
+	const onPointerDown = (event) => {
+		const target = event.target?.closest?.("button, a, [role=button], [role=tab], [role=menuitem], [role=option], input[type=checkbox], input[type=radio]");
+		if (!target || target.disabled || target.getAttribute("aria-disabled") === "true") return;
 		const now = performance.now();
-		if (now - lastClickAt < 55) return;
-		lastClickAt = now;
-		playSfx("click", { gain: .7 });
+		if (now - lastTap < 55) return;
+		lastTap = now;
+		playTapSfx();
 	};
-	document.addEventListener("pointerdown", handler, true);
-	return () => document.removeEventListener("pointerdown", handler, true);
+	document.addEventListener("pointerdown", onPointerDown, true);
+	const observer = new MutationObserver((mutations) => {
+		for (const mutation of mutations) for (const node of mutation.addedNodes) {
+			if (node.nodeType !== 1) continue;
+			if (node.matches?.("[role=\"dialog\"]") || node.querySelector?.("[role=\"dialog\"]")) {
+				const now = performance.now();
+				if (now - lastPopup < 180) return;
+				lastPopup = now;
+				playSfx(SFX.popup, { gain: .55 });
+				return;
+			}
+		}
+	});
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true
+	});
+	const onError = () => {
+		const now = performance.now();
+		if (now - lastError < 400) return;
+		lastError = now;
+		playSfx(SFX.error, { gain: .7 });
+	};
+	window.addEventListener("error", onError);
+	window.addEventListener("unhandledrejection", onError);
+	return () => {
+		document.removeEventListener("pointerdown", onPointerDown, true);
+		observer.disconnect();
+		window.removeEventListener("error", onError);
+		window.removeEventListener("unhandledrejection", onError);
+	};
 }
 //#endregion
 //#region src/lib/dieScaling.js
@@ -7137,6 +7264,7 @@ function TreeProvider({ children }) {
 				}))
 			};
 		});
+		if (Number(points) > 0) playSfx(SFX.unlockNode, { gain: .5 });
 	}, []);
 	const updateSubtreeInstance = useCallback((hostId, subIndex, patch) => {
 		setTree((t) => {
@@ -7850,6 +7978,7 @@ function TreeProvider({ children }) {
 				}] : t.connections
 			};
 		});
+		playSfx(SFX.placeNode, { gain: .6 });
 		return id;
 	}, []);
 	const deleteNode = useCallback((id) => {
@@ -8136,6 +8265,7 @@ function TreeProvider({ children }) {
 				})
 			};
 		});
+		if (Number(delta) > 0) playSfx(SFX.unlockNode, { gain: .5 });
 	}, []);
 	const historyRef = useRef({
 		stack: [],
@@ -11153,6 +11283,7 @@ function LevelUpDialog({ open, onClose }) {
 	};
 	const confirm = (gain) => {
 		if (isNew && !activeClassName) {
+			playSfx(SFX.error, { gain: .7 });
 			toast.error("Choose the class to multiclass into.");
 			return;
 		}
@@ -25652,6 +25783,66 @@ function UpgradesTab() {
 	});
 }
 //#endregion
+//#region src/hooks/use-panel-width.js
+var KEY$1 = "skilltree:editorWidth";
+var EVT = "skilltree:panel-width";
+function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KEY$1) {
+	const [width, setWidth] = useState(defaultWidth);
+	useEffect(() => {
+		const w = Number(localStorage.getItem(key));
+		if (Number.isFinite(w) && w > 0) setWidth(Math.min(max, Math.max(min, w)));
+		const sync = (e) => {
+			if (key !== KEY$1) return;
+			if (e.detail >= min && e.detail <= max) setWidth(e.detail);
+		};
+		window.addEventListener(EVT, sync);
+		return () => window.removeEventListener(EVT, sync);
+	}, [
+		key,
+		min,
+		max
+	]);
+	const set = (w) => {
+		setWidth(w);
+		localStorage.setItem(key, String(w));
+		if (key === KEY$1) window.dispatchEvent(new CustomEvent(EVT, { detail: w }));
+	};
+	return [width, set];
+}
+//#endregion
+//#region src/components/skilltree/PanelResizer.jsx
+function PanelResizer({ width, onResize, edge = "left", min = 260, max = 720 }) {
+	const [globalWidth, setGlobal] = usePanelWidth();
+	const w = width ?? globalWidth;
+	const apply = onResize ?? setGlobal;
+	const sign = edge === "left" ? -1 : 1;
+	return /* @__PURE__ */ jsx("div", {
+		title: "Drag to resize",
+		className: `absolute ${edge === "left" ? "left-0" : "right-0"} top-0 z-10 h-full w-1.5 cursor-ew-resize hover:bg-primary/40`,
+		onPointerDown: (e) => {
+			e.preventDefault();
+			startResizeSfx();
+			const startX = e.clientX;
+			const startW = w;
+			const move = (ev) => {
+				apply(Math.min(max, Math.max(min, startW + sign * (ev.clientX - startX))));
+				noteResizeActivity();
+			};
+			const up = () => {
+				window.removeEventListener("pointermove", move);
+				window.removeEventListener("pointerup", up);
+				window.removeEventListener("pointercancel", up);
+				window.removeEventListener("blur", up);
+				stopResizeSfx();
+			};
+			window.addEventListener("pointermove", move);
+			window.addEventListener("pointerup", up);
+			window.addEventListener("pointercancel", up);
+			window.addEventListener("blur", up);
+		}
+	});
+}
+//#endregion
 //#region src/components/skilltree/LibraryMenu.jsx
 var STATS_LIST = [
 	"STR",
@@ -25974,6 +26165,8 @@ var SEARCH_CATEGORIES = (lib) => [
 ];
 function LibraryMenu({ open, onClose }) {
 	const { settings, setSettings } = useTree();
+	const isMobile = useIsMobile();
+	const [libraryWidth, setLibraryWidth] = usePanelWidth(960, 420, 1600, "skilltree:libraryWidth");
 	const [weaponQuery, setWeaponQuery] = useState("");
 	const [weaponSub, setWeaponSub] = useState("__all__");
 	const [armorQuery, setArmorQuery] = useState("");
@@ -26021,740 +26214,755 @@ function LibraryMenu({ open, onClose }) {
 		modal: false,
 		children: /* @__PURE__ */ jsxs(DialogContent, {
 			hideOverlay: true,
-			className: "left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] translate-x-0 translate-y-0 overflow-y-auto max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0",
+			className: "left-2 top-2 max-h-[calc(100vh-1rem)] w-[min(60rem,calc(100vw-1rem))] max-w-none translate-x-0 translate-y-0 overflow-hidden max-md:left-0 max-md:top-0 max-md:h-screen max-md:max-h-screen max-md:w-screen max-md:rounded-none max-md:border-0",
+			style: isMobile ? void 0 : {
+				width: `min(${libraryWidth}px, calc(100vw - 1rem))`,
+				minWidth: 0,
+				maxWidth: "calc(100vw - 1rem)",
+				gridTemplateColumns: "minmax(0, 1fr)"
+			},
 			onInteractOutside: (e) => e.preventDefault(),
-			children: [
-				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Weapons, armor, gear and lists used as suggestions when a node grants a proficiency." })] }),
-				/* @__PURE__ */ jsx(InfoTip, {
-					label: "Search every tab; click a result to jump to it.",
-					children: /* @__PURE__ */ jsx(Input, {
-						className: "h-8",
-						placeholder: "Search the whole library…",
-						value: search,
-						onChange: (e) => setSearch(e.target.value)
-					})
-				}),
-				/* @__PURE__ */ jsxs(Tabs, {
-					value: tab,
-					onValueChange: setTab,
-					orientation: "vertical",
-					className: "flex flex-col gap-3 md:flex-row",
-					children: [navOpen && /* @__PURE__ */ jsxs("div", {
-						className: "flex w-full shrink-0 flex-col gap-1 md:w-48",
-						children: [/* @__PURE__ */ jsx(TabsList, {
-							className: "flex h-[26vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1 md:h-[55vh]",
-							children: tabGroups.map(([groupLabel, entries]) => /* @__PURE__ */ jsxs("div", {
-								className: "w-full",
-								children: [/* @__PURE__ */ jsx("div", {
-									className: "px-2 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground",
-									children: groupLabel
-								}), entries.map(([value, entryLabel]) => /* @__PURE__ */ jsx(TabsTrigger, {
-									value,
-									className: "ml-1 w-full justify-start py-1 pl-5 pr-2 text-left text-xs",
-									children: entryLabel
-								}, value))]
-							}, groupLabel))
-						}), /* @__PURE__ */ jsx(Button, {
-							size: "sm",
-							variant: "ghost",
-							className: "justify-start text-xs",
-							onClick: () => setNavOpen(false),
-							children: "Hide categories"
-						})]
-					}), /* @__PURE__ */ jsxs("div", {
-						className: "min-w-0 flex-1",
-						children: [!navOpen && /* @__PURE__ */ jsx(Button, {
-							size: "sm",
-							variant: "outline",
-							className: "mb-2",
-							onClick: () => setNavOpen(true),
-							children: "Show categories"
-						}), q ? /* @__PURE__ */ jsxs("div", {
-							className: "max-h-[50vh] space-y-2 overflow-y-auto pt-3",
-							children: [results.length === 0 && /* @__PURE__ */ jsx("p", {
-								className: "text-xs text-muted-foreground",
-								children: "No matches."
-							}), results.map((g) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
-								className: "text-[10px] font-bold uppercase tracking-wide text-muted-foreground",
-								children: g.cat
-							}), /* @__PURE__ */ jsx("div", {
-								className: "mt-0.5 flex flex-wrap gap-1",
-								children: g.hits.map((h) => /* @__PURE__ */ jsx("button", {
-									onClick: () => {
-										setTab(g.tabValue);
-										setSearch("");
-									},
-									className: "rounded border px-2 py-0.5 text-xs hover:bg-accent",
-									children: h.name
-								}, h.name))
-							})] }, g.cat))]
-						}) : /* @__PURE__ */ jsxs("div", {
-							className: "max-h-[50vh] overflow-y-auto pt-3",
-							children: [
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "types",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(CreatureTypesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "monsters",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(MonstersTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "actions",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(ActionsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "spells",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(SpellsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "spellSchools",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(SpellSchoolsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "triggers",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(TriggersTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "statusEffects",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(StatusEffectsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "damageTypes",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(DamageTypesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "gearCategories",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(GearCategoriesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "rollTables",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(RollTablesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "lootTables",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(LootTablesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "lootPools",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(LootPoolsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "encounterTables",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(EncounterTablesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "dungeonRooms",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(DungeonRoomsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "fiveETools",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsImportsTab, {})
-								}),
-								importedTabs.map(([value]) => /* @__PURE__ */ jsx(TabsContent, {
-									value,
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: value.slice(9) })
-								}, value)),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "media",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(MediaTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "duplicates",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(DuplicatesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "encounterCalc",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(EncounterXpCalculator, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "backgrounds",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "backgrounds" })
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "species",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "species" })
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "deities",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "deities" })
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "objects",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "objects" })
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "traps",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "traps" })
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "downtime",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(DowntimeTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "weaponUpgrades",
-									className: "mt-0 space-y-2",
-									children: /* @__PURE__ */ jsx(UpgradesTab, {})
-								}),
-								/* @__PURE__ */ jsxs(TabsContent, {
-									value: "weapons",
-									className: "mt-0 space-y-2",
-									children: [
-										/* @__PURE__ */ jsxs("div", {
-											className: "flex items-center justify-between",
-											children: [/* @__PURE__ */ jsx("span", {
-												className: "text-xs text-muted-foreground",
-												children: "Damage like 1d8 slashing: dice count, die size and type."
-											}), /* @__PURE__ */ jsxs(Button, {
-												size: "sm",
-												variant: "outline",
-												onClick: () => setLib({ weapons: [...lib.weapons || [], {
-													name: "",
-													category: "Simple",
-													attackType: "melee",
-													diceCount: 1,
-													dieSize: "d6",
-													damageType: "",
-													properties: [],
-													weight: 0,
-													cost: ""
-												}] }),
-												children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add weapon"]
-											})]
-										}),
-										/* @__PURE__ */ jsx(InfoTip, {
-											label: "Filter the weapon list by name.",
-											children: /* @__PURE__ */ jsx(Input, {
-												className: "h-8",
-												placeholder: "Search weapons…",
-												value: weaponQuery,
-												onChange: (e) => setWeaponQuery(e.target.value)
-											})
-										}),
-										/* @__PURE__ */ jsx("datalist", {
-											id: "library-damage-types",
-											children: (lib.damageTypes || []).map((d) => /* @__PURE__ */ jsx("option", { value: d }, d))
-										}),
-										/* @__PURE__ */ jsx(SubChips, {
-											values: lib.weaponCategories || [],
-											value: weaponSub,
-											onChange: setWeaponSub
-										}),
-										(() => {
-											const q = weaponQuery.trim();
-											const shown = (lib.weapons || []).map((w, i) => ({
-												w,
-												i
-											})).filter(({ w }) => matchesQuery(w?.name, q) && matchesSub(w.category, weaponSub));
-											if (shown.length === 0) return /* @__PURE__ */ jsx("p", {
-												className: "text-xs text-muted-foreground",
-												children: (lib.weapons || []).length === 0 ? "No weapons yet." : "No matches."
-											});
-											return shown.map(({ w, i }) => {
-												const patch = (p) => {
-													const next = [...lib.weapons];
-													next[i] = {
-														...w,
-														...p
-													};
-													setLib({ weapons: next });
-												};
-												return /* @__PURE__ */ jsxs("div", {
-													...benefitDragProps("equipment", w.name, {
-														description: w.description,
-														image: w.image
-													}),
-													className: "space-y-1.5 rounded-md border p-2",
-													children: [/* @__PURE__ */ jsxs("div", {
-														className: "grid grid-cols-2 gap-1.5",
-														children: [
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "The weapon's display name.",
-																children: /* @__PURE__ */ jsx(Input, {
-																	className: "h-8",
-																	placeholder: "Weapon name",
-																	value: w.name || "",
-																	onChange: (e) => patch({ name: e.target.value })
-																})
-															}),
-															/* @__PURE__ */ jsxs(Select, {
-																value: w.category || "Simple",
-																onValueChange: (v) => patch({ category: v }),
-																children: [/* @__PURE__ */ jsx(InfoTip, {
-																	label: "Weapon category (Simple, Martial…) — edit categories in the Categories tab.",
-																	children: /* @__PURE__ */ jsx(SelectTrigger, {
-																		className: "h-8",
-																		children: /* @__PURE__ */ jsx(SelectValue, {})
-																	})
-																}), /* @__PURE__ */ jsx(SelectContent, { children: (lib.weaponCategories || []).map((c) => /* @__PURE__ */ jsx(SelectItem, {
-																	value: c,
-																	children: c
-																}, c)) })]
-															}),
-															/* @__PURE__ */ jsxs(Select, {
-																value: w.attackType || "melee",
-																onValueChange: (v) => patch({ attackType: v }),
-																children: [/* @__PURE__ */ jsx(InfoTip, {
-																	label: "Melee or ranged attack.",
-																	children: /* @__PURE__ */ jsx(SelectTrigger, {
-																		className: "h-8",
-																		children: /* @__PURE__ */ jsx(SelectValue, {})
-																	})
-																}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-																	value: "melee",
-																	children: "Melee"
-																}), /* @__PURE__ */ jsx(SelectItem, {
-																	value: "ranged",
-																	children: "Ranged"
-																})] })]
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Weight in pounds; counts toward carried weight.",
-																children: /* @__PURE__ */ jsx(Input, {
-																	className: "h-8",
-																	type: "number",
-																	min: 0,
-																	placeholder: "Weight (lb)",
-																	value: w.weight ?? 0,
-																	onChange: (e) => patch({ weight: Number(e.target.value) || 0 })
-																})
-															}),
-															/* @__PURE__ */ jsxs("div", {
-																className: "flex items-center gap-1",
-																children: [
-																	/* @__PURE__ */ jsx(InfoTip, {
-																		label: "Number of damage dice.",
-																		children: /* @__PURE__ */ jsx(Input, {
-																			className: "h-8 w-14",
-																			type: "number",
-																			min: 1,
-																			value: w.diceCount ?? 1,
-																			onChange: (e) => patch({ diceCount: Math.max(1, Number(e.target.value) || 1) })
-																		})
-																	}),
-																	/* @__PURE__ */ jsxs(Select, {
-																		value: w.dieSize || "d6",
-																		onValueChange: (v) => patch({ dieSize: v }),
-																		children: [/* @__PURE__ */ jsx(InfoTip, {
-																			label: "Damage die size.",
-																			children: /* @__PURE__ */ jsx(SelectTrigger, {
-																				className: "h-8",
-																				children: /* @__PURE__ */ jsx(SelectValue, {})
-																			})
-																		}), /* @__PURE__ */ jsx(SelectContent, { children: DIE_SIZES.map((d) => /* @__PURE__ */ jsx(SelectItem, {
-																			value: d,
-																			children: d
-																		}, d)) })]
-																	}),
-																	/* @__PURE__ */ jsx(InfoTip, {
-																		label: "Damage type, e.g. slashing, piercing, fire.",
-																		children: /* @__PURE__ */ jsx(Input, {
-																			className: "h-8 flex-1",
-																			placeholder: "Damage type",
-																			value: w.damageType || "",
-																			onChange: (e) => patch({ damageType: e.target.value }),
-																			list: "library-damage-types"
-																		})
-																	})
-																]
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Cost and currency, e.g. 10 gp.",
-																children: /* @__PURE__ */ jsx(CostField, {
-																	value: w.cost,
-																	onChange: (v) => patch({ cost: v })
-																})
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Comma-separated weapon properties from the Weapon Properties tab.",
-																children: /* @__PURE__ */ jsx(Input, {
-																	className: "h-8",
-																	placeholder: "Properties (comma separated)",
-																	value: (w.properties || []).join(", "),
-																	onChange: (e) => patch({ properties: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
-																})
-															})
-														]
-													}), /* @__PURE__ */ jsx("div", {
-														className: "flex justify-end",
-														children: /* @__PURE__ */ jsx(Button, {
-															size: "sm",
-															variant: "ghost",
-															onClick: () => setLib({ weapons: lib.weapons.filter((_, j) => j !== i) }),
-															children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
-														})
-													})]
-												}, i);
-											});
-										})()
-									]
-								}),
-								/* @__PURE__ */ jsxs(TabsContent, {
-									value: "armor",
-									className: "mt-0 space-y-2",
-									children: [
-										/* @__PURE__ */ jsxs("div", {
-											className: "flex items-center justify-between",
-											children: [/* @__PURE__ */ jsxs(Button, {
-												size: "sm",
-												variant: "outline",
-												onClick: () => setLib({ armor: [...lib.armor || [], {
-													name: "",
-													type: "Light",
-													requirement: "",
-													acFlat: "",
-													acPlus: "",
-													stealthDisadvantage: false,
-													cost: ""
-												}] }),
-												children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add armor"]
-											}), /* @__PURE__ */ jsx(InfoTip, {
-												label: "Filter the armor list by name.",
+			children: [/* @__PURE__ */ jsxs("div", {
+				className: "min-w-0 max-h-[calc(100vh-3.5rem)] w-full overflow-auto pr-1",
+				children: [
+					/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Reference Library" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Weapons, armor, gear and lists used as suggestions when a node grants a proficiency." })] }),
+					/* @__PURE__ */ jsx(InfoTip, {
+						label: "Search every tab; click a result to jump to it.",
+						children: /* @__PURE__ */ jsx(Input, {
+							className: "h-8",
+							placeholder: "Search the whole library…",
+							value: search,
+							onChange: (e) => setSearch(e.target.value)
+						})
+					}),
+					/* @__PURE__ */ jsxs(Tabs, {
+						value: tab,
+						onValueChange: setTab,
+						orientation: "vertical",
+						className: "flex flex-col gap-3 md:flex-row",
+						children: [navOpen && /* @__PURE__ */ jsxs("div", {
+							className: "flex w-full shrink-0 flex-col gap-1 md:w-48",
+							children: [/* @__PURE__ */ jsx(TabsList, {
+								className: "flex h-[26vh] w-full flex-col items-stretch justify-start gap-0.5 overflow-y-auto rounded-md border p-1 md:h-[55vh]",
+								children: tabGroups.map(([groupLabel, entries]) => /* @__PURE__ */ jsxs("div", {
+									className: "w-full",
+									children: [/* @__PURE__ */ jsx("div", {
+										className: "px-2 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground",
+										children: groupLabel
+									}), entries.map(([value, entryLabel]) => /* @__PURE__ */ jsx(TabsTrigger, {
+										value,
+										className: "ml-1 w-full justify-start py-1 pl-5 pr-2 text-left text-xs",
+										children: entryLabel
+									}, value))]
+								}, groupLabel))
+							}), /* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "ghost",
+								className: "justify-start text-xs",
+								onClick: () => setNavOpen(false),
+								children: "Hide categories"
+							})]
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "min-w-0 flex-1",
+							children: [!navOpen && /* @__PURE__ */ jsx(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "mb-2",
+								onClick: () => setNavOpen(true),
+								children: "Show categories"
+							}), q ? /* @__PURE__ */ jsxs("div", {
+								className: "max-h-[50vh] space-y-2 overflow-y-auto pt-3",
+								children: [results.length === 0 && /* @__PURE__ */ jsx("p", {
+									className: "text-xs text-muted-foreground",
+									children: "No matches."
+								}), results.map((g) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
+									className: "text-[10px] font-bold uppercase tracking-wide text-muted-foreground",
+									children: g.cat
+								}), /* @__PURE__ */ jsx("div", {
+									className: "mt-0.5 flex flex-wrap gap-1",
+									children: g.hits.map((h) => /* @__PURE__ */ jsx("button", {
+										onClick: () => {
+											setTab(g.tabValue);
+											setSearch("");
+										},
+										className: "rounded border px-2 py-0.5 text-xs hover:bg-accent",
+										children: h.name
+									}, h.name))
+								})] }, g.cat))]
+							}) : /* @__PURE__ */ jsxs("div", {
+								className: "max-h-[50vh] overflow-y-auto pt-3",
+								children: [
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "types",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(CreatureTypesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "monsters",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(MonstersTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "actions",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(ActionsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "spells",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(SpellsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "spellSchools",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(SpellSchoolsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "triggers",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(TriggersTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "statusEffects",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(StatusEffectsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "damageTypes",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(DamageTypesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "gearCategories",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(GearCategoriesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "rollTables",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(RollTablesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "lootTables",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(LootTablesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "lootPools",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(LootPoolsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "encounterTables",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(EncounterTablesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "dungeonRooms",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(DungeonRoomsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "fiveETools",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsImportsTab, {})
+									}),
+									importedTabs.map(([value]) => /* @__PURE__ */ jsx(TabsContent, {
+										value,
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: value.slice(9) })
+									}, value)),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "media",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(MediaTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "duplicates",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(DuplicatesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "encounterCalc",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(EncounterXpCalculator, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "backgrounds",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "backgrounds" })
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "species",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "species" })
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "deities",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "deities" })
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "objects",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "objects" })
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "traps",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(FiveEToolsCategoryTab, { categoryId: "traps" })
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "downtime",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(DowntimeTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "weaponUpgrades",
+										className: "mt-0 space-y-2",
+										children: /* @__PURE__ */ jsx(UpgradesTab, {})
+									}),
+									/* @__PURE__ */ jsxs(TabsContent, {
+										value: "weapons",
+										className: "mt-0 space-y-2",
+										children: [
+											/* @__PURE__ */ jsxs("div", {
+												className: "flex items-center justify-between",
+												children: [/* @__PURE__ */ jsx("span", {
+													className: "text-xs text-muted-foreground",
+													children: "Damage like 1d8 slashing: dice count, die size and type."
+												}), /* @__PURE__ */ jsxs(Button, {
+													size: "sm",
+													variant: "outline",
+													onClick: () => setLib({ weapons: [...lib.weapons || [], {
+														name: "",
+														category: "Simple",
+														attackType: "melee",
+														diceCount: 1,
+														dieSize: "d6",
+														damageType: "",
+														properties: [],
+														weight: 0,
+														cost: ""
+													}] }),
+													children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add weapon"]
+												})]
+											}),
+											/* @__PURE__ */ jsx(InfoTip, {
+												label: "Filter the weapon list by name.",
 												children: /* @__PURE__ */ jsx(Input, {
-													className: "h-8 w-48",
-													placeholder: "Search armor…",
-													value: armorQuery,
-													onChange: (e) => setArmorQuery(e.target.value)
+													className: "h-8",
+													placeholder: "Search weapons…",
+													value: weaponQuery,
+													onChange: (e) => setWeaponQuery(e.target.value)
 												})
-											})]
-										}),
-										/* @__PURE__ */ jsx(SubChips, {
-											values: lib.armorTypes || [],
-											value: armorSub,
-											onChange: setArmorSub
-										}),
-										(() => {
-											const q = armorQuery.trim();
-											const shown = (lib.armor || []).map((a, i) => ({
-												a,
-												i
-											})).filter(({ a }) => matchesQuery(a?.name, q) && matchesSub(a.type, armorSub));
-											if (shown.length === 0) return /* @__PURE__ */ jsx("p", {
-												className: "text-xs text-muted-foreground",
-												children: (lib.armor || []).length === 0 ? "No armor yet." : "No matches."
-											});
-											return shown.map(({ a, i }) => {
-												const patch = (p) => {
-													const next = [...lib.armor];
-													next[i] = {
-														...a,
-														...p
+											}),
+											/* @__PURE__ */ jsx("datalist", {
+												id: "library-damage-types",
+												children: (lib.damageTypes || []).map((d) => /* @__PURE__ */ jsx("option", { value: d }, d))
+											}),
+											/* @__PURE__ */ jsx(SubChips, {
+												values: lib.weaponCategories || [],
+												value: weaponSub,
+												onChange: setWeaponSub
+											}),
+											(() => {
+												const q = weaponQuery.trim();
+												const shown = (lib.weapons || []).map((w, i) => ({
+													w,
+													i
+												})).filter(({ w }) => matchesQuery(w?.name, q) && matchesSub(w.category, weaponSub));
+												if (shown.length === 0) return /* @__PURE__ */ jsx("p", {
+													className: "text-xs text-muted-foreground",
+													children: (lib.weapons || []).length === 0 ? "No weapons yet." : "No matches."
+												});
+												return shown.map(({ w, i }) => {
+													const patch = (p) => {
+														const next = [...lib.weapons];
+														next[i] = {
+															...w,
+															...p
+														};
+														setLib({ weapons: next });
 													};
-													setLib({ armor: next });
-												};
-												return /* @__PURE__ */ jsxs("div", {
-													...benefitDragProps("armor", a.name, {
-														description: a.description,
-														image: a.image
-													}),
-													className: "rounded-md border p-2",
-													children: [/* @__PURE__ */ jsxs("div", {
-														className: "grid grid-cols-2 gap-1.5",
-														children: [
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "The armor's display name.",
-																children: /* @__PURE__ */ jsx(Input, {
-																	className: "h-8",
-																	placeholder: "Armor name",
-																	value: a.name || "",
-																	onChange: (e) => patch({ name: e.target.value })
-																})
-															}),
-															/* @__PURE__ */ jsxs(Select, {
-																value: a.type || "Light",
-																onValueChange: (v) => patch({ type: v }),
-																children: [/* @__PURE__ */ jsx(InfoTip, {
-																	label: "Armor type (Light, Medium, Heavy…) — edit types in the Categories tab.",
-																	children: /* @__PURE__ */ jsx(SelectTrigger, {
+													return /* @__PURE__ */ jsxs("div", {
+														...benefitDragProps("equipment", w.name, {
+															description: w.description,
+															image: w.image
+														}),
+														className: "space-y-1.5 rounded-md border p-2",
+														children: [/* @__PURE__ */ jsxs("div", {
+															className: "grid grid-cols-2 gap-1.5",
+															children: [
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "The weapon's display name.",
+																	children: /* @__PURE__ */ jsx(Input, {
 																		className: "h-8",
-																		children: /* @__PURE__ */ jsx(SelectValue, {})
+																		placeholder: "Weapon name",
+																		value: w.name || "",
+																		onChange: (e) => patch({ name: e.target.value })
 																	})
-																}), /* @__PURE__ */ jsx(SelectContent, { children: (lib.armorTypes || []).map((t) => /* @__PURE__ */ jsx(SelectItem, {
-																	value: t,
-																	children: t
-																}, t)) })]
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Minimum STR to wear it — a flat number (legacy text like 'STR 15' is read as its number).",
-																children: /* @__PURE__ */ jsx(Input, {
-																	className: "h-8",
-																	type: "number",
-																	placeholder: "STR requirement",
-																	value: String(a.requirement ?? "").replace(/[^\d-]/g, ""),
-																	onChange: (e) => patch({ requirement: e.target.value === "" ? "" : Number(e.target.value) })
-																})
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Armor Class: a flat value, optionally plus an ability or skill modifier.",
-																children: /* @__PURE__ */ jsx(Input, {
-																	className: "h-8",
-																	type: "number",
-																	placeholder: "AC (flat)",
-																	value: parseArmorAC(a).flat || "",
-																	onChange: (e) => patch({ acFlat: e.target.value === "" ? "" : Number(e.target.value) || 0 })
-																})
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Added to the flat AC: an ability modifier (e.g. DEX) or a skill modifier (ability + proficiency if trained). Leave as — for none.",
-																children: /* @__PURE__ */ jsxs(Select, {
-																	value: parseArmorAC(a).plus || "none",
-																	onValueChange: (v) => patch({ acPlus: v === "none" ? "" : v }),
-																	children: [/* @__PURE__ */ jsx(SelectTrigger, {
+																}),
+																/* @__PURE__ */ jsxs(Select, {
+																	value: w.category || "Simple",
+																	onValueChange: (v) => patch({ category: v }),
+																	children: [/* @__PURE__ */ jsx(InfoTip, {
+																		label: "Weapon category (Simple, Martial…) — edit categories in the Categories tab.",
+																		children: /* @__PURE__ */ jsx(SelectTrigger, {
+																			className: "h-8",
+																			children: /* @__PURE__ */ jsx(SelectValue, {})
+																		})
+																	}), /* @__PURE__ */ jsx(SelectContent, { children: (lib.weaponCategories || []).map((c) => /* @__PURE__ */ jsx(SelectItem, {
+																		value: c,
+																		children: c
+																	}, c)) })]
+																}),
+																/* @__PURE__ */ jsxs(Select, {
+																	value: w.attackType || "melee",
+																	onValueChange: (v) => patch({ attackType: v }),
+																	children: [/* @__PURE__ */ jsx(InfoTip, {
+																		label: "Melee or ranged attack.",
+																		children: /* @__PURE__ */ jsx(SelectTrigger, {
+																			className: "h-8",
+																			children: /* @__PURE__ */ jsx(SelectValue, {})
+																		})
+																	}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+																		value: "melee",
+																		children: "Melee"
+																	}), /* @__PURE__ */ jsx(SelectItem, {
+																		value: "ranged",
+																		children: "Ranged"
+																	})] })]
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Weight in pounds; counts toward carried weight.",
+																	children: /* @__PURE__ */ jsx(Input, {
 																		className: "h-8",
-																		children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "+ modifier" })
-																	}), /* @__PURE__ */ jsxs(SelectContent, { children: [
-																		/* @__PURE__ */ jsx(SelectItem, {
-																			value: "none",
-																			children: "— nothing —"
+																		type: "number",
+																		min: 0,
+																		placeholder: "Weight (lb)",
+																		value: w.weight ?? 0,
+																		onChange: (e) => patch({ weight: Number(e.target.value) || 0 })
+																	})
+																}),
+																/* @__PURE__ */ jsxs("div", {
+																	className: "flex items-center gap-1",
+																	children: [
+																		/* @__PURE__ */ jsx(InfoTip, {
+																			label: "Number of damage dice.",
+																			children: /* @__PURE__ */ jsx(Input, {
+																				className: "h-8 w-14",
+																				type: "number",
+																				min: 1,
+																				value: w.diceCount ?? 1,
+																				onChange: (e) => patch({ diceCount: Math.max(1, Number(e.target.value) || 1) })
+																			})
 																		}),
-																		STATS_LIST.map((s) => /* @__PURE__ */ jsxs(SelectItem, {
-																			value: s,
-																			children: [s, " modifier"]
-																		}, s)),
-																		(lib.lists?.skills || []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => s?.name).map((s) => /* @__PURE__ */ jsx(SelectItem, {
-																			value: s.name,
-																			children: s.name
-																		}, s.name))
-																	] })]
-																})
-															}),
-															/* @__PURE__ */ jsx(InfoTip, {
-																label: "Cost and currency, e.g. 10 gp.",
-																children: /* @__PURE__ */ jsx(CostField, {
-																	value: a.cost,
-																	onChange: (v) => patch({ cost: v })
-																})
-															}),
-															/* @__PURE__ */ jsxs("label", {
-																className: "flex items-center gap-1.5 text-xs",
-																children: [/* @__PURE__ */ jsx(InfoTip, {
-																	label: "Wearing this armor imposes disadvantage on Stealth checks.",
-																	children: /* @__PURE__ */ jsx(Switch, {
-																		checked: !!a.stealthDisadvantage,
-																		onCheckedChange: (v) => patch({ stealthDisadvantage: v })
+																		/* @__PURE__ */ jsxs(Select, {
+																			value: w.dieSize || "d6",
+																			onValueChange: (v) => patch({ dieSize: v }),
+																			children: [/* @__PURE__ */ jsx(InfoTip, {
+																				label: "Damage die size.",
+																				children: /* @__PURE__ */ jsx(SelectTrigger, {
+																					className: "h-8",
+																					children: /* @__PURE__ */ jsx(SelectValue, {})
+																				})
+																			}), /* @__PURE__ */ jsx(SelectContent, { children: DIE_SIZES.map((d) => /* @__PURE__ */ jsx(SelectItem, {
+																				value: d,
+																				children: d
+																			}, d)) })]
+																		}),
+																		/* @__PURE__ */ jsx(InfoTip, {
+																			label: "Damage type, e.g. slashing, piercing, fire.",
+																			children: /* @__PURE__ */ jsx(Input, {
+																				className: "h-8 flex-1",
+																				placeholder: "Damage type",
+																				value: w.damageType || "",
+																				onChange: (e) => patch({ damageType: e.target.value }),
+																				list: "library-damage-types"
+																			})
+																		})
+																	]
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Cost and currency, e.g. 10 gp.",
+																	children: /* @__PURE__ */ jsx(CostField, {
+																		value: w.cost,
+																		onChange: (v) => patch({ cost: v })
 																	})
-																}), "Stealth disadvantage"]
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Comma-separated weapon properties from the Weapon Properties tab.",
+																	children: /* @__PURE__ */ jsx(Input, {
+																		className: "h-8",
+																		placeholder: "Properties (comma separated)",
+																		value: (w.properties || []).join(", "),
+																		onChange: (e) => patch({ properties: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
+																	})
+																})
+															]
+														}), /* @__PURE__ */ jsx("div", {
+															className: "flex justify-end",
+															children: /* @__PURE__ */ jsx(Button, {
+																size: "sm",
+																variant: "ghost",
+																onClick: () => setLib({ weapons: lib.weapons.filter((_, j) => j !== i) }),
+																children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
 															})
-														]
-													}), /* @__PURE__ */ jsx("div", {
-														className: "mt-1 flex justify-end",
-														children: /* @__PURE__ */ jsx(Button, {
-															size: "sm",
-															variant: "ghost",
-															onClick: () => setLib({ armor: lib.armor.filter((_, j) => j !== i) }),
-															children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
-														})
-													})]
-												}, i);
-											});
-										})()
-									]
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "skills",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(AbilityList, {
-										label: "Skills — the ability assignment powers auto-calculated check modifiers",
-										entries: lib.lists.skills || [],
-										onChange: (n) => setList("skills", n),
-										placeholder: "Skill name",
-										dragCategory: "skill"
-									})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "languages",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(LanguagesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "speedTypes",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(SpeedTypesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "senses",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(SensesLibraryTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "resources",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(ResourcesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "dieScaling",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(DieScalingTab, {})
-								}),
-								/* @__PURE__ */ jsxs(TabsContent, {
-									value: "categories",
-									className: "mt-0 space-y-2",
-									children: [/* @__PURE__ */ jsx(NameList, {
-										label: "Weapon Categories",
-										entries: lib.weaponCategories || [],
-										onChange: (n) => setLib({ weaponCategories: n }),
-										placeholder: "Category (e.g. Martial)"
-									}), /* @__PURE__ */ jsx(NameList, {
-										label: "Armor Types",
-										entries: lib.armorTypes || [],
-										onChange: (n) => setLib({ armorTypes: n }),
-										placeholder: "Armor type (e.g. Heavy)"
-									})]
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "properties",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(WeaponPropertiesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "weaponMasteries",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(WeaponMasteriesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "levels",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(LevelsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "pointTypes",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(PointTypesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "nodeTypes",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(NodeTypesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "attributes",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(NameList, {
-										label: "Attributes (Attribute nodes grant +1 per invested point)",
-										entries: lib.attributes || [],
-										onChange: (n) => setLib({ attributes: n }),
-										placeholder: "Attribute (e.g. STR)"
-									})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "gear",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(AdventuringGearTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "ammo",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(AmmoTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "trinkets",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(TrinketsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "explosives",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(ExplosivesTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "wondrous",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(WondrousTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "shop",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(ShopTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "currency",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(CurrencyTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "trade",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(TradeGoodsTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "poisons",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(PoisonsTab, {})
-								}),
-								/* @__PURE__ */ jsxs(TabsContent, {
-									value: "tools",
-									className: "mt-0 space-y-2",
-									children: [
-										/* @__PURE__ */ jsx(AbilityList, {
-											label: "Artisan's Tools (ability used for tool checks)",
-											entries: lib.lists.artisanTools || [],
-											onChange: (n) => setList("artisanTools", n),
-											placeholder: "Artisan's tool",
-											dragCategory: "tool"
-										}),
-										/* @__PURE__ */ jsx(AbilityList, {
-											label: "Musical Instruments (ability used for checks)",
-											entries: lib.lists.instruments || [],
-											onChange: (n) => setList("instruments", n),
-											placeholder: "Instrument",
-											dragCategory: "tool"
-										}),
-										/* @__PURE__ */ jsx(AbilityList, {
-											label: "Gaming Sets (ability used for checks)",
-											entries: lib.lists.gamingSets || [],
-											onChange: (n) => setList("gamingSets", n),
-											placeholder: "Gaming set",
-											dragCategory: "tool"
-										}),
-										/* @__PURE__ */ jsx(AbilityList, {
-											label: "Miscellaneous Tools (ability used for checks)",
-											entries: lib.lists.miscTools || [],
-											onChange: (n) => setList("miscTools", n),
-											placeholder: "Tool",
-											dragCategory: "tool"
+														})]
+													}, i);
+												});
+											})()
+										]
+									}),
+									/* @__PURE__ */ jsxs(TabsContent, {
+										value: "armor",
+										className: "mt-0 space-y-2",
+										children: [
+											/* @__PURE__ */ jsxs("div", {
+												className: "flex items-center justify-between",
+												children: [/* @__PURE__ */ jsxs(Button, {
+													size: "sm",
+													variant: "outline",
+													onClick: () => setLib({ armor: [...lib.armor || [], {
+														name: "",
+														type: "Light",
+														requirement: "",
+														acFlat: "",
+														acPlus: "",
+														stealthDisadvantage: false,
+														cost: ""
+													}] }),
+													children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add armor"]
+												}), /* @__PURE__ */ jsx(InfoTip, {
+													label: "Filter the armor list by name.",
+													children: /* @__PURE__ */ jsx(Input, {
+														className: "h-8 w-48",
+														placeholder: "Search armor…",
+														value: armorQuery,
+														onChange: (e) => setArmorQuery(e.target.value)
+													})
+												})]
+											}),
+											/* @__PURE__ */ jsx(SubChips, {
+												values: lib.armorTypes || [],
+												value: armorSub,
+												onChange: setArmorSub
+											}),
+											(() => {
+												const q = armorQuery.trim();
+												const shown = (lib.armor || []).map((a, i) => ({
+													a,
+													i
+												})).filter(({ a }) => matchesQuery(a?.name, q) && matchesSub(a.type, armorSub));
+												if (shown.length === 0) return /* @__PURE__ */ jsx("p", {
+													className: "text-xs text-muted-foreground",
+													children: (lib.armor || []).length === 0 ? "No armor yet." : "No matches."
+												});
+												return shown.map(({ a, i }) => {
+													const patch = (p) => {
+														const next = [...lib.armor];
+														next[i] = {
+															...a,
+															...p
+														};
+														setLib({ armor: next });
+													};
+													return /* @__PURE__ */ jsxs("div", {
+														...benefitDragProps("armor", a.name, {
+															description: a.description,
+															image: a.image
+														}),
+														className: "rounded-md border p-2",
+														children: [/* @__PURE__ */ jsxs("div", {
+															className: "grid grid-cols-2 gap-1.5",
+															children: [
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "The armor's display name.",
+																	children: /* @__PURE__ */ jsx(Input, {
+																		className: "h-8",
+																		placeholder: "Armor name",
+																		value: a.name || "",
+																		onChange: (e) => patch({ name: e.target.value })
+																	})
+																}),
+																/* @__PURE__ */ jsxs(Select, {
+																	value: a.type || "Light",
+																	onValueChange: (v) => patch({ type: v }),
+																	children: [/* @__PURE__ */ jsx(InfoTip, {
+																		label: "Armor type (Light, Medium, Heavy…) — edit types in the Categories tab.",
+																		children: /* @__PURE__ */ jsx(SelectTrigger, {
+																			className: "h-8",
+																			children: /* @__PURE__ */ jsx(SelectValue, {})
+																		})
+																	}), /* @__PURE__ */ jsx(SelectContent, { children: (lib.armorTypes || []).map((t) => /* @__PURE__ */ jsx(SelectItem, {
+																		value: t,
+																		children: t
+																	}, t)) })]
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Minimum STR to wear it — a flat number (legacy text like 'STR 15' is read as its number).",
+																	children: /* @__PURE__ */ jsx(Input, {
+																		className: "h-8",
+																		type: "number",
+																		placeholder: "STR requirement",
+																		value: String(a.requirement ?? "").replace(/[^\d-]/g, ""),
+																		onChange: (e) => patch({ requirement: e.target.value === "" ? "" : Number(e.target.value) })
+																	})
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Armor Class: a flat value, optionally plus an ability or skill modifier.",
+																	children: /* @__PURE__ */ jsx(Input, {
+																		className: "h-8",
+																		type: "number",
+																		placeholder: "AC (flat)",
+																		value: parseArmorAC(a).flat || "",
+																		onChange: (e) => patch({ acFlat: e.target.value === "" ? "" : Number(e.target.value) || 0 })
+																	})
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Added to the flat AC: an ability modifier (e.g. DEX) or a skill modifier (ability + proficiency if trained). Leave as — for none.",
+																	children: /* @__PURE__ */ jsxs(Select, {
+																		value: parseArmorAC(a).plus || "none",
+																		onValueChange: (v) => patch({ acPlus: v === "none" ? "" : v }),
+																		children: [/* @__PURE__ */ jsx(SelectTrigger, {
+																			className: "h-8",
+																			children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "+ modifier" })
+																		}), /* @__PURE__ */ jsxs(SelectContent, { children: [
+																			/* @__PURE__ */ jsx(SelectItem, {
+																				value: "none",
+																				children: "— nothing —"
+																			}),
+																			STATS_LIST.map((s) => /* @__PURE__ */ jsxs(SelectItem, {
+																				value: s,
+																				children: [s, " modifier"]
+																			}, s)),
+																			(lib.lists?.skills || []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => s?.name).map((s) => /* @__PURE__ */ jsx(SelectItem, {
+																				value: s.name,
+																				children: s.name
+																			}, s.name))
+																		] })]
+																	})
+																}),
+																/* @__PURE__ */ jsx(InfoTip, {
+																	label: "Cost and currency, e.g. 10 gp.",
+																	children: /* @__PURE__ */ jsx(CostField, {
+																		value: a.cost,
+																		onChange: (v) => patch({ cost: v })
+																	})
+																}),
+																/* @__PURE__ */ jsxs("label", {
+																	className: "flex items-center gap-1.5 text-xs",
+																	children: [/* @__PURE__ */ jsx(InfoTip, {
+																		label: "Wearing this armor imposes disadvantage on Stealth checks.",
+																		children: /* @__PURE__ */ jsx(Switch, {
+																			checked: !!a.stealthDisadvantage,
+																			onCheckedChange: (v) => patch({ stealthDisadvantage: v })
+																		})
+																	}), "Stealth disadvantage"]
+																})
+															]
+														}), /* @__PURE__ */ jsx("div", {
+															className: "mt-1 flex justify-end",
+															children: /* @__PURE__ */ jsx(Button, {
+																size: "sm",
+																variant: "ghost",
+																onClick: () => setLib({ armor: lib.armor.filter((_, j) => j !== i) }),
+																children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+															})
+														})]
+													}, i);
+												});
+											})()
+										]
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "skills",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(AbilityList, {
+											label: "Skills — the ability assignment powers auto-calculated check modifiers",
+											entries: lib.lists.skills || [],
+											onChange: (n) => setList("skills", n),
+											placeholder: "Skill name",
+											dragCategory: "skill"
 										})
-									]
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "siege",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(SiegeTab, {})
-								}),
-								/* @__PURE__ */ jsx(TabsContent, {
-									value: "vehicles",
-									className: "mt-0",
-									children: /* @__PURE__ */ jsx(VehiclesTab, {})
-								})
-							]
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "languages",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(LanguagesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "speedTypes",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(SpeedTypesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "senses",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(SensesLibraryTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "resources",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(ResourcesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "dieScaling",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(DieScalingTab, {})
+									}),
+									/* @__PURE__ */ jsxs(TabsContent, {
+										value: "categories",
+										className: "mt-0 space-y-2",
+										children: [/* @__PURE__ */ jsx(NameList, {
+											label: "Weapon Categories",
+											entries: lib.weaponCategories || [],
+											onChange: (n) => setLib({ weaponCategories: n }),
+											placeholder: "Category (e.g. Martial)"
+										}), /* @__PURE__ */ jsx(NameList, {
+											label: "Armor Types",
+											entries: lib.armorTypes || [],
+											onChange: (n) => setLib({ armorTypes: n }),
+											placeholder: "Armor type (e.g. Heavy)"
+										})]
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "properties",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(WeaponPropertiesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "weaponMasteries",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(WeaponMasteriesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "levels",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(LevelsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "pointTypes",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(PointTypesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "nodeTypes",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(NodeTypesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "attributes",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(NameList, {
+											label: "Attributes (Attribute nodes grant +1 per invested point)",
+											entries: lib.attributes || [],
+											onChange: (n) => setLib({ attributes: n }),
+											placeholder: "Attribute (e.g. STR)"
+										})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "gear",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(AdventuringGearTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "ammo",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(AmmoTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "trinkets",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(TrinketsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "explosives",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(ExplosivesTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "wondrous",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(WondrousTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "shop",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(ShopTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "currency",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(CurrencyTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "trade",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(TradeGoodsTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "poisons",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(PoisonsTab, {})
+									}),
+									/* @__PURE__ */ jsxs(TabsContent, {
+										value: "tools",
+										className: "mt-0 space-y-2",
+										children: [
+											/* @__PURE__ */ jsx(AbilityList, {
+												label: "Artisan's Tools (ability used for tool checks)",
+												entries: lib.lists.artisanTools || [],
+												onChange: (n) => setList("artisanTools", n),
+												placeholder: "Artisan's tool",
+												dragCategory: "tool"
+											}),
+											/* @__PURE__ */ jsx(AbilityList, {
+												label: "Musical Instruments (ability used for checks)",
+												entries: lib.lists.instruments || [],
+												onChange: (n) => setList("instruments", n),
+												placeholder: "Instrument",
+												dragCategory: "tool"
+											}),
+											/* @__PURE__ */ jsx(AbilityList, {
+												label: "Gaming Sets (ability used for checks)",
+												entries: lib.lists.gamingSets || [],
+												onChange: (n) => setList("gamingSets", n),
+												placeholder: "Gaming set",
+												dragCategory: "tool"
+											}),
+											/* @__PURE__ */ jsx(AbilityList, {
+												label: "Miscellaneous Tools (ability used for checks)",
+												entries: lib.lists.miscTools || [],
+												onChange: (n) => setList("miscTools", n),
+												placeholder: "Tool",
+												dragCategory: "tool"
+											})
+										]
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "siege",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(SiegeTab, {})
+									}),
+									/* @__PURE__ */ jsx(TabsContent, {
+										value: "vehicles",
+										className: "mt-0",
+										children: /* @__PURE__ */ jsx(VehiclesTab, {})
+									})
+								]
+							})]
 						})]
-					})]
-				})
-			]
+					})
+				]
+			}), !isMobile && /* @__PURE__ */ jsx(PanelResizer, {
+				edge: "right",
+				width: libraryWidth,
+				onResize: setLibraryWidth,
+				min: 420,
+				max: 1600
+			})]
 		})
 	});
 }
@@ -27160,6 +27368,36 @@ function TabBar() {
 			onClick: addTab,
 			children: /* @__PURE__ */ jsx(Plus, { className: "h-4 w-4" })
 		})]
+	});
+}
+//#endregion
+//#region src/components/skilltree/MainMenuButton.jsx
+function MainMenuButton({ onClick, compact = false, className = "", variant = "outline" }) {
+	const go = () => {
+		playSfx(SFX.mainMenu, { gain: .75 });
+		onClick?.();
+	};
+	if (compact) return /* @__PURE__ */ jsx(InfoTip, {
+		label: "Return to the main menu",
+		children: /* @__PURE__ */ jsx(Button, {
+			size: "icon",
+			variant,
+			className: `h-8 w-8 ${className}`,
+			title: "Main Menu",
+			"aria-label": "Main Menu",
+			onClick: go,
+			children: /* @__PURE__ */ jsx(DoorOpen, { className: "h-4 w-4" })
+		})
+	});
+	return /* @__PURE__ */ jsx(InfoTip, {
+		label: "Return to the main menu",
+		children: /* @__PURE__ */ jsxs(Button, {
+			size: "sm",
+			variant,
+			className,
+			onClick: go,
+			children: [/* @__PURE__ */ jsx(DoorOpen, { className: "mr-1 h-4 w-4" }), " Main Menu"]
+		})
 	});
 }
 //#endregion
@@ -27737,15 +27975,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 						children: [
 							/* @__PURE__ */ jsx(SearchBox, { onPick: pickSearchNode }),
 							/* @__PURE__ */ jsx("div", { className: "h-6 w-px bg-border" }),
-							/* @__PURE__ */ jsx(InfoTip, {
-								label: "Back to the main menu",
-								children: /* @__PURE__ */ jsxs(Button, {
-									size: "sm",
-									variant: "outline",
-									onClick: () => setScreen("launch"),
-									children: [/* @__PURE__ */ jsx(DoorOpen, { className: "mr-1 h-4 w-4" }), " Menu"]
-								})
-							}),
+							/* @__PURE__ */ jsx(MainMenuButton, { onClick: () => setScreen("launch") }),
 							/* @__PURE__ */ jsx(InfoTip, {
 								label: "Settings: hotkeys, camera start, connectors, default artwork",
 								children: /* @__PURE__ */ jsxs(Button, {
@@ -29794,7 +30024,10 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		}
 		if (e.button !== 0) return;
 		if (editable && ui.linkingFromId) {
-			if (ui.linkingFromId !== node.id) toggleDependency(ui.linkingFromId, node.id);
+			if (ui.linkingFromId !== node.id) {
+				toggleDependency(ui.linkingFromId, node.id);
+				playSfx(SFX.connector, { gain: .55 });
+			}
 			linkDoneRef.current = true;
 			setUi((u) => ({
 				...u,
@@ -29805,6 +30038,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		if (editable && e.altKey) {
 			if (ui.selectedNodeId && ui.selectedNodeId !== node.id) {
 				toggleDependency(ui.selectedNodeId, node.id);
+				playSfx(SFX.connector, { gain: .55 });
 				linkDoneRef.current = true;
 				return;
 			}
@@ -29883,6 +30117,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			size: from?.size || 100
 		});
 		toggleDependency(conn.from, id);
+		playSfx(SFX.connector, { gain: .55 });
 		addBend(conn.id, world.x, world.y, 0);
 		setUi((u) => ({
 			...u,
@@ -29902,6 +30137,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	const linkSelectedToConn = useCallback((conn, world) => {
 		if (!ui.selectedNodeId) return;
 		toggleDependency(ui.selectedNodeId, conn.to);
+		playSfx(SFX.connector, { gain: .55 });
 		addBend(conn.id, world.x, world.y, 0);
 		setConnMenu(null);
 	}, [
@@ -30537,57 +30773,6 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		}),
 		/* @__PURE__ */ jsx(CarryGhost, {})
 	] });
-}
-//#endregion
-//#region src/hooks/use-panel-width.js
-var KEY$1 = "skilltree:editorWidth";
-var EVT = "skilltree:panel-width";
-function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KEY$1) {
-	const [width, setWidth] = useState(defaultWidth);
-	useEffect(() => {
-		const w = Number(localStorage.getItem(key));
-		if (Number.isFinite(w) && w > 0) setWidth(Math.min(max, Math.max(min, w)));
-		const sync = (e) => {
-			if (key !== KEY$1) return;
-			if (e.detail >= min && e.detail <= max) setWidth(e.detail);
-		};
-		window.addEventListener(EVT, sync);
-		return () => window.removeEventListener(EVT, sync);
-	}, [
-		key,
-		min,
-		max
-	]);
-	const set = (w) => {
-		setWidth(w);
-		localStorage.setItem(key, String(w));
-		if (key === KEY$1) window.dispatchEvent(new CustomEvent(EVT, { detail: w }));
-	};
-	return [width, set];
-}
-//#endregion
-//#region src/components/skilltree/PanelResizer.jsx
-function PanelResizer({ width, onResize, edge = "left", min = 260, max = 720 }) {
-	const [globalWidth, setGlobal] = usePanelWidth();
-	const w = width ?? globalWidth;
-	const apply = onResize ?? setGlobal;
-	const sign = edge === "left" ? -1 : 1;
-	return /* @__PURE__ */ jsx("div", {
-		title: "Drag to resize",
-		className: `absolute ${edge === "left" ? "left-0" : "right-0"} top-0 z-10 h-full w-1.5 cursor-ew-resize hover:bg-primary/40`,
-		onPointerDown: (e) => {
-			e.preventDefault();
-			const startX = e.clientX;
-			const startW = w;
-			const move = (ev) => apply(Math.min(max, Math.max(min, startW + sign * (ev.clientX - startX))));
-			const up = () => {
-				window.removeEventListener("pointermove", move);
-				window.removeEventListener("pointerup", up);
-			};
-			window.addEventListener("pointermove", move);
-			window.addEventListener("pointerup", up);
-		}
-	});
 }
 //#endregion
 //#region src/components/skilltree/FieldGroup.jsx
@@ -34384,6 +34569,7 @@ function NodeEditorPanel({ mobile = false }) {
 										children: filtered.map((n) => /* @__PURE__ */ jsx("button", {
 											onClick: () => {
 												toggleDependency(n.id, node.id);
+												playSfx(SFX.connector, { gain: .55 });
 												setSearch("");
 											},
 											className: "block w-full truncate px-2 py-1 text-left text-xs hover:bg-accent",
@@ -35166,6 +35352,7 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 			size: node.size || 100
 		});
 		toggleDependency(node.id, id);
+		playSfx(SFX.connector, { gain: .55 });
 		setUi((u) => ({
 			...u,
 			selectedNodeId: id,
@@ -44765,6 +44952,10 @@ function CharacterCreatorDialog({ open, onClose }) {
 	const [amount, setAmount] = useState("0");
 	const treeFileRef = useRef(null);
 	const seededRef = useRef(false);
+	const fail = (message) => {
+		playSfx(SFX.error, { gain: .7 });
+		toast.error(message);
+	};
 	useEffect(() => {
 		if (!open) {
 			seededRef.current = false;
@@ -44833,19 +45024,19 @@ function CharacterCreatorDialog({ open, onClose }) {
 	const featSource = feat?.source || "";
 	const create = () => {
 		if (showRace && !raceName) {
-			toast.error("Choose a race (or switch to a mode without a race).");
+			fail("Choose a race (or switch to a mode without a race).");
 			return;
 		}
 		if (showClass && !className) {
-			toast.error("Choose a class (or switch to a mode without a class).");
+			fail("Choose a class (or switch to a mode without a class).");
 			return;
 		}
 		if (!useOriginFeat && backgroundName && optionGroups.some((group) => !optionChoices[group.id])) {
-			toast.error("This background has options — pick one for each group.");
+			fail("This background has options - pick one for each group.");
 			return;
 		}
 		if (useOriginFeat && !featName) {
-			toast.error("Choose an origin feat, or turn the replacement off.");
+			fail("Choose an origin feat, or turn the replacement off.");
 			return;
 		}
 		const gained = Math.max(0, Number(amount) || 0);
@@ -44921,10 +45112,10 @@ function CharacterCreatorDialog({ open, onClose }) {
 				if (!usesTree) setMode("all");
 				toast.success(`Talent tree imported from ${file.name}.`);
 			} catch (error) {
-				toast.error(error?.message || "Could not import that talent tree.");
+				fail(error?.message || "Could not import that talent tree.");
 			}
 		};
-		reader.onerror = () => toast.error("Could not read that file.");
+		reader.onerror = () => fail("Could not read that file.");
 		reader.readAsText(file);
 		event.target.value = "";
 	};
@@ -45284,7 +45475,10 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 						menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit"), locked),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
-							children: [menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", () => setNewConfirmOpen(true)), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
+							children: [menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", () => {
+								playSfx(SFX.newProject, { gain: .65 });
+								setNewConfirmOpen(true);
+							}), menuBtn(/* @__PURE__ */ jsx(FolderOpen, { className: "h-5 w-5" }), "Save / Load", "Save or load a project", () => setSaveOpen(true))]
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
@@ -49544,13 +49738,9 @@ function DungeonGenerator({ onExit, embedded = false }) {
 			/* @__PURE__ */ jsxs("header", {
 				className: "flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2",
 				children: [
-					!embedded && /* @__PURE__ */ jsx(Button, {
-						size: "icon",
-						variant: "outline",
-						className: "h-8 w-8",
-						title: "Back to menu",
-						onClick: onExit,
-						children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+					!embedded && /* @__PURE__ */ jsx(MainMenuButton, {
+						compact: true,
+						onClick: onExit
 					}),
 					/* @__PURE__ */ jsxs("div", {
 						className: "min-w-0",
@@ -50781,12 +50971,7 @@ function DMScreen({ onExit }) {
 							variant: "outline",
 							onClick: () => setLibOpen(true),
 							children: [/* @__PURE__ */ jsx(BookOpen, { className: "mr-1 h-4 w-4" }), " Reference Library"]
-						}), /* @__PURE__ */ jsxs(Button, {
-							size: "sm",
-							variant: "outline",
-							onClick: onExit,
-							children: [/* @__PURE__ */ jsx(DoorOpen, { className: "mr-1 h-4 w-4" }), " Back to menu"]
-						})]
+						}), /* @__PURE__ */ jsx(MainMenuButton, { onClick: onExit })]
 					})
 				]
 			}),
@@ -53153,7 +53338,7 @@ function ReferenceIndexPage({ onExit }) {
 					className: "h-8 w-8",
 					title: "Back",
 					onClick: onExit,
-					children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+					children: /* @__PURE__ */ jsx(ArrowLeft$1, { className: "h-4 w-4" })
 				}),
 				/* @__PURE__ */ jsx("span", {
 					className: "flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary",
@@ -59621,11 +59806,9 @@ function Homebuilder({ onExit, onRoomBuilder }) {
 					})]
 				}, k.id))
 			}),
-			/* @__PURE__ */ jsxs(Button, {
-				variant: "ghost",
-				size: "sm",
+			/* @__PURE__ */ jsx(MainMenuButton, {
 				onClick: onExit,
-				children: [/* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" }), " Back to menu"]
+				variant: "ghost"
 			}),
 			/* @__PURE__ */ jsx(PlotSetupDialog, {
 				kind: setupKind,
@@ -59744,13 +59927,9 @@ function Homebuilder({ onExit, onRoomBuilder }) {
 			/* @__PURE__ */ jsxs("header", {
 				className: "flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2",
 				children: [
-					/* @__PURE__ */ jsx(Button, {
-						size: "icon",
-						variant: "outline",
-						className: "h-8 w-8",
-						title: "Back to menu",
-						onClick: onExit,
-						children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+					/* @__PURE__ */ jsx(MainMenuButton, {
+						compact: true,
+						onClick: onExit
 					}),
 					/* @__PURE__ */ jsxs(Select, {
 						value: activeId,
@@ -74352,7 +74531,7 @@ function SettlementView({ world, settlementId, focusBuildingId = "", onSelectSet
 						variant: "ghost",
 						className: "h-7 text-xs",
 						onClick: () => onSelectSettlement?.(""),
-						children: [/* @__PURE__ */ jsx(ArrowLeft, { className: "mr-1 h-3.5 w-3.5" }), " All settlements"]
+						children: [/* @__PURE__ */ jsx(ArrowLeft$1, { className: "mr-1 h-3.5 w-3.5" }), " All settlements"]
 					}),
 					/* @__PURE__ */ jsxs(Select, {
 						value: settlement.id,
@@ -80130,12 +80309,9 @@ function WorldBuilder({ onExit }) {
 			/* @__PURE__ */ jsxs("header", {
 				className: "flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2",
 				children: [
-					/* @__PURE__ */ jsx(Button, {
-						size: "icon",
-						variant: "outline",
-						className: "h-8 w-8",
-						onClick: onExit,
-						children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+					/* @__PURE__ */ jsx(MainMenuButton, {
+						compact: true,
+						onClick: onExit
 					}),
 					/* @__PURE__ */ jsxs("div", {
 						className: "min-w-0",
@@ -81828,13 +82004,9 @@ function RoomBuilder({ onExit, onArchitect }) {
 		children: [/* @__PURE__ */ jsxs("header", {
 			className: "flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2",
 			children: [
-				/* @__PURE__ */ jsx(Button, {
-					size: "icon",
-					variant: "outline",
-					className: "h-8 w-8",
-					title: "Back to menu",
-					onClick: onExit,
-					children: /* @__PURE__ */ jsx(ArrowLeft, { className: "h-4 w-4" })
+				/* @__PURE__ */ jsx(MainMenuButton, {
+					compact: true,
+					onClick: onExit
 				}),
 				/* @__PURE__ */ jsxs("div", {
 					className: "mr-2",
@@ -82242,7 +82414,7 @@ function MusicPlayer() {
 	}, [audio]);
 	useEffect(() => {
 		if (!audio.sfxEnabled) return void 0;
-		return installClickSounds(true);
+		return installUiSounds(true);
 	}, [audio.sfxEnabled]);
 	useEffect(() => {
 		let alive = true;
@@ -82354,6 +82526,10 @@ function useImportStatus() {
 //#region src/components/skilltree/ImportStatusBanner.jsx
 function ImportStatusBanner() {
 	const status = useImportStatus();
+	useEffect(() => {
+		if (status.state === "done") playSfx(SFX.importFinished, { gain: .85 });
+		else if (status.state === "error") playSfx(SFX.error, { gain: .75 });
+	}, [status.state, status.finishedAt]);
 	if (!status || status.state === "idle") return null;
 	const percent = status.total > 0 ? Math.min(100, Math.round(status.done / status.total * 100)) : 0;
 	const openLibrary = () => {

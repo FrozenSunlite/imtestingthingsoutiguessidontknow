@@ -14,7 +14,8 @@ import {
 import { RoomShapeBuilder } from "@/components/skilltree/dungeon/RoomShapeBuilder";
 import { DUNGEON_CATEGORIES } from "@/lib/dungeonGen";
 import { ROOM_PROFILES } from "@/lib/facilityRooms";
-import { ArrowLeft, Copy, Home, Plus, Trash2 } from "lucide-react";
+import { Copy, Home, Plus, Trash2 } from "lucide-react";
+import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
 import { toast } from "sonner";
 
 const blankRoom = (index) => ({
@@ -169,9 +170,7 @@ export function RoomBuilder({ onExit, onArchitect }) {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2">
-        <Button size="icon" variant="outline" className="h-8 w-8" title="Back to menu" onClick={onExit}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <MainMenuButton compact onClick={onExit} />
         <div className="mr-2">
           <h1 className="font-display text-sm font-semibold">Room Builder</h1>
           <p className="text-[10px] text-muted-foreground">

@@ -36,7 +36,7 @@ const outRoot = "public/music";
 const audioExts = new Set([".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus"]);
 // Tracks deliberately removed from the library. Re-imports must not add them
 // back, but the original file in the source folder is left untouched.
-const EXCLUDED = new Set(["insomnia"]);
+const EXCLUDED = new Set(["insomnia", "gone"]);
 mkdirSync(outRoot, { recursive: true });
 
 const titleFor = (file) =>
