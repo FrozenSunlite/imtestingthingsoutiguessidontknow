@@ -493,9 +493,11 @@ const DEFAULT_CHARACTER = {
   notes: "",
 };
 
-// Bundled default artwork (public/default-node.jpg), so nothing depends on a
-// remote host. Older saves may still point at the old hosted image.
-const DEFAULT_PLACEHOLDER = "/default-node.jpg";
+// Bundled default artwork (public/default-node.svg), so nothing depends on a
+// remote host. Older saves may still point at the old bundled JPG or the old
+// hosted image.
+const DEFAULT_PLACEHOLDER = "/default-node.svg";
+const LEGACY_PLACEHOLDER = "/default-node.jpg";
 const isLegacyHostedImage = (url) =>
   typeof url === "string" && url.includes("media.base44.com");
 
@@ -1718,9 +1720,11 @@ export function TreeProvider({ children }) {
         setSettings({
           hotkeys: { ...DEFAULT_HOTKEYS, ...(storedSettings.hotkeys || {}) },
           connector: { ...DEFAULT_SETTINGS.connector, ...(storedSettings.connector || {}) },
-          placeholderImage: isLegacyHostedImage(storedSettings.placeholderImage)
-            ? DEFAULT_SETTINGS.placeholderImage
-            : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
+          placeholderImage:
+            isLegacyHostedImage(storedSettings.placeholderImage) ||
+            storedSettings.placeholderImage === LEGACY_PLACEHOLDER
+              ? DEFAULT_SETTINGS.placeholderImage
+              : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
           placeholderFrame: isLegacyHostedImage(storedSettings.placeholderFrame)
             ? ""
             : storedSettings.placeholderFrame || "",

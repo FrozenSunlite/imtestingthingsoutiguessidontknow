@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BerwtIIq.js";
+import { n as Button, r as cn } from "./router-C8RcjWjP.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5640,15 +5640,20 @@ function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
 function migrateTalentNames(tree) {
 	if (!tree?.nodes) return tree;
 	let changed = false;
-	const re = /\s*\[([^\][]*talent[^\][]*)\]\s*/i;
+	const re = /\s*\[([^\][]*\b(?:talents?|traits?)\b[^\][]*)\]\s*/i;
 	const levelRes = [/\s*\(?\s*lvl\.?\s*(\d+)\s*\)?\s*/i, /\s*\(?\s*level\s+(\d+)\s*\)?\s*/i];
 	const nodes = tree.nodes.map((n) => {
 		let name = String(n.name || "");
 		let patch = null;
 		const m = name.match(re);
 		if (m) {
-			const type = m[1].replace(/\s*talents?\s*$/i, "").trim() || m[1].trim();
-			patch = { talentType: n.talentType || type };
+			const type = /talent/i.test(m[1]) ? m[1].replace(/\s*talents?\s*$/i, "").trim() || m[1].trim() : m[1].trim();
+			const existing = Array.isArray(n.talentTypes) && n.talentTypes.length ? n.talentTypes.map((value) => String(value || "").trim()).filter(Boolean) : String(n.talentType || "").split(",").map((value) => value.trim()).filter(Boolean);
+			const types = existing.includes(type) ? existing : [...existing, type];
+			patch = {
+				talentTypes: types,
+				talentType: types.join(", ")
+			};
 		}
 		for (const lre of levelRes) {
 			const lm = name.match(lre);
@@ -5658,7 +5663,7 @@ function migrateTalentNames(tree) {
 			};
 			name = name.replace(lre, " ");
 		}
-		if (m) name = name.replace(re, " ");
+		if (m) name = name.replace(re, " ").replace(/\s{2,}/g, " ").trim() || patch?.talentType || m[1].trim();
 		name = name.replace(/\s{2,}/g, " ").trim();
 		if (patch || name !== String(n.name || "")) {
 			changed = true;
@@ -7264,7 +7269,8 @@ var DEFAULT_CHARACTER = {
 	alliesOrganizations: "",
 	notes: ""
 };
-var DEFAULT_PLACEHOLDER = "/default-node.jpg";
+var DEFAULT_PLACEHOLDER = "/default-node.svg";
+var LEGACY_PLACEHOLDER = "/default-node.jpg";
 var isLegacyHostedImage = (url) => typeof url === "string" && url.includes("media.base44.com");
 var DEFAULT_SETTINGS = {
 	hotkeys: { ...DEFAULT_HOTKEYS },
@@ -8340,7 +8346,7 @@ function TreeProvider({ children }) {
 						...DEFAULT_SETTINGS.connector,
 						...storedSettings.connector || {}
 					},
-					placeholderImage: isLegacyHostedImage(storedSettings.placeholderImage) ? DEFAULT_SETTINGS.placeholderImage : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
+					placeholderImage: isLegacyHostedImage(storedSettings.placeholderImage) || storedSettings.placeholderImage === LEGACY_PLACEHOLDER ? DEFAULT_SETTINGS.placeholderImage : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
 					placeholderFrame: isLegacyHostedImage(storedSettings.placeholderFrame) ? "" : storedSettings.placeholderFrame || "",
 					cameraStartNode: storedSettings.cameraStartNode || "",
 					rewardCurrency: storedSettings.rewardCurrency || "gp",
@@ -13258,8 +13264,8 @@ function SettingsMenu({ open, onClose }) {
 												alt: "",
 												className: "h-10 w-10 rounded border object-cover"
 											}) : /* @__PURE__ */ jsx("div", {
-												className: "flex h-10 w-10 items-center justify-center rounded border text-lg",
-												children: "⚔️"
+												className: "flex h-10 w-10 items-center justify-center rounded border text-lg font-bold text-muted-foreground",
+												children: "?"
 											}),
 											/* @__PURE__ */ jsx(Input, {
 												className: "h-8 flex-1",
@@ -29746,8 +29752,8 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 					className: "opacity-70",
 					hideOnInvalid: true
 				}) : /* @__PURE__ */ jsx("span", {
-					className: "text-2xl",
-					children: "⚔️"
+					className: "text-2xl font-bold text-muted-foreground",
+					children: "?"
 				}), frame && /* @__PURE__ */ jsx("img", {
 					src: frame,
 					alt: "",

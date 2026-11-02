@@ -287,8 +287,8 @@ export function SettingsMenu({ open, onClose }) {
                       className="h-10 w-10 rounded border object-cover"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded border text-lg">
-                      ⚔️
+                    <div className="flex h-10 w-10 items-center justify-center rounded border text-lg font-bold text-muted-foreground">
+                      ?
                     </div>
                   )}
                   <Input

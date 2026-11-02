@@ -192,7 +192,7 @@ export const SkillNodeView = memo(function SkillNodeView({
             hideOnInvalid
           />
         ) : (
-          <span className="text-2xl">⚔️</span>
+          <span className="text-2xl font-bold text-muted-foreground">?</span>
         )}
         {frame && (
           <img

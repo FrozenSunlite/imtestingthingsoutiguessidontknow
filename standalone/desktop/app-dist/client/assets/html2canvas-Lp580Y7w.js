@@ -1,0 +1,1 @@
+import{g as e}from"./routes-BhoZHXI9.js";export default e();
