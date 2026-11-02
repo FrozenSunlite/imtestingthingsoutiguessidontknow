@@ -114,6 +114,43 @@ export function MusicPlayer() {
     configureAudio(audio);
   }, [audio]);
 
+  // Unmuting must actually bring sound back: browsers may have paused the
+  // element in the background, and a failed load leaves it silent.
+  const ensureAudible = useCallback(() => {
+    const a = audioRef.current;
+    if (!a.musicEnabled || a.musicMuted) return;
+    const el = getMusicElement();
+    if (!el) return;
+    if (el.error) {
+      const track = getCurrentTrack();
+      if (track) startTrackRef.current(track);
+      return;
+    }
+    if (el.paused && el.currentSrc) {
+      resumeMusic().then((ok) => {
+        if (!ok) setNeedsGesture(true);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    ensureAudible();
+  }, [audio.musicEnabled, audio.musicMuted, ensureAudible]);
+
+  // Mobile WebViews and desktop browsers may pause the media element while the
+  // app is in the background. Resume when it comes back to the foreground.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ensureAudible();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", ensureAudible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", ensureAudible);
+    };
+  }, [ensureAudible]);
+
   // Muting/stopping clears the current announcement. Resuming music shows the
   // song that is playing, so the user knows what came back on.
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BlfAFqB7.js";
+import { n as Button, r as cn } from "./router-fVCpKi2H.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3033,6 +3033,7 @@ var music = {
 	volume: DEFAULT_AUDIO_SETTINGS.musicVolume,
 	muted: false,
 	fadeFrame: 0,
+	fadeTimer: 0,
 	fadeResolve: null,
 	onEnded: null,
 	needsGesture: false
@@ -3086,6 +3087,10 @@ function cancelFade() {
 		cancelAnimationFrame(music.fadeFrame);
 		music.fadeFrame = 0;
 	}
+	if (music.fadeTimer) {
+		clearTimeout(music.fadeTimer);
+		music.fadeTimer = 0;
+	}
 	const resolve = music.fadeResolve;
 	music.fadeResolve = null;
 	if (resolve) resolve();
@@ -3102,18 +3107,32 @@ function fadeMusic(value, ms = FADE_MS) {
 	return new Promise((resolve) => {
 		const from = el.volume;
 		const start = performance.now();
-		music.fadeResolve = resolve;
+		let done = false;
+		const complete = () => {
+			if (done) return;
+			done = true;
+			if (music.fadeFrame) {
+				cancelAnimationFrame(music.fadeFrame);
+				music.fadeFrame = 0;
+			}
+			if (music.fadeTimer) {
+				clearTimeout(music.fadeTimer);
+				music.fadeTimer = 0;
+			}
+			el.volume = target;
+			if (music.fadeResolve === complete) music.fadeResolve = null;
+			resolve();
+		};
+		music.fadeResolve = complete;
 		const step = (now) => {
+			if (done) return;
 			const t = Math.min(1, (now - start) / ms);
 			el.volume = clamp$7(from + (target - from) * t);
 			if (t < 1) music.fadeFrame = requestAnimationFrame(step);
-			else {
-				music.fadeFrame = 0;
-				music.fadeResolve = null;
-				resolve();
-			}
+			else complete();
 		};
 		music.fadeFrame = requestAnimationFrame(step);
+		music.fadeTimer = setTimeout(complete, ms + 80);
 	});
 }
 function configureAudio(settings) {
@@ -3123,9 +3142,19 @@ function configureAudio(settings) {
 	sfxMuted = !!settings?.sfxMuted;
 	sfxEnabled = settings?.sfxEnabled !== false;
 	const el = music.el;
-	if (el && !el.paused && !music.fadeFrame) el.volume = musicTarget();
+	if (el && !el.paused) {
+		if (music.fadeFrame || music.fadeTimer) fadeMusic(musicTarget(), 120);
+		else if (el.volume !== musicTarget()) el.volume = musicTarget();
+	}
 	if (resizeNode && sfxContext) resizeNode.gain.gain.setTargetAtTime(resizeGainTarget(), sfxContext.currentTime, .02);
 }
+if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => {
+	if (document.visibilityState !== "visible") return;
+	const el = music.el;
+	if (!el || el.paused) return;
+	if (music.fadeFrame || music.fadeTimer) fadeMusic(musicTarget(), 120);
+	else el.volume = musicTarget();
+});
 async function playMusicTrack(track, { fadeMs = FADE_MS } = {}) {
 	const el = ensureMusicElement();
 	if (!el || !track?.file) return false;
@@ -83631,6 +83660,38 @@ function MusicPlayer() {
 	useEffect(() => {
 		configureAudio(audio);
 	}, [audio]);
+	const ensureAudible = useCallback(() => {
+		const a = audioRef.current;
+		if (!a.musicEnabled || a.musicMuted) return;
+		const el = getMusicElement();
+		if (!el) return;
+		if (el.error) {
+			const track = getCurrentTrack();
+			if (track) startTrackRef.current(track);
+			return;
+		}
+		if (el.paused && el.currentSrc) resumeMusic().then((ok) => {
+			if (!ok) setNeedsGesture(true);
+		});
+	}, []);
+	useEffect(() => {
+		ensureAudible();
+	}, [
+		audio.musicEnabled,
+		audio.musicMuted,
+		ensureAudible
+	]);
+	useEffect(() => {
+		const onVisible = () => {
+			if (document.visibilityState === "visible") ensureAudible();
+		};
+		document.addEventListener("visibilitychange", onVisible);
+		window.addEventListener("focus", ensureAudible);
+		return () => {
+			document.removeEventListener("visibilitychange", onVisible);
+			window.removeEventListener("focus", ensureAudible);
+		};
+	}, [ensureAudible]);
 	useEffect(() => {
 		const audibleNow = audio.musicEnabled && !audio.musicMuted;
 		const previouslyAudible = wasAudible.current;

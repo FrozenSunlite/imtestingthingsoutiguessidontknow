@@ -30,6 +30,7 @@ const music = {
   volume: DEFAULT_AUDIO_SETTINGS.musicVolume,
   muted: false,
   fadeFrame: 0,
+  fadeTimer: 0,
   fadeResolve: null,
   onEnded: null,
   needsGesture: false,
@@ -95,6 +96,10 @@ function cancelFade() {
     cancelAnimationFrame(music.fadeFrame);
     music.fadeFrame = 0;
   }
+  if (music.fadeTimer) {
+    clearTimeout(music.fadeTimer);
+    music.fadeTimer = 0;
+  }
   const resolve = music.fadeResolve;
   music.fadeResolve = null;
   if (resolve) resolve();
@@ -114,19 +119,39 @@ export function fadeMusic(value, ms = FADE_MS) {
   return new Promise((resolve) => {
     const from = el.volume;
     const start = performance.now();
-    music.fadeResolve = resolve;
+    let done = false;
+    const complete = () => {
+      if (done) return;
+      done = true;
+      if (music.fadeFrame) {
+        cancelAnimationFrame(music.fadeFrame);
+        music.fadeFrame = 0;
+      }
+      if (music.fadeTimer) {
+        clearTimeout(music.fadeTimer);
+        music.fadeTimer = 0;
+      }
+      el.volume = target;
+      if (music.fadeResolve === complete) music.fadeResolve = null;
+      resolve();
+    };
+    music.fadeResolve = complete;
     const step = (now) => {
+      if (done) return;
       const t = Math.min(1, (now - start) / ms);
       el.volume = clamp(from + (target - from) * t);
       if (t < 1) {
         music.fadeFrame = requestAnimationFrame(step);
       } else {
-        music.fadeFrame = 0;
-        music.fadeResolve = null;
-        resolve();
+        complete();
       }
     };
     music.fadeFrame = requestAnimationFrame(step);
+    // Background tabs throttle or suspend requestAnimationFrame. Without a
+    // timer the fade can stay frozen at volume 0, leaving "unmuted" music
+    // silent until some other fade happens to start. Timers still fire in
+    // hidden tabs, so finish the fade there too.
+    music.fadeTimer = setTimeout(complete, ms + 80);
   });
 }
 
@@ -137,7 +162,15 @@ export function configureAudio(settings) {
   sfxMuted = !!settings?.sfxMuted;
   sfxEnabled = settings?.sfxEnabled !== false;
   const el = music.el;
-  if (el && !el.paused && !music.fadeFrame) el.volume = musicTarget();
+  if (el && !el.paused) {
+    // Never leave an in-flight fade in charge after a mute, unmute or volume
+    // change: retarget it instead of ignoring the new level.
+    if (music.fadeFrame || music.fadeTimer) {
+      fadeMusic(musicTarget(), 120);
+    } else if (el.volume !== musicTarget()) {
+      el.volume = musicTarget();
+    }
+  }
   if (resizeNode && sfxContext) {
     resizeNode.gain.gain.setTargetAtTime(
       resizeGainTarget(),
@@ -145,6 +178,18 @@ export function configureAudio(settings) {
       0.02
     );
   }
+}
+
+// Returning to a tab that was hidden during a fade should restore the level
+// immediately, even if the browser dropped the pending animation frame.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    const el = music.el;
+    if (!el || el.paused) return;
+    if (music.fadeFrame || music.fadeTimer) fadeMusic(musicTarget(), 120);
+    else el.volume = musicTarget();
+  });
 }
 
 // Starts a track from silence, fades the current one out first. Throws when
