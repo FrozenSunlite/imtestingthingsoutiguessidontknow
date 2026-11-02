@@ -1,0 +1,1 @@
+import{g as e}from"./routes-CvoQ1EgW.js";export default e();

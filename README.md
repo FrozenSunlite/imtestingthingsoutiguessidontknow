@@ -105,6 +105,31 @@ changing app code, then restart the launcher.
   prefilled.
 - **Skills:** Religion uses Wisdom, Technology uses Intelligence, and Presence is
   a Charisma skill for composure, first impressions and social self-presentation.
+- **Music & sound effects:** Settings → Audio has separate music and sound-effect
+  sliders (music starts at 30%, effects at 50%) and mute buttons. Music shuffles by
+  default with a song dropdown, fades out and in over one second, and shows a
+  bottom-right “Now Playing - SONG” popup (spinning record, six seconds, can be
+  turned off). Tracks live in `public/music`; `public/music/Custom` is only used
+  when **Custom music** is enabled, and default music is disabled while it is on.
+  Rebuild the library after adding files:
+
+  ```bash
+  npm run music:import -- "C:\path\to\music"
+  npm run sounds:index
+  ```
+
+  Sound effects go in `public/sounds`; an effect named `click` is wired to
+  buttons, links, tabs and checkboxes automatically.
+- **Character Creator:** the launch menu offers four builds — talent tree only,
+  tree + race, tree + class, or all three. Classes and subclasses come from
+  imported 5eTools data (2014 and 2024 editions stay separate, and shared
+  subclasses appear under each class that owns them). The creator also picks a
+  starting currency and amount. Backgrounds only show `Feature:`-tagged entries
+  on the Character tab; the full background text is on the Fluff tab, backgrounds
+  with choices prompt for one, and an origin feat can replace the background.
+- **Level up:** the level-up dialog chooses which class gains the level, filters
+  benefits to that class and subclass, supports multiclassing into another class,
+  and keeps per-class levels alongside the total character level.
 - **Installable app:** the build includes a web manifest, icons and an offline
   app-shell service worker, so it can be installed from Chrome on Android
   (or added to the home screen) and launched full-screen. Project data still

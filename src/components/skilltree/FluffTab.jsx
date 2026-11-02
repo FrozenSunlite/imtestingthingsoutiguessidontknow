@@ -1,4 +1,5 @@
 import { useTree } from "@/lib/treeStore";
+import { backgroundInfo } from "@/lib/characterCreation";
 import { PortraitDisplay } from "./PortraitDisplay";
 import { TokenForge } from "./TokenForge";
 import { Input } from "@/components/ui/input";
@@ -45,10 +46,20 @@ function Card({ title, children }) {
 }
 
 export function FluffTab() {
-  const { character, setCharacter } = useTree();
+  const { character, setCharacter, settings } = useTree();
   const set = (patch) => setCharacter({ ...character, ...patch });
   const setAppearance = (key, value) =>
     set({ appearance: { ...character.appearance, [key]: value } });
+  const background = backgroundInfo(settings, character);
+  const chosenOptions = Object.entries(
+    character.creation?.background?.options || {}
+  )
+    .map(([groupId, choiceId]) => {
+      const group = background?.optionGroups?.find((item) => item.id === groupId);
+      const choice = group?.choices?.find((item) => item.id === choiceId);
+      return choice ? `${group.label}: ${choice.label}` : "";
+    })
+    .filter(Boolean);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
@@ -73,6 +84,66 @@ export function FluffTab() {
           ))}
         </div>
       </Card>
+
+      {background && (
+        <Card title={`Background — ${background.name}`}>
+          <p className="mb-2 text-[10px] text-muted-foreground">
+            {[background.source, background.entry?.page ? `p.${background.entry.page}` : ""]
+              .filter(Boolean)
+              .join(" · ") || "Imported background"}
+          </p>
+          {background.details?.fields?.length ? (
+            <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+              {background.details.fields.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="font-medium text-muted-foreground">{label}</dt>
+                  <dd className="min-w-0 whitespace-pre-wrap break-words">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          {chosenOptions.length > 0 && (
+            <div className="mb-3 space-y-1">
+              {chosenOptions.map((option) => (
+                <p key={option} className="rounded border bg-accent/40 px-2 py-1 text-xs">
+                  {option}
+                </p>
+              ))}
+            </div>
+          )}
+          <div className="space-y-2">
+            {background.details?.sections?.map((section, index) => (
+              <div key={`${section.title || "section"}-${index}`}>
+                {section.title ? (
+                  <p className="text-xs font-semibold">{section.title}</p>
+                ) : null}
+                {section.text ? (
+                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                    {section.text}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {background.features.length > 0 && (
+            <div className="mt-3 space-y-1 border-t pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Feature
+              </p>
+              {background.features.map((feature, index) => (
+                <div key={`${feature.name}-${index}`}>
+                  <p className="text-xs font-semibold">
+                    {feature.name.replace(/^feature\s*:\s*/i, "")}
+                  </p>
+                  <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                    {feature.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card title="Appearance">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

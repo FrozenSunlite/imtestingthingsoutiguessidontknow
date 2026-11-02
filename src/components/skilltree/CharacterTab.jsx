@@ -36,6 +36,7 @@ import { ConditionTracks } from "./StatusSection";
 import { DamageAffinitiesSection } from "./DamageAffinitiesSection";
 import { SaveDCsSection } from "./SaveDCsSection";
 import { DEFAULT_SKILL_ABILITIES, statOr10 } from "@/lib/skills";
+import { backgroundInfo } from "@/lib/characterCreation";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ const IDENTITY = [
   ["name", "Name"],
   ["class", "Class"],
   ["race", "Race"],
+  ["background", "Background"],
   ["alignment", "Alignment"],
 ];
 const REST_LABEL = { none: "", short: "short rest", long: "long rest" };
@@ -88,6 +90,7 @@ export function CharacterTab() {
     setSubtreeNodePoints,
   } = useTree();
   const levels = settings?.library?.levels || [];
+  const background = backgroundInfo(settings, character);
   const usage = poolUsage(tree, settings?.library?.pointTypes);
   const eff = effectivePools(pools, character, tree, levels, settings);
   const stats = statVars(character, tree);
@@ -325,6 +328,34 @@ export function CharacterTab() {
           ))}
         </div>
       </div>
+
+      {/* Only "Feature:"-tagged background features belong on the front sheet;
+          the rest of the background text lives on the Fluff tab. */}
+      {background?.features?.length ? (
+        <SectionCard title={`Background Feature — ${background.name}`}>
+          <div className="space-y-2">
+            {background.features.map((feature, index) => (
+              <div key={`${feature.name}-${index}`} className="rounded-lg border bg-accent/30 p-3">
+                <p className="text-sm font-semibold">
+                  {feature.name.replace(/^feature\s*:\s*/i, "")}
+                </p>
+                {feature.text ? (
+                  <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                    {feature.text}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      ) : character.originFeat ? (
+        <SectionCard title="Origin Feat">
+          <p className="text-sm font-semibold">{character.originFeat}</p>
+          <p className="text-[10px] text-muted-foreground">
+            This origin feat replaces a background.
+          </p>
+        </SectionCard>
+      ) : null}
 
       {/* Ability scores */}
       <SectionCard title="Ability Scores">

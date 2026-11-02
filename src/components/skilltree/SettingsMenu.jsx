@@ -1,8 +1,12 @@
 import { useTree } from "@/lib/treeStore";
 import { importImage } from "@/lib/imageStore";
-import { Upload, RotateCcw, Trash2, Archive, Download } from "lucide-react";
+import { Upload, RotateCcw, Trash2, Archive, Download, Volume2, VolumeX, Music2, Disc3 } from "lucide-react";
 import { removeImportFromLibrary } from "@/lib/importHistory";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
+import { DEFAULT_AUDIO_SETTINGS } from "@/lib/audio";
+import { useMusicLibrary } from "@/lib/useMusicLibrary";
+import { useCurrentTrack } from "@/lib/useAudio";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +67,15 @@ export function SettingsMenu({ open, onClose }) {
     setTheme({ ...theme, custom: { ...customTheme, ...patch } });
   const [devLogs, setDevLogs] = useState([]);
   const [backups, setBackups] = useState([]);
+  const audio = { ...DEFAULT_AUDIO_SETTINGS, ...(settings.audio || {}) };
+  const setAudio = (patch) =>
+    setSettings((s) => ({
+      ...s,
+      audio: { ...DEFAULT_AUDIO_SETTINGS, ...(s.audio || {}), ...patch },
+    }));
+  const musicLibrary = useMusicLibrary();
+  const currentTrack = useCurrentTrack();
+  const trackOptions = audio.customMusic ? musicLibrary.custom : musicLibrary.default;
   useEffect(() => {
     if (!open) return undefined;
     let alive = true;
@@ -130,6 +143,7 @@ export function SettingsMenu({ open, onClose }) {
             <TabsTrigger value="connector">Connectors</TabsTrigger>
             <TabsTrigger value="artwork">Node Artwork</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="audio">Audio</TabsTrigger>
             <TabsTrigger value="project">Project</TabsTrigger>
             <TabsTrigger value="help">Help</TabsTrigger>
           </TabsList>
@@ -684,6 +698,169 @@ export function SettingsMenu({ open, onClose }) {
                   Open the tutorial
                 </Button>
               </div>
+            </TabsContent>
+
+            <TabsContent value="audio" className="mt-3 space-y-4">
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <Music2 className="h-4 w-4" /> Music
+                  </p>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={audio.musicMuted ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => setAudio({ musicMuted: !audio.musicMuted })}
+                    >
+                      {audio.musicMuted ? <VolumeX className="mr-1 h-3.5 w-3.5" /> : <Volume2 className="mr-1 h-3.5 w-3.5" />}
+                      {audio.musicMuted ? "Unmute" : "Mute"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={audio.musicEnabled ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => setAudio({ musicEnabled: !audio.musicEnabled })}
+                    >
+                      {audio.musicEnabled ? "On" : "Off"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Slider
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={[Math.round(audio.musicVolume * 100)]}
+                    onValueChange={([value]) => setAudio({ musicVolume: value / 100 })}
+                    aria-label="Music volume"
+                  />
+                  <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+                    {Math.round(audio.musicVolume * 100)}%
+                  </span>
+                </div>
+                <label className="flex items-center justify-between gap-3 text-xs">
+                  <span>
+                    <span className="font-medium">Shuffle</span>
+                    <span className="block text-[10px] text-muted-foreground">
+                      Pick a random track each time instead of playing in order.
+                    </span>
+                  </span>
+                  <Switch
+                    checked={audio.shuffle}
+                    onCheckedChange={(value) => setAudio({ shuffle: value })}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 text-xs">
+                  <span>
+                    <span className="font-medium">Custom music</span>
+                    <span className="block text-[10px] text-muted-foreground">
+                      Use only tracks from <code>music/Custom</code>. Default music is
+                      disabled while this is on.
+                    </span>
+                  </span>
+                  <Switch
+                    checked={audio.customMusic}
+                    onCheckedChange={(value) => setAudio({ customMusic: value })}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 text-xs">
+                  <span>
+                    <span className="font-medium">Now playing popup</span>
+                    <span className="block text-[10px] text-muted-foreground">
+                      Show the track name in the bottom-right for six seconds.
+                    </span>
+                  </span>
+                  <Switch
+                    checked={audio.nowPlaying}
+                    onCheckedChange={(value) => setAudio({ nowPlaying: value })}
+                  />
+                </label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Song</Label>
+                  <Select
+                    value={trackOptions.some((t) => t.file === audio.track) ? audio.track : ""}
+                    onValueChange={(value) => setAudio({ track: value })}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Shuffle picks for me" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {trackOptions.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          {audio.customMusic
+                            ? "No custom tracks yet — add files to music/Custom."
+                            : "No tracks found."}
+                        </div>
+                      ) : (
+                        trackOptions.map((track) => (
+                          <SelectItem key={track.file} value={track.file}>
+                            {track.title}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Disc3 className="h-3 w-3" />
+                    {currentTrack
+                      ? `Playing: ${currentTrack.title}`
+                      : audio.customMusic
+                        ? "Custom music is on; default music will not play."
+                        : "Nothing playing yet."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Sound effects</p>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={audio.sfxMuted ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => setAudio({ sfxMuted: !audio.sfxMuted })}
+                    >
+                      {audio.sfxMuted ? <VolumeX className="mr-1 h-3.5 w-3.5" /> : <Volume2 className="mr-1 h-3.5 w-3.5" />}
+                      {audio.sfxMuted ? "Unmute" : "Mute"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={audio.sfxEnabled ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => setAudio({ sfxEnabled: !audio.sfxEnabled })}
+                    >
+                      {audio.sfxEnabled ? "On" : "Off"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Slider
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={[Math.round(audio.sfxVolume * 100)]}
+                    onValueChange={([value]) => setAudio({ sfxVolume: value / 100 })}
+                    aria-label="Sound effect volume"
+                  />
+                  <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+                    {Math.round(audio.sfxVolume * 100)}%
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Drop effects into <code>public/sounds</code> and list them in
+                  <code> public/sounds/manifest.json</code>. A <code>click</code>
+                  effect plays for buttons and tabs automatically.
+                </p>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground">
+                Music lives in <code>public/music</code>; tracks in
+                <code> public/music/Custom</code> are only used when Custom music is on.
+                Rebuild the library with
+                <code> npm run music:import -- "C:\path\to\music"</code>.
+              </p>
             </TabsContent>
 
             <TabsContent value="help" className="mt-3">

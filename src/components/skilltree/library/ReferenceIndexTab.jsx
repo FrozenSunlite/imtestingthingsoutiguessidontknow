@@ -925,10 +925,11 @@ export function ReferenceIndexTab() {
           }));
           const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
           if (features.length) {
-            const tabId = addImportedTab(`Subclass: ${entryName(s)}`, features, {
+            const tabId = addImportedTab(`Subclass: ${entryName(s)}${s.source ? ` (${s.source})` : ""}`, features, {
               category: activeCategory.label,
               layout: "class",
               className: s.className,
+              classSource: s.classSource,
             });
             if (tabId) importTabIdsRef.current.push(tabId);
             done += 1;
@@ -952,10 +953,11 @@ export function ReferenceIndexTab() {
           rawForEntry(base) || rawForEntry(selectedSubs[0])
         );
         if (features.length) {
-          const tabId = addImportedTab(`Class: ${entryName(base)}`, features, {
+          const tabId = addImportedTab(`Class: ${entryName(base)}${base.source ? ` (${base.source})` : ""}`, features, {
             category: activeCategory.label,
             layout: "class",
             className: base.name,
+            classSource: base.source,
           });
           if (tabId) importTabIdsRef.current.push(tabId);
           done += 1;

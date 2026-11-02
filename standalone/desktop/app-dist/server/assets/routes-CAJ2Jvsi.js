@@ -1,20 +1,20 @@
-import { n as Button, r as cn } from "./router-XVHcXU_P.js";
+import { n as Button, r as cn } from "./router-BBPtLZ9m.js";
 import * as React from "react";
-import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
-import * as LabelPrimitive from "@radix-ui/react-label";
+import * as SliderPrimitive from "@radix-ui/react-slider";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import ReactMarkdown from "react-markdown";
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import * as ProgressPrimitive from "@radix-ui/react-progress";
-import * as SliderPrimitive from "@radix-ui/react-slider";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { jsPDF } from "jspdf";
@@ -2906,6 +2906,220 @@ function comboMatches(e, combo) {
 function formatCombo(combo) {
 	if (!combo) return "—";
 	return String(combo).split("+").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("+");
+}
+//#endregion
+//#region src/lib/audio.js
+var DEFAULT_AUDIO_SETTINGS = {
+	musicEnabled: true,
+	sfxEnabled: true,
+	musicVolume: .3,
+	sfxVolume: .5,
+	musicMuted: false,
+	sfxMuted: false,
+	shuffle: true,
+	customMusic: false,
+	nowPlaying: true,
+	track: "",
+	defaultsVersion: 2
+};
+var FADE_MS = 1e3;
+var NOW_PLAYING_MS = 6e3;
+var clamp$7 = (n) => Math.max(0, Math.min(1, Number(n) || 0));
+var music = {
+	el: null,
+	volume: DEFAULT_AUDIO_SETTINGS.musicVolume,
+	muted: false,
+	fadeFrame: 0,
+	fadeResolve: null,
+	onEnded: null,
+	needsGesture: false
+};
+var sfxContext = null;
+var sfxBuffers = /* @__PURE__ */ new Map();
+var sfxVolume = DEFAULT_AUDIO_SETTINGS.sfxVolume;
+var sfxMuted = false;
+var sfxEnabled = true;
+var soundManifestPromise = null;
+var soundIndex = null;
+var currentTrack = null;
+var trackListeners = /* @__PURE__ */ new Set();
+function setCurrentTrack(track) {
+	if ((currentTrack?.file || "") === (track?.file || "")) return;
+	currentTrack = track || null;
+	trackListeners.forEach((listener) => listener());
+}
+function getCurrentTrack() {
+	return currentTrack;
+}
+function subscribeCurrentTrack(listener) {
+	trackListeners.add(listener);
+	return () => trackListeners.delete(listener);
+}
+function ensureMusicElement() {
+	if (typeof window === "undefined") return null;
+	if (!music.el) {
+		const el = new Audio();
+		el.preload = "auto";
+		el.volume = 0;
+		el.addEventListener("ended", () => music.onEnded?.());
+		music.el = el;
+	}
+	return music.el;
+}
+function musicTarget() {
+	return music.muted ? 0 : clamp$7(music.volume);
+}
+function cancelFade() {
+	if (music.fadeFrame) {
+		cancelAnimationFrame(music.fadeFrame);
+		music.fadeFrame = 0;
+	}
+	const resolve = music.fadeResolve;
+	music.fadeResolve = null;
+	if (resolve) resolve();
+}
+function fadeMusic(value, ms = FADE_MS) {
+	const el = ensureMusicElement();
+	if (!el) return Promise.resolve();
+	cancelFade();
+	const target = clamp$7(value);
+	if (!ms) {
+		el.volume = target;
+		return Promise.resolve();
+	}
+	return new Promise((resolve) => {
+		const from = el.volume;
+		const start = performance.now();
+		music.fadeResolve = resolve;
+		const step = (now) => {
+			const t = Math.min(1, (now - start) / ms);
+			el.volume = clamp$7(from + (target - from) * t);
+			if (t < 1) music.fadeFrame = requestAnimationFrame(step);
+			else {
+				music.fadeFrame = 0;
+				music.fadeResolve = null;
+				resolve();
+			}
+		};
+		music.fadeFrame = requestAnimationFrame(step);
+	});
+}
+function configureAudio(settings) {
+	music.volume = clamp$7(settings?.musicVolume ?? DEFAULT_AUDIO_SETTINGS.musicVolume);
+	music.muted = !!settings?.musicMuted;
+	sfxVolume = clamp$7(settings?.sfxVolume ?? DEFAULT_AUDIO_SETTINGS.sfxVolume);
+	sfxMuted = !!settings?.sfxMuted;
+	sfxEnabled = settings?.sfxEnabled !== false;
+	const el = music.el;
+	if (el && !el.paused && !music.fadeFrame) el.volume = musicTarget();
+}
+async function playMusicTrack(track, { fadeMs = FADE_MS } = {}) {
+	const el = ensureMusicElement();
+	if (!el || !track?.file) return false;
+	if (!el.paused && el.currentSrc) await fadeMusic(0, fadeMs);
+	el.pause();
+	el.src = track.file;
+	el.currentTime = 0;
+	el.volume = 0;
+	try {
+		await el.play();
+	} catch {
+		music.needsGesture = true;
+		return false;
+	}
+	music.needsGesture = false;
+	await fadeMusic(musicTarget(), fadeMs);
+	return true;
+}
+async function pauseMusic(fadeMs = FADE_MS) {
+	const el = music.el;
+	if (!el) return;
+	if (!el.paused) await fadeMusic(0, fadeMs);
+	el.pause();
+}
+async function resumeMusic(fadeMs = FADE_MS) {
+	const el = ensureMusicElement();
+	if (!el || !el.currentSrc) return false;
+	el.volume = 0;
+	try {
+		await el.play();
+	} catch {
+		music.needsGesture = true;
+		return false;
+	}
+	await fadeMusic(musicTarget(), fadeMs);
+	return true;
+}
+function setMusicEndedHandler(handler) {
+	music.onEnded = handler;
+}
+function getMusicElement() {
+	return music.el;
+}
+function loadSoundManifest() {
+	if (typeof window === "undefined") return Promise.resolve([]);
+	if (soundManifestPromise) return soundManifestPromise;
+	soundManifestPromise = fetch("/sounds/manifest.json", { cache: "no-cache" }).then((res) => res.ok ? res.json() : { sounds: [] }).then((data) => {
+		const list = Array.isArray(data?.sounds) ? data.sounds : [];
+		soundIndex = new Map(list.filter((s) => s?.name && s?.file).map((s) => [String(s.name).toLowerCase(), s]));
+		return list;
+	}).catch(() => {
+		soundIndex = /* @__PURE__ */ new Map();
+		return [];
+	});
+	return soundManifestPromise;
+}
+function ensureSfxContext() {
+	if (typeof window === "undefined") return null;
+	if (!sfxContext) {
+		const Ctx = window.AudioContext || window.webkitAudioContext;
+		if (!Ctx) return null;
+		sfxContext = new Ctx();
+	}
+	if (sfxContext.state === "suspended") sfxContext.resume().catch(() => {});
+	return sfxContext;
+}
+async function playSfx(name, { gain = 1 } = {}) {
+	if (!name || !sfxEnabled || sfxMuted || sfxVolume <= 0) return;
+	const keys = [String(name).toLowerCase()];
+	if (soundIndex) {
+		const entry = keys.map((key) => soundIndex.get(key)).find(Boolean);
+		if (!entry) return;
+		const ctx = ensureSfxContext();
+		if (!ctx) return;
+		try {
+			let buffer = sfxBuffers.get(entry.file);
+			if (!buffer) {
+				const res = await fetch(entry.file);
+				if (!res.ok) return;
+				buffer = await ctx.decodeAudioData(await res.arrayBuffer());
+				sfxBuffers.set(entry.file, buffer);
+			}
+			const source = ctx.createBufferSource();
+			source.buffer = buffer;
+			const node = ctx.createGain();
+			node.gain.value = clamp$7(sfxVolume * gain);
+			source.connect(node).connect(ctx.destination);
+			source.start();
+		} catch {}
+		return;
+	}
+	await loadSoundManifest();
+	if (soundIndex?.size) await playSfx(name, { gain });
+}
+var lastClickAt = 0;
+function installClickSounds(enabled) {
+	if (typeof document === "undefined" || !enabled) return () => {};
+	const handler = (event) => {
+		const target = event.target?.closest?.("button, a, [role=button], [role=tab], input[type=checkbox]");
+		if (!target || target.disabled) return;
+		const now = performance.now();
+		if (now - lastClickAt < 55) return;
+		lastClickAt = now;
+		playSfx("click", { gain: .7 });
+	};
+	document.addEventListener("pointerdown", handler, true);
+	return () => document.removeEventListener("pointerdown", handler, true);
 }
 //#endregion
 //#region src/lib/dieScaling.js
@@ -6407,6 +6621,7 @@ var DEFAULT_SETTINGS = {
 	autoSaveToDisk: true,
 	autoSaveInterval: 60,
 	cacheRemoteImages: false,
+	audio: { ...DEFAULT_AUDIO_SETTINGS },
 	rewardCurrency: "gp",
 	tourDone: false,
 	levelRules: {
@@ -6737,6 +6952,8 @@ function buildImportedTab(name, features, meta = {}) {
 				resources: mech.resources,
 				actions: mech.actions,
 				levelReq: classLayout ? Number(f.level) || 0 : 0,
+				featureGroup: group,
+				subclassFeature: !!f.subclass,
 				dependencies: i ? [groupNodes[i - 1].id] : [],
 				exclusiveWith: []
 			});
@@ -6773,6 +6990,8 @@ function buildImportedTab(name, features, meta = {}) {
 	return {
 		id,
 		name: String(name || "Imported Features"),
+		className: meta.className || "",
+		classSource: meta.classSource || "",
 		nodes,
 		connections,
 		cameraStartNode: nodes[0]?.id || ""
@@ -7423,29 +7642,39 @@ function TreeProvider({ children }) {
 				readProjectValue(LEGACY_KEYS.settings)
 			]);
 			if (!alive) return;
-			if (storedSettings) setSettings({
-				hotkeys: {
-					...DEFAULT_HOTKEYS,
-					...storedSettings.hotkeys || {}
-				},
-				connector: {
-					...DEFAULT_SETTINGS.connector,
-					...storedSettings.connector || {}
-				},
-				placeholderImage: isLegacyHostedImage(storedSettings.placeholderImage) ? DEFAULT_SETTINGS.placeholderImage : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
-				placeholderFrame: isLegacyHostedImage(storedSettings.placeholderFrame) ? "" : storedSettings.placeholderFrame || "",
-				cameraStartNode: storedSettings.cameraStartNode || "",
-				rewardCurrency: storedSettings.rewardCurrency || "gp",
-				tourDone: !!storedSettings.tourDone,
-				autoSave: storedSettings.autoSave !== false,
-				autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
-				autoSaveInterval: storedSettings.autoSaveInterval || 60,
-				levelRules: {
-					...DEFAULT_SETTINGS.levelRules,
-					...storedSettings.levelRules || {}
-				},
-				library: mergeLibrary(storedSettings.library)
-			});
+			if (storedSettings) {
+				const storedAudio = storedSettings.audio || {};
+				const audioSettings = {
+					...DEFAULT_AUDIO_SETTINGS,
+					...storedAudio,
+					musicVolume: Number(storedAudio.defaultsVersion) >= 2 ? storedAudio.musicVolume ?? DEFAULT_AUDIO_SETTINGS.musicVolume : Number(storedAudio.musicVolume) === .5 ? DEFAULT_AUDIO_SETTINGS.musicVolume : storedAudio.musicVolume ?? DEFAULT_AUDIO_SETTINGS.musicVolume,
+					defaultsVersion: DEFAULT_AUDIO_SETTINGS.defaultsVersion
+				};
+				setSettings({
+					hotkeys: {
+						...DEFAULT_HOTKEYS,
+						...storedSettings.hotkeys || {}
+					},
+					connector: {
+						...DEFAULT_SETTINGS.connector,
+						...storedSettings.connector || {}
+					},
+					placeholderImage: isLegacyHostedImage(storedSettings.placeholderImage) ? DEFAULT_SETTINGS.placeholderImage : storedSettings.placeholderImage || DEFAULT_SETTINGS.placeholderImage,
+					placeholderFrame: isLegacyHostedImage(storedSettings.placeholderFrame) ? "" : storedSettings.placeholderFrame || "",
+					cameraStartNode: storedSettings.cameraStartNode || "",
+					rewardCurrency: storedSettings.rewardCurrency || "gp",
+					tourDone: !!storedSettings.tourDone,
+					autoSave: storedSettings.autoSave !== false,
+					autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
+					autoSaveInterval: storedSettings.autoSaveInterval || 60,
+					audio: audioSettings,
+					levelRules: {
+						...DEFAULT_SETTINGS.levelRules,
+						...storedSettings.levelRules || {}
+					},
+					library: mergeLibrary(storedSettings.library)
+				});
+			}
 			if (storedTree) try {
 				setTreeRaw(seedCameraStart(ensureTabs(migrateTree(storedTree)), storedSettings));
 			} catch {
@@ -9254,71 +9483,1477 @@ var DialogDescription = React.forwardRef(({ className, ...props }, ref) => /* @_
 }));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 //#endregion
-//#region src/components/skilltree/LevelUpDialog.jsx
-function LevelUpDialog({ open, onClose }) {
-	const { character, setCharacter, setPools, settings } = useTree();
-	const nextLevel = (Number(character.level) || 1) + 1;
-	const dieSize = character.hitDiceSize || "d6";
-	const sides = Number(String(dieSize).replace(/\D/g, "")) || 6;
-	const conMod = Math.floor((((character.stats || {}).CON ?? 10) - 10) / 2) + (Number(character.modifiers?.ability?.CON) || 0);
-	const average = Math.max(1, Math.floor(sides / 2) + 1) + conMod;
-	const confirm = (gain) => {
-		const g = levelGains(nextLevel, settings);
-		const hdBlank = character.hitDiceCount == null || character.hitDiceCount === "";
-		setCharacter({
-			...character,
-			level: nextLevel,
-			hitPoints: (Number(character.hitPoints) || 0) + gain,
-			hitDiceCount: hdBlank ? nextLevel : (Number(character.hitDiceCount) || 0) + 1
+//#region src/lib/fiveEToolsRulebook.js
+var clean$1 = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
+var cell = (value) => clean$1(value).replace(/\|/g, "\\|");
+var tableMarkdown = (table) => {
+	const columns = (table.colLabels || []).map(cell);
+	const rows = (table.rows || []).map((row) => {
+		return (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
+			if (value && typeof value === "object") {
+				if (value.roll) return value.roll.exact != null ? String(value.roll.exact) : `${value.roll.min ?? ""}${value.roll.max != null ? `–${value.roll.max}` : ""}`;
+				return cell(value.entry ?? value.entries ?? value.name ?? "");
+			}
+			return cell(value);
 		});
-		setPools((p) => {
-			const next = { ...p };
-			const zero = levelZeroPointsFor(settings);
-			Object.entries(g.points || {}).forEach(([id, amount]) => {
-				const base = Number(p[id]?.total);
-				next[id] = {
-					...p[id] || {},
-					total: (Number.isFinite(base) ? base : zero[id] ?? 0) + (Number(amount) || 0)
-				};
-			});
-			return next;
-		});
-		onClose();
-	};
-	const roll = () => {
-		const r = 1 + Math.floor(Math.random() * sides);
-		const gain = Math.max(1, r + conMod);
-		confirm(gain);
-		toast.success(`Rolled ${r} on 1${dieSize} → +${gain} HP`);
-	};
-	return /* @__PURE__ */ jsx(Dialog, {
-		open,
-		onOpenChange: (v) => !v && onClose(),
-		children: /* @__PURE__ */ jsxs(DialogContent, {
-			className: "max-w-sm",
-			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Level Up to ", nextLevel] }), /* @__PURE__ */ jsxs(DialogDescription, { children: [
-				"Choose how to gain hit points from your hit die (1",
-				dieSize,
-				conMod !== 0 ? ` ${conMod > 0 ? "+" : "−"} ${Math.abs(conMod)} CON` : "",
-				"). You also gain +1 hit die at the current size."
-			] })] }), /* @__PURE__ */ jsxs("div", {
-				className: "grid grid-cols-2 gap-2",
-				children: [/* @__PURE__ */ jsxs(Button, {
-					variant: "outline",
-					onClick: () => confirm(average),
-					children: [
-						"Take Average (+",
-						average,
-						" HP)"
-					]
-				}), /* @__PURE__ */ jsxs(Button, {
-					onClick: roll,
-					children: ["Roll 1", dieSize]
-				})]
-			})]
-		})
 	});
+	if (!rows.length) return "";
+	if (!columns.length) return rows.map((r) => `- ${r.filter(Boolean).join(" — ")}`).join("\n");
+	return [
+		`| ${columns.join(" | ")} |`,
+		`| ${columns.map(() => "---").join(" | ")} |`,
+		...rows.map((r) => `| ${r.join(" | ")} |`)
+	].join("\n");
+};
+var imageMarkdown = (node) => {
+	const href = node?.href;
+	if (typeof href === "string") return `![${clean$1(node.name) || "Illustration"}](${href})`;
+	if (href?.url) return `![${clean$1(node.name) || "Illustration"}](${href.url})`;
+	if (href?.path) return `![${clean$1(node.name) || "Illustration"}](${href.path})`;
+	if (href?.paths?.length) return href.paths.map((path) => `![${clean$1(node.name) || "Illustration"}](${path})`).join("\n\n");
+	return "";
+};
+var refLabel = (node) => clean$1(node?.name || node?.spell || node?.item || node?.creature || node?.condition || node?.optionalfeature || node?.classFeature || node?.subclassFeature || node?.table || node?.book || node?.adventure || "");
+function renderEntries(value, depth = 0) {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean$1(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map((v) => renderEntries(v, depth)).filter(Boolean).join("\n\n");
+	if (typeof value !== "object") return clean$1(value);
+	switch (value.type) {
+		case "table": {
+			const table = tableMarkdown(value);
+			return [value.name ? `**${clean$1(value.name)}**` : "", table].filter(Boolean).join("\n\n");
+		}
+		case "list": return (value.items || []).map((item) => `- ${clean$1(item).replace(/\n/g, "\n  ")}`).join("\n");
+		case "options": return [value.name ? `**${clean$1(value.name)}**` : "", ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
+		case "inset":
+		case "insetReadaloud": {
+			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+			return [value.name ? `> **${clean$1(value.name)}**\n>` : "", body].filter(Boolean).join("\n");
+		}
+		case "quote": {
+			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
+			return [value.byline ? `> — ${clean$1(value.byline)}\n>` : "", body].filter(Boolean).join("\n");
+		}
+		case "image":
+		case "gallery": return imageMarkdown(value);
+		case "hr": return "---";
+		case "abilityDc":
+		case "abilityAttackMod": {
+			const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
+			return `**${clean$1(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
+		}
+		case "statblock":
+		case "statblockInline": return [value.name ? `**${clean$1(value.name)}**` : "", renderEntries(value.entries, depth + 1)].filter(Boolean).join("\n\n");
+	}
+	if (value.type?.startsWith("ref")) {
+		const label = refLabel(value);
+		return label ? `*${label}*` : "";
+	}
+	return [value.name && Array.isArray(value.entries) ? `${"#".repeat(Math.min(6, depth + 2))} ${clean$1(value.name)}` : value.name ? `**${clean$1(value.name)}**` : "", value.entries ? renderEntries(value.entries, depth + 1) : value.items ? renderEntries(value.items, depth + 1) : ""].filter(Boolean).join("\n\n");
 }
+var slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "book";
+function bookChapters(entry) {
+	if (!entry) return null;
+	const data = Array.isArray(entry.data) ? entry.data : [];
+	if (!data.length) return null;
+	return {
+		title: clean$1(entry.name || entry.title || entry.id || "Book"),
+		chapters: data.map((chapter, i) => ({
+			id: chapter.id || `ch${i + 1}`,
+			title: clean$1(chapter.name) || `Chapter ${i + 1}`,
+			entries: chapter.entries
+		})).filter((chapter) => chapter.entries != null)
+	};
+}
+function bookChapterMarkdown(chapter) {
+	return renderEntries(chapter?.entries, 1);
+}
+function bookToRulebook(entry, fallbackTitle = "") {
+	if (!entry) return null;
+	const data = Array.isArray(entry.data) ? entry.data : Array.isArray(entry.contents) ? [] : [];
+	const title = clean$1(entry.name || entry.title || fallbackTitle || entry.id) || "Imported Book";
+	const source = clean$1(entry.source || entry.id || "");
+	const id = `rb5e-${slug(source)}-${slug(title)}`;
+	let chapters = data.map((chapter, i) => {
+		const chapterTitle = clean$1(chapter.name) || `Chapter ${i + 1}`;
+		const body = renderEntries(chapter.entries, 1);
+		return {
+			id: `${id}-ch${i + 1}`,
+			title: chapterTitle,
+			content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n")
+		};
+	}).filter((chapter) => chapter.content.trim());
+	if (!chapters.length) {
+		const outline = (entry.contents || []).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean$1(name)}`).join("\n");
+		const body = renderEntries(entry.entries, 1);
+		chapters = [{
+			id: `${id}-ch1`,
+			title,
+			content: [
+				`# ${title}`,
+				outline,
+				body
+			].filter(Boolean).join("\n\n")
+		}];
+	}
+	return {
+		id,
+		title,
+		source,
+		imported: true,
+		chapters
+	};
+}
+//#endregion
+//#region src/lib/fiveEToolsLookup.js
+var cache = null;
+var pending$1 = null;
+async function loadSpellLookup() {
+	if (cache) return cache;
+	if (!pending$1) pending$1 = fetch("/api/5etools/file?root=data&path=generated%2Fgendata-spell-source-lookup.json").then((r) => r.ok ? r.json() : null).then((data) => {
+		cache = data && typeof data === "object" ? data : null;
+		return cache;
+	}).catch(() => null).finally(() => {
+		pending$1 = null;
+	});
+	return pending$1;
+}
+var addAll = (set, map) => {
+	Object.values(map || {}).forEach((classes) => {
+		Object.keys(classes || {}).forEach((name) => set.add(name));
+	});
+};
+function spellClassNames(entry, lookup) {
+	if (!lookup || !entry?.name) return "";
+	const name = String(entry.name).toLowerCase();
+	const classes = /* @__PURE__ */ new Set();
+	Object.values(lookup).forEach((spells) => {
+		const data = spells?.[name] || Object.entries(spells || {}).find(([k]) => k.toLowerCase() === name)?.[1];
+		if (data) addAll(classes, data.class);
+	});
+	return Array.from(classes).sort().join(", ");
+}
+//#endregion
+//#region src/lib/monsterSpeeds.js
+var TYPE_ALIASES = {
+	walk: "Standard",
+	land: "Standard",
+	standard: "Standard",
+	fly: "Flying",
+	flying: "Flying",
+	swim: "Swimming",
+	swimming: "Swimming",
+	climb: "Climbing",
+	climbing: "Climbing",
+	burrow: "Burrowing",
+	burrowing: "Burrowing"
+};
+var title = (s) => String(s || "").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+function speedTypeName(type) {
+	return TYPE_ALIASES[String(type || "").trim().toLowerCase()] || title(type);
+}
+var toSpaces = (value) => {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return 0;
+	return Math.round(n / 5 * 10) / 10;
+};
+function speedEntries(speed) {
+	if (speed == null || speed === "") return [];
+	if (Array.isArray(speed)) return speed.map((e) => {
+		if (typeof e === "object" && e) {
+			const name = e.type || e.name || "Standard";
+			const spaces = e.spaces ?? e.value ?? e.number;
+			return {
+				type: speedTypeName(name),
+				spaces: Number(spaces) || 0
+			};
+		}
+		return null;
+	}).filter(Boolean);
+	if (typeof speed === "number") return [{
+		type: "Standard",
+		spaces: toSpaces(speed)
+	}];
+	if (typeof speed === "string") return feetToSpacesText(speed).split(",").map((part) => {
+		const m = part.trim().match(/^(?:([a-z][a-z ]*?)\s*)?(\d+(?:\.\d+)?)\s*(?:spaces?|ft\.?|feet|foot)?$/i);
+		if (!m) return null;
+		return {
+			type: speedTypeName(m[1] || "Standard"),
+			spaces: Number(m[2]) || 0
+		};
+	}).filter(Boolean);
+	if (typeof speed === "object") return Object.entries(speed).filter(([, v]) => typeof v === "number" || v && typeof v === "object" && Number.isFinite(Number(v.number ?? v.value))).map(([type, v]) => ({
+		type: speedTypeName(type),
+		spaces: toSpaces(typeof v === "object" ? v.number ?? v.value : v)
+	}));
+	return [];
+}
+function speedTextFromEntries(entries) {
+	return (entries || []).filter((e) => e && e.type && Number.isFinite(Number(e.spaces))).map((e) => e.type === "Standard" ? `${e.spaces} spaces` : `${e.type} ${e.spaces} spaces`).join(", ");
+}
+//#endregion
+//#region src/lib/monsterImport.js
+var textOf = (value) => {
+	if (value == null) return "";
+	if (typeof value === "string") return value;
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join("\n");
+	if (typeof value === "object") {
+		if (value.entries) return textOf(value.entries);
+		if (value.items) return Object.values(value.items).map(textOf).filter(Boolean).join("\n");
+		if (value.name && (value.description || value.desc)) return `${value.name}: ${textOf(value.description ?? value.desc)}`;
+		if (value.text) return textOf(value.text);
+		if (value.desc) return textOf(value.desc);
+		if (value.description) return textOf(value.description);
+		if (value.name) return String(value.name);
+		return "";
+	}
+	return String(value);
+};
+var listOf = (value) => {
+	if (!value) return [];
+	return (Array.isArray(value) ? value : [value]).map((x) => {
+		if (typeof x === "string") return {
+			name: "",
+			text: x
+		};
+		return {
+			name: x?.name || "",
+			text: textOf(x?.entries ?? x?.text ?? x?.desc ?? x)
+		};
+	}).filter((x) => x.name || x.text);
+};
+var join$1 = (value) => Array.isArray(value) ? value.filter(Boolean).join(", ") : textOf(value);
+var mods = (value) => {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+	return Object.entries(value).map(([key, v]) => `${key.toUpperCase()} ${Number(v) >= 0 ? "+" : ""}${v}`).join(", ");
+};
+var sourceTag = (raw) => {
+	const type = typeof raw?.type === "object" ? raw.type?.type : raw?.type;
+	const typeTags = typeof raw?.type === "object" ? raw.type?.tags || [] : [];
+	return [...new Set([
+		type,
+		...typeTags,
+		...raw?.tags || []
+	].filter(Boolean).map(String))];
+};
+function normalizeImportedMonster(raw) {
+	if (!raw || typeof raw !== "object") return null;
+	const abil = raw.abilities || {};
+	const score = (k) => Number(abil[k]?.score ?? abil[k] ?? raw[k] ?? 10) || 10;
+	const acRaw = raw.ac ?? raw.armorClass ?? raw.armor_class;
+	const ac = Array.isArray(acRaw) ? acRaw[0]?.ac ?? acRaw[0]?.value ?? acRaw[0] : typeof acRaw === "object" ? acRaw.ac ?? acRaw.value : acRaw;
+	const hpRaw = raw.hp ?? raw.hitPoints ?? raw.hit_points;
+	const hp = typeof hpRaw === "object" ? hpRaw.average ?? hpRaw.value : hpRaw;
+	const cr = typeof raw.cr === "object" ? raw.cr?.cr ?? raw.cr?.value : raw.cr;
+	const speed = raw.speed ?? raw.movement;
+	const type = typeof raw.type === "object" ? raw.type?.type : raw.type;
+	const tags = sourceTag(raw);
+	const sizeMap = {
+		T: "Tiny",
+		S: "Small",
+		M: "Medium",
+		L: "Large",
+		H: "Huge",
+		G: "Gargantuan"
+	};
+	const sizeText = (Array.isArray(raw.size) ? raw.size : [raw.size]).filter(Boolean).map((s) => sizeMap[s] || s).join(", ");
+	const speeds = speedEntries(speed);
+	return {
+		name: textOf(raw.name) || "",
+		image: typeof (raw.image || raw.img) === "string" ? raw.image || raw.img : "",
+		unique: !!raw.unique,
+		dungeonExempt: !!(raw.dungeonExempt ?? raw.exemptFromDungeon ?? raw.dungeonBlacklisted),
+		size: sizeText,
+		type: textOf(type),
+		category: textOf(raw.category),
+		tags,
+		source: textOf(raw.source),
+		alignment: join$1(raw.alignment),
+		cr: cr == null ? "" : String(cr),
+		description: textOf(raw.description ?? raw.flavor ?? ""),
+		flavor: textOf(raw.flavor ?? ""),
+		ac: ac == null ? "" : String(ac),
+		hp: hp == null ? "" : String(hp),
+		speed: speedTextFromEntries(speeds) || feetToSpacesText(typeof speed === "string" ? speed : ""),
+		speeds,
+		abilities: [
+			"STR",
+			"DEX",
+			"CON",
+			"INT",
+			"WIS",
+			"CHA"
+		].map((k) => `${k} ${score(k.toLowerCase())}`).join(", "),
+		senses: feetToSpacesText(join$1(raw.senses)),
+		languages: join$1(raw.languages),
+		saves: mods(raw.saves),
+		skills: mods(raw.skills),
+		damageVulnerabilities: join$1(raw.damageVuln ?? raw.vulnerabilities),
+		damageResistances: join$1(raw.damageResist ?? raw.resistances),
+		damageImmunities: join$1(raw.damageImmune ?? raw.immunities),
+		conditionImmunities: join$1(raw.conditionImmune ?? raw.conditionImmunities),
+		initiative: raw.initiative?.mod != null ? String(raw.initiative.mod) : raw.initiative ?? "",
+		proficiencyBonus: raw.pb ?? raw.proficiencyBonus ?? "",
+		xp: raw.xp ?? raw.cr?.xp ?? "",
+		gear: Array.isArray(raw.gear) ? raw.gear.map((g) => typeof g === "string" ? g : g?.name).filter(Boolean).join(", ") : textOf(raw.gear),
+		spellcasting: textOf(raw.spellcasting),
+		traits: listOf(raw.traits ?? raw.trait),
+		actions: listOf(raw.actions ?? raw.action),
+		bonusActions: listOf(raw.bonus ?? raw.bonusActions),
+		reactions: listOf(raw.reactions ?? raw.reaction),
+		legendaryActions: listOf(raw.legendary ?? raw.legendaryActions),
+		lairActions: listOf(raw.lair ?? raw.lairActions),
+		mythicActions: listOf(raw.mythic ?? raw.mythicActions),
+		proficiencies: listOf(raw.proficiencies),
+		inventory: listOf(raw.inventory),
+		templates: Array.isArray(raw.templates) ? [...raw.templates] : []
+	};
+}
+function importMonsterPayload(data) {
+	return (Array.isArray(data) ? data : Array.isArray(data?.monsters) ? data.monsters : Array.isArray(data?.monster) ? data.monster : data && typeof data === "object" ? [data] : []).map(normalizeImportedMonster).filter((m) => m?.name);
+}
+//#endregion
+//#region src/lib/fiveEToolsView.js
+var clean = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
+var titleCase = (s) => String(s || "").split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+var join = (value, sep = ", ") => {
+	if (value == null || value === "") return "";
+	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(sep);
+	return clean(value);
+};
+var yesNo = (v) => v ? "Yes" : "";
+var SIZE_LABEL = {
+	T: "Tiny",
+	S: "Small",
+	M: "Medium",
+	L: "Large",
+	H: "Huge",
+	G: "Gargantuan",
+	V: "Varies"
+};
+var sizeText = (value) => {
+	if (value == null) return "";
+	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
+	return SIZE_LABEL[value] || clean(value);
+};
+var feet = (n) => {
+	const v = Math.round(Number(n) / 5 * 10) / 10;
+	return Number.isFinite(v) ? `${v} ${v === 1 ? "space" : "spaces"}` : "";
+};
+var speedText = (speed) => {
+	if (speed == null) return "";
+	if (typeof speed === "string") return clean(speed);
+	if (typeof speed === "number") return feet(speed);
+	if (Array.isArray(speed)) return speed.map(speedText).filter(Boolean).join(", ");
+	return Object.entries(speed).filter(([, v]) => v != null && v !== false).map(([k, v]) => {
+		if (typeof v === "number") return `${k === "walk" ? "Walk" : k[0].toUpperCase() + k.slice(1)} ${feet(v)}`;
+		if (v && typeof v === "object" && v.number != null) {
+			const unit = v.units || v.unit || "ft.";
+			return `${k === "walk" ? "Walk" : k[0].toUpperCase() + k.slice(1)} ${v.number} ${unit}`;
+		}
+		return `${k[0].toUpperCase() + k.slice(1)}`;
+	}).join(", ");
+};
+var ANY_PROFICIENCY = {
+	anyStandard: ["standard language", "standard languages"],
+	anyLanguage: ["language", "languages"],
+	anyGamingSet: ["gaming set", "gaming sets"],
+	anyArtisansTool: ["artisan's tool", "artisan's tools"],
+	anyMusicalInstrument: ["musical instrument", "musical instruments"],
+	anyTool: ["tool", "tools"],
+	anySkill: ["skill", "skills"],
+	anyWeapon: ["weapon", "weapons"],
+	anyArmor: ["armor", "armors"],
+	anyShield: ["shield", "shields"],
+	anySavingThrow: ["saving throw", "saving throws"],
+	anyAbility: ["ability", "abilities"]
+};
+var ABILITY_LABEL = {
+	str: "Strength",
+	dex: "Dexterity",
+	con: "Constitution",
+	int: "Intelligence",
+	wis: "Wisdom",
+	cha: "Charisma"
+};
+var abilityLabel = (key) => ABILITY_LABEL[String(key).toLowerCase()] || titleCase(key);
+var chooseText = (choose) => {
+	if (!choose || typeof choose !== "object") return "";
+	const from = (choose.from || []).map((v) => clean(typeof v === "object" ? v.name || v.ability || v : v)).filter(Boolean);
+	const count = Number(choose.count || choose.amount || 1) || 1;
+	if (from.length) {
+		const label = from.map((v) => abilityLabel(v) || titleCase(v)).join(", ");
+		return `Choose ${count > 1 ? `${count} ` : ""}from ${label}`;
+	}
+	if (choose.any) return `Any ${clean(choose.any)}`;
+	return "";
+};
+var proficiencyText = (value) => {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map(proficiencyText).filter(Boolean).join("; ");
+	if (typeof value !== "object") return clean(value);
+	if (value.choose) return chooseText(value.choose);
+	const parts = [];
+	Object.entries(value).forEach(([key, val]) => {
+		if (val == null || val === false) return;
+		if (key === "choose") return;
+		if (key.startsWith("any") && typeof val === "number") {
+			const [one, many] = ANY_PROFICIENCY[key] || [key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase(), `${key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase()}s`];
+			parts.push(`Any ${val > 1 ? `${val} ` : ""}${val > 1 ? many : one}`);
+			return;
+		}
+		if (typeof val === "number") {
+			parts.push(`${abilityLabel(key)} ${val > 0 ? `+${val}` : val}`);
+			return;
+		}
+		if (typeof val === "string") {
+			parts.push(`${titleCase(key)} (${clean(val)})`);
+			return;
+		}
+		if (val) parts.push(titleCase(key));
+	});
+	return parts.join(", ");
+};
+var abilityText = (value) => {
+	if (value == null || value === "") return "Any";
+	if (typeof value === "string" && /[,;]/.test(value)) return value.split(/[,;]/).map((part) => abilityText(part.trim())).filter((part) => part && part !== "Any").join(", ");
+	const list = Array.isArray(value) ? value : [value];
+	const choices = [];
+	const plain = [];
+	list.forEach((item) => {
+		if (item == null || item === false) return;
+		if (typeof item === "string") {
+			const parsed = item.trim().match(/^(str|dex|con|int|wis|cha|strength|dexterity|constitution|intelligence|wisdom|charisma)\s*([+-]\s*\d+)?$/i);
+			if (parsed) {
+				const key = parsed[1].slice(0, 3).toLowerCase();
+				const bonus = parsed[2] ? Number(parsed[2].replace(/\s+/g, "")) : null;
+				plain.push(bonus != null ? `${abilityLabel(key)} ${bonus > 0 ? `+${bonus}` : bonus}` : abilityLabel(key));
+			} else plain.push(abilityLabel(item));
+			return;
+		}
+		if (typeof item !== "object") return;
+		if (item.choose) {
+			const weighted = item.choose.weighted;
+			const from = (weighted?.from || item.choose.from || []).map(abilityLabel).filter(Boolean);
+			if (!from.length) return;
+			const weights = weighted?.weights || [];
+			const text = weights.length && Math.max(...weights) > 1 ? `Any of ${from.join(", ")} (+2 to one, +1 to another)` : chooseText(item.choose);
+			if (text) choices.push(text);
+			return;
+		}
+		Object.entries(item).filter(([key, v]) => ABILITY_LABEL[key.toLowerCase()] && typeof v === "number").forEach(([key, v]) => plain.push(`${abilityLabel(key)} ${v > 0 ? `+${v}` : v}`));
+	});
+	if (plain.length) return plain.join(", ");
+	if (choices.length) {
+		const first = choices[0];
+		return choices.every((c) => c === first) ? first : choices.join("; ");
+	}
+	return "Any";
+};
+var featLabel = (key) => {
+	const [namePart] = String(key || "").split("|");
+	const [name, variant] = namePart.split(";").map((v) => v.trim());
+	return [titleCase(name), variant ? `(${titleCase(variant)})` : ""].filter(Boolean).join(" ");
+};
+var featsText = (value) => {
+	if (!value) return "";
+	if (typeof value === "string") return featLabel(value);
+	if (Array.isArray(value)) return value.map(featsText).filter(Boolean).join(", ");
+	if (typeof value !== "object") return clean(value);
+	if (value.name) return featLabel(value.name);
+	return Object.entries(value).filter(([, v]) => v).map(([key]) => featLabel(key)).filter(Boolean).join(", ");
+};
+var equipmentItemText = (item) => {
+	if (item == null || item === "") return "";
+	if (typeof item === "string") return clean(item.split("|")[0]).replace(/^./, (c) => c.toUpperCase());
+	if (typeof item !== "object") return clean(item);
+	if (item.value != null) {
+		const gp = Math.round(Number(item.value) / 100 * 100) / 100;
+		return Number.isFinite(gp) ? `${gp} GP` : "";
+	}
+	const rawName = clean(item.displayName || item.item || item.special || item.name || "");
+	const name = item.displayName ? rawName : rawName.replace(/\|[^|]+$/, "").replace(/^./, (c) => c.toUpperCase());
+	const quantity = Number(item.quantity) || 0;
+	const bits = [];
+	if (name) bits.push(name);
+	if (quantity > 1) bits.push(`×${quantity}`);
+	if (item.containsValue != null) {
+		const gp = Math.round(Number(item.containsValue) / 100 * 100) / 100;
+		if (Number.isFinite(gp)) bits.push(`(${gp} GP inside)`);
+	}
+	return bits.join(" ");
+};
+var equipmentGroupText = (value) => (Array.isArray(value) ? value : [value]).map(equipmentItemText).filter(Boolean).join(", ");
+var startingEquipmentText = (value) => {
+	if (!value) return "";
+	if (typeof value === "string") return clean(value);
+	const groups = Array.isArray(value) ? value : [value];
+	const lines = [];
+	groups.forEach((group) => {
+		if (!group || typeof group !== "object") return;
+		const parts = Object.entries(group).filter(([key, list]) => key !== "type" && list).map(([key, list]) => {
+			const text = equipmentGroupText(list);
+			if (!text) return "";
+			if (key === "_") return text;
+			if (/^[a-z]$/i.test(key)) return `${key.toUpperCase()}) ${text}`;
+			return `${titleCase(key)}: ${text}`;
+		}).filter(Boolean);
+		if (parts.length) lines.push(parts.join("  •  "));
+	});
+	return lines.join("\n");
+};
+var prerequisite = (value) => {
+	if (!value) return "";
+	if (typeof value === "string") return clean(value);
+	if (Array.isArray(value)) return value.map(prerequisite).filter(Boolean).join(", ");
+	if (typeof value !== "object") return clean(value);
+	const bits = [];
+	if (value.level != null) {
+		const l = value.level;
+		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean(l.class)})` : ""}` : `Level ${l}`);
+	}
+	if (value.race?.length) bits.push(value.race.map((r) => clean(r.name || r)).join(" or "));
+	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean(r.name || r)).join(" or ")}`);
+	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean(r.name || r)).join(" or ")}`);
+	if (value.spell) bits.push(`Spell: ${clean(value.spell)}`);
+	if (value.other) bits.push(clean(value.other));
+	if (value.ability?.length) bits.push(value.ability.map((a) => clean(a)).join(", "));
+	if (!bits.length) return clean(value);
+	return bits.join(", ");
+};
+var componentText = (components) => {
+	if (!components) return "";
+	const parts = [];
+	if (components.v) parts.push("V");
+	if (components.s) parts.push("S");
+	if (components.m) {
+		const mat = typeof components.m === "string" ? components.m : clean(components.m);
+		parts.push(mat ? `M (${mat})` : "M");
+	}
+	return parts.join(", ");
+};
+var classNames = (classes) => {
+	if (!classes) return "";
+	return [
+		["fromClassList", ""],
+		["fromClassListVariant", " (variant)"],
+		["fromSubclass", ""]
+	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean(c.name || c.className)}${c.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`)).join(", ");
+};
+function featureFromRef(ref, list, subclass) {
+	if (!ref) return null;
+	if (typeof ref === "object") {
+		const inner = ref.classFeature || ref.subclassFeature || "";
+		return inner ? featureFromRef(inner, list, subclass) : null;
+	}
+	const [name, className, classSource, ...rest] = String(ref).split("|");
+	const level = Number(rest[rest.length - 1]) || 0;
+	const sub = subclass ? rest[0] || "" : "";
+	return (list || []).find((f) => f.name === name && (!f.className || f.className === className) && (!f.classSource || !classSource || f.classSource === classSource) && (!subclass || !f.subclassShortName || f.subclassShortName === sub) && (!f.level || !level || Number(f.level) === level)) || {
+		name,
+		level,
+		entries: [],
+		_unresolved: true
+	};
+}
+function featuresFrom(raw, entry, subclass) {
+	if (!raw) return [];
+	const list = subclass ? raw.subclassFeature || [] : raw.classFeature || [];
+	return (subclass ? entry.subclassFeatures || [] : entry.classFeatures || []).map((ref) => featureFromRef(ref, list, subclass)).filter(Boolean).map((f) => ({
+		level: Number(f.level) || 0,
+		name: clean(f.name || entryName$1(f)),
+		text: clean(f.entries)
+	})).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+}
+var featureSection = (features, label = "Features") => {
+	if (!features.length) return null;
+	return {
+		title: `${label} (${features.length})`,
+		list: features.map((f) => ({
+			label: `${f.level ? `Level ${f.level}` : "—"} · ${f.name}`,
+			text: f.text ? f.text.replace(/\s+/g, " ").slice(0, 220) : ""
+		}))
+	};
+};
+var textSection = (title, value) => {
+	const text = clean(value);
+	return text ? {
+		title,
+		text
+	} : null;
+};
+var rowText = (row) => {
+	return (Array.isArray(row) ? row : row?.row || [row]).map((cell) => {
+		if (cell && typeof cell === "object") {
+			if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
+			if (cell.type === "cell") return clean(cell.entry ?? cell.entries ?? "");
+		}
+		return clean(cell);
+	});
+};
+var tableBlock = (table) => {
+	if (!table) return null;
+	const columns = (table.colLabels || []).map(clean);
+	const rows = (table.rows || []).slice(0, 100).map(rowText);
+	return {
+		title: clean(table.name || table.caption || "Table"),
+		columns,
+		rows
+	};
+};
+var findImage = (value) => {
+	if (!value) return "";
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const found = findImage(item);
+			if (found) return found;
+		}
+		return "";
+	}
+	if (typeof value !== "object") return "";
+	if (value.type === "image" || value.type === "gallery") {
+		const href = value.href;
+		if (typeof href === "string") return href;
+		if (href?.url) return href.url;
+		if (href?.path) return href.path;
+		if (href?.paths?.length) return findImage(href.paths);
+		if (value.url) return value.url;
+	}
+	return findImage(value.entries) || findImage(value.items) || findImage(value.fluff);
+};
+function entryImage(entry) {
+	if (!entry) return "";
+	return [
+		entry.img,
+		entry.image,
+		entry.portrait,
+		entry.cover
+	].find((v) => typeof v === "string" && v) || findImage(entry.entries) || findImage(entry.fluff) || "";
+}
+var contentsList = (contents, depth = 0) => (contents || []).flatMap((c) => {
+	if (!c) return [];
+	if (typeof c === "string") return [{
+		label: `${"  ".repeat(depth)}${clean(c)}`,
+		text: ""
+	}];
+	if (c.name) {
+		const headers = (c.headers || []).map((h) => typeof h === "string" ? h : h?.header).filter(Boolean).map((h) => ({
+			label: `${"  ".repeat(depth + 1)}${clean(h)}`,
+			text: ""
+		}));
+		return [
+			{
+				label: `${"  ".repeat(depth)}${clean(c.name)}`,
+				text: clean(c.entries).slice(0, 160)
+			},
+			...headers,
+			...contentsList(c.contents, depth + 1)
+		];
+	}
+	return contentsList(c.contents, depth);
+});
+var actionEntries = (entry, keys) => {
+	const sections = [];
+	keys.forEach(([key, title]) => {
+		const list = entry?.[key];
+		if (!Array.isArray(list) || !list.length) return;
+		sections.push({
+			title,
+			text: list.map((a) => {
+				const name = clean(a?.name);
+				const text = clean(a?.entries ?? a?.text);
+				return [name && `${name}.`, text].filter(Boolean).join(" ");
+			}).filter(Boolean).join("\n\n")
+		});
+	});
+	return sections;
+};
+var monsterDetails = (entry) => {
+	const m = normalizeImportedMonster(entry) || {};
+	return {
+		fields: [
+			["Type", [
+				m.size,
+				m.type,
+				m.alignment
+			].filter(Boolean).join(" ")],
+			["Armor Class", m.ac],
+			["Hit Points", m.hp],
+			["Speed", m.speed],
+			["Challenge", m.cr ? `CR ${m.cr}${m.xp !== "" && m.xp != null ? ` (${m.xp} XP)` : ""}` : ""],
+			["Ability Scores", m.abilities],
+			["Saving Throws", m.saves],
+			["Skills", m.skills],
+			["Damage Vulnerabilities", m.damageVulnerabilities],
+			["Damage Resistances", m.damageResistances],
+			["Damage Immunities", m.damageImmunities],
+			["Condition Immunities", m.conditionImmunities],
+			["Senses", m.senses],
+			["Languages", m.languages],
+			["Gear", m.gear],
+			["Proficiency Bonus", m.proficiencyBonus]
+		],
+		sections: [textSection("Description", entry.description || entry.entries), ...actionEntries(entry, [
+			["trait", "Traits"],
+			["action", "Actions"],
+			["bonus", "Bonus Actions"],
+			["reaction", "Reactions"],
+			["legendary", "Legendary Actions"],
+			["mythic", "Mythic Actions"],
+			["lair", "Lair Actions"],
+			["spellcasting", "Spellcasting"]
+		])].filter(Boolean)
+	};
+};
+var spellDetails = (entry, context = {}) => {
+	const s = spellToLibrary(entry);
+	return {
+		fields: [
+			["Level", s.level === "cantrip" ? "Cantrip" : s.level ? `Level ${s.level}` : ""],
+			["School", s.school],
+			["Casting Time", s.castingTime],
+			["Range", s.range],
+			["Components", componentText(entry.components)],
+			["Duration", s.duration],
+			["Save", s.saveAbility ? titleCase(s.saveAbility) : ""],
+			["Classes", classNames(entry.classes) || spellClassNames(entry, context.spellLookup)],
+			["Damage", join(entry.damageInflict, ", ").split(", ").map(titleCase).join(", ")],
+			["Conditions", join(entry.conditionInflict, ", ").split(", ").map(titleCase).join(", ")]
+		],
+		sections: [
+			textSection("Description", s.description),
+			textSection("At Higher Levels", s.upcast),
+			textSection("From", entry.fluff?.name ? `${entry.fluff.name}` : "")
+		].filter(Boolean)
+	};
+};
+var classDetails = (entry, raw, subclass) => {
+	const features = featuresFrom(raw, entry, subclass);
+	const sp = entry.startingProficiencies || {};
+	return {
+		fields: subclass ? [
+			["Class", clean(entry.className)],
+			["Source", clean(entry.classSource)],
+			["Features", String(features.length || "")]
+		] : [
+			["Hit Die", entry.hd ? `d${entry.hd.faces} per ${clean(entry.hd.number) === "1" ? "level" : "level"}` : ""],
+			["Saving Throws", join(entry.proficiency, ", ").toUpperCase()],
+			["Armor", proficiencyText(sp.armor)],
+			["Weapons", proficiencyText(sp.weapons)],
+			["Tools", proficiencyText(sp.tools)],
+			["Skills", proficiencyText(sp.skills)],
+			["Subclass", clean(entry.subclassTitle)],
+			["Source", clean(entry.source)]
+		],
+		sections: [
+			featureSection(features),
+			textSection("Starting Equipment", entry.startingEquipment?.entries || entry.startingEquipment),
+			textSection("Multiclassing", entry.multiclassing?.entries || entry.multiclassing)
+		].filter(Boolean)
+	};
+};
+var entriesSections = (nodes, { skipLists = false } = {}) => {
+	const sections = [];
+	const addText = (title, value) => {
+		const text = clean(value);
+		if (!text) return;
+		const found = sections.find((s) => s.title === title && s.text != null);
+		if (found) found.text = `${found.text}\n\n${text}`;
+		else sections.push({
+			title,
+			text
+		});
+	};
+	const walk = (value, title) => {
+		if (value == null || value === "") return;
+		if (Array.isArray(value)) {
+			value.forEach((item) => walk(item, title));
+			return;
+		}
+		if (typeof value === "string" || typeof value === "number") {
+			addText(title, value);
+			return;
+		}
+		if (typeof value !== "object") return;
+		if (value.type === "table" || value.type === "tableGroup") {
+			const block = tableBlock(value);
+			if (block) sections.push({
+				...block,
+				title: title || block.title
+			});
+			return;
+		}
+		if (value.type === "list" || String(value.style || "").startsWith("list")) {
+			if (!skipLists) (value.items || []).forEach((item) => walk(item, title));
+			return;
+		}
+		if (value.name && Array.isArray(value.entries)) {
+			walk(value.entries, clean(value.name));
+			return;
+		}
+		if (Array.isArray(value.entries)) {
+			walk(value.entries, title);
+			return;
+		}
+		if (Array.isArray(value.items)) {
+			walk(value.items, title);
+			return;
+		}
+		const text = fiveText(value);
+		if (text) addText(title, text);
+	};
+	walk(nodes, "");
+	return sections;
+};
+var timeText = (value) => {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (Array.isArray(value)) return value.map(timeText).filter(Boolean).join(", ");
+	if (typeof value === "object") {
+		if (value.number != null || value.unit) return `${value.number || 1} ${value.unit || "action"}`;
+		return fiveText(value);
+	}
+	return clean(value);
+};
+var featDetails = (entry) => ({
+	fields: [
+		["Category", clean(entry.category)],
+		["Prerequisite", prerequisite(entry.prerequisite)],
+		["Repeatable", yesNo(entry.repeatable)],
+		["Ability Scores", entry.ability ? abilityText(entry.ability) : ""],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
+});
+var backgroundDetails = (entry) => ({
+	fields: [
+		["Ability Scores", abilityText(entry.ability)],
+		["Feat", featsText(entry.feats)],
+		["Skills", proficiencyText(entry.skillProficiencies)],
+		["Tools", proficiencyText(entry.toolProficiencies)],
+		["Languages", proficiencyText(entry.languageProficiencies)],
+		["Equipment", startingEquipmentText(entry.startingEquipment)],
+		["Source", clean(entry.source)]
+	],
+	sections: entriesSections(entry.entries, { skipLists: true })
+});
+var speciesDetails = (entry) => ({
+	fields: [
+		["Size", sizeText(entry.size)],
+		["Speed", speedText(entry.speed)],
+		["Ability Scores", abilityText(entry.ability)],
+		["Languages", proficiencyText(entry.languageProficiencies)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries), ...actionEntries(entry, [["trait", "Traits"], ["traitTags", "Tags"]])].filter(Boolean)
+});
+var optionDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.featureType || entry.optionType)],
+		["Prerequisite", prerequisite(entry.prerequisite)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var ITEM_TYPE_LABEL = {
+	M: "Melee Weapon",
+	R: "Ranged Weapon",
+	A: "Ammunition",
+	AF: "Ammunition",
+	LA: "Light Armor",
+	MA: "Medium Armor",
+	HA: "Heavy Armor",
+	S: "Shield",
+	P: "Potion",
+	SC: "Scroll",
+	WD: "Wand",
+	RD: "Rod",
+	ST: "Staff",
+	RG: "Ring",
+	W: "Wondrous Item",
+	G: "Adventuring Gear",
+	FD: "Food and Drink",
+	SCF: "Spellcasting Focus",
+	INS: "Instrument",
+	GS: "Gaming Set",
+	T: "Tool",
+	MNT: "Mount",
+	TAH: "Tack and Harness",
+	EXP: "Explosive",
+	TG: "Trade Good",
+	TB: "Trade Bar",
+	VEH: "Vehicle (Land)",
+	SHP: "Vehicle (Water)",
+	AIR: "Vehicle (Air)",
+	SPC: "Vehicle (Space)",
+	OTH: "Other",
+	GV: "Generic Variant"
+};
+var itemDetails = (entry) => {
+	const mapped = itemToLibrary(entry);
+	const value = mapped?.value || {};
+	const code = String(typeof entry.type === "object" ? entry.type?.type : entry.type || "").split("|")[0].trim();
+	const rarity = String(entry.rarity || "").toLowerCase();
+	return {
+		fields: [
+			["Type", mapped?.key === "wondrousItems" && value.itemType ? value.itemType : ITEM_TYPE_LABEL[code] || clean(entry.type)],
+			["Rarity", rarity && rarity !== "none" ? titleCase(rarity) : ""],
+			["Attunement", entry.reqAttune ? clean(entry.reqAttune) : entry.reqAttuneTags ? "Required" : ""],
+			["Weight", entry.weight != null ? `${entry.weight} lb.` : ""],
+			["Value", value.cost || (entry.value != null ? `${Number((Number(entry.value) / 100).toFixed(2))} gp` : "")],
+			["Properties", value.properties?.length ? join(value.properties) : join(entry.property)],
+			["Mastery", join(entry.mastery)],
+			["Damage", value.diceCount ? `${value.diceCount}${value.dieSize}${value.damageType ? ` ${value.damageType}` : ""}` : clean(entry.dmg1 || entry.dmg2)],
+			["Armor Class", value.acFlat != null ? String(value.acFlat) : clean(entry.ac)],
+			["Source", clean(entry.source)]
+		],
+		sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
+	};
+};
+var conditionDetails = (entry, kind) => ({
+	fields: [["Type", kind], ["Source", clean(entry.source)]],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var tableDetails = (entry) => {
+	const block = tableBlock(entry);
+	return {
+		fields: [
+			["Caption", clean(entry.caption)],
+			["Rows", String((entry.rows || []).length)],
+			["Source", clean(entry.source)]
+		],
+		sections: block ? [block] : []
+	};
+};
+var bookDetails = (entry, adventure, context = {}) => {
+	const title = clean(context.bookTitles?.get(entry.id) || entry.name || entry.title || entry.id || "Book");
+	const book = bookChapters(entry);
+	return {
+		name: title,
+		fields: [
+			["Author", join(entry.author)],
+			["Published", clean(entry.published)],
+			["Group", clean(entry.group)],
+			...adventure ? [["Storyline", clean(entry.storyline)], ["Level", clean(entry.level)]] : [],
+			...book ? [["Chapters", String(book.chapters.length)]] : [],
+			["Source", clean(entry.source || entry.id)]
+		],
+		sections: [...book ? [] : [{
+			title: "Contents",
+			list: contentsList(entry.contents)
+		}], textSection("Description", entry.entries)].filter((s) => s && (s.list?.length || s.text)),
+		book: book ? {
+			...book,
+			title
+		} : null
+	};
+};
+var deityDetails = (entry) => ({
+	fields: [
+		["Pantheon", clean(entry.pantheon)],
+		["Alignment", clean(entry.alignment)],
+		["Category", clean(entry.category)],
+		["Domains", join(entry.domains)],
+		["Province", clean(entry.province)],
+		["Symbol", clean(entry.symbol)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var vehicleDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.vehicleType)],
+		["Size", sizeText(entry.size)],
+		["Terrain", clean(entry.terrain)],
+		["Crew", entry.capCrew != null ? String(entry.capCrew) : ""],
+		["Passengers", entry.capPassenger != null ? String(entry.capPassenger) : ""],
+		["Cargo", entry.capCargo != null ? `${entry.capCargo} tons` : ""],
+		["Armor Class", clean(entry.ac)],
+		["Hit Points", clean(entry.hp)],
+		["Speed", speedText(entry.speed)],
+		["Immunities", join(entry.immune)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var objectDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.objectType)],
+		["Size", sizeText(entry.size)],
+		["Armor Class", clean(entry.ac)],
+		["Hit Points", clean(entry.hp)],
+		["Speed", speedText(entry.speed)],
+		["Ability Scores", [
+			"str",
+			"dex",
+			"con",
+			"int",
+			"wis",
+			"cha"
+		].filter((k) => entry[k] != null).map((k) => `${k.toUpperCase()} ${entry[k]}`).join(", ")],
+		["Senses", join(entry.senses)],
+		["Immunities", join(entry.immune)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries), textSection("Actions", entry.actionEntries)].filter(Boolean)
+});
+var trapDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.trapHazType)],
+		["Rating", clean(entry.rating)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var rewardDetails = (entry) => ({
+	fields: [["Type", clean(entry.type)], ["Source", clean(entry.source)]],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var psionicDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.type)],
+		["Order", clean(entry.order)],
+		["Focus", clean(entry.focus)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries), {
+		title: "Modes",
+		text: (entry.modes || []).map((m) => `${clean(m.name)}${m.entries ? `: ${clean(m.entries)}` : ""}`).join("\n\n")
+	}].filter((s) => s && s.text)
+});
+var deckDetails = (entry) => ({
+	fields: [["Cards", String((entry.cards || []).length)], ["Source", clean(entry.source)]],
+	sections: [textSection("Description", entry.entries), {
+		title: "Cards",
+		list: (entry.cards || []).map((c) => ({
+			label: clean(c.name),
+			text: ""
+		}))
+	}].filter((s) => s && (s.text || s.list?.length))
+});
+var actionDetails = (entry) => ({
+	fields: [["Time", timeText(entry.time)], ["Source", clean(entry.source)]],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var languageDetails = (entry) => ({
+	fields: [
+		["Typical Speakers", join(entry.typicalSpeakers)],
+		["Script", clean(entry.script)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var bastionDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.facilityType)],
+		["Level", clean(entry.level)],
+		["Prerequisite", prerequisite(entry.prerequisite)],
+		["Space", clean(entry.space)],
+		["Hirelings", clean(entry.hirelings)],
+		["Orders", join(entry.orders)],
+		["Source", clean(entry.source)]
+	],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var encounterDetails = (entry) => ({
+	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean(entry.source)]],
+	sections: [...(entry.tables || []).map((t) => tableBlock(t)).filter(Boolean), textSection("Description", entry.entries)].filter(Boolean)
+});
+var lootDetails = (entry) => ({
+	fields: [
+		["CR Range", [entry.crMin, entry.crMax].filter((v) => v != null).join(" – ")],
+		["Coins", clean(entry.coins)],
+		["Source", clean(entry.source)]
+	],
+	sections: [tableBlock(entry.table), textSection("Description", entry.entries)].filter(Boolean)
+});
+var ruleDetails = (entry) => ({
+	fields: [["Type", clean(entry.ruleType)], ["Source", clean(entry.source)]],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var skillDetails = (entry) => ({
+	fields: [["Ability", clean(entry.ability)], ["Source", clean(entry.source)]],
+	sections: [textSection("Description", entry.entries)].filter(Boolean)
+});
+var magicVariantDetails = (entry) => ({
+	fields: [
+		["Type", clean(entry.type)],
+		["Requires", clean(entry.requires)],
+		["Inherits", clean(entry.inherits)],
+		["Source", clean(entry.source)]
+	],
+	sections: []
+});
+var GENERIC_SKIP = /* @__PURE__ */ new Set([
+	"name",
+	"source",
+	"page",
+	"edition",
+	"img",
+	"image",
+	"portrait",
+	"cover",
+	"id",
+	"entries",
+	"description",
+	"text",
+	"additionalEntries",
+	"type",
+	"objectType",
+	"vehicleType",
+	"facilityType",
+	"rarity",
+	"prerequisite",
+	"fluff"
+]);
+var genericValue = (value) => {
+	if (value == null || value === "") return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number") return String(value);
+	if (typeof value === "boolean") return value ? "Yes" : "";
+	if (Array.isArray(value)) return join(value);
+	if (typeof value === "object") {
+		if (value.name) return clean(value.name);
+		if (value.type) return clean(value.type);
+		if (value.entries) return clean(value.entries);
+		return "";
+	}
+	return "";
+};
+var genericDetails = (entry) => {
+	const extra = Object.entries(entry || {}).filter(([key, value]) => !GENERIC_SKIP.has(key) && !key.startsWith("_") && (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || Array.isArray(value) || value && typeof value === "object" && (value.name || value.type || value.entries))).slice(0, 30).map(([key, value]) => [titleCase(key.replace(/([A-Z])/g, " $1")), genericValue(value)]).filter(([, value]) => value);
+	return {
+		fields: [
+			["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
+			["Rarity", clean(entry.rarity)],
+			["Prerequisite", prerequisite(entry.prerequisite)],
+			["Source", clean(entry.source)],
+			...extra
+		],
+		sections: [textSection("Description", entry.entries || entry.description || entry.text), textSection("Additional", entry.additionalEntries)].filter(Boolean)
+	};
+};
+var DETAILERS = {
+	bestiary: monsterDetails,
+	spells: spellDetails,
+	feats: featDetails,
+	backgrounds: backgroundDetails,
+	species: speciesDetails,
+	charOptions: optionDetails,
+	optionalFeatures: optionDetails,
+	items: itemDetails,
+	conditions: (e) => conditionDetails(e, "Condition, disease or status"),
+	tables: tableDetails,
+	deities: deityDetails,
+	vehicles: vehicleDetails,
+	objects: objectDetails,
+	traps: trapDetails,
+	gifts: rewardDetails,
+	cults: rewardDetails,
+	psionics: psionicDetails,
+	decks: deckDetails,
+	actions: actionDetails,
+	languages: languageDetails,
+	bastions: bastionDetails,
+	encounterGen: encounterDetails,
+	lootGen: lootDetails,
+	rulesGlossary: ruleDetails,
+	statGen: (e) => ruleDetails(e),
+	life: (e) => ruleDetails(e),
+	names: (e) => ruleDetails(e),
+	adventures: (e) => bookDetails(e, true),
+	books: (e) => bookDetails(e, false),
+	variants: ruleDetails,
+	senses: skillDetails,
+	skills: skillDetails,
+	magicVariants: magicVariantDetails
+};
+function entryDetails(categoryId, entry, raw, context = {}) {
+	if (!entry) return null;
+	const detailer = categoryId === "classes" ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName) : categoryId === "books" ? (e) => bookDetails(e, false, context) : categoryId === "adventures" ? (e) => bookDetails(e, true, context) : DETAILERS[categoryId] || genericDetails;
+	const body = (categoryId === "spells" ? spellDetails(entry, context) : detailer(entry)) || {
+		fields: [],
+		sections: []
+	};
+	const image = entryImage(entry);
+	return {
+		name: body.name || entryName$1(entry),
+		source: clean(entry.source || entry.classSource || entry.id),
+		page: entry.page,
+		edition: clean(entry.edition),
+		image,
+		raw: entry,
+		book: body.book || null,
+		fields: (body.fields || []).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
+		sections: (body.sections || []).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
+	};
+}
+function entryDetailsMarkdown(details) {
+	if (!details) return "";
+	const out = [];
+	if (details.source) out.push(`*Source: ${details.source}${details.page ? `, p.${details.page}` : ""}${details.edition ? ` (${details.edition})` : ""}*`);
+	if (details.fields?.length) out.push(details.fields.map(([label, value]) => `**${label}:** ${value}`).join("\n"));
+	(details.sections || []).forEach((section) => {
+		if (section.title) out.push(`### ${section.title}`);
+		if (section.text) out.push(section.text);
+		if (section.list?.length) out.push(section.list.map((item) => `- ${[item.label, item.text].filter(Boolean).join(" — ")}`).join("\n"));
+		if (section.columns?.length) out.push([
+			`| ${section.columns.join(" | ")} |`,
+			`| ${section.columns.map(() => "---").join(" | ")} |`,
+			...(section.rows || []).map((row) => `| ${row.map((cell) => String(cell ?? "")).join(" | ")} |`)
+		].join("\n"));
+	});
+	return out.filter(Boolean).join("\n\n");
+}
+function CleanField(value) {
+	if (value == null) return "";
+	if (typeof value === "string") return clean(value);
+	if (typeof value === "number" || typeof value === "boolean") return String(value);
+	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(", ");
+	if (typeof value === "object") {
+		if (value.name && value.description) return `${clean(value.name)}: ${clean(value.description)}`;
+		if (value.name) return clean(value.name);
+		if (value.description) return clean(value.description);
+		return clean(value);
+	}
+	return String(value);
+}
+//#endregion
+//#region src/lib/characterCreation.js
+var COIN_TYPES = [
+	{
+		id: "cp",
+		label: "Copper (cp)"
+	},
+	{
+		id: "sp",
+		label: "Silver (sp)"
+	},
+	{
+		id: "ep",
+		label: "Electrum (ep)"
+	},
+	{
+		id: "gp",
+		label: "Gold (gp)"
+	},
+	{
+		id: "pp",
+		label: "Platinum (pp)"
+	}
+];
+var CREATION_MODES = [
+	{
+		id: "tree",
+		label: "Talent tree only",
+		hint: "Use the current tree without a race or class."
+	},
+	{
+		id: "tree-race",
+		label: "Talent tree + race",
+		hint: "Add a race on top of the tree."
+	},
+	{
+		id: "tree-class",
+		label: "Talent tree + class",
+		hint: "Add a class (and its subclass) on top of the tree."
+	},
+	{
+		id: "all",
+		label: "Talent tree + race + class",
+		hint: "Everything: tree, race, class and subclass."
+	}
+];
+var listFor = (settings, category) => Array.isArray(settings?.library?.fiveETools?.[category]) ? settings.library.fiveETools[category] : [];
+var isSubclassEntry$1 = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
+var keyOf$2 = (entry) => `${entryName$1(entry)}|${entry?.source || entry?.classSource || ""}`;
+var uniqueEntries = (entries) => {
+	const seen = /* @__PURE__ */ new Set();
+	return entries.filter((entry) => {
+		const key = keyOf$2(entry);
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+};
+function classChoices(settings) {
+	return listFor(settings, "classes").filter((entry) => entry?.name && !isSubclassEntry$1(entry)).map((entry) => ({
+		id: keyOf$2(entry),
+		name: entry.name,
+		source: entry.source || "",
+		entry,
+		label: `${entry.name}${entry.source ? ` (${entry.source})` : ""}`
+	})).sort((a, b) => a.label.localeCompare(b.label));
+}
+function subclassChoices(settings, className, classSource) {
+	return uniqueEntries(listFor(settings, "classes").filter((entry) => isSubclassEntry$1(entry) && entry.className === className && (!classSource || !entry.classSource || entry.classSource === classSource))).map((entry) => ({
+		id: `${keyOf$2(entry)}|${entry.classSource || ""}`,
+		name: entryName$1(entry),
+		source: entry.source || "",
+		entry,
+		label: `${entryName$1(entry)}${entry.source ? ` (${entry.source})` : ""}`
+	})).sort((a, b) => a.label.localeCompare(b.label));
+}
+function raceChoices(settings) {
+	return uniqueEntries(listFor(settings, "species").filter((entry) => entry?.name)).map((entry) => ({
+		id: keyOf$2(entry),
+		name: entry.name,
+		source: entry.source || "",
+		entry,
+		label: `${entry.name}${entry.source ? ` (${entry.source})` : ""}`
+	})).sort((a, b) => a.label.localeCompare(b.label));
+}
+function backgroundChoices(settings) {
+	return uniqueEntries(listFor(settings, "backgrounds").filter((entry) => entry?.name)).map((entry) => ({
+		id: keyOf$2(entry),
+		name: entry.name,
+		source: entry.source || "",
+		entry,
+		label: `${entry.name}${entry.source ? ` (${entry.source})` : ""}`
+	})).sort((a, b) => a.label.localeCompare(b.label));
+}
+function featChoices(settings) {
+	return uniqueEntries(listFor(settings, "feats").filter((entry) => entry?.name)).map((entry) => ({
+		id: keyOf$2(entry),
+		name: entry.name,
+		source: entry.source || "",
+		entry,
+		label: `${entry.name}${entry.source ? ` (${entry.source})` : ""}`
+	})).sort((a, b) => a.label.localeCompare(b.label));
+}
+function findBackground(settings, name, source) {
+	return listFor(settings, "backgrounds").find((entry) => entryName$1(entry) === name && (!source || entry.source === source)) || null;
+}
+function backgroundFeatureLines(entry) {
+	const out = [];
+	const walk = (nodes) => {
+		if (nodes == null) return;
+		if (Array.isArray(nodes)) {
+			nodes.forEach(walk);
+			return;
+		}
+		if (typeof nodes !== "object") return;
+		const name = String(nodes.name || "");
+		if (nodes.data?.isFeature || /^feature\s*:/i.test(name) || nodes.type === "feature") {
+			const text = fiveText(nodes.entries || nodes.items || nodes);
+			out.push({
+				name: name || "Feature",
+				text
+			});
+			return;
+		}
+		if (Array.isArray(nodes.entries)) walk(nodes.entries);
+		if (Array.isArray(nodes.items)) walk(nodes.items);
+	};
+	walk(entry?.entries);
+	return out;
+}
+function backgroundInfo(settings, character) {
+	const creation = character?.creation?.background;
+	const name = character?.background || creation?.name || "";
+	const source = creation?.name === name ? creation?.source || "" : "";
+	const entry = name ? findBackground(settings, name, source) : null;
+	if (!entry) return null;
+	const details = entryDetails("backgrounds", entry);
+	return {
+		name: entryName$1(entry),
+		source: entry.source || "",
+		entry,
+		details,
+		features: backgroundFeatureLines(entry),
+		optionGroups: backgroundOptionGroups(entry)
+	};
+}
+var equipmentSummary = (nodes) => {
+	if (!Array.isArray(nodes)) return "";
+	return nodes.map((item) => {
+		if (typeof item === "string") return item;
+		if (item?.item) return item.displayName || item.item;
+		if (item?.special) return item.special;
+		return "";
+	}).filter(Boolean).join(", ");
+};
+function backgroundOptionGroups(entry) {
+	const groups = [];
+	if (!entry) return groups;
+	(Array.isArray(entry.startingEquipment) ? entry.startingEquipment : []).forEach((block) => {
+		if (!block || typeof block !== "object" || Array.isArray(block)) return;
+		const keys = [
+			"a",
+			"b",
+			"c",
+			"d"
+		].filter((key) => Array.isArray(block[key]));
+		if (keys.length > 1) groups.push({
+			id: "equipment",
+			label: "Starting equipment",
+			choices: keys.map((key) => ({
+				id: key,
+				label: `Option ${key.toUpperCase()} — ${equipmentSummary(block[key]) || "equipment package"}`
+			}))
+		});
+	});
+	const walk = (nodes) => {
+		if (nodes == null) return;
+		if (Array.isArray(nodes)) {
+			nodes.forEach(walk);
+			return;
+		}
+		if (typeof nodes !== "object") return;
+		if (nodes.type === "options" && Array.isArray(nodes.entries)) {
+			const choices = nodes.entries.map((option, index) => ({
+				id: `${index}`,
+				label: entryName$1(option) || `Option ${index + 1}`
+			})).filter((choice) => choice.label);
+			if (choices.length > 1) groups.push({
+				id: `options-${groups.length}`,
+				label: nodes.name || "Background option",
+				choices
+			});
+			return;
+		}
+		if (Array.isArray(nodes.entries)) walk(nodes.entries);
+		if (Array.isArray(nodes.items)) walk(nodes.items);
+	};
+	walk(entry.entries);
+	return groups;
+}
+function classBenefitsFor(tree, { className, classSource, subclassName, level }) {
+	if (!className) return [];
+	const wanted = String(level);
+	const matches = [tree, ...tree?.tabs || []].filter(Boolean).filter((tab) => {
+		if (tab.className) return tab.className === className;
+		const name = String(tab?.name || "");
+		return name === `Class: ${className}` || name.startsWith(`Class: ${className} (`) || name.startsWith(`Class: ${className} ·`);
+	});
+	const preferred = matches.find((tab) => classSource && (tab.classSource === classSource || String(tab.name).includes(`(${classSource})`))) || matches[0];
+	if (!preferred) return [];
+	return (preferred.nodes || []).filter((node) => Number(node.levelReq) === Number(wanted)).filter((node) => {
+		const group = node.featureGroup || "Class";
+		if (group === "Class") return true;
+		if (!subclassName) return false;
+		return group === subclassName;
+	}).filter((node) => node.name).map((node) => ({
+		name: node.name,
+		text: node.description || "",
+		group: node.featureGroup || "Class"
+	}));
+}
+//#endregion
+//#region src/components/ui/label.jsx
+var labelVariants = cva("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70");
+var Label = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(LabelPrimitive.Root, {
+	ref,
+	className: cn(labelVariants(), className),
+	...props
+}));
+Label.displayName = LabelPrimitive.Root.displayName;
 //#endregion
 //#region src/components/ui/select.jsx
 var Select = SelectPrimitive.Root;
@@ -9385,6 +11020,292 @@ var SelectSeparator = React.forwardRef(({ className, ...props }, ref) => /* @__P
 	...props
 }));
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
+//#endregion
+//#region src/components/skilltree/LevelUpDialog.jsx
+var classKey = (entry) => `${entry.name}|${entry.source || ""}`;
+function LevelUpDialog({ open, onClose }) {
+	const { character, setCharacter, setPools, settings, tree } = useTree();
+	const nextLevel = (Number(character.level) || 1) + 1;
+	const [target, setTarget] = useState("none");
+	const [newClassId, setNewClassId] = useState("");
+	const [subclassId, setSubclassId] = useState("");
+	const availableClasses = useMemo(() => classChoices(settings), [settings]);
+	const characterClasses = useMemo(() => {
+		if (Array.isArray(character.classes) && character.classes.length) return character.classes;
+		if (character.class && character.class !== "Dilettante") return [{
+			name: character.class,
+			source: "",
+			subclass: character.subclass || "",
+			subclassSource: "",
+			level: Number(character.level) || 1
+		}];
+		return [];
+	}, [
+		character.classes,
+		character.class,
+		character.subclass,
+		character.level
+	]);
+	useEffect(() => {
+		if (!open) return;
+		if (characterClasses.length) {
+			setTarget("0");
+			setSubclassId(characterClasses[0].subclass || "");
+		} else {
+			setTarget("none");
+			setSubclassId("");
+		}
+		setNewClassId("");
+	}, [open, characterClasses]);
+	const isNew = target === "new";
+	const existing = !isNew && target !== "none" ? characterClasses[Number(target)] : null;
+	const newClass = availableClasses.find((option) => option.id === newClassId);
+	const activeClass = isNew ? newClass : existing ? {
+		name: existing.name,
+		source: existing.source || "",
+		entry: availableClasses.find((option) => classKey(option) === classKey(existing))?.entry
+	} : null;
+	const activeClassName = activeClass?.name || "";
+	const activeClassSource = activeClass?.source || "";
+	const subclassOptions = useMemo(() => activeClassName ? subclassChoices(settings, activeClassName, activeClassSource) : [], [
+		settings,
+		activeClassName,
+		activeClassSource
+	]);
+	const subclass = subclassOptions.find((option) => option.id === subclassId);
+	const subclassName = subclass?.name || (subclassOptions.length ? "" : subclassId) || "";
+	const classLevel = isNew || target === "none" ? 1 : (Number(existing?.level) || 1) + 1;
+	const benefits = useMemo(() => activeClassName ? classBenefitsFor(tree, {
+		className: activeClassName,
+		classSource: activeClassSource,
+		subclassName,
+		level: classLevel
+	}) : [], [
+		tree,
+		activeClassName,
+		activeClassSource,
+		subclassName,
+		classLevel
+	]);
+	const dieSize = activeClass?.entry?.hd?.faces || character.hitDiceSize || "d6";
+	const sides = Number(String(dieSize).replace(/\D/g, "")) || 6;
+	const conMod = Math.floor((((character.stats || {}).CON ?? 10) - 10) / 2) + (Number(character.modifiers?.ability?.CON) || 0);
+	const average = Math.max(1, Math.floor(sides / 2) + 1) + conMod;
+	const classesAfter = () => {
+		const list = characterClasses.map((entry) => ({ ...entry }));
+		if (isNew) {
+			list.push({
+				name: activeClassName,
+				source: activeClassSource,
+				subclass: subclassName,
+				subclassSource: subclass?.source || "",
+				level: 1
+			});
+			return list;
+		}
+		if (target === "none") return list;
+		const index = Number(target);
+		const current = list[index];
+		if (!current) return list;
+		list[index] = {
+			...current,
+			level: (Number(current.level) || 1) + 1,
+			subclass: subclassName || current.subclass || "",
+			subclassSource: subclass?.source || current.subclassSource || ""
+		};
+		return list;
+	};
+	const confirm = (gain) => {
+		if (isNew && !activeClassName) {
+			toast.error("Choose the class to multiclass into.");
+			return;
+		}
+		const g = levelGains(nextLevel, settings);
+		const classes = classesAfter();
+		const primary = classes[0];
+		const hdBlank = character.hitDiceCount == null || character.hitDiceCount === "";
+		setCharacter({
+			...character,
+			level: nextLevel,
+			hitPoints: (Number(character.hitPoints) || 0) + gain,
+			hitDiceCount: hdBlank ? nextLevel : (Number(character.hitDiceCount) || 0) + 1,
+			classes,
+			class: primary?.name || character.class,
+			subclass: primary?.subclass || character.subclass || ""
+		});
+		setPools((p) => {
+			const next = { ...p };
+			const zero = levelZeroPointsFor(settings);
+			Object.entries(g.points || {}).forEach(([id, amount]) => {
+				const base = Number(p[id]?.total);
+				next[id] = {
+					...p[id] || {},
+					total: (Number.isFinite(base) ? base : zero[id] ?? 0) + (Number(amount) || 0)
+				};
+			});
+			return next;
+		});
+		const targetLabel = activeClassName ? ` · ${activeClassName} level ${classLevel}` : "";
+		toast.success(`Reached character level ${nextLevel}${targetLabel}`);
+		onClose();
+	};
+	const roll = () => {
+		const r = 1 + Math.floor(Math.random() * sides);
+		const gain = Math.max(1, r + conMod);
+		confirm(gain);
+		toast.success(`Rolled ${r} on 1d${sides} → +${gain} HP`);
+	};
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange: (value) => !value && onClose(),
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-h-[88vh] max-w-lg overflow-y-auto",
+			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsxs(DialogTitle, { children: ["Level Up to ", nextLevel] }), /* @__PURE__ */ jsx(DialogDescription, { children: "Choose which class gains this level. Benefits are filtered to that class and its subclass." })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-3",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "space-y-1",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+							children: "Class gaining the level"
+						}), /* @__PURE__ */ jsxs(Select, {
+							value: target,
+							onValueChange: (value) => {
+								setTarget(value);
+								setSubclassId(value === "new" ? "" : characterClasses[Number(value)]?.subclass || "");
+							},
+							children: [/* @__PURE__ */ jsx(SelectTrigger, {
+								className: "h-9",
+								children: /* @__PURE__ */ jsx(SelectValue, {})
+							}), /* @__PURE__ */ jsxs(SelectContent, { children: [
+								/* @__PURE__ */ jsx(SelectItem, {
+									value: "none",
+									children: "No class (talent tree only)"
+								}),
+								characterClasses.map((entry, index) => /* @__PURE__ */ jsxs(SelectItem, {
+									value: String(index),
+									children: [
+										entry.name,
+										entry.source ? ` (${entry.source})` : "",
+										" · level",
+										" ",
+										Number(entry.level) || 1
+									]
+								}, `${classKey(entry)}-${index}`)),
+								/* @__PURE__ */ jsx(SelectItem, {
+									value: "new",
+									children: "Multiclass into another class…"
+								})
+							] })]
+						})]
+					}),
+					isNew && /* @__PURE__ */ jsxs("div", {
+						className: "space-y-1",
+						children: [
+							/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+								children: "New class"
+							}),
+							/* @__PURE__ */ jsxs(Select, {
+								value: newClassId,
+								onValueChange: setNewClassId,
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-9",
+									children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a class" })
+								}), /* @__PURE__ */ jsx(SelectContent, { children: availableClasses.map((option) => /* @__PURE__ */ jsx(SelectItem, {
+									value: option.id,
+									children: option.label
+								}, option.id)) })]
+							}),
+							/* @__PURE__ */ jsx("p", {
+								className: "text-[10px] text-muted-foreground",
+								children: "Multiclassing starts this class at level 1 instead of advancing your current class. Both editions stay separate choices."
+							})
+						]
+					}),
+					activeClassName && /* @__PURE__ */ jsxs("div", {
+						className: "space-y-1",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+							children: "Subclass"
+						}), subclassOptions.length ? /* @__PURE__ */ jsxs(Select, {
+							value: subclassId,
+							onValueChange: setSubclassId,
+							children: [/* @__PURE__ */ jsx(SelectTrigger, {
+								className: "h-9",
+								children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a subclass (optional)" })
+							}), /* @__PURE__ */ jsx(SelectContent, { children: subclassOptions.map((option) => /* @__PURE__ */ jsx(SelectItem, {
+								value: option.id,
+								children: option.label
+							}, option.id)) })]
+						}) : /* @__PURE__ */ jsxs("p", {
+							className: "rounded-md border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground",
+							children: [
+								"No imported subclass for ",
+								activeClassName,
+								". Import one in the Reference Index to filter its features."
+							]
+						})]
+					}),
+					activeClassName ? /* @__PURE__ */ jsxs("div", {
+						className: "rounded-md border p-2",
+						children: [/* @__PURE__ */ jsxs("p", {
+							className: "mb-1.5 text-xs font-semibold",
+							children: [
+								activeClassName,
+								subclassName ? ` · ${subclassName}` : "",
+								" benefits at class level ",
+								classLevel
+							]
+						}), benefits.length ? /* @__PURE__ */ jsx("div", {
+							className: "max-h-44 space-y-1.5 overflow-y-auto pr-1",
+							children: benefits.map((benefit) => /* @__PURE__ */ jsxs("div", {
+								className: "rounded bg-accent/40 p-2",
+								children: [/* @__PURE__ */ jsx("p", {
+									className: "text-xs font-semibold",
+									children: benefit.name
+								}), benefit.text ? /* @__PURE__ */ jsx("p", {
+									className: "mt-0.5 line-clamp-3 text-[10px] leading-snug text-muted-foreground",
+									children: benefit.text
+								}) : null]
+							}, `${benefit.group}-${benefit.name}`))
+						}) : /* @__PURE__ */ jsx("p", {
+							className: "text-[10px] text-muted-foreground",
+							children: "No imported features found for this class level. Import the class from the Reference Index to populate level benefits."
+						})]
+					}) : /* @__PURE__ */ jsx("p", {
+						className: "rounded-md border bg-muted/40 p-2 text-[10px] text-muted-foreground",
+						children: "No class is advancing. The character still gains a level, hit points and talent points from the talent tree."
+					}),
+					/* @__PURE__ */ jsxs("p", {
+						className: "text-[10px] text-muted-foreground",
+						children: [
+							"Hit points come from 1d",
+							sides,
+							conMod !== 0 ? ` ${conMod > 0 ? "+" : "−"} ${Math.abs(conMod)} CON` : "",
+							". You also gain +1 hit die at the current size."
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-2",
+						children: [/* @__PURE__ */ jsxs(Button, {
+							variant: "outline",
+							onClick: () => confirm(average),
+							children: [
+								"Take Average (+",
+								average,
+								" HP)"
+							]
+						}), /* @__PURE__ */ jsxs(Button, {
+							onClick: roll,
+							children: ["Roll 1d", sides]
+						})]
+					})
+				]
+			})]
+		})
+	});
+}
 //#endregion
 //#region src/components/ui/switch.jsx
 var Switch = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(SwitchPrimitives.Root, {
@@ -9474,14 +11395,57 @@ function removeImportFromLibrary(library, importId) {
 	};
 }
 //#endregion
-//#region src/components/ui/label.jsx
-var labelVariants = cva("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70");
-var Label = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(LabelPrimitive.Root, {
+//#region src/lib/useMusicLibrary.js
+var EMPTY = {
+	default: [],
+	custom: []
+};
+var cached = null;
+var pending = null;
+function load() {
+	if (cached) return Promise.resolve(cached);
+	if (!pending) pending = fetch("/music/manifest.json", { cache: "no-cache" }).then((res) => res.ok ? res.json() : EMPTY).then((data) => {
+		cached = {
+			default: Array.isArray(data?.default) ? data.default : [],
+			custom: Array.isArray(data?.custom) ? data.custom : []
+		};
+		return cached;
+	}).catch(() => {
+		cached = EMPTY;
+		return cached;
+	});
+	return pending;
+}
+function useMusicLibrary() {
+	const [library, setLibrary] = useState(cached || EMPTY);
+	useEffect(() => {
+		let alive = true;
+		load().then((data) => {
+			if (alive) setLibrary(data);
+		});
+		return () => {
+			alive = false;
+		};
+	}, []);
+	return library;
+}
+//#endregion
+//#region src/lib/useAudio.js
+function useCurrentTrack() {
+	return useSyncExternalStore(subscribeCurrentTrack, getCurrentTrack, () => null);
+}
+//#endregion
+//#region src/components/ui/slider.jsx
+var Slider = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsxs(SliderPrimitive.Root, {
 	ref,
-	className: cn(labelVariants(), className),
-	...props
+	className: cn("relative flex w-full touch-none select-none items-center", className),
+	...props,
+	children: [/* @__PURE__ */ jsx(SliderPrimitive.Track, {
+		className: "relative h-1.5 w-full grow overflow-hidden rounded-full bg-primary/20",
+		children: /* @__PURE__ */ jsx(SliderPrimitive.Range, { className: "absolute h-full bg-primary" })
+	}), /* @__PURE__ */ jsx(SliderPrimitive.Thumb, { className: "block h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" })]
 }));
-Label.displayName = LabelPrimitive.Root.displayName;
+Slider.displayName = SliderPrimitive.Root.displayName;
 //#endregion
 //#region src/components/ui/tabs.jsx
 var Tabs = TabsPrimitive.Root;
@@ -10099,6 +12063,21 @@ function SettingsMenu({ open, onClose }) {
 	});
 	const [devLogs, setDevLogs] = useState([]);
 	const [backups, setBackups] = useState([]);
+	const audio = {
+		...DEFAULT_AUDIO_SETTINGS,
+		...settings.audio || {}
+	};
+	const setAudio = (patch) => setSettings((s) => ({
+		...s,
+		audio: {
+			...DEFAULT_AUDIO_SETTINGS,
+			...s.audio || {},
+			...patch
+		}
+	}));
+	const musicLibrary = useMusicLibrary();
+	const currentTrack = useCurrentTrack();
+	const trackOptions = audio.customMusic ? musicLibrary.custom : musicLibrary.default;
 	useEffect(() => {
 		if (!open) return void 0;
 		let alive = true;
@@ -10195,6 +12174,10 @@ function SettingsMenu({ open, onClose }) {
 						/* @__PURE__ */ jsx(TabsTrigger, {
 							value: "general",
 							children: "General"
+						}),
+						/* @__PURE__ */ jsx(TabsTrigger, {
+							value: "audio",
+							children: "Audio"
 						}),
 						/* @__PURE__ */ jsx(TabsTrigger, {
 							value: "project",
@@ -10922,6 +12905,188 @@ function SettingsMenu({ open, onClose }) {
 										},
 										children: "Open the tutorial"
 									})]
+								})
+							]
+						}),
+						/* @__PURE__ */ jsxs(TabsContent, {
+							value: "audio",
+							className: "mt-3 space-y-4",
+							children: [
+								/* @__PURE__ */ jsxs("div", {
+									className: "space-y-3 rounded-md border p-3",
+									children: [
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex flex-wrap items-center justify-between gap-2",
+											children: [/* @__PURE__ */ jsxs("p", {
+												className: "flex items-center gap-1.5 text-sm font-medium",
+												children: [/* @__PURE__ */ jsx(Music2, { className: "h-4 w-4" }), " Music"]
+											}), /* @__PURE__ */ jsxs("div", {
+												className: "flex gap-1",
+												children: [/* @__PURE__ */ jsxs(Button, {
+													size: "sm",
+													variant: audio.musicMuted ? "default" : "outline",
+													className: "h-7 text-xs",
+													onClick: () => setAudio({ musicMuted: !audio.musicMuted }),
+													children: [audio.musicMuted ? /* @__PURE__ */ jsx(VolumeX, { className: "mr-1 h-3.5 w-3.5" }) : /* @__PURE__ */ jsx(Volume2, { className: "mr-1 h-3.5 w-3.5" }), audio.musicMuted ? "Unmute" : "Mute"]
+												}), /* @__PURE__ */ jsx(Button, {
+													size: "sm",
+													variant: audio.musicEnabled ? "default" : "outline",
+													className: "h-7 text-xs",
+													onClick: () => setAudio({ musicEnabled: !audio.musicEnabled }),
+													children: audio.musicEnabled ? "On" : "Off"
+												})]
+											})]
+										}),
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex items-center gap-3",
+											children: [/* @__PURE__ */ jsx(Slider, {
+												min: 0,
+												max: 100,
+												step: 1,
+												value: [Math.round(audio.musicVolume * 100)],
+												onValueChange: ([value]) => setAudio({ musicVolume: value / 100 }),
+												"aria-label": "Music volume"
+											}), /* @__PURE__ */ jsxs("span", {
+												className: "w-10 text-right text-xs tabular-nums text-muted-foreground",
+												children: [Math.round(audio.musicVolume * 100), "%"]
+											})]
+										}),
+										/* @__PURE__ */ jsxs("label", {
+											className: "flex items-center justify-between gap-3 text-xs",
+											children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
+												className: "font-medium",
+												children: "Shuffle"
+											}), /* @__PURE__ */ jsx("span", {
+												className: "block text-[10px] text-muted-foreground",
+												children: "Pick a random track each time instead of playing in order."
+											})] }), /* @__PURE__ */ jsx(Switch, {
+												checked: audio.shuffle,
+												onCheckedChange: (value) => setAudio({ shuffle: value })
+											})]
+										}),
+										/* @__PURE__ */ jsxs("label", {
+											className: "flex items-center justify-between gap-3 text-xs",
+											children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
+												className: "font-medium",
+												children: "Custom music"
+											}), /* @__PURE__ */ jsxs("span", {
+												className: "block text-[10px] text-muted-foreground",
+												children: [
+													"Use only tracks from ",
+													/* @__PURE__ */ jsx("code", { children: "music/Custom" }),
+													". Default music is disabled while this is on."
+												]
+											})] }), /* @__PURE__ */ jsx(Switch, {
+												checked: audio.customMusic,
+												onCheckedChange: (value) => setAudio({ customMusic: value })
+											})]
+										}),
+										/* @__PURE__ */ jsxs("label", {
+											className: "flex items-center justify-between gap-3 text-xs",
+											children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
+												className: "font-medium",
+												children: "Now playing popup"
+											}), /* @__PURE__ */ jsx("span", {
+												className: "block text-[10px] text-muted-foreground",
+												children: "Show the track name in the bottom-right for six seconds."
+											})] }), /* @__PURE__ */ jsx(Switch, {
+												checked: audio.nowPlaying,
+												onCheckedChange: (value) => setAudio({ nowPlaying: value })
+											})]
+										}),
+										/* @__PURE__ */ jsxs("div", {
+											className: "space-y-1",
+											children: [
+												/* @__PURE__ */ jsx(Label, {
+													className: "text-xs",
+													children: "Song"
+												}),
+												/* @__PURE__ */ jsxs(Select, {
+													value: trackOptions.some((t) => t.file === audio.track) ? audio.track : "",
+													onValueChange: (value) => setAudio({ track: value }),
+													children: [/* @__PURE__ */ jsx(SelectTrigger, {
+														className: "h-8",
+														children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Shuffle picks for me" })
+													}), /* @__PURE__ */ jsx(SelectContent, { children: trackOptions.length === 0 ? /* @__PURE__ */ jsx("div", {
+														className: "px-2 py-1.5 text-xs text-muted-foreground",
+														children: audio.customMusic ? "No custom tracks yet — add files to music/Custom." : "No tracks found."
+													}) : trackOptions.map((track) => /* @__PURE__ */ jsx(SelectItem, {
+														value: track.file,
+														children: track.title
+													}, track.file)) })]
+												}),
+												/* @__PURE__ */ jsxs("p", {
+													className: "flex items-center gap-1 text-[10px] text-muted-foreground",
+													children: [/* @__PURE__ */ jsx(Disc3, { className: "h-3 w-3" }), currentTrack ? `Playing: ${currentTrack.title}` : audio.customMusic ? "Custom music is on; default music will not play." : "Nothing playing yet."]
+												})
+											]
+										})
+									]
+								}),
+								/* @__PURE__ */ jsxs("div", {
+									className: "space-y-3 rounded-md border p-3",
+									children: [
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex flex-wrap items-center justify-between gap-2",
+											children: [/* @__PURE__ */ jsx("p", {
+												className: "text-sm font-medium",
+												children: "Sound effects"
+											}), /* @__PURE__ */ jsxs("div", {
+												className: "flex gap-1",
+												children: [/* @__PURE__ */ jsxs(Button, {
+													size: "sm",
+													variant: audio.sfxMuted ? "default" : "outline",
+													className: "h-7 text-xs",
+													onClick: () => setAudio({ sfxMuted: !audio.sfxMuted }),
+													children: [audio.sfxMuted ? /* @__PURE__ */ jsx(VolumeX, { className: "mr-1 h-3.5 w-3.5" }) : /* @__PURE__ */ jsx(Volume2, { className: "mr-1 h-3.5 w-3.5" }), audio.sfxMuted ? "Unmute" : "Mute"]
+												}), /* @__PURE__ */ jsx(Button, {
+													size: "sm",
+													variant: audio.sfxEnabled ? "default" : "outline",
+													className: "h-7 text-xs",
+													onClick: () => setAudio({ sfxEnabled: !audio.sfxEnabled }),
+													children: audio.sfxEnabled ? "On" : "Off"
+												})]
+											})]
+										}),
+										/* @__PURE__ */ jsxs("div", {
+											className: "flex items-center gap-3",
+											children: [/* @__PURE__ */ jsx(Slider, {
+												min: 0,
+												max: 100,
+												step: 1,
+												value: [Math.round(audio.sfxVolume * 100)],
+												onValueChange: ([value]) => setAudio({ sfxVolume: value / 100 }),
+												"aria-label": "Sound effect volume"
+											}), /* @__PURE__ */ jsxs("span", {
+												className: "w-10 text-right text-xs tabular-nums text-muted-foreground",
+												children: [Math.round(audio.sfxVolume * 100), "%"]
+											})]
+										}),
+										/* @__PURE__ */ jsxs("p", {
+											className: "text-[10px] text-muted-foreground",
+											children: [
+												"Drop effects into ",
+												/* @__PURE__ */ jsx("code", { children: "public/sounds" }),
+												" and list them in",
+												/* @__PURE__ */ jsx("code", { children: " public/sounds/manifest.json" }),
+												". A ",
+												/* @__PURE__ */ jsx("code", { children: "click" }),
+												"effect plays for buttons and tabs automatically."
+											]
+										})
+									]
+								}),
+								/* @__PURE__ */ jsxs("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: [
+										"Music lives in ",
+										/* @__PURE__ */ jsx("code", { children: "public/music" }),
+										"; tracks in",
+										/* @__PURE__ */ jsx("code", { children: " public/music/Custom" }),
+										" are only used when Custom music is on. Rebuild the library with",
+										/* @__PURE__ */ jsx("code", { children: " npm run music:import -- \"C:\\path\\to\\music\"" }),
+										"."
+									]
 								})
 							]
 						}),
@@ -17439,1248 +19604,6 @@ function DungeonRoomsTab() {
 	});
 }
 //#endregion
-//#region src/lib/fiveEToolsRulebook.js
-var clean$1 = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
-var cell = (value) => clean$1(value).replace(/\|/g, "\\|");
-var tableMarkdown = (table) => {
-	const columns = (table.colLabels || []).map(cell);
-	const rows = (table.rows || []).map((row) => {
-		return (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
-			if (value && typeof value === "object") {
-				if (value.roll) return value.roll.exact != null ? String(value.roll.exact) : `${value.roll.min ?? ""}${value.roll.max != null ? `–${value.roll.max}` : ""}`;
-				return cell(value.entry ?? value.entries ?? value.name ?? "");
-			}
-			return cell(value);
-		});
-	});
-	if (!rows.length) return "";
-	if (!columns.length) return rows.map((r) => `- ${r.filter(Boolean).join(" — ")}`).join("\n");
-	return [
-		`| ${columns.join(" | ")} |`,
-		`| ${columns.map(() => "---").join(" | ")} |`,
-		...rows.map((r) => `| ${r.join(" | ")} |`)
-	].join("\n");
-};
-var imageMarkdown = (node) => {
-	const href = node?.href;
-	if (typeof href === "string") return `![${clean$1(node.name) || "Illustration"}](${href})`;
-	if (href?.url) return `![${clean$1(node.name) || "Illustration"}](${href.url})`;
-	if (href?.path) return `![${clean$1(node.name) || "Illustration"}](${href.path})`;
-	if (href?.paths?.length) return href.paths.map((path) => `![${clean$1(node.name) || "Illustration"}](${path})`).join("\n\n");
-	return "";
-};
-var refLabel = (node) => clean$1(node?.name || node?.spell || node?.item || node?.creature || node?.condition || node?.optionalfeature || node?.classFeature || node?.subclassFeature || node?.table || node?.book || node?.adventure || "");
-function renderEntries(value, depth = 0) {
-	if (value == null || value === "") return "";
-	if (typeof value === "string") return clean$1(value);
-	if (typeof value === "number") return String(value);
-	if (Array.isArray(value)) return value.map((v) => renderEntries(v, depth)).filter(Boolean).join("\n\n");
-	if (typeof value !== "object") return clean$1(value);
-	switch (value.type) {
-		case "table": {
-			const table = tableMarkdown(value);
-			return [value.name ? `**${clean$1(value.name)}**` : "", table].filter(Boolean).join("\n\n");
-		}
-		case "list": return (value.items || []).map((item) => `- ${clean$1(item).replace(/\n/g, "\n  ")}`).join("\n");
-		case "options": return [value.name ? `**${clean$1(value.name)}**` : "", ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
-		case "inset":
-		case "insetReadaloud": {
-			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
-			return [value.name ? `> **${clean$1(value.name)}**\n>` : "", body].filter(Boolean).join("\n");
-		}
-		case "quote": {
-			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
-			return [value.byline ? `> — ${clean$1(value.byline)}\n>` : "", body].filter(Boolean).join("\n");
-		}
-		case "image":
-		case "gallery": return imageMarkdown(value);
-		case "hr": return "---";
-		case "abilityDc":
-		case "abilityAttackMod": {
-			const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
-			return `**${clean$1(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
-		}
-		case "statblock":
-		case "statblockInline": return [value.name ? `**${clean$1(value.name)}**` : "", renderEntries(value.entries, depth + 1)].filter(Boolean).join("\n\n");
-	}
-	if (value.type?.startsWith("ref")) {
-		const label = refLabel(value);
-		return label ? `*${label}*` : "";
-	}
-	return [value.name && Array.isArray(value.entries) ? `${"#".repeat(Math.min(6, depth + 2))} ${clean$1(value.name)}` : value.name ? `**${clean$1(value.name)}**` : "", value.entries ? renderEntries(value.entries, depth + 1) : value.items ? renderEntries(value.items, depth + 1) : ""].filter(Boolean).join("\n\n");
-}
-var slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "book";
-function bookChapters(entry) {
-	if (!entry) return null;
-	const data = Array.isArray(entry.data) ? entry.data : [];
-	if (!data.length) return null;
-	return {
-		title: clean$1(entry.name || entry.title || entry.id || "Book"),
-		chapters: data.map((chapter, i) => ({
-			id: chapter.id || `ch${i + 1}`,
-			title: clean$1(chapter.name) || `Chapter ${i + 1}`,
-			entries: chapter.entries
-		})).filter((chapter) => chapter.entries != null)
-	};
-}
-function bookChapterMarkdown(chapter) {
-	return renderEntries(chapter?.entries, 1);
-}
-function bookToRulebook(entry, fallbackTitle = "") {
-	if (!entry) return null;
-	const data = Array.isArray(entry.data) ? entry.data : Array.isArray(entry.contents) ? [] : [];
-	const title = clean$1(entry.name || entry.title || fallbackTitle || entry.id) || "Imported Book";
-	const source = clean$1(entry.source || entry.id || "");
-	const id = `rb5e-${slug(source)}-${slug(title)}`;
-	let chapters = data.map((chapter, i) => {
-		const chapterTitle = clean$1(chapter.name) || `Chapter ${i + 1}`;
-		const body = renderEntries(chapter.entries, 1);
-		return {
-			id: `${id}-ch${i + 1}`,
-			title: chapterTitle,
-			content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n")
-		};
-	}).filter((chapter) => chapter.content.trim());
-	if (!chapters.length) {
-		const outline = (entry.contents || []).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean$1(name)}`).join("\n");
-		const body = renderEntries(entry.entries, 1);
-		chapters = [{
-			id: `${id}-ch1`,
-			title,
-			content: [
-				`# ${title}`,
-				outline,
-				body
-			].filter(Boolean).join("\n\n")
-		}];
-	}
-	return {
-		id,
-		title,
-		source,
-		imported: true,
-		chapters
-	};
-}
-//#endregion
-//#region src/lib/fiveEToolsLookup.js
-var cache = null;
-var pending = null;
-async function loadSpellLookup() {
-	if (cache) return cache;
-	if (!pending) pending = fetch("/api/5etools/file?root=data&path=generated%2Fgendata-spell-source-lookup.json").then((r) => r.ok ? r.json() : null).then((data) => {
-		cache = data && typeof data === "object" ? data : null;
-		return cache;
-	}).catch(() => null).finally(() => {
-		pending = null;
-	});
-	return pending;
-}
-var addAll = (set, map) => {
-	Object.values(map || {}).forEach((classes) => {
-		Object.keys(classes || {}).forEach((name) => set.add(name));
-	});
-};
-function spellClassNames(entry, lookup) {
-	if (!lookup || !entry?.name) return "";
-	const name = String(entry.name).toLowerCase();
-	const classes = /* @__PURE__ */ new Set();
-	Object.values(lookup).forEach((spells) => {
-		const data = spells?.[name] || Object.entries(spells || {}).find(([k]) => k.toLowerCase() === name)?.[1];
-		if (data) addAll(classes, data.class);
-	});
-	return Array.from(classes).sort().join(", ");
-}
-//#endregion
-//#region src/lib/monsterSpeeds.js
-var TYPE_ALIASES = {
-	walk: "Standard",
-	land: "Standard",
-	standard: "Standard",
-	fly: "Flying",
-	flying: "Flying",
-	swim: "Swimming",
-	swimming: "Swimming",
-	climb: "Climbing",
-	climbing: "Climbing",
-	burrow: "Burrowing",
-	burrowing: "Burrowing"
-};
-var title = (s) => String(s || "").trim().replace(/\b\w/g, (c) => c.toUpperCase());
-function speedTypeName(type) {
-	return TYPE_ALIASES[String(type || "").trim().toLowerCase()] || title(type);
-}
-var toSpaces = (value) => {
-	const n = Number(value);
-	if (!Number.isFinite(n)) return 0;
-	return Math.round(n / 5 * 10) / 10;
-};
-function speedEntries(speed) {
-	if (speed == null || speed === "") return [];
-	if (Array.isArray(speed)) return speed.map((e) => {
-		if (typeof e === "object" && e) {
-			const name = e.type || e.name || "Standard";
-			const spaces = e.spaces ?? e.value ?? e.number;
-			return {
-				type: speedTypeName(name),
-				spaces: Number(spaces) || 0
-			};
-		}
-		return null;
-	}).filter(Boolean);
-	if (typeof speed === "number") return [{
-		type: "Standard",
-		spaces: toSpaces(speed)
-	}];
-	if (typeof speed === "string") return feetToSpacesText(speed).split(",").map((part) => {
-		const m = part.trim().match(/^(?:([a-z][a-z ]*?)\s*)?(\d+(?:\.\d+)?)\s*(?:spaces?|ft\.?|feet|foot)?$/i);
-		if (!m) return null;
-		return {
-			type: speedTypeName(m[1] || "Standard"),
-			spaces: Number(m[2]) || 0
-		};
-	}).filter(Boolean);
-	if (typeof speed === "object") return Object.entries(speed).filter(([, v]) => typeof v === "number" || v && typeof v === "object" && Number.isFinite(Number(v.number ?? v.value))).map(([type, v]) => ({
-		type: speedTypeName(type),
-		spaces: toSpaces(typeof v === "object" ? v.number ?? v.value : v)
-	}));
-	return [];
-}
-function speedTextFromEntries(entries) {
-	return (entries || []).filter((e) => e && e.type && Number.isFinite(Number(e.spaces))).map((e) => e.type === "Standard" ? `${e.spaces} spaces` : `${e.type} ${e.spaces} spaces`).join(", ");
-}
-//#endregion
-//#region src/lib/monsterImport.js
-var textOf = (value) => {
-	if (value == null) return "";
-	if (typeof value === "string") return value;
-	if (typeof value === "number") return String(value);
-	if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join("\n");
-	if (typeof value === "object") {
-		if (value.entries) return textOf(value.entries);
-		if (value.items) return Object.values(value.items).map(textOf).filter(Boolean).join("\n");
-		if (value.name && (value.description || value.desc)) return `${value.name}: ${textOf(value.description ?? value.desc)}`;
-		if (value.text) return textOf(value.text);
-		if (value.desc) return textOf(value.desc);
-		if (value.description) return textOf(value.description);
-		if (value.name) return String(value.name);
-		return "";
-	}
-	return String(value);
-};
-var listOf = (value) => {
-	if (!value) return [];
-	return (Array.isArray(value) ? value : [value]).map((x) => {
-		if (typeof x === "string") return {
-			name: "",
-			text: x
-		};
-		return {
-			name: x?.name || "",
-			text: textOf(x?.entries ?? x?.text ?? x?.desc ?? x)
-		};
-	}).filter((x) => x.name || x.text);
-};
-var join$1 = (value) => Array.isArray(value) ? value.filter(Boolean).join(", ") : textOf(value);
-var mods = (value) => {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return "";
-	return Object.entries(value).map(([key, v]) => `${key.toUpperCase()} ${Number(v) >= 0 ? "+" : ""}${v}`).join(", ");
-};
-var sourceTag = (raw) => {
-	const type = typeof raw?.type === "object" ? raw.type?.type : raw?.type;
-	const typeTags = typeof raw?.type === "object" ? raw.type?.tags || [] : [];
-	return [...new Set([
-		type,
-		...typeTags,
-		...raw?.tags || []
-	].filter(Boolean).map(String))];
-};
-function normalizeImportedMonster(raw) {
-	if (!raw || typeof raw !== "object") return null;
-	const abil = raw.abilities || {};
-	const score = (k) => Number(abil[k]?.score ?? abil[k] ?? raw[k] ?? 10) || 10;
-	const acRaw = raw.ac ?? raw.armorClass ?? raw.armor_class;
-	const ac = Array.isArray(acRaw) ? acRaw[0]?.ac ?? acRaw[0]?.value ?? acRaw[0] : typeof acRaw === "object" ? acRaw.ac ?? acRaw.value : acRaw;
-	const hpRaw = raw.hp ?? raw.hitPoints ?? raw.hit_points;
-	const hp = typeof hpRaw === "object" ? hpRaw.average ?? hpRaw.value : hpRaw;
-	const cr = typeof raw.cr === "object" ? raw.cr?.cr ?? raw.cr?.value : raw.cr;
-	const speed = raw.speed ?? raw.movement;
-	const type = typeof raw.type === "object" ? raw.type?.type : raw.type;
-	const tags = sourceTag(raw);
-	const sizeMap = {
-		T: "Tiny",
-		S: "Small",
-		M: "Medium",
-		L: "Large",
-		H: "Huge",
-		G: "Gargantuan"
-	};
-	const sizeText = (Array.isArray(raw.size) ? raw.size : [raw.size]).filter(Boolean).map((s) => sizeMap[s] || s).join(", ");
-	const speeds = speedEntries(speed);
-	return {
-		name: textOf(raw.name) || "",
-		image: typeof (raw.image || raw.img) === "string" ? raw.image || raw.img : "",
-		unique: !!raw.unique,
-		dungeonExempt: !!(raw.dungeonExempt ?? raw.exemptFromDungeon ?? raw.dungeonBlacklisted),
-		size: sizeText,
-		type: textOf(type),
-		category: textOf(raw.category),
-		tags,
-		source: textOf(raw.source),
-		alignment: join$1(raw.alignment),
-		cr: cr == null ? "" : String(cr),
-		description: textOf(raw.description ?? raw.flavor ?? ""),
-		flavor: textOf(raw.flavor ?? ""),
-		ac: ac == null ? "" : String(ac),
-		hp: hp == null ? "" : String(hp),
-		speed: speedTextFromEntries(speeds) || feetToSpacesText(typeof speed === "string" ? speed : ""),
-		speeds,
-		abilities: [
-			"STR",
-			"DEX",
-			"CON",
-			"INT",
-			"WIS",
-			"CHA"
-		].map((k) => `${k} ${score(k.toLowerCase())}`).join(", "),
-		senses: feetToSpacesText(join$1(raw.senses)),
-		languages: join$1(raw.languages),
-		saves: mods(raw.saves),
-		skills: mods(raw.skills),
-		damageVulnerabilities: join$1(raw.damageVuln ?? raw.vulnerabilities),
-		damageResistances: join$1(raw.damageResist ?? raw.resistances),
-		damageImmunities: join$1(raw.damageImmune ?? raw.immunities),
-		conditionImmunities: join$1(raw.conditionImmune ?? raw.conditionImmunities),
-		initiative: raw.initiative?.mod != null ? String(raw.initiative.mod) : raw.initiative ?? "",
-		proficiencyBonus: raw.pb ?? raw.proficiencyBonus ?? "",
-		xp: raw.xp ?? raw.cr?.xp ?? "",
-		gear: Array.isArray(raw.gear) ? raw.gear.map((g) => typeof g === "string" ? g : g?.name).filter(Boolean).join(", ") : textOf(raw.gear),
-		spellcasting: textOf(raw.spellcasting),
-		traits: listOf(raw.traits ?? raw.trait),
-		actions: listOf(raw.actions ?? raw.action),
-		bonusActions: listOf(raw.bonus ?? raw.bonusActions),
-		reactions: listOf(raw.reactions ?? raw.reaction),
-		legendaryActions: listOf(raw.legendary ?? raw.legendaryActions),
-		lairActions: listOf(raw.lair ?? raw.lairActions),
-		mythicActions: listOf(raw.mythic ?? raw.mythicActions),
-		proficiencies: listOf(raw.proficiencies),
-		inventory: listOf(raw.inventory),
-		templates: Array.isArray(raw.templates) ? [...raw.templates] : []
-	};
-}
-function importMonsterPayload(data) {
-	return (Array.isArray(data) ? data : Array.isArray(data?.monsters) ? data.monsters : Array.isArray(data?.monster) ? data.monster : data && typeof data === "object" ? [data] : []).map(normalizeImportedMonster).filter((m) => m?.name);
-}
-//#endregion
-//#region src/lib/fiveEToolsView.js
-var clean = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
-var titleCase = (s) => String(s || "").split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
-var join = (value, sep = ", ") => {
-	if (value == null || value === "") return "";
-	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(sep);
-	return clean(value);
-};
-var yesNo = (v) => v ? "Yes" : "";
-var SIZE_LABEL = {
-	T: "Tiny",
-	S: "Small",
-	M: "Medium",
-	L: "Large",
-	H: "Huge",
-	G: "Gargantuan",
-	V: "Varies"
-};
-var sizeText = (value) => {
-	if (value == null) return "";
-	if (Array.isArray(value)) return value.map((s) => SIZE_LABEL[s] || clean(s)).join(", ");
-	return SIZE_LABEL[value] || clean(value);
-};
-var feet = (n) => {
-	const v = Math.round(Number(n) / 5 * 10) / 10;
-	return Number.isFinite(v) ? `${v} ${v === 1 ? "space" : "spaces"}` : "";
-};
-var speedText = (speed) => {
-	if (speed == null) return "";
-	if (typeof speed === "string") return clean(speed);
-	if (typeof speed === "number") return feet(speed);
-	if (Array.isArray(speed)) return speed.map(speedText).filter(Boolean).join(", ");
-	return Object.entries(speed).filter(([, v]) => v != null && v !== false).map(([k, v]) => {
-		if (typeof v === "number") return `${k === "walk" ? "Walk" : k[0].toUpperCase() + k.slice(1)} ${feet(v)}`;
-		if (v && typeof v === "object" && v.number != null) {
-			const unit = v.units || v.unit || "ft.";
-			return `${k === "walk" ? "Walk" : k[0].toUpperCase() + k.slice(1)} ${v.number} ${unit}`;
-		}
-		return `${k[0].toUpperCase() + k.slice(1)}`;
-	}).join(", ");
-};
-var ANY_PROFICIENCY = {
-	anyStandard: ["standard language", "standard languages"],
-	anyLanguage: ["language", "languages"],
-	anyGamingSet: ["gaming set", "gaming sets"],
-	anyArtisansTool: ["artisan's tool", "artisan's tools"],
-	anyMusicalInstrument: ["musical instrument", "musical instruments"],
-	anyTool: ["tool", "tools"],
-	anySkill: ["skill", "skills"],
-	anyWeapon: ["weapon", "weapons"],
-	anyArmor: ["armor", "armors"],
-	anyShield: ["shield", "shields"],
-	anySavingThrow: ["saving throw", "saving throws"],
-	anyAbility: ["ability", "abilities"]
-};
-var ABILITY_LABEL = {
-	str: "Strength",
-	dex: "Dexterity",
-	con: "Constitution",
-	int: "Intelligence",
-	wis: "Wisdom",
-	cha: "Charisma"
-};
-var abilityLabel = (key) => ABILITY_LABEL[String(key).toLowerCase()] || titleCase(key);
-var chooseText = (choose) => {
-	if (!choose || typeof choose !== "object") return "";
-	const from = (choose.from || []).map((v) => clean(typeof v === "object" ? v.name || v.ability || v : v)).filter(Boolean);
-	const count = Number(choose.count || choose.amount || 1) || 1;
-	if (from.length) {
-		const label = from.map((v) => abilityLabel(v) || titleCase(v)).join(", ");
-		return `Choose ${count > 1 ? `${count} ` : ""}from ${label}`;
-	}
-	if (choose.any) return `Any ${clean(choose.any)}`;
-	return "";
-};
-var proficiencyText = (value) => {
-	if (value == null || value === "") return "";
-	if (typeof value === "string") return clean(value);
-	if (typeof value === "number") return String(value);
-	if (Array.isArray(value)) return value.map(proficiencyText).filter(Boolean).join("; ");
-	if (typeof value !== "object") return clean(value);
-	if (value.choose) return chooseText(value.choose);
-	const parts = [];
-	Object.entries(value).forEach(([key, val]) => {
-		if (val == null || val === false) return;
-		if (key === "choose") return;
-		if (key.startsWith("any") && typeof val === "number") {
-			const [one, many] = ANY_PROFICIENCY[key] || [key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase(), `${key.replace(/^any/, "").replace(/([A-Z])/g, " $1").trim().toLowerCase()}s`];
-			parts.push(`Any ${val > 1 ? `${val} ` : ""}${val > 1 ? many : one}`);
-			return;
-		}
-		if (typeof val === "number") {
-			parts.push(`${abilityLabel(key)} ${val > 0 ? `+${val}` : val}`);
-			return;
-		}
-		if (typeof val === "string") {
-			parts.push(`${titleCase(key)} (${clean(val)})`);
-			return;
-		}
-		if (val) parts.push(titleCase(key));
-	});
-	return parts.join(", ");
-};
-var abilityText = (value) => {
-	if (value == null || value === "") return "Any";
-	if (typeof value === "string" && /[,;]/.test(value)) return value.split(/[,;]/).map((part) => abilityText(part.trim())).filter((part) => part && part !== "Any").join(", ");
-	const list = Array.isArray(value) ? value : [value];
-	const choices = [];
-	const plain = [];
-	list.forEach((item) => {
-		if (item == null || item === false) return;
-		if (typeof item === "string") {
-			const parsed = item.trim().match(/^(str|dex|con|int|wis|cha|strength|dexterity|constitution|intelligence|wisdom|charisma)\s*([+-]\s*\d+)?$/i);
-			if (parsed) {
-				const key = parsed[1].slice(0, 3).toLowerCase();
-				const bonus = parsed[2] ? Number(parsed[2].replace(/\s+/g, "")) : null;
-				plain.push(bonus != null ? `${abilityLabel(key)} ${bonus > 0 ? `+${bonus}` : bonus}` : abilityLabel(key));
-			} else plain.push(abilityLabel(item));
-			return;
-		}
-		if (typeof item !== "object") return;
-		if (item.choose) {
-			const weighted = item.choose.weighted;
-			const from = (weighted?.from || item.choose.from || []).map(abilityLabel).filter(Boolean);
-			if (!from.length) return;
-			const weights = weighted?.weights || [];
-			const text = weights.length && Math.max(...weights) > 1 ? `Any of ${from.join(", ")} (+2 to one, +1 to another)` : chooseText(item.choose);
-			if (text) choices.push(text);
-			return;
-		}
-		Object.entries(item).filter(([key, v]) => ABILITY_LABEL[key.toLowerCase()] && typeof v === "number").forEach(([key, v]) => plain.push(`${abilityLabel(key)} ${v > 0 ? `+${v}` : v}`));
-	});
-	if (plain.length) return plain.join(", ");
-	if (choices.length) {
-		const first = choices[0];
-		return choices.every((c) => c === first) ? first : choices.join("; ");
-	}
-	return "Any";
-};
-var featLabel = (key) => {
-	const [namePart] = String(key || "").split("|");
-	const [name, variant] = namePart.split(";").map((v) => v.trim());
-	return [titleCase(name), variant ? `(${titleCase(variant)})` : ""].filter(Boolean).join(" ");
-};
-var featsText = (value) => {
-	if (!value) return "";
-	if (typeof value === "string") return featLabel(value);
-	if (Array.isArray(value)) return value.map(featsText).filter(Boolean).join(", ");
-	if (typeof value !== "object") return clean(value);
-	if (value.name) return featLabel(value.name);
-	return Object.entries(value).filter(([, v]) => v).map(([key]) => featLabel(key)).filter(Boolean).join(", ");
-};
-var equipmentItemText = (item) => {
-	if (item == null || item === "") return "";
-	if (typeof item === "string") return clean(item.split("|")[0]).replace(/^./, (c) => c.toUpperCase());
-	if (typeof item !== "object") return clean(item);
-	if (item.value != null) {
-		const gp = Math.round(Number(item.value) / 100 * 100) / 100;
-		return Number.isFinite(gp) ? `${gp} GP` : "";
-	}
-	const rawName = clean(item.displayName || item.item || item.special || item.name || "");
-	const name = item.displayName ? rawName : rawName.replace(/\|[^|]+$/, "").replace(/^./, (c) => c.toUpperCase());
-	const quantity = Number(item.quantity) || 0;
-	const bits = [];
-	if (name) bits.push(name);
-	if (quantity > 1) bits.push(`×${quantity}`);
-	if (item.containsValue != null) {
-		const gp = Math.round(Number(item.containsValue) / 100 * 100) / 100;
-		if (Number.isFinite(gp)) bits.push(`(${gp} GP inside)`);
-	}
-	return bits.join(" ");
-};
-var equipmentGroupText = (value) => (Array.isArray(value) ? value : [value]).map(equipmentItemText).filter(Boolean).join(", ");
-var startingEquipmentText = (value) => {
-	if (!value) return "";
-	if (typeof value === "string") return clean(value);
-	const groups = Array.isArray(value) ? value : [value];
-	const lines = [];
-	groups.forEach((group) => {
-		if (!group || typeof group !== "object") return;
-		const parts = Object.entries(group).filter(([key, list]) => key !== "type" && list).map(([key, list]) => {
-			const text = equipmentGroupText(list);
-			if (!text) return "";
-			if (key === "_") return text;
-			if (/^[a-z]$/i.test(key)) return `${key.toUpperCase()}) ${text}`;
-			return `${titleCase(key)}: ${text}`;
-		}).filter(Boolean);
-		if (parts.length) lines.push(parts.join("  •  "));
-	});
-	return lines.join("\n");
-};
-var prerequisite = (value) => {
-	if (!value) return "";
-	if (typeof value === "string") return clean(value);
-	if (Array.isArray(value)) return value.map(prerequisite).filter(Boolean).join(", ");
-	if (typeof value !== "object") return clean(value);
-	const bits = [];
-	if (value.level != null) {
-		const l = value.level;
-		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean(l.class)})` : ""}` : `Level ${l}`);
-	}
-	if (value.race?.length) bits.push(value.race.map((r) => clean(r.name || r)).join(" or "));
-	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean(r.name || r)).join(" or ")}`);
-	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean(r.name || r)).join(" or ")}`);
-	if (value.spell) bits.push(`Spell: ${clean(value.spell)}`);
-	if (value.other) bits.push(clean(value.other));
-	if (value.ability?.length) bits.push(value.ability.map((a) => clean(a)).join(", "));
-	if (!bits.length) return clean(value);
-	return bits.join(", ");
-};
-var componentText = (components) => {
-	if (!components) return "";
-	const parts = [];
-	if (components.v) parts.push("V");
-	if (components.s) parts.push("S");
-	if (components.m) {
-		const mat = typeof components.m === "string" ? components.m : clean(components.m);
-		parts.push(mat ? `M (${mat})` : "M");
-	}
-	return parts.join(", ");
-};
-var classNames = (classes) => {
-	if (!classes) return "";
-	return [
-		["fromClassList", ""],
-		["fromClassListVariant", " (variant)"],
-		["fromSubclass", ""]
-	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean(c.name || c.className)}${c.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`)).join(", ");
-};
-function featureFromRef(ref, list, subclass) {
-	if (!ref) return null;
-	if (typeof ref === "object") {
-		const inner = ref.classFeature || ref.subclassFeature || "";
-		return inner ? featureFromRef(inner, list, subclass) : null;
-	}
-	const [name, className, classSource, ...rest] = String(ref).split("|");
-	const level = Number(rest[rest.length - 1]) || 0;
-	const sub = subclass ? rest[0] || "" : "";
-	return (list || []).find((f) => f.name === name && (!f.className || f.className === className) && (!f.classSource || !classSource || f.classSource === classSource) && (!subclass || !f.subclassShortName || f.subclassShortName === sub) && (!f.level || !level || Number(f.level) === level)) || {
-		name,
-		level,
-		entries: [],
-		_unresolved: true
-	};
-}
-function featuresFrom(raw, entry, subclass) {
-	if (!raw) return [];
-	const list = subclass ? raw.subclassFeature || [] : raw.classFeature || [];
-	return (subclass ? entry.subclassFeatures || [] : entry.classFeatures || []).map((ref) => featureFromRef(ref, list, subclass)).filter(Boolean).map((f) => ({
-		level: Number(f.level) || 0,
-		name: clean(f.name || entryName$1(f)),
-		text: clean(f.entries)
-	})).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-}
-var featureSection = (features, label = "Features") => {
-	if (!features.length) return null;
-	return {
-		title: `${label} (${features.length})`,
-		list: features.map((f) => ({
-			label: `${f.level ? `Level ${f.level}` : "—"} · ${f.name}`,
-			text: f.text ? f.text.replace(/\s+/g, " ").slice(0, 220) : ""
-		}))
-	};
-};
-var textSection = (title, value) => {
-	const text = clean(value);
-	return text ? {
-		title,
-		text
-	} : null;
-};
-var rowText = (row) => {
-	return (Array.isArray(row) ? row : row?.row || [row]).map((cell) => {
-		if (cell && typeof cell === "object") {
-			if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
-			if (cell.type === "cell") return clean(cell.entry ?? cell.entries ?? "");
-		}
-		return clean(cell);
-	});
-};
-var tableBlock = (table) => {
-	if (!table) return null;
-	const columns = (table.colLabels || []).map(clean);
-	const rows = (table.rows || []).slice(0, 100).map(rowText);
-	return {
-		title: clean(table.name || table.caption || "Table"),
-		columns,
-		rows
-	};
-};
-var findImage = (value) => {
-	if (!value) return "";
-	if (Array.isArray(value)) {
-		for (const item of value) {
-			const found = findImage(item);
-			if (found) return found;
-		}
-		return "";
-	}
-	if (typeof value !== "object") return "";
-	if (value.type === "image" || value.type === "gallery") {
-		const href = value.href;
-		if (typeof href === "string") return href;
-		if (href?.url) return href.url;
-		if (href?.path) return href.path;
-		if (href?.paths?.length) return findImage(href.paths);
-		if (value.url) return value.url;
-	}
-	return findImage(value.entries) || findImage(value.items) || findImage(value.fluff);
-};
-function entryImage(entry) {
-	if (!entry) return "";
-	return [
-		entry.img,
-		entry.image,
-		entry.portrait,
-		entry.cover
-	].find((v) => typeof v === "string" && v) || findImage(entry.entries) || findImage(entry.fluff) || "";
-}
-var contentsList = (contents, depth = 0) => (contents || []).flatMap((c) => {
-	if (!c) return [];
-	if (typeof c === "string") return [{
-		label: `${"  ".repeat(depth)}${clean(c)}`,
-		text: ""
-	}];
-	if (c.name) {
-		const headers = (c.headers || []).map((h) => typeof h === "string" ? h : h?.header).filter(Boolean).map((h) => ({
-			label: `${"  ".repeat(depth + 1)}${clean(h)}`,
-			text: ""
-		}));
-		return [
-			{
-				label: `${"  ".repeat(depth)}${clean(c.name)}`,
-				text: clean(c.entries).slice(0, 160)
-			},
-			...headers,
-			...contentsList(c.contents, depth + 1)
-		];
-	}
-	return contentsList(c.contents, depth);
-});
-var actionEntries = (entry, keys) => {
-	const sections = [];
-	keys.forEach(([key, title]) => {
-		const list = entry?.[key];
-		if (!Array.isArray(list) || !list.length) return;
-		sections.push({
-			title,
-			text: list.map((a) => {
-				const name = clean(a?.name);
-				const text = clean(a?.entries ?? a?.text);
-				return [name && `${name}.`, text].filter(Boolean).join(" ");
-			}).filter(Boolean).join("\n\n")
-		});
-	});
-	return sections;
-};
-var monsterDetails = (entry) => {
-	const m = normalizeImportedMonster(entry) || {};
-	return {
-		fields: [
-			["Type", [
-				m.size,
-				m.type,
-				m.alignment
-			].filter(Boolean).join(" ")],
-			["Armor Class", m.ac],
-			["Hit Points", m.hp],
-			["Speed", m.speed],
-			["Challenge", m.cr ? `CR ${m.cr}${m.xp !== "" && m.xp != null ? ` (${m.xp} XP)` : ""}` : ""],
-			["Ability Scores", m.abilities],
-			["Saving Throws", m.saves],
-			["Skills", m.skills],
-			["Damage Vulnerabilities", m.damageVulnerabilities],
-			["Damage Resistances", m.damageResistances],
-			["Damage Immunities", m.damageImmunities],
-			["Condition Immunities", m.conditionImmunities],
-			["Senses", m.senses],
-			["Languages", m.languages],
-			["Gear", m.gear],
-			["Proficiency Bonus", m.proficiencyBonus]
-		],
-		sections: [textSection("Description", entry.description || entry.entries), ...actionEntries(entry, [
-			["trait", "Traits"],
-			["action", "Actions"],
-			["bonus", "Bonus Actions"],
-			["reaction", "Reactions"],
-			["legendary", "Legendary Actions"],
-			["mythic", "Mythic Actions"],
-			["lair", "Lair Actions"],
-			["spellcasting", "Spellcasting"]
-		])].filter(Boolean)
-	};
-};
-var spellDetails = (entry, context = {}) => {
-	const s = spellToLibrary(entry);
-	return {
-		fields: [
-			["Level", s.level === "cantrip" ? "Cantrip" : s.level ? `Level ${s.level}` : ""],
-			["School", s.school],
-			["Casting Time", s.castingTime],
-			["Range", s.range],
-			["Components", componentText(entry.components)],
-			["Duration", s.duration],
-			["Save", s.saveAbility ? titleCase(s.saveAbility) : ""],
-			["Classes", classNames(entry.classes) || spellClassNames(entry, context.spellLookup)],
-			["Damage", join(entry.damageInflict, ", ").split(", ").map(titleCase).join(", ")],
-			["Conditions", join(entry.conditionInflict, ", ").split(", ").map(titleCase).join(", ")]
-		],
-		sections: [
-			textSection("Description", s.description),
-			textSection("At Higher Levels", s.upcast),
-			textSection("From", entry.fluff?.name ? `${entry.fluff.name}` : "")
-		].filter(Boolean)
-	};
-};
-var classDetails = (entry, raw, subclass) => {
-	const features = featuresFrom(raw, entry, subclass);
-	const sp = entry.startingProficiencies || {};
-	return {
-		fields: subclass ? [
-			["Class", clean(entry.className)],
-			["Source", clean(entry.classSource)],
-			["Features", String(features.length || "")]
-		] : [
-			["Hit Die", entry.hd ? `d${entry.hd.faces} per ${clean(entry.hd.number) === "1" ? "level" : "level"}` : ""],
-			["Saving Throws", join(entry.proficiency, ", ").toUpperCase()],
-			["Armor", proficiencyText(sp.armor)],
-			["Weapons", proficiencyText(sp.weapons)],
-			["Tools", proficiencyText(sp.tools)],
-			["Skills", proficiencyText(sp.skills)],
-			["Subclass", clean(entry.subclassTitle)],
-			["Source", clean(entry.source)]
-		],
-		sections: [
-			featureSection(features),
-			textSection("Starting Equipment", entry.startingEquipment?.entries || entry.startingEquipment),
-			textSection("Multiclassing", entry.multiclassing?.entries || entry.multiclassing)
-		].filter(Boolean)
-	};
-};
-var entriesSections = (nodes, { skipLists = false } = {}) => {
-	const sections = [];
-	const addText = (title, value) => {
-		const text = clean(value);
-		if (!text) return;
-		const found = sections.find((s) => s.title === title && s.text != null);
-		if (found) found.text = `${found.text}\n\n${text}`;
-		else sections.push({
-			title,
-			text
-		});
-	};
-	const walk = (value, title) => {
-		if (value == null || value === "") return;
-		if (Array.isArray(value)) {
-			value.forEach((item) => walk(item, title));
-			return;
-		}
-		if (typeof value === "string" || typeof value === "number") {
-			addText(title, value);
-			return;
-		}
-		if (typeof value !== "object") return;
-		if (value.type === "table" || value.type === "tableGroup") {
-			const block = tableBlock(value);
-			if (block) sections.push({
-				...block,
-				title: title || block.title
-			});
-			return;
-		}
-		if (value.type === "list" || String(value.style || "").startsWith("list")) {
-			if (!skipLists) (value.items || []).forEach((item) => walk(item, title));
-			return;
-		}
-		if (value.name && Array.isArray(value.entries)) {
-			walk(value.entries, clean(value.name));
-			return;
-		}
-		if (Array.isArray(value.entries)) {
-			walk(value.entries, title);
-			return;
-		}
-		if (Array.isArray(value.items)) {
-			walk(value.items, title);
-			return;
-		}
-		const text = fiveText(value);
-		if (text) addText(title, text);
-	};
-	walk(nodes, "");
-	return sections;
-};
-var timeText = (value) => {
-	if (value == null || value === "") return "";
-	if (typeof value === "string") return clean(value);
-	if (typeof value === "number") return String(value);
-	if (Array.isArray(value)) return value.map(timeText).filter(Boolean).join(", ");
-	if (typeof value === "object") {
-		if (value.number != null || value.unit) return `${value.number || 1} ${value.unit || "action"}`;
-		return fiveText(value);
-	}
-	return clean(value);
-};
-var featDetails = (entry) => ({
-	fields: [
-		["Category", clean(entry.category)],
-		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Repeatable", yesNo(entry.repeatable)],
-		["Ability Scores", entry.ability ? abilityText(entry.ability) : ""],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
-});
-var backgroundDetails = (entry) => ({
-	fields: [
-		["Ability Scores", abilityText(entry.ability)],
-		["Feat", featsText(entry.feats)],
-		["Skills", proficiencyText(entry.skillProficiencies)],
-		["Tools", proficiencyText(entry.toolProficiencies)],
-		["Languages", proficiencyText(entry.languageProficiencies)],
-		["Equipment", startingEquipmentText(entry.startingEquipment)],
-		["Source", clean(entry.source)]
-	],
-	sections: entriesSections(entry.entries, { skipLists: true })
-});
-var speciesDetails = (entry) => ({
-	fields: [
-		["Size", sizeText(entry.size)],
-		["Speed", speedText(entry.speed)],
-		["Ability Scores", abilityText(entry.ability)],
-		["Languages", proficiencyText(entry.languageProficiencies)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries), ...actionEntries(entry, [["trait", "Traits"], ["traitTags", "Tags"]])].filter(Boolean)
-});
-var optionDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.featureType || entry.optionType)],
-		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var ITEM_TYPE_LABEL = {
-	M: "Melee Weapon",
-	R: "Ranged Weapon",
-	A: "Ammunition",
-	AF: "Ammunition",
-	LA: "Light Armor",
-	MA: "Medium Armor",
-	HA: "Heavy Armor",
-	S: "Shield",
-	P: "Potion",
-	SC: "Scroll",
-	WD: "Wand",
-	RD: "Rod",
-	ST: "Staff",
-	RG: "Ring",
-	W: "Wondrous Item",
-	G: "Adventuring Gear",
-	FD: "Food and Drink",
-	SCF: "Spellcasting Focus",
-	INS: "Instrument",
-	GS: "Gaming Set",
-	T: "Tool",
-	MNT: "Mount",
-	TAH: "Tack and Harness",
-	EXP: "Explosive",
-	TG: "Trade Good",
-	TB: "Trade Bar",
-	VEH: "Vehicle (Land)",
-	SHP: "Vehicle (Water)",
-	AIR: "Vehicle (Air)",
-	SPC: "Vehicle (Space)",
-	OTH: "Other",
-	GV: "Generic Variant"
-};
-var itemDetails = (entry) => {
-	const mapped = itemToLibrary(entry);
-	const value = mapped?.value || {};
-	const code = String(typeof entry.type === "object" ? entry.type?.type : entry.type || "").split("|")[0].trim();
-	const rarity = String(entry.rarity || "").toLowerCase();
-	return {
-		fields: [
-			["Type", mapped?.key === "wondrousItems" && value.itemType ? value.itemType : ITEM_TYPE_LABEL[code] || clean(entry.type)],
-			["Rarity", rarity && rarity !== "none" ? titleCase(rarity) : ""],
-			["Attunement", entry.reqAttune ? clean(entry.reqAttune) : entry.reqAttuneTags ? "Required" : ""],
-			["Weight", entry.weight != null ? `${entry.weight} lb.` : ""],
-			["Value", value.cost || (entry.value != null ? `${Number((Number(entry.value) / 100).toFixed(2))} gp` : "")],
-			["Properties", value.properties?.length ? join(value.properties) : join(entry.property)],
-			["Mastery", join(entry.mastery)],
-			["Damage", value.diceCount ? `${value.diceCount}${value.dieSize}${value.damageType ? ` ${value.damageType}` : ""}` : clean(entry.dmg1 || entry.dmg2)],
-			["Armor Class", value.acFlat != null ? String(value.acFlat) : clean(entry.ac)],
-			["Source", clean(entry.source)]
-		],
-		sections: [textSection("Description", entry.entries), textSection("Additional", entry.additionalEntries)].filter(Boolean)
-	};
-};
-var conditionDetails = (entry, kind) => ({
-	fields: [["Type", kind], ["Source", clean(entry.source)]],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var tableDetails = (entry) => {
-	const block = tableBlock(entry);
-	return {
-		fields: [
-			["Caption", clean(entry.caption)],
-			["Rows", String((entry.rows || []).length)],
-			["Source", clean(entry.source)]
-		],
-		sections: block ? [block] : []
-	};
-};
-var bookDetails = (entry, adventure, context = {}) => {
-	const title = clean(context.bookTitles?.get(entry.id) || entry.name || entry.title || entry.id || "Book");
-	const book = bookChapters(entry);
-	return {
-		name: title,
-		fields: [
-			["Author", join(entry.author)],
-			["Published", clean(entry.published)],
-			["Group", clean(entry.group)],
-			...adventure ? [["Storyline", clean(entry.storyline)], ["Level", clean(entry.level)]] : [],
-			...book ? [["Chapters", String(book.chapters.length)]] : [],
-			["Source", clean(entry.source || entry.id)]
-		],
-		sections: [...book ? [] : [{
-			title: "Contents",
-			list: contentsList(entry.contents)
-		}], textSection("Description", entry.entries)].filter((s) => s && (s.list?.length || s.text)),
-		book: book ? {
-			...book,
-			title
-		} : null
-	};
-};
-var deityDetails = (entry) => ({
-	fields: [
-		["Pantheon", clean(entry.pantheon)],
-		["Alignment", clean(entry.alignment)],
-		["Category", clean(entry.category)],
-		["Domains", join(entry.domains)],
-		["Province", clean(entry.province)],
-		["Symbol", clean(entry.symbol)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var vehicleDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.vehicleType)],
-		["Size", sizeText(entry.size)],
-		["Terrain", clean(entry.terrain)],
-		["Crew", entry.capCrew != null ? String(entry.capCrew) : ""],
-		["Passengers", entry.capPassenger != null ? String(entry.capPassenger) : ""],
-		["Cargo", entry.capCargo != null ? `${entry.capCargo} tons` : ""],
-		["Armor Class", clean(entry.ac)],
-		["Hit Points", clean(entry.hp)],
-		["Speed", speedText(entry.speed)],
-		["Immunities", join(entry.immune)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var objectDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.objectType)],
-		["Size", sizeText(entry.size)],
-		["Armor Class", clean(entry.ac)],
-		["Hit Points", clean(entry.hp)],
-		["Speed", speedText(entry.speed)],
-		["Ability Scores", [
-			"str",
-			"dex",
-			"con",
-			"int",
-			"wis",
-			"cha"
-		].filter((k) => entry[k] != null).map((k) => `${k.toUpperCase()} ${entry[k]}`).join(", ")],
-		["Senses", join(entry.senses)],
-		["Immunities", join(entry.immune)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries), textSection("Actions", entry.actionEntries)].filter(Boolean)
-});
-var trapDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.trapHazType)],
-		["Rating", clean(entry.rating)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var rewardDetails = (entry) => ({
-	fields: [["Type", clean(entry.type)], ["Source", clean(entry.source)]],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var psionicDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.type)],
-		["Order", clean(entry.order)],
-		["Focus", clean(entry.focus)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries), {
-		title: "Modes",
-		text: (entry.modes || []).map((m) => `${clean(m.name)}${m.entries ? `: ${clean(m.entries)}` : ""}`).join("\n\n")
-	}].filter((s) => s && s.text)
-});
-var deckDetails = (entry) => ({
-	fields: [["Cards", String((entry.cards || []).length)], ["Source", clean(entry.source)]],
-	sections: [textSection("Description", entry.entries), {
-		title: "Cards",
-		list: (entry.cards || []).map((c) => ({
-			label: clean(c.name),
-			text: ""
-		}))
-	}].filter((s) => s && (s.text || s.list?.length))
-});
-var actionDetails = (entry) => ({
-	fields: [["Time", timeText(entry.time)], ["Source", clean(entry.source)]],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var languageDetails = (entry) => ({
-	fields: [
-		["Typical Speakers", join(entry.typicalSpeakers)],
-		["Script", clean(entry.script)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var bastionDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.facilityType)],
-		["Level", clean(entry.level)],
-		["Prerequisite", prerequisite(entry.prerequisite)],
-		["Space", clean(entry.space)],
-		["Hirelings", clean(entry.hirelings)],
-		["Orders", join(entry.orders)],
-		["Source", clean(entry.source)]
-	],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var encounterDetails = (entry) => ({
-	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean(entry.source)]],
-	sections: [...(entry.tables || []).map((t) => tableBlock(t)).filter(Boolean), textSection("Description", entry.entries)].filter(Boolean)
-});
-var lootDetails = (entry) => ({
-	fields: [
-		["CR Range", [entry.crMin, entry.crMax].filter((v) => v != null).join(" – ")],
-		["Coins", clean(entry.coins)],
-		["Source", clean(entry.source)]
-	],
-	sections: [tableBlock(entry.table), textSection("Description", entry.entries)].filter(Boolean)
-});
-var ruleDetails = (entry) => ({
-	fields: [["Type", clean(entry.ruleType)], ["Source", clean(entry.source)]],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var skillDetails = (entry) => ({
-	fields: [["Ability", clean(entry.ability)], ["Source", clean(entry.source)]],
-	sections: [textSection("Description", entry.entries)].filter(Boolean)
-});
-var magicVariantDetails = (entry) => ({
-	fields: [
-		["Type", clean(entry.type)],
-		["Requires", clean(entry.requires)],
-		["Inherits", clean(entry.inherits)],
-		["Source", clean(entry.source)]
-	],
-	sections: []
-});
-var GENERIC_SKIP = /* @__PURE__ */ new Set([
-	"name",
-	"source",
-	"page",
-	"edition",
-	"img",
-	"image",
-	"portrait",
-	"cover",
-	"id",
-	"entries",
-	"description",
-	"text",
-	"additionalEntries",
-	"type",
-	"objectType",
-	"vehicleType",
-	"facilityType",
-	"rarity",
-	"prerequisite",
-	"fluff"
-]);
-var genericValue = (value) => {
-	if (value == null || value === "") return "";
-	if (typeof value === "string") return clean(value);
-	if (typeof value === "number") return String(value);
-	if (typeof value === "boolean") return value ? "Yes" : "";
-	if (Array.isArray(value)) return join(value);
-	if (typeof value === "object") {
-		if (value.name) return clean(value.name);
-		if (value.type) return clean(value.type);
-		if (value.entries) return clean(value.entries);
-		return "";
-	}
-	return "";
-};
-var genericDetails = (entry) => {
-	const extra = Object.entries(entry || {}).filter(([key, value]) => !GENERIC_SKIP.has(key) && !key.startsWith("_") && (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || Array.isArray(value) || value && typeof value === "object" && (value.name || value.type || value.entries))).slice(0, 30).map(([key, value]) => [titleCase(key.replace(/([A-Z])/g, " $1")), genericValue(value)]).filter(([, value]) => value);
-	return {
-		fields: [
-			["Type", clean(entry.type || entry.objectType || entry.vehicleType || entry.facilityType)],
-			["Rarity", clean(entry.rarity)],
-			["Prerequisite", prerequisite(entry.prerequisite)],
-			["Source", clean(entry.source)],
-			...extra
-		],
-		sections: [textSection("Description", entry.entries || entry.description || entry.text), textSection("Additional", entry.additionalEntries)].filter(Boolean)
-	};
-};
-var DETAILERS = {
-	bestiary: monsterDetails,
-	spells: spellDetails,
-	feats: featDetails,
-	backgrounds: backgroundDetails,
-	species: speciesDetails,
-	charOptions: optionDetails,
-	optionalFeatures: optionDetails,
-	items: itemDetails,
-	conditions: (e) => conditionDetails(e, "Condition, disease or status"),
-	tables: tableDetails,
-	deities: deityDetails,
-	vehicles: vehicleDetails,
-	objects: objectDetails,
-	traps: trapDetails,
-	gifts: rewardDetails,
-	cults: rewardDetails,
-	psionics: psionicDetails,
-	decks: deckDetails,
-	actions: actionDetails,
-	languages: languageDetails,
-	bastions: bastionDetails,
-	encounterGen: encounterDetails,
-	lootGen: lootDetails,
-	rulesGlossary: ruleDetails,
-	statGen: (e) => ruleDetails(e),
-	life: (e) => ruleDetails(e),
-	names: (e) => ruleDetails(e),
-	adventures: (e) => bookDetails(e, true),
-	books: (e) => bookDetails(e, false),
-	variants: ruleDetails,
-	senses: skillDetails,
-	skills: skillDetails,
-	magicVariants: magicVariantDetails
-};
-function entryDetails(categoryId, entry, raw, context = {}) {
-	if (!entry) return null;
-	const detailer = categoryId === "classes" ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName) : categoryId === "books" ? (e) => bookDetails(e, false, context) : categoryId === "adventures" ? (e) => bookDetails(e, true, context) : DETAILERS[categoryId] || genericDetails;
-	const body = (categoryId === "spells" ? spellDetails(entry, context) : detailer(entry)) || {
-		fields: [],
-		sections: []
-	};
-	const image = entryImage(entry);
-	return {
-		name: body.name || entryName$1(entry),
-		source: clean(entry.source || entry.classSource || entry.id),
-		page: entry.page,
-		edition: clean(entry.edition),
-		image,
-		raw: entry,
-		book: body.book || null,
-		fields: (body.fields || []).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
-		sections: (body.sections || []).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
-	};
-}
-function entryDetailsMarkdown(details) {
-	if (!details) return "";
-	const out = [];
-	if (details.source) out.push(`*Source: ${details.source}${details.page ? `, p.${details.page}` : ""}${details.edition ? ` (${details.edition})` : ""}*`);
-	if (details.fields?.length) out.push(details.fields.map(([label, value]) => `**${label}:** ${value}`).join("\n"));
-	(details.sections || []).forEach((section) => {
-		if (section.title) out.push(`### ${section.title}`);
-		if (section.text) out.push(section.text);
-		if (section.list?.length) out.push(section.list.map((item) => `- ${[item.label, item.text].filter(Boolean).join(" — ")}`).join("\n"));
-		if (section.columns?.length) out.push([
-			`| ${section.columns.join(" | ")} |`,
-			`| ${section.columns.map(() => "---").join(" | ")} |`,
-			...(section.rows || []).map((row) => `| ${row.map((cell) => String(cell ?? "")).join(" | ")} |`)
-		].join("\n"));
-	});
-	return out.filter(Boolean).join("\n\n");
-}
-function CleanField(value) {
-	if (value == null) return "";
-	if (typeof value === "string") return clean(value);
-	if (typeof value === "number" || typeof value === "boolean") return String(value);
-	if (Array.isArray(value)) return value.map((v) => clean(v)).filter(Boolean).join(", ");
-	if (typeof value === "object") {
-		if (value.name && value.description) return `${clean(value.name)}: ${clean(value.description)}`;
-		if (value.name) return clean(value.name);
-		if (value.description) return clean(value.description);
-		return clean(value);
-	}
-	return String(value);
-}
-//#endregion
 //#region src/components/rulebook/Homebrewery.jsx
 function Homebrewery({ text = "", className = "" }) {
 	const blocks = useMemo(() => splitBlocks(text), [text]);
@@ -23486,7 +24409,7 @@ function MiniList({ label, items, onChange }) {
 		}, i))]
 	});
 }
-function Field({ label, value, onChange, placeholder, className, list }) {
+function Field$1({ label, value, onChange, placeholder, className, list }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-0.5",
 		children: [/* @__PURE__ */ jsx(Label, {
@@ -23610,19 +24533,19 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 							/* @__PURE__ */ jsxs("div", {
 								className: "mt-2 grid grid-cols-3 gap-1.5",
 								children: [
-									/* @__PURE__ */ jsx(Field, {
+									/* @__PURE__ */ jsx(Field$1, {
 										label: "Size",
 										value: m.size,
 										onChange: (v) => patch({ size: v }),
 										placeholder: "Huge"
 									}),
-									/* @__PURE__ */ jsx(Field, {
+									/* @__PURE__ */ jsx(Field$1, {
 										label: "Type",
 										value: m.type,
 										onChange: (v) => patch({ type: v }),
 										placeholder: "Beast"
 									}),
-									/* @__PURE__ */ jsx(Field, {
+									/* @__PURE__ */ jsx(Field$1, {
 										label: "Alignment",
 										value: m.alignment,
 										onChange: (v) => patch({ alignment: v }),
@@ -23632,12 +24555,12 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 							}),
 							/* @__PURE__ */ jsxs("div", {
 								className: "mt-2 grid grid-cols-2 gap-1.5",
-								children: [/* @__PURE__ */ jsx(Field, {
+								children: [/* @__PURE__ */ jsx(Field$1, {
 									label: "AC",
 									value: m.ac,
 									onChange: (v) => patch({ ac: v }),
 									placeholder: "13"
-								}), /* @__PURE__ */ jsx(Field, {
+								}), /* @__PURE__ */ jsx(Field$1, {
 									label: "HP",
 									value: m.hp,
 									onChange: (v) => patch({ hp: v }),
@@ -23719,19 +24642,19 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-3 gap-1.5",
 						children: [
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "CR",
 								value: m.cr,
 								onChange: (v) => patch({ cr: v }),
 								placeholder: "1/2"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Senses",
 								value: feetToSpacesText(m.senses) || "",
 								onChange: (v) => patch({ senses: v }),
 								placeholder: "Darkvision 12 spaces"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Languages",
 								value: m.languages,
 								onChange: (v) => patch({ languages: v }),
@@ -23742,20 +24665,20 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-3 gap-1.5",
 						children: [
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Category",
 								value: m.category,
 								onChange: (v) => patch({ category: v }),
 								placeholder: "Undead, Goblinoid, Boss…"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Tags (comma-separated)",
 								value: (m.tags || []).join(", "),
 								onChange: (v) => patch({ tags: v.split(",").map((t) => t.trim()).filter(Boolean) }),
 								placeholder: "undead, minion, flying",
 								list: "monster-tags"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Source",
 								value: m.source,
 								onChange: (v) => patch({ source: v }),
@@ -23794,19 +24717,19 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-3 gap-1.5",
 						children: [
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Initiative",
 								value: m.initiative,
 								onChange: (v) => patch({ initiative: v }),
 								placeholder: "+2"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Prof. Bonus",
 								value: m.proficiencyBonus,
 								onChange: (v) => patch({ proficiencyBonus: v }),
 								placeholder: "+2"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "XP",
 								value: m.xp,
 								onChange: (v) => patch({ xp: v }),
@@ -23817,37 +24740,37 @@ function MonsterRow({ m, i: _i, onPatch, onDelete, onImport, lib }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-2 gap-1.5",
 						children: [
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Saving Throws",
 								value: m.saves,
 								onChange: (v) => patch({ saves: v }),
 								placeholder: "DEX +4, CON +2"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Skills",
 								value: m.skills,
 								onChange: (v) => patch({ skills: v }),
 								placeholder: "Perception +4, Stealth +6"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Damage Vulnerabilities",
 								value: m.damageVulnerabilities,
 								onChange: (v) => patch({ damageVulnerabilities: v }),
 								placeholder: "Radiant"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Damage Resistances",
 								value: m.damageResistances,
 								onChange: (v) => patch({ damageResistances: v }),
 								placeholder: "Cold, fire"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Damage Immunities",
 								value: m.damageImmunities,
 								onChange: (v) => patch({ damageImmunities: v }),
 								placeholder: "Poison"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Condition Immunities",
 								value: m.conditionImmunities,
 								onChange: (v) => patch({ conditionImmunities: v }),
@@ -24159,25 +25082,25 @@ function TemplatesSection({ lib, setLib }) {
 					/* @__PURE__ */ jsxs("div", {
 						className: "grid grid-cols-2 gap-1.5 sm:grid-cols-4",
 						children: [
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "AC Bonus",
 								value: t.acBonus,
 								onChange: (v) => patch(i, { acBonus: v }),
 								placeholder: "+2"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "HP Bonus",
 								value: t.hpBonus,
 								onChange: (v) => patch(i, { hpBonus: v }),
 								placeholder: "+12"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Legendary Resist.",
 								value: t.legendaryResistances,
 								onChange: (v) => patch(i, { legendaryResistances: v }),
 								placeholder: "3/day"
 							}),
-							/* @__PURE__ */ jsx(Field, {
+							/* @__PURE__ */ jsx(Field$1, {
 								label: "Spellcasting",
 								value: t.spellcasting,
 								onChange: (v) => patch(i, { spellcasting: v }),
@@ -24185,7 +25108,7 @@ function TemplatesSection({ lib, setLib }) {
 							})
 						]
 					}),
-					/* @__PURE__ */ jsx(Field, {
+					/* @__PURE__ */ jsx(Field$1, {
 						label: "Description",
 						value: t.description,
 						onChange: (v) => patch(i, { description: v }),
@@ -35831,6 +36754,7 @@ var IDENTITY = [
 	["name", "Name"],
 	["class", "Class"],
 	["race", "Race"],
+	["background", "Background"],
 	["alignment", "Alignment"]
 ];
 var REST_LABEL$3 = {
@@ -35856,6 +36780,7 @@ function SectionCard({ title, children }) {
 function CharacterTab() {
 	const { mergedTree: tree, character, setCharacter, pools, settings, investPoint, focusNode, openSubtreePanel, setSubtreeNodePoints } = useTree();
 	const levels = settings?.library?.levels || [];
+	const background = backgroundInfo(settings, character);
 	const usage = poolUsage(tree, settings?.library?.pointTypes);
 	const eff = effectivePools(pools, character, tree, levels, settings);
 	const stats = statVars(character, tree);
@@ -36054,6 +36979,31 @@ function CharacterTab() {
 					}, key))
 				})]
 			}),
+			background?.features?.length ? /* @__PURE__ */ jsx(SectionCard, {
+				title: `Background Feature — ${background.name}`,
+				children: /* @__PURE__ */ jsx("div", {
+					className: "space-y-2",
+					children: background.features.map((feature, index) => /* @__PURE__ */ jsxs("div", {
+						className: "rounded-lg border bg-accent/30 p-3",
+						children: [/* @__PURE__ */ jsx("p", {
+							className: "text-sm font-semibold",
+							children: feature.name.replace(/^feature\s*:\s*/i, "")
+						}), feature.text ? /* @__PURE__ */ jsx("p", {
+							className: "mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground",
+							children: feature.text
+						}) : null]
+					}, `${feature.name}-${index}`))
+				})
+			}) : character.originFeat ? /* @__PURE__ */ jsxs(SectionCard, {
+				title: "Origin Feat",
+				children: [/* @__PURE__ */ jsx("p", {
+					className: "text-sm font-semibold",
+					children: character.originFeat
+				}), /* @__PURE__ */ jsx("p", {
+					className: "text-[10px] text-muted-foreground",
+					children: "This origin feat replaces a background."
+				})]
+			}) : null,
 			/* @__PURE__ */ jsx(SectionCard, {
 				title: "Ability Scores",
 				children: /* @__PURE__ */ jsx("div", {
@@ -36390,18 +37340,6 @@ function CharacterTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/ui/slider.jsx
-var Slider = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsxs(SliderPrimitive.Root, {
-	ref,
-	className: cn("relative flex w-full touch-none select-none items-center", className),
-	...props,
-	children: [/* @__PURE__ */ jsx(SliderPrimitive.Track, {
-		className: "relative h-1.5 w-full grow overflow-hidden rounded-full bg-primary/20",
-		children: /* @__PURE__ */ jsx(SliderPrimitive.Range, { className: "absolute h-full bg-primary" })
-	}), /* @__PURE__ */ jsx(SliderPrimitive.Thumb, { className: "block h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" })]
-}));
-Slider.displayName = SliderPrimitive.Root.displayName;
 //#endregion
 //#region src/components/skilltree/TokenForge.jsx
 var PREVIEW = 224;
@@ -36749,7 +37687,7 @@ function Card$1({ title, children }) {
 	});
 }
 function FluffTab() {
-	const { character, setCharacter } = useTree();
+	const { character, setCharacter, settings } = useTree();
 	const set = (patch) => setCharacter({
 		...character,
 		...patch
@@ -36758,6 +37696,12 @@ function FluffTab() {
 		...character.appearance,
 		[key]: value
 	} });
+	const background = backgroundInfo(settings, character);
+	const chosenOptions = Object.entries(character.creation?.background?.options || {}).map(([groupId, choiceId]) => {
+		const group = background?.optionGroups?.find((item) => item.id === groupId);
+		const choice = group?.choices?.find((item) => item.id === choiceId);
+		return choice ? `${group.label}: ${choice.label}` : "";
+	}).filter(Boolean);
 	return /* @__PURE__ */ jsxs("div", {
 		className: "mx-auto w-full max-w-4xl space-y-4",
 		children: [
@@ -36784,6 +37728,58 @@ function FluffTab() {
 						})]
 					}, key))
 				})
+			}),
+			background && /* @__PURE__ */ jsxs(Card$1, {
+				title: `Background — ${background.name}`,
+				children: [
+					/* @__PURE__ */ jsx("p", {
+						className: "mb-2 text-[10px] text-muted-foreground",
+						children: [background.source, background.entry?.page ? `p.${background.entry.page}` : ""].filter(Boolean).join(" · ") || "Imported background"
+					}),
+					background.details?.fields?.length ? /* @__PURE__ */ jsx("dl", {
+						className: "mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs",
+						children: background.details.fields.map(([label, value]) => /* @__PURE__ */ jsxs("div", {
+							className: "contents",
+							children: [/* @__PURE__ */ jsx("dt", {
+								className: "font-medium text-muted-foreground",
+								children: label
+							}), /* @__PURE__ */ jsx("dd", {
+								className: "min-w-0 whitespace-pre-wrap break-words",
+								children: value
+							})]
+						}, label))
+					}) : null,
+					chosenOptions.length > 0 && /* @__PURE__ */ jsx("div", {
+						className: "mb-3 space-y-1",
+						children: chosenOptions.map((option) => /* @__PURE__ */ jsx("p", {
+							className: "rounded border bg-accent/40 px-2 py-1 text-xs",
+							children: option
+						}, option))
+					}),
+					/* @__PURE__ */ jsx("div", {
+						className: "space-y-2",
+						children: background.details?.sections?.map((section, index) => /* @__PURE__ */ jsxs("div", { children: [section.title ? /* @__PURE__ */ jsx("p", {
+							className: "text-xs font-semibold",
+							children: section.title
+						}) : null, section.text ? /* @__PURE__ */ jsx("p", {
+							className: "whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground",
+							children: section.text
+						}) : null] }, `${section.title || "section"}-${index}`))
+					}),
+					background.features.length > 0 && /* @__PURE__ */ jsxs("div", {
+						className: "mt-3 space-y-1 border-t pt-2",
+						children: [/* @__PURE__ */ jsx("p", {
+							className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+							children: "Feature"
+						}), background.features.map((feature, index) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
+							className: "text-xs font-semibold",
+							children: feature.name.replace(/^feature\s*:\s*/i, "")
+						}), /* @__PURE__ */ jsx("p", {
+							className: "whitespace-pre-wrap text-xs text-muted-foreground",
+							children: feature.text
+						})] }, `${feature.name}-${index}`))]
+					})
+				]
 			}),
 			/* @__PURE__ */ jsx(Card$1, {
 				title: "Appearance",
@@ -43668,6 +44664,379 @@ function PinnedNodeCard() {
 	}, node.id)) });
 }
 //#endregion
+//#region src/components/skilltree/CharacterCreatorDialog.jsx
+var MODE_ICONS = {
+	tree: TreePine,
+	"tree-race": UserRound,
+	"tree-class": Swords,
+	all: Sparkles
+};
+function Field({ label, hint, children }) {
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-1",
+		children: [
+			/* @__PURE__ */ jsx(Label, {
+				className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+				children: label
+			}),
+			children,
+			hint ? /* @__PURE__ */ jsx("p", {
+				className: "text-[10px] text-muted-foreground",
+				children: hint
+			}) : null
+		]
+	});
+}
+function ChoiceSelect({ value, onChange, options, placeholder, manualLabel = "Type a name" }) {
+	if (!options.length) return /* @__PURE__ */ jsx(Input, {
+		value: value || "",
+		placeholder: manualLabel,
+		onChange: (event) => onChange(event.target.value)
+	});
+	return /* @__PURE__ */ jsxs(Select, {
+		value: options.some((option) => option.id === value) ? value : "",
+		onValueChange: onChange,
+		children: [/* @__PURE__ */ jsx(SelectTrigger, {
+			className: "h-9",
+			children: /* @__PURE__ */ jsx(SelectValue, { placeholder })
+		}), /* @__PURE__ */ jsx(SelectContent, { children: options.map((option) => /* @__PURE__ */ jsx(SelectItem, {
+			value: option.id,
+			children: option.label
+		}, option.id)) })]
+	});
+}
+function CharacterCreatorDialog({ open, onClose }) {
+	const { character, setCharacter, enterApp, settings } = useTree();
+	const classes = useMemo(() => classChoices(settings), [settings]);
+	const races = useMemo(() => raceChoices(settings), [settings]);
+	const backgrounds = useMemo(() => backgroundChoices(settings), [settings]);
+	const feats = useMemo(() => featChoices(settings), [settings]);
+	const [name, setName] = useState("");
+	const [mode, setMode] = useState("all");
+	const [raceId, setRaceId] = useState("");
+	const [classId, setClassId] = useState("");
+	const [subclassId, setSubclassId] = useState("");
+	const [backgroundId, setBackgroundId] = useState("");
+	const [useOriginFeat, setUseOriginFeat] = useState(false);
+	const [featId, setFeatId] = useState("");
+	const [optionChoices, setOptionChoices] = useState({});
+	const [currency, setCurrency] = useState("gp");
+	const [amount, setAmount] = useState("0");
+	useEffect(() => {
+		if (!open) return;
+		const creation = character?.creation || {};
+		const firstClass = (character?.classes || [])[0];
+		const classEntry = classes.find((option) => option.name === (firstClass?.name || character?.class) && (!firstClass?.source || option.source === firstClass.source));
+		const raceEntry = races.find((option) => option.name === (creation.race?.name || character?.race) && (!creation.race?.source || option.source === creation.race.source));
+		const backgroundEntry = backgrounds.find((option) => option.name === (creation.background?.name || character?.background) && (!creation.background?.source || option.source === creation.background.source));
+		const subEntry = (firstClass?.name ? subclassChoices(settings, firstClass.name, firstClass.source) : []).find((option) => option.name === (firstClass?.subclass || character?.subclass));
+		const featEntry = feats.find((option) => option.name === creation.originFeat?.name && (!creation.originFeat?.source || option.source === creation.originFeat.source));
+		setName(character?.name || "");
+		setMode(creation.mode || (character?.class && character.class !== "Dilettante" ? "all" : "tree"));
+		setRaceId(raceEntry?.id || "");
+		setClassId(classEntry?.id || "");
+		setSubclassId(subEntry?.id || "");
+		setBackgroundId(backgroundEntry?.id || "");
+		setUseOriginFeat(!!creation.originFeat);
+		setFeatId(featEntry?.id || "");
+		setOptionChoices(creation.background?.options || {});
+		setCurrency(creation.startingCurrency?.type || "gp");
+		setAmount(String(creation.startingCurrency?.amount ?? 0));
+	}, [
+		open,
+		character,
+		classes,
+		races,
+		backgrounds,
+		feats,
+		settings
+	]);
+	const showRace = mode === "tree-race" || mode === "all";
+	const showClass = mode === "tree-class" || mode === "all";
+	const race = races.find((option) => option.id === raceId);
+	const raceName = race?.name || (races.length ? "" : raceId);
+	const raceSource = race?.source || "";
+	const baseClass = classes.find((option) => option.id === classId);
+	const className = baseClass?.name || (classes.length ? "" : classId);
+	const classSource = baseClass?.source || "";
+	const subclasses = useMemo(() => className ? subclassChoices(settings, className, classSource) : [], [
+		settings,
+		className,
+		classSource
+	]);
+	const subclass = subclasses.find((option) => option.id === subclassId);
+	const subclassName = subclass?.name || (subclasses.length ? "" : subclassId);
+	const subclassSource = subclass?.source || "";
+	const background = backgrounds.find((option) => option.id === backgroundId);
+	const backgroundName = background?.name || (backgrounds.length ? "" : backgroundId);
+	const backgroundSource = background?.source || "";
+	const optionGroups = useMemo(() => useOriginFeat ? [] : backgroundOptionGroups(background?.entry), [background, useOriginFeat]);
+	const feat = feats.find((option) => option.id === featId);
+	const featName = feat?.name || (feats.length ? "" : featId);
+	const featSource = feat?.source || "";
+	const create = () => {
+		if (showRace && !raceName) {
+			toast.error("Choose a race (or switch to a mode without a race).");
+			return;
+		}
+		if (showClass && !className) {
+			toast.error("Choose a class (or switch to a mode without a class).");
+			return;
+		}
+		if (!useOriginFeat && backgroundName && optionGroups.some((group) => !optionChoices[group.id])) {
+			toast.error("This background has options — pick one for each group.");
+			return;
+		}
+		if (useOriginFeat && !featName) {
+			toast.error("Choose an origin feat, or turn the replacement off.");
+			return;
+		}
+		const gained = Math.max(0, Number(amount) || 0);
+		const coins = { ...character?.coins || {} };
+		if (gained > 0) coins[currency] = (Number(coins[currency]) || 0) + gained;
+		const hitDie = baseClass?.entry?.hd?.faces;
+		const creation = {
+			mode,
+			race: showRace && raceName ? {
+				name: raceName,
+				source: raceSource
+			} : null,
+			class: showClass && className ? {
+				name: className,
+				source: classSource,
+				subclass: subclassName || "",
+				subclassSource: subclassName ? subclassSource : ""
+			} : null,
+			background: !useOriginFeat && backgroundName ? {
+				name: backgroundName,
+				source: backgroundSource,
+				options: optionChoices
+			} : null,
+			originFeat: useOriginFeat && featName ? {
+				name: featName,
+				source: featSource
+			} : null,
+			startingCurrency: {
+				type: currency,
+				amount: gained
+			},
+			createdAt: (/* @__PURE__ */ new Date()).toISOString()
+		};
+		setCharacter({
+			...character,
+			name: name.trim() || character?.name || "Unnamed Character",
+			level: 1,
+			race: showRace && raceName ? raceName : "Heritage",
+			class: showClass && className ? className : "Dilettante",
+			subclass: showClass ? subclassName || "" : "",
+			background: useOriginFeat ? "" : backgroundName || "",
+			originFeat: useOriginFeat ? featName || "" : "",
+			hitDiceSize: hitDie ? `d${hitDie}` : character?.hitDiceSize || "d6",
+			classes: showClass && className ? [{
+				name: className,
+				source: classSource,
+				subclass: subclassName || "",
+				subclassSource: subclassName ? subclassSource : "",
+				level: 1
+			}] : [],
+			creation,
+			coins
+		});
+		toast.success(`${name.trim() || "Character"} created${className ? ` as a ${className}` : ""}.`);
+		enterApp("sheet", { sheetOnly: true });
+		onClose();
+	};
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange: (value) => !value && onClose(),
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-h-[88vh] max-w-3xl overflow-y-auto",
+			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Character Creator" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Build from the current talent tree with any combination of race and class. Imported 5eTools entries appear here automatically." })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-4",
+				children: [
+					/* @__PURE__ */ jsx(Field, {
+						label: "Name",
+						children: /* @__PURE__ */ jsx(Input, {
+							value: name,
+							onChange: (event) => setName(event.target.value),
+							placeholder: "Character name"
+						})
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "space-y-2",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+							children: "Build from"
+						}), /* @__PURE__ */ jsx("div", {
+							className: "grid gap-2 sm:grid-cols-2",
+							children: CREATION_MODES.map((option) => {
+								const Icon = MODE_ICONS[option.id] || TreePine;
+								const active = mode === option.id;
+								return /* @__PURE__ */ jsxs("button", {
+									type: "button",
+									onClick: () => setMode(option.id),
+									className: `flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors ${active ? "border-primary bg-primary/10" : "border-border/60 hover:bg-accent"}`,
+									children: [/* @__PURE__ */ jsx(Icon, { className: "mt-0.5 h-4 w-4 shrink-0 text-primary" }), /* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
+										className: "block text-sm font-medium",
+										children: option.label
+									}), /* @__PURE__ */ jsx("span", {
+										className: "block text-[10px] text-muted-foreground",
+										children: option.hint
+									})] })]
+								}, option.id);
+							})
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid gap-3 sm:grid-cols-2",
+						children: [
+							showRace && /* @__PURE__ */ jsx(Field, {
+								label: "Race",
+								hint: races.length ? void 0 : "No species imported — type a name.",
+								children: /* @__PURE__ */ jsx(ChoiceSelect, {
+									value: raceId,
+									onChange: setRaceId,
+									options: races,
+									placeholder: "Choose a race",
+									manualLabel: "Race name"
+								})
+							}),
+							showClass && /* @__PURE__ */ jsx(Field, {
+								label: "Class",
+								hint: classes.length ? "2014 and 2024 classes are listed separately." : "No classes imported — type a name.",
+								children: /* @__PURE__ */ jsx(ChoiceSelect, {
+									value: classId,
+									onChange: (value) => {
+										setClassId(value);
+										setSubclassId("");
+									},
+									options: classes,
+									placeholder: "Choose a class",
+									manualLabel: "Class name"
+								})
+							}),
+							showClass && className && /* @__PURE__ */ jsx(Field, {
+								label: "Subclass",
+								hint: subclasses.length ? "Shared subclasses appear under every class that owns them." : "No subclass for this class yet.",
+								children: /* @__PURE__ */ jsx(ChoiceSelect, {
+									value: subclassId,
+									onChange: setSubclassId,
+									options: subclasses,
+									placeholder: "Choose a subclass (optional)",
+									manualLabel: "Subclass name (optional)"
+								})
+							})
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "space-y-3 rounded-lg border p-3",
+						children: [/* @__PURE__ */ jsxs("label", {
+							className: "flex items-center justify-between gap-3 text-sm",
+							children: [/* @__PURE__ */ jsxs("span", { children: [/* @__PURE__ */ jsx("span", {
+								className: "font-medium",
+								children: "Use an origin feat instead of a background"
+							}), /* @__PURE__ */ jsx("span", {
+								className: "block text-[10px] text-muted-foreground",
+								children: "The origin feat replaces the background choice entirely."
+							})] }), /* @__PURE__ */ jsx(Switch, {
+								checked: useOriginFeat,
+								onCheckedChange: (value) => setUseOriginFeat(value)
+							})]
+						}), useOriginFeat ? /* @__PURE__ */ jsx(Field, {
+							label: "Origin feat",
+							hint: feats.length ? void 0 : "No feats imported — type a name.",
+							children: /* @__PURE__ */ jsx(ChoiceSelect, {
+								value: featId,
+								onChange: setFeatId,
+								options: feats,
+								placeholder: "Choose an origin feat",
+								manualLabel: "Origin feat name"
+							})
+						}) : /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Field, {
+							label: "Background",
+							hint: backgrounds.length ? void 0 : "No backgrounds imported — type a name.",
+							children: /* @__PURE__ */ jsx(ChoiceSelect, {
+								value: backgroundId,
+								onChange: setBackgroundId,
+								options: backgrounds,
+								placeholder: "Choose a background",
+								manualLabel: "Background name"
+							})
+						}), optionGroups.map((group) => /* @__PURE__ */ jsx(Field, {
+							label: group.label,
+							hint: "This background asks you to choose.",
+							children: /* @__PURE__ */ jsxs(Select, {
+								value: optionChoices[group.id] || "",
+								onValueChange: (value) => setOptionChoices((current) => ({
+									...current,
+									[group.id]: value
+								})),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-9",
+									children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose one" })
+								}), /* @__PURE__ */ jsx(SelectContent, { children: group.choices.map((choice) => /* @__PURE__ */ jsx(SelectItem, {
+									value: choice.id,
+									children: choice.label
+								}, choice.id)) })]
+							})
+						}, group.id))] })]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "rounded-lg border p-3",
+						children: [
+							/* @__PURE__ */ jsxs("p", {
+								className: "flex items-center gap-1.5 text-sm font-medium",
+								children: [/* @__PURE__ */ jsx(Coins, { className: "h-4 w-4" }), " Starting currency"]
+							}),
+							/* @__PURE__ */ jsx("p", {
+								className: "mb-2 text-[10px] text-muted-foreground",
+								children: "Choose one currency and how much the character starts with. It is added to the working purse."
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-[1fr_120px] gap-2",
+								children: [/* @__PURE__ */ jsxs(Select, {
+									value: currency,
+									onValueChange: setCurrency,
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-9",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsx(SelectContent, { children: COIN_TYPES.map((coin) => /* @__PURE__ */ jsx(SelectItem, {
+										value: coin.id,
+										children: coin.label
+									}, coin.id)) })]
+								}), /* @__PURE__ */ jsx(Input, {
+									type: "number",
+									min: 0,
+									value: amount,
+									onChange: (event) => setAmount(event.target.value),
+									"aria-label": "Starting amount"
+								})]
+							})
+						]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex items-center justify-between gap-2 border-t pt-3",
+						children: [/* @__PURE__ */ jsx("p", {
+							className: "text-[10px] text-muted-foreground",
+							children: "The current tree stays exactly as it is; only the character's origin, class and purse change."
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "flex gap-2",
+							children: [/* @__PURE__ */ jsx(Button, {
+								variant: "outline",
+								onClick: onClose,
+								children: "Cancel"
+							}), /* @__PURE__ */ jsx(Button, {
+								onClick: create,
+								children: "Create character"
+							})]
+						})]
+					})
+				]
+			})]
+		})
+	});
+}
+//#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
 function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder, onRoomBuilder }) {
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
@@ -43676,6 +45045,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
+	const [creatorOpen, setCreatorOpen] = useState(false);
 	const [installPrompt, setInstallPrompt] = useState(null);
 	useEffect(() => {
 		const onPrompt = (event) => {
@@ -43789,7 +45159,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
 						}),
 						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse official, homebrew and prerelease 5eTools data", () => onReferenceIndex?.(), locked),
-						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => enterApp("sheet", { sheetOnly: true }), locked),
+						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character in the working sheet", () => setCreatorOpen(true), locked),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
 							children: [
@@ -43847,6 +45217,10 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 			/* @__PURE__ */ jsx(LibraryMenu, {
 				open: libraryOpen,
 				onClose: () => setLibraryOpen(false)
+			}),
+			/* @__PURE__ */ jsx(CharacterCreatorDialog, {
+				open: creatorOpen,
+				onClose: () => setCreatorOpen(false)
 			})
 		]
 	});
@@ -50576,10 +51950,11 @@ function ReferenceIndexTab() {
 					}));
 					const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
 					if (features.length) {
-						const tabId = addImportedTab(`Subclass: ${entryName$1(s)}`, features, {
+						const tabId = addImportedTab(`Subclass: ${entryName$1(s)}${s.source ? ` (${s.source})` : ""}`, features, {
 							category: activeCategory.label,
 							layout: "class",
-							className: s.className
+							className: s.className,
+							classSource: s.classSource
 						});
 						if (tabId) importTabIdsRef.current.push(tabId);
 						done += 1;
@@ -50597,10 +51972,11 @@ function ReferenceIndexTab() {
 				})));
 				const features = featuresForClassBundle(base, selectedSubs, rawForEntry(base) || rawForEntry(selectedSubs[0]));
 				if (features.length) {
-					const tabId = addImportedTab(`Class: ${entryName$1(base)}`, features, {
+					const tabId = addImportedTab(`Class: ${entryName$1(base)}${base.source ? ` (${base.source})` : ""}`, features, {
 						category: activeCategory.label,
 						layout: "class",
-						className: base.name
+						className: base.name,
+						classSource: base.source
 					});
 					if (tabId) importTabIdsRef.current.push(tabId);
 					done += 1;
@@ -80490,6 +81866,212 @@ function ActivityLogPanel() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/MusicPlayer.jsx
+function SpinningRecord() {
+	return /* @__PURE__ */ jsxs("svg", {
+		viewBox: "0 0 40 40",
+		"aria-hidden": "true",
+		className: "h-9 w-9 shrink-0 animate-[spin_3.5s_linear_infinite] drop-shadow",
+		children: [
+			/* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "20",
+				r: "19",
+				fill: "#111318"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "20",
+				r: "18.2",
+				fill: "none",
+				stroke: "#2b2f3a",
+				strokeWidth: "0.8"
+			}),
+			[
+				15.5,
+				13,
+				10.5,
+				8.2
+			].map((r) => /* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "20",
+				r,
+				fill: "none",
+				stroke: "#383d4a",
+				strokeWidth: "0.45"
+			}, r)),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "20",
+				r: "6",
+				fill: "#00e5ff"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "20",
+				r: "6",
+				fill: "none",
+				stroke: "#0e7490",
+				strokeWidth: "0.6"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "20",
+				cy: "20",
+				r: "1.4",
+				fill: "#0b1020"
+			}),
+			/* @__PURE__ */ jsx("circle", {
+				cx: "17",
+				cy: "17",
+				r: "1.6",
+				fill: "#e0fbff",
+				opacity: "0.55"
+			})
+		]
+	});
+}
+function MusicPlayer() {
+	const { settings } = useTree();
+	const library = useMusicLibrary();
+	const audio = useMemo(() => ({
+		...DEFAULT_AUDIO_SETTINGS,
+		...settings.audio || {}
+	}), [settings.audio]);
+	const audioRef = useRef(audio);
+	audioRef.current = audio;
+	const playlist = useMemo(() => audio.customMusic ? library.custom : library.default, [audio.customMusic, library]);
+	const playlistRef = useRef(playlist);
+	playlistRef.current = playlist;
+	const [toastTrack, setToastTrack] = useState(null);
+	const [needsGesture, setNeedsGesture] = useState(false);
+	const toastTimer = useRef(null);
+	const pendingTrack = useRef(null);
+	const startTrack = useCallback(async (track) => {
+		if (!track?.file) return false;
+		pendingTrack.current = track;
+		const ok = await playMusicTrack(track);
+		if (ok) {
+			pendingTrack.current = null;
+			setCurrentTrack(track);
+			if (audioRef.current.nowPlaying) {
+				setToastTrack(track);
+				clearTimeout(toastTimer.current);
+				toastTimer.current = setTimeout(() => setToastTrack(null), NOW_PLAYING_MS);
+			}
+		} else setNeedsGesture(true);
+		return ok;
+	}, []);
+	const startTrackRef = useRef(startTrack);
+	startTrackRef.current = startTrack;
+	const pickNext = useCallback((exclude) => {
+		const list = playlistRef.current;
+		if (!list.length) return null;
+		if (audioRef.current.shuffle) {
+			const pool = list.length > 1 ? list.filter((t) => t.file !== exclude) : list;
+			return pool[Math.floor(Math.random() * pool.length)];
+		}
+		return list[(list.findIndex((t) => t.file === exclude) + 1) % list.length];
+	}, []);
+	useEffect(() => {
+		configureAudio(audio);
+	}, [audio]);
+	useEffect(() => {
+		if (!audio.sfxEnabled) return void 0;
+		return installClickSounds(true);
+	}, [audio.sfxEnabled]);
+	useEffect(() => {
+		let alive = true;
+		const run = async () => {
+			if (!audio.musicEnabled) {
+				await pauseMusic();
+				return;
+			}
+			const list = audio.customMusic ? library.custom : library.default;
+			if (!list.length) {
+				await pauseMusic();
+				setCurrentTrack(null);
+				return;
+			}
+			const currentFile = getCurrentTrack()?.file;
+			const chosen = audio.track ? list.find((t) => t.file === audio.track) : null;
+			if (chosen && chosen.file !== currentFile) {
+				await startTrack(chosen);
+				return;
+			}
+			if (currentFile && list.some((t) => t.file === currentFile)) {
+				if (getMusicElement()?.paused) {
+					if (!await resumeMusic() && alive) setNeedsGesture(true);
+				}
+				return;
+			}
+			const next = chosen || pickNext(currentFile);
+			if (next) await startTrack(next);
+		};
+		run();
+		return () => {
+			alive = false;
+		};
+	}, [
+		audio.musicEnabled,
+		audio.customMusic,
+		audio.track,
+		library,
+		startTrack,
+		pickNext
+	]);
+	useEffect(() => {
+		if (!needsGesture) return void 0;
+		const retry = () => {
+			setNeedsGesture(false);
+			const track = pendingTrack.current || (playlistRef.current.length ? pickNext(getCurrentTrack()?.file) : null);
+			if (track) startTrackRef.current(track);
+		};
+		window.addEventListener("pointerdown", retry, { once: true });
+		window.addEventListener("keydown", retry, { once: true });
+		return () => {
+			window.removeEventListener("pointerdown", retry);
+			window.removeEventListener("keydown", retry);
+		};
+	}, [needsGesture, pickNext]);
+	useEffect(() => {
+		setMusicEndedHandler(() => {
+			const next = pickNext(getCurrentTrack()?.file);
+			if (next) startTrackRef.current(next);
+		});
+		return () => setMusicEndedHandler(null);
+	}, [pickNext]);
+	useEffect(() => {
+		if (!audio.nowPlaying) setToastTrack(null);
+	}, [audio.nowPlaying]);
+	useEffect(() => () => {
+		clearTimeout(toastTimer.current);
+	}, []);
+	if (!toastTrack) return null;
+	return /* @__PURE__ */ jsx("div", {
+		className: "pointer-events-none fixed bottom-4 right-4 z-[120] max-w-[calc(100vw-2rem)]",
+		children: /* @__PURE__ */ jsxs("div", {
+			className: "pointer-events-auto flex items-center gap-3 rounded-xl border bg-card/95 py-2.5 pl-3 pr-2 shadow-2xl backdrop-blur",
+			children: [
+				/* @__PURE__ */ jsx(SpinningRecord, {}),
+				/* @__PURE__ */ jsx("div", {
+					className: "min-w-0",
+					children: /* @__PURE__ */ jsxs("p", {
+						className: "truncate text-sm font-semibold",
+						children: ["Now Playing - ", toastTrack.title]
+					})
+				}),
+				/* @__PURE__ */ jsx("button", {
+					type: "button",
+					"aria-label": "Dismiss now playing",
+					onClick: () => setToastTrack(null),
+					className: "ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground",
+					children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
+				})
+			]
+		})
+	});
+}
+//#endregion
 //#region src/components/skilltree/PresentationSheet.jsx
 var signed = (n) => n >= 0 ? `+${n}` : String(n);
 var SPELL_LEVELS = [
@@ -82424,6 +84006,6 @@ function Workspace() {
 		]
 	});
 }
-var SplitComponent = () => /* @__PURE__ */ jsx(TreeProvider, { children: /* @__PURE__ */ jsx(Workspace, {}) });
+var SplitComponent = () => /* @__PURE__ */ jsxs(TreeProvider, { children: [/* @__PURE__ */ jsx(Workspace, {}), /* @__PURE__ */ jsx(MusicPlayer, {})] });
 //#endregion
 export { SplitComponent as component };

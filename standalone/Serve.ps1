@@ -19,6 +19,8 @@ $mimes = @{
   ".jpg"="image/jpeg"; ".jpeg"="image/jpeg"; ".gif"="image/gif"; ".webp"="image/webp"; ".ico"="image/x-icon"
   ".bmp"="image/bmp"; ".avif"="image/avif"; ".woff"="font/woff"; ".woff2"="font/woff2"; ".ttf"="font/ttf"; ".map"="application/json"
   ".apk"="application/vnd.android.package-archive"
+  ".ogg"="audio/ogg"; ".opus"="audio/ogg"; ".mp3"="audio/mpeg"; ".wav"="audio/wav"
+  ".m4a"="audio/mp4"; ".flac"="audio/flac"; ".aac"="audio/aac"
 }
 $url = "http://localhost:$port"
 

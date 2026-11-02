@@ -1,0 +1,483 @@
+import { useEffect, useMemo, useState } from "react";
+import { useTree } from "@/lib/treeStore";
+import {
+  COIN_TYPES,
+  CREATION_MODES,
+  backgroundChoices,
+  backgroundOptionGroups,
+  classChoices,
+  featChoices,
+  raceChoices,
+  subclassChoices,
+} from "@/lib/characterCreation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Coins, Sparkles, Swords, TreePine, UserRound } from "lucide-react";
+import { toast } from "sonner";
+
+const MODE_ICONS = {
+  tree: TreePine,
+  "tree-race": UserRound,
+  "tree-class": Swords,
+  all: Sparkles,
+};
+
+function Field({ label, hint, children }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+      {hint ? <p className="text-[10px] text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+function ChoiceSelect({ value, onChange, options, placeholder, manualLabel = "Type a name" }) {
+  if (!options.length) {
+    return (
+      <Input
+        value={value || ""}
+        placeholder={manualLabel}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
+  }
+  return (
+    <Select
+      value={options.some((option) => option.id === value) ? value : ""}
+      onValueChange={onChange}
+    >
+      <SelectTrigger className="h-9">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={option.id}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+// Multi-source character creation: the current talent tree is always the base,
+// and race, class/subclass, background (or an origin feat) are added on top.
+export function CharacterCreatorDialog({ open, onClose }) {
+  const { character, setCharacter, enterApp, settings } = useTree();
+
+  const classes = useMemo(() => classChoices(settings), [settings]);
+  const races = useMemo(() => raceChoices(settings), [settings]);
+  const backgrounds = useMemo(() => backgroundChoices(settings), [settings]);
+  const feats = useMemo(() => featChoices(settings), [settings]);
+
+  const [name, setName] = useState("");
+  const [mode, setMode] = useState("all");
+  const [raceId, setRaceId] = useState("");
+  const [classId, setClassId] = useState("");
+  const [subclassId, setSubclassId] = useState("");
+  const [backgroundId, setBackgroundId] = useState("");
+  const [useOriginFeat, setUseOriginFeat] = useState(false);
+  const [featId, setFeatId] = useState("");
+  const [optionChoices, setOptionChoices] = useState({});
+  const [currency, setCurrency] = useState("gp");
+  const [amount, setAmount] = useState("0");
+
+  // Re-seed the form from the working character each time it opens.
+  useEffect(() => {
+    if (!open) return;
+    const creation = character?.creation || {};
+    const firstClass = (character?.classes || [])[0];
+    const classEntry = classes.find(
+      (option) =>
+        option.name === (firstClass?.name || character?.class) &&
+        (!firstClass?.source || option.source === firstClass.source)
+    );
+    const raceEntry = races.find(
+      (option) =>
+        option.name === (creation.race?.name || character?.race) &&
+        (!creation.race?.source || option.source === creation.race.source)
+    );
+    const backgroundEntry = backgrounds.find(
+      (option) =>
+        option.name === (creation.background?.name || character?.background) &&
+        (!creation.background?.source ||
+          option.source === creation.background.source)
+    );
+    const subOptions = firstClass?.name
+      ? subclassChoices(settings, firstClass.name, firstClass.source)
+      : [];
+    const subEntry = subOptions.find(
+      (option) =>
+        option.name === (firstClass?.subclass || character?.subclass)
+    );
+    const featEntry = feats.find(
+      (option) =>
+        option.name === creation.originFeat?.name &&
+        (!creation.originFeat?.source ||
+          option.source === creation.originFeat.source)
+    );
+    setName(character?.name || "");
+    setMode(creation.mode || (character?.class && character.class !== "Dilettante" ? "all" : "tree"));
+    setRaceId(raceEntry?.id || "");
+    setClassId(classEntry?.id || "");
+    setSubclassId(subEntry?.id || "");
+    setBackgroundId(backgroundEntry?.id || "");
+    setUseOriginFeat(!!creation.originFeat);
+    setFeatId(featEntry?.id || "");
+    setOptionChoices(creation.background?.options || {});
+    setCurrency(creation.startingCurrency?.type || "gp");
+    setAmount(String(creation.startingCurrency?.amount ?? 0));
+  }, [open, character, classes, races, backgrounds, feats, settings]);
+
+  const showRace = mode === "tree-race" || mode === "all";
+  const showClass = mode === "tree-class" || mode === "all";
+
+  const race = races.find((option) => option.id === raceId);
+  const raceName = race?.name || (races.length ? "" : raceId);
+  const raceSource = race?.source || "";
+
+  const baseClass = classes.find((option) => option.id === classId);
+  const className = baseClass?.name || (classes.length ? "" : classId);
+  const classSource = baseClass?.source || "";
+
+  const subclasses = useMemo(
+    () => (className ? subclassChoices(settings, className, classSource) : []),
+    [settings, className, classSource]
+  );
+  const subclass = subclasses.find((option) => option.id === subclassId);
+  const subclassName = subclass?.name || (subclasses.length ? "" : subclassId);
+  const subclassSource = subclass?.source || "";
+
+  const background = backgrounds.find((option) => option.id === backgroundId);
+  const backgroundName = background?.name || (backgrounds.length ? "" : backgroundId);
+  const backgroundSource = background?.source || "";
+  const optionGroups = useMemo(
+    () => (useOriginFeat ? [] : backgroundOptionGroups(background?.entry)),
+    [background, useOriginFeat]
+  );
+
+  const feat = feats.find((option) => option.id === featId);
+  const featName = feat?.name || (feats.length ? "" : featId);
+  const featSource = feat?.source || "";
+
+  const create = () => {
+    if (showRace && !raceName) {
+      toast.error("Choose a race (or switch to a mode without a race).");
+      return;
+    }
+    if (showClass && !className) {
+      toast.error("Choose a class (or switch to a mode without a class).");
+      return;
+    }
+    if (!useOriginFeat && backgroundName && optionGroups.some((group) => !optionChoices[group.id])) {
+      toast.error("This background has options — pick one for each group.");
+      return;
+    }
+    if (useOriginFeat && !featName) {
+      toast.error("Choose an origin feat, or turn the replacement off.");
+      return;
+    }
+
+    const gained = Math.max(0, Number(amount) || 0);
+    const coins = { ...(character?.coins || {}) };
+    if (gained > 0) {
+      coins[currency] = (Number(coins[currency]) || 0) + gained;
+    }
+
+    const hitDie = baseClass?.entry?.hd?.faces;
+    const creation = {
+      mode,
+      race: showRace && raceName ? { name: raceName, source: raceSource } : null,
+      class:
+        showClass && className
+          ? {
+              name: className,
+              source: classSource,
+              subclass: subclassName || "",
+              subclassSource: subclassName ? subclassSource : "",
+            }
+          : null,
+      background:
+        !useOriginFeat && backgroundName
+          ? { name: backgroundName, source: backgroundSource, options: optionChoices }
+          : null,
+      originFeat:
+        useOriginFeat && featName ? { name: featName, source: featSource } : null,
+      startingCurrency: { type: currency, amount: gained },
+      createdAt: new Date().toISOString(),
+    };
+
+    setCharacter({
+      ...character,
+      name: name.trim() || character?.name || "Unnamed Character",
+      level: 1,
+      race: showRace && raceName ? raceName : "Heritage",
+      class: showClass && className ? className : "Dilettante",
+      subclass: showClass ? subclassName || "" : "",
+      background: useOriginFeat ? "" : backgroundName || "",
+      originFeat: useOriginFeat ? featName || "" : "",
+      hitDiceSize: hitDie ? `d${hitDie}` : character?.hitDiceSize || "d6",
+      classes:
+        showClass && className
+          ? [
+              {
+                name: className,
+                source: classSource,
+                subclass: subclassName || "",
+                subclassSource: subclassName ? subclassSource : "",
+                level: 1,
+              },
+            ]
+          : [],
+      creation,
+      coins,
+    });
+    toast.success(
+      `${name.trim() || "Character"} created${className ? ` as a ${className}` : ""}.`
+    );
+    enterApp("sheet", { sheetOnly: true });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Character Creator</DialogTitle>
+          <DialogDescription>
+            Build from the current talent tree with any combination of race and
+            class. Imported 5eTools entries appear here automatically.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <Field label="Name">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Character name"
+            />
+          </Field>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Build from
+            </Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {CREATION_MODES.map((option) => {
+                const Icon = MODE_ICONS[option.id] || TreePine;
+                const active = mode === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setMode(option.id)}
+                    className={`flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors ${
+                      active
+                        ? "border-primary bg-primary/10"
+                        : "border-border/60 hover:bg-accent"
+                    }`}
+                  >
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span>
+                      <span className="block text-sm font-medium">{option.label}</span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {option.hint}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {showRace && (
+              <Field label="Race" hint={races.length ? undefined : "No species imported — type a name."}>
+                <ChoiceSelect
+                  value={raceId}
+                  onChange={setRaceId}
+                  options={races}
+                  placeholder="Choose a race"
+                  manualLabel="Race name"
+                />
+              </Field>
+            )}
+            {showClass && (
+              <Field
+                label="Class"
+                hint={
+                  classes.length
+                    ? "2014 and 2024 classes are listed separately."
+                    : "No classes imported — type a name."
+                }
+              >
+                <ChoiceSelect
+                  value={classId}
+                  onChange={(value) => {
+                    setClassId(value);
+                    setSubclassId("");
+                  }}
+                  options={classes}
+                  placeholder="Choose a class"
+                  manualLabel="Class name"
+                />
+              </Field>
+            )}
+            {showClass && className && (
+              <Field
+                label="Subclass"
+                hint={
+                  subclasses.length
+                    ? "Shared subclasses appear under every class that owns them."
+                    : "No subclass for this class yet."
+                }
+              >
+                <ChoiceSelect
+                  value={subclassId}
+                  onChange={setSubclassId}
+                  options={subclasses}
+                  placeholder="Choose a subclass (optional)"
+                  manualLabel="Subclass name (optional)"
+                />
+              </Field>
+            )}
+          </div>
+
+          <div className="space-y-3 rounded-lg border p-3">
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                <span className="font-medium">Use an origin feat instead of a background</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  The origin feat replaces the background choice entirely.
+                </span>
+              </span>
+              <Switch
+                checked={useOriginFeat}
+                onCheckedChange={(value) => setUseOriginFeat(value)}
+              />
+            </label>
+
+            {useOriginFeat ? (
+              <Field label="Origin feat" hint={feats.length ? undefined : "No feats imported — type a name."}>
+                <ChoiceSelect
+                  value={featId}
+                  onChange={setFeatId}
+                  options={feats}
+                  placeholder="Choose an origin feat"
+                  manualLabel="Origin feat name"
+                />
+              </Field>
+            ) : (
+              <>
+                <Field
+                  label="Background"
+                  hint={backgrounds.length ? undefined : "No backgrounds imported — type a name."}
+                >
+                  <ChoiceSelect
+                    value={backgroundId}
+                    onChange={setBackgroundId}
+                    options={backgrounds}
+                    placeholder="Choose a background"
+                    manualLabel="Background name"
+                  />
+                </Field>
+                {optionGroups.map((group) => (
+                  <Field
+                    key={group.id}
+                    label={group.label}
+                    hint="This background asks you to choose."
+                  >
+                    <Select
+                      value={optionChoices[group.id] || ""}
+                      onValueChange={(value) =>
+                        setOptionChoices((current) => ({
+                          ...current,
+                          [group.id]: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Choose one" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {group.choices.map((choice) => (
+                          <SelectItem key={choice.id} value={choice.id}>
+                            {choice.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                ))}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <Coins className="h-4 w-4" /> Starting currency
+            </p>
+            <p className="mb-2 text-[10px] text-muted-foreground">
+              Choose one currency and how much the character starts with. It is
+              added to the working purse.
+            </p>
+            <div className="grid grid-cols-[1fr_120px] gap-2">
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COIN_TYPES.map((coin) => (
+                    <SelectItem key={coin.id} value={coin.id}>
+                      {coin.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                min={0}
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                aria-label="Starting amount"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 border-t pt-3">
+            <p className="text-[10px] text-muted-foreground">
+              The current tree stays exactly as it is; only the character's
+              origin, class and purse change.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={create}>Create character</Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

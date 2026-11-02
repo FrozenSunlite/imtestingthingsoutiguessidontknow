@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { Button } from "@/components/ui/button";
 import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
+import { CharacterCreatorDialog } from "@/components/skilltree/CharacterCreatorDialog";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
 import Rulebook from "@/components/rulebook/Rulebook";
@@ -40,6 +41,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
 
   useEffect(() => {
@@ -208,7 +210,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             <Wand2 className="h-5 w-5" />,
             "Character Creator",
             "Build a character in the working sheet",
-            () => enterApp("sheet", { sheetOnly: true }),
+            () => setCreatorOpen(true),
             locked
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -291,6 +293,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
       <SettingsMenu open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SaveLoadMenu open={saveOpen} onClose={() => setSaveOpen(false)} />
       <LibraryMenu open={libraryOpen} onClose={() => setLibraryOpen(false)} />
+      <CharacterCreatorDialog open={creatorOpen} onClose={() => setCreatorOpen(false)} />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   DEFAULT_SENSES,
 } from "@/lib/resources";
 import { DEFAULT_HOTKEYS } from "@/lib/hotkeys";
+import { DEFAULT_AUDIO_SETTINGS } from "@/lib/audio";
 import { DEFAULT_DIE_SCALING, dieText } from "@/lib/dieScaling";
 import { STARTER_DUNGEON_ROOMS } from "@/lib/dungeonRooms";
 import { restoreFiveEToolsSources } from "@/lib/fiveEToolsCache";
@@ -509,6 +510,7 @@ const DEFAULT_SETTINGS = {
   autoSaveToDisk: true,
   autoSaveInterval: 60,
   cacheRemoteImages: false,
+  audio: { ...DEFAULT_AUDIO_SETTINGS },
   // Currency suffix used by dungeon rewards and Architect payouts.
   rewardCurrency: "gp",
   tourDone: false,
@@ -873,6 +875,10 @@ function buildImportedTab(name, features, meta = {}) {
         resources: mech.resources,
         actions: mech.actions,
         levelReq: classLayout ? Number(f.level) || 0 : 0,
+        // Keep the import grouping so level-up benefits can filter a class
+        // ladder from its subclass branches after the fact.
+        featureGroup: group,
+        subclassFeature: !!f.subclass,
         dependencies: i ? [groupNodes[i - 1].id] : [],
         exclusiveWith: [],
       });
@@ -913,6 +919,8 @@ function buildImportedTab(name, features, meta = {}) {
   return {
     id,
     name: String(name || "Imported Features"),
+    className: meta.className || "",
+    classSource: meta.classSource || "",
     nodes,
     connections,
     cameraStartNode: nodes[0]?.id || "",
@@ -1649,6 +1657,20 @@ export function TreeProvider({ children }) {
       if (!alive) return;
 
       if (storedSettings) {
+        const storedAudio = storedSettings.audio || {};
+        const audioSettings = {
+          ...DEFAULT_AUDIO_SETTINGS,
+          ...storedAudio,
+          // v2 lowered the initial music level from 50% to 30%. Only the old
+          // untouched default is migrated; a deliberate custom level stays.
+          musicVolume:
+            Number(storedAudio.defaultsVersion) >= 2
+              ? storedAudio.musicVolume ?? DEFAULT_AUDIO_SETTINGS.musicVolume
+              : Number(storedAudio.musicVolume) === 0.5
+                ? DEFAULT_AUDIO_SETTINGS.musicVolume
+                : storedAudio.musicVolume ?? DEFAULT_AUDIO_SETTINGS.musicVolume,
+          defaultsVersion: DEFAULT_AUDIO_SETTINGS.defaultsVersion,
+        };
         setSettings({
           hotkeys: { ...DEFAULT_HOTKEYS, ...(storedSettings.hotkeys || {}) },
           connector: { ...DEFAULT_SETTINGS.connector, ...(storedSettings.connector || {}) },
@@ -1664,6 +1686,7 @@ export function TreeProvider({ children }) {
           autoSave: storedSettings.autoSave !== false,
           autoSaveToDisk: storedSettings.autoSaveToDisk !== false,
           autoSaveInterval: storedSettings.autoSaveInterval || 60,
+          audio: audioSettings,
           levelRules: { ...DEFAULT_SETTINGS.levelRules, ...(storedSettings.levelRules || {}) },
           library: mergeLibrary(storedSettings.library),
         });

@@ -18,6 +18,7 @@ import { DungeonGenerator } from "@/components/skilltree/dungeon/DungeonGenerato
 import { WorldBuilder } from "@/components/skilltree/world/WorldBuilder";
 import { RoomBuilder } from "@/components/skilltree/RoomBuilder";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
+import { MusicPlayer } from "@/components/skilltree/MusicPlayer";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
 import { Loader2 } from "lucide-react";
@@ -251,6 +252,7 @@ export const Route = createFileRoute("/")({
   component: () => (
     <TreeProvider>
       <Workspace />
+      <MusicPlayer />
     </TreeProvider>
   ),
   head: () => ({

@@ -1,7 +1,7 @@
 // Offline app shell for the installed PWA. 5eTools API calls and project data
 // stay network/local-storage driven; this only makes the interface itself
 // launchable when the connection drops.
-const CACHE = "ttt-shell-v1";
+const CACHE = "ttt-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -25,6 +25,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
+  // Music and sound effects stream from the server/APK; caching them would
+  // duplicate the whole library in CacheStorage and delay playback.
+  if (url.pathname.startsWith("/music/") || url.pathname.startsWith("/sounds/")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(
