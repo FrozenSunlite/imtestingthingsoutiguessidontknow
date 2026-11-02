@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Hb7Ip7qk.js";
+import { n as Button, r as cn } from "./router-QyTBpHcU.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -9506,7 +9506,7 @@ function useIsMobile(query = "(max-width: 767px)") {
 var UPLOAD_ENDPOINT = "/api/upload";
 var MAX_FALLBACK_EDGE = 512;
 var MAX_UPLOAD_BYTES = 26214400;
-var REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
+var REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|apng|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
 var MARKDOWN_IMAGE_RE$1 = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
 var isDataUrl = (s) => typeof s === "string" && s.startsWith("data:image/");
 var isProjectImage = (s) => typeof s === "string" && s.startsWith("/images/");
@@ -9518,6 +9518,24 @@ function blobToDataUrl(blob) {
 		reader.onerror = () => reject(reader.error || /* @__PURE__ */ new Error("could not read image"));
 		reader.readAsDataURL(blob);
 	});
+}
+function hasAscii(bytes, text) {
+	const needle = [...text].map((char) => char.charCodeAt(0));
+	outer: for (let i = 0; i <= bytes.length - needle.length; i += 1) {
+		for (let j = 0; j < needle.length; j += 1) if (bytes[i + j] !== needle[j]) continue outer;
+		return true;
+	}
+	return false;
+}
+async function isAnimatedImage(blob) {
+	if (!blob) return false;
+	const type = String(blob.type || "").toLowerCase();
+	if (type === "image/gif" || type === "image/apng") return true;
+	const head = new Uint8Array(await blob.slice(0, Math.min(blob.size, 65536)).arrayBuffer());
+	if (head[0] === 71 && head[1] === 73 && head[2] === 70) return true;
+	if (type === "image/png" || !type && head[0] === 137) return hasAscii(head, "acTL");
+	if (type === "image/webp" || hasAscii(head.subarray(0, 12), "RIFF")) return hasAscii(head, "ANIM");
+	return false;
 }
 async function toSharpDataUrl(file, maxEdge = MAX_FALLBACK_EDGE) {
 	const bitmap = await createImageBitmap(file);
@@ -9555,6 +9573,7 @@ async function importImage(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
 	try {
 		return await uploadBlob(file, file.name || "image.png");
 	} catch {
+		if (await isAnimatedImage(file)) return blobToDataUrl(file);
 		return toSharpDataUrl(file, maxEdge);
 	}
 }
@@ -9588,6 +9607,7 @@ async function optimizeImageUrl(url, { maxEdge = 1280, quality = .82 } = {}) {
 	try {
 		const blob = await fetchImageBlob(url);
 		if (!String(blob.type || "").startsWith("image/")) return url;
+		if (await isAnimatedImage(blob)) return url;
 		const bitmap = await createImageBitmap(blob);
 		const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
 		const w = Math.max(1, Math.round(bitmap.width * scale));
@@ -28893,6 +28913,27 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 	const frame = node.frameImage || placeholderFrame || null;
 	const inset = frame ? Math.min(35, Math.max(0, Number(node.iconInset ?? 12))) : 0;
 	const iconBox = `${Math.max(30, 100 - inset * 2)}%`;
+	const hasArt = !!(node.image || placeholder);
+	const outlineColor = unlocked ? "#008000" : available ? "rgba(245,158,11,0.9)" : "rgba(148,163,184,0.65)";
+	const artFilter = [
+		dim ? "grayscale(1)" : "",
+		hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+		hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+		hasArt ? "drop-shadow(0 -1px 0 rgba(255,255,255,0.18))" : "",
+		hasArt ? "drop-shadow(0 3px 0 rgba(0,0,0,0.8))" : "",
+		hasArt ? "drop-shadow(0 7px 7px rgba(0,0,0,0.45))" : "",
+		hasArt && unlocked ? "drop-shadow(0 0 7px rgba(0,128,0,0.9))" : "",
+		hasArt && unlocked ? "drop-shadow(0 0 14px rgba(0,128,0,0.45))" : "",
+		hasArt && !unlocked && available ? "drop-shadow(0 0 6px rgba(245,158,11,0.35))" : "",
+		hasArt && selected ? "drop-shadow(0 0 5px rgba(0,229,255,0.5))" : ""
+	].filter(Boolean).join(" ");
+	const slotShadow = [
+		"inset 0 3px 10px rgba(0,0,0,0.95)",
+		"inset 0 -2px 4px rgba(255,255,255,0.06)",
+		unlocked ? "0 0 8px rgba(0,128,0,0.25)" : "",
+		highlighted ? "0 0 0 2px rgba(245,158,11,0.8)" : "",
+		"0 2px 6px rgba(0,0,0,0.55)"
+	].filter(Boolean).join(", ");
 	return /* @__PURE__ */ jsxs("div", {
 		"data-node-id": node.id,
 		onPointerDown: (e) => onPointerDown(e, node),
@@ -28926,12 +28967,20 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		},
 		className: `group ${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
 		children: [
+			/* @__PURE__ */ jsx("div", {
+				className: `pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : "border-white/10"}`,
+				style: {
+					background: "linear-gradient(145deg, rgba(30,41,59,0.92), rgba(2,6,23,0.97))",
+					boxShadow: slotShadow
+				}
+			}),
 			/* @__PURE__ */ jsxs("div", {
 				style: {
 					transform: `rotate(${node.rotation}deg) scaleX(${node.flipped ? -1 : 1}) scaleY(${node.flipV ? -1 : 1})`,
-					transformOrigin: "center"
+					transformOrigin: "center",
+					filter: artFilter
 				},
-				className: `absolute inset-0 flex items-center justify-center overflow-hidden ${frame ? "" : "rounded-xl border-2"} transition-shadow ${selected ? "border-primary ring-2 ring-primary/40" : unlocked ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.45)]" : available ? "border-amber-400" : "border-border"} ${dim ? "opacity-40 grayscale" : ""} ${highlighted ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-background" : ""}`,
+				className: `absolute inset-0 flex items-center justify-center overflow-hidden ${dim ? "opacity-40" : ""}`,
 				children: [node.image ? /* @__PURE__ */ jsx(IconArt, {
 					src: node.image,
 					circular: !!frame,
@@ -28960,7 +29009,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 				})]
 			}),
 			!node.__returnNode && /* @__PURE__ */ jsxs("div", {
-				className: `absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${unlocked ? "bg-emerald-600" : "bg-muted-foreground"}`,
+				className: `absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${unlocked ? "bg-[#008000]" : "bg-muted-foreground"}`,
 				children: [
 					node.currentPoints || 0,
 					"/",

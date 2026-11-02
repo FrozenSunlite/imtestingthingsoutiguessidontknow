@@ -18,7 +18,7 @@ const UPLOAD_ENDPOINT = "/api/upload";
 const MAX_FALLBACK_EDGE = 512;
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-const REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
+const REMOTE_IMAGE_RE = /^https?:\/\/\S+\.(png|apng|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$/i;
 const MARKDOWN_IMAGE_RE = /(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
 
 const isDataUrl = (s) => typeof s === "string" && s.startsWith("data:image/");
@@ -32,6 +32,37 @@ function blobToDataUrl(blob) {
     reader.onerror = () => reject(reader.error || new Error("could not read image"));
     reader.readAsDataURL(blob);
   });
+}
+
+// GIF, APNG and animated WebP must keep their original bytes: decoding through
+// createImageBitmap() and re-encoding a PNG would keep only the first frame.
+function hasAscii(bytes, text) {
+  const needle = [...text].map((char) => char.charCodeAt(0));
+  outer: for (let i = 0; i <= bytes.length - needle.length; i += 1) {
+    for (let j = 0; j < needle.length; j += 1) {
+      if (bytes[i + j] !== needle[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+export async function isAnimatedImage(blob) {
+  if (!blob) return false;
+  const type = String(blob.type || "").toLowerCase();
+  if (type === "image/gif" || type === "image/apng") return true;
+  const head = new Uint8Array(
+    await blob.slice(0, Math.min(blob.size, 64 * 1024)).arrayBuffer()
+  );
+  // GIF header: "GIF87a" / "GIF89a".
+  if (head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46) return true;
+  if (type === "image/png" || (!type && head[0] === 0x89)) {
+    return hasAscii(head, "acTL"); // APNG animation control chunk
+  }
+  if (type === "image/webp" || hasAscii(head.subarray(0, 12), "RIFF")) {
+    return hasAscii(head, "ANIM"); // animated WebP
+  }
+  return false;
 }
 
 // Draw the image to a canvas with nearest-neighbour sampling, optionally
@@ -85,6 +116,8 @@ export async function importImage(file, { maxEdge = MAX_FALLBACK_EDGE } = {}) {
   try {
     return await uploadBlob(file, file.name || "image.png");
   } catch {
+    // Keep animation frames instead of flattening to a single PNG.
+    if (await isAnimatedImage(file)) return blobToDataUrl(file);
     return toSharpDataUrl(file, maxEdge);
   }
 }
@@ -130,6 +163,7 @@ export async function optimizeImageUrl(url, { maxEdge = 1280, quality = 0.82 } =
   try {
     const blob = await fetchImageBlob(url);
     if (!String(blob.type || "").startsWith("image/")) return url;
+    if (await isAnimatedImage(blob)) return url;
     const bitmap = await createImageBitmap(blob);
     const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));

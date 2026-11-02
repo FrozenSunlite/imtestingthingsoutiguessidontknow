@@ -17,6 +17,7 @@ $mimes = @{
   ".css"="text/css; charset=utf-8"; ".json"="application/json"; ".svg"="image/svg+xml"; ".png"="image/png"
   ".webmanifest"="application/manifest+json";
   ".jpg"="image/jpeg"; ".jpeg"="image/jpeg"; ".gif"="image/gif"; ".webp"="image/webp"; ".ico"="image/x-icon"
+  ".apng"="image/apng"
   ".bmp"="image/bmp"; ".avif"="image/avif"; ".woff"="font/woff"; ".woff2"="font/woff2"; ".ttf"="font/ttf"; ".map"="application/json"
   ".apk"="application/vnd.android.package-archive"
   ".ogg"="audio/ogg"; ".opus"="audio/ogg"; ".mp3"="audio/mpeg"; ".wav"="audio/wav"
@@ -48,7 +49,7 @@ if (-not $assetRoot) {
 if (-not $assetRoot) { $assetRoot = "E:\FANTASY" }
 $assetIndexPath = Join-Path $PSScriptRoot "desktop\userdata\asset-index.json"
 $script:assetIndexCache = $null
-$imageExts = @(".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif")
+$imageExts = @(".png", ".apng", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif")
 
 function Get-AssetCategory([string]$rel, [string]$name) {
   $p = ("$rel $name").ToLower()
@@ -293,7 +294,7 @@ while ($listener.IsListening) {
       $ext = [IO.Path]::GetExtension($rawName).ToLower()
       # Only ever store images; anything else is saved as a PNG-named blob the
       # browser sniffs by content type when served back.
-      if ($ext -notin @(".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif", ".svg")) { $ext = ".png" }
+      if ($ext -notin @(".png", ".apng", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif", ".svg")) { $ext = ".png" }
       $safe = "img_" + [DateTime]::UtcNow.Ticks + "_" + (Get-Random -Minimum 1000 -Maximum 9999) + $ext
       [IO.File]::WriteAllBytes((Join-Path $uploadRoot $safe), $bytes)
       $body = [Text.Encoding]::UTF8.GetBytes("{`"url`":`"/images/$safe`"}")

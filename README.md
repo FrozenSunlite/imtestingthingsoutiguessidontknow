@@ -145,6 +145,11 @@ changing app code, then restart the launcher.
 - **Level up:** the level-up dialog chooses which class gains the level, filters
   benefits to that class and subclass, supports multiclassing into another class,
   and keeps per-class levels alongside the total character level.
+- **Node artwork:** uploads accept static images plus animated **GIF, APNG and
+  animated WebP**, and the original animation frames are preserved when the
+  project server, export/import or the PWA/APK fallback stores the image. Nodes
+  render as recessed 3D slots; the artwork’s outline and glow follow the image’s
+  transparent pixels, and earned nodes glow **#008000** green.
 - **Motion:** main-menu section changes fade through black (one second out, one
   second in). Dialogs pop open from near-zero size and pop closed again when a
   choice is made. The desktop Edit panel slides in only while a node is being

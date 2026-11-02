@@ -40,6 +40,39 @@ export const SkillNodeView = memo(function SkillNodeView({
   // underneath the border art.
   const inset = frame ? Math.min(35, Math.max(0, Number(node.iconInset ?? 12))) : 0;
   const iconBox = `${Math.max(30, 100 - inset * 2)}%`;
+  // The socket glow and silhouette outline: drop-shadows follow the rendered
+  // alpha of the art/frame, so transparent pixels are ignored automatically.
+  const hasArt = !!(node.image || placeholder);
+  const outlineColor = unlocked
+    ? "#008000"
+    : available
+      ? "rgba(245,158,11,0.9)"
+      : "rgba(148,163,184,0.65)";
+  const artFilter = [
+    dim ? "grayscale(1)" : "",
+    hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+    hasArt ? `drop-shadow(0 0 1.5px ${outlineColor})` : "",
+    hasArt ? "drop-shadow(0 -1px 0 rgba(255,255,255,0.18))" : "",
+    hasArt ? "drop-shadow(0 3px 0 rgba(0,0,0,0.8))" : "",
+    hasArt ? "drop-shadow(0 7px 7px rgba(0,0,0,0.45))" : "",
+    hasArt && unlocked ? "drop-shadow(0 0 7px rgba(0,128,0,0.9))" : "",
+    hasArt && unlocked ? "drop-shadow(0 0 14px rgba(0,128,0,0.45))" : "",
+    hasArt && !unlocked && available
+      ? "drop-shadow(0 0 6px rgba(245,158,11,0.35))"
+      : "",
+    hasArt && selected ? "drop-shadow(0 0 5px rgba(0,229,255,0.5))" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const slotShadow = [
+    "inset 0 3px 10px rgba(0,0,0,0.95)",
+    "inset 0 -2px 4px rgba(255,255,255,0.06)",
+    unlocked ? "0 0 8px rgba(0,128,0,0.25)" : "",
+    highlighted ? "0 0 0 2px rgba(245,158,11,0.8)" : "",
+    "0 2px 6px rgba(0,0,0,0.55)",
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div
@@ -87,26 +120,28 @@ export const SkillNodeView = memo(function SkillNodeView({
         popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""
       } ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`}
     >
-      {/* Frame + artwork only: flips and rotation never move or mirror the text */}
+      {/* Recessed socket: the artwork sits in it like a raised button. */}
+      <div
+        className={`pointer-events-none absolute inset-0 rounded-2xl border ${
+          selected ? "border-primary/80" : "border-white/10"
+        }`}
+        style={{
+          background:
+            "linear-gradient(145deg, rgba(30,41,59,0.92), rgba(2,6,23,0.97))",
+          boxShadow: slotShadow,
+        }}
+      />
+      {/* Frame + artwork only: flips and rotation never move or mirror the text.
+          The filter follows the rendered alpha, so transparent/empty pixels are
+          left alone and the outline hugs the actual image silhouette. */}
       <div
         style={{
           transform: `rotate(${node.rotation}deg) scaleX(${node.flipped ? -1 : 1}) scaleY(${node.flipV ? -1 : 1})`,
           transformOrigin: "center",
+          filter: artFilter,
         }}
         className={`absolute inset-0 flex items-center justify-center overflow-hidden ${
-          // With a frame, the frame's border defines the node's shape — no
-          // default square bevel. Status colors survive via ring/glow shadows.
-          frame ? "" : "rounded-xl border-2"
-        } transition-shadow ${
-          selected
-            ? "border-primary ring-2 ring-primary/40"
-            : unlocked
-            ? "border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.45)]"
-            : available
-            ? "border-amber-400"
-            : "border-border"
-        } ${dim ? "opacity-40 grayscale" : ""} ${
-          highlighted ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-background" : ""
+          dim ? "opacity-40" : ""
         }`}
       >
         {/* Invalid art falls back to the default node icon, then hides. */}
@@ -148,7 +183,7 @@ export const SkillNodeView = memo(function SkillNodeView({
       {!node.__returnNode && (
         <div
           className={`absolute -bottom-2.5 left-1/2 flex h-5 min-w-5 -translate-x-1/2 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${
-            unlocked ? "bg-emerald-600" : "bg-muted-foreground"
+            unlocked ? "bg-[#008000]" : "bg-muted-foreground"
           }`}
         >
           {(node.currentPoints || 0)}/{max}
