@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BRsw0RB2.js";
+import { n as Button, r as cn } from "./router-3cg8Pmuu.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -82571,17 +82571,25 @@ function EditPanelSlot() {
 	const { ui } = useTree();
 	const [width] = usePanelWidth();
 	const [nodeId, setNodeId] = useState(ui.editingNodeId || null);
-	const [open, setOpen] = useState(!!ui.editingNodeId);
+	const [open, setOpen] = useState(false);
+	const nodeIdRef = useRef(nodeId);
+	nodeIdRef.current = nodeId;
 	useEffect(() => {
 		if (ui.editingNodeId) {
+			const alreadyMounted = !!nodeIdRef.current;
 			setNodeId(ui.editingNodeId);
-			setOpen(true);
+			if (alreadyMounted) setOpen(true);
 			return;
 		}
 		setOpen(false);
 		const timer = setTimeout(() => setNodeId(null), 320);
 		return () => clearTimeout(timer);
 	}, [ui.editingNodeId]);
+	useEffect(() => {
+		if (!nodeId) return void 0;
+		const frame = requestAnimationFrame(() => setOpen(true));
+		return () => cancelAnimationFrame(frame);
+	}, [nodeId]);
 	if (!nodeId) return null;
 	return /* @__PURE__ */ jsx("div", {
 		className: "relative h-full shrink-0 overflow-hidden",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { NodeEditorPanel } from "./NodeEditorPanel";
@@ -10,18 +10,31 @@ export function EditPanelSlot() {
   const { ui } = useTree();
   const [width] = usePanelWidth();
   const [nodeId, setNodeId] = useState(ui.editingNodeId || null);
-  const [open, setOpen] = useState(!!ui.editingNodeId);
+  const [open, setOpen] = useState(false);
+  const nodeIdRef = useRef(nodeId);
+  nodeIdRef.current = nodeId;
 
   useEffect(() => {
     if (ui.editingNodeId) {
+      const alreadyMounted = !!nodeIdRef.current;
       setNodeId(ui.editingNodeId);
-      setOpen(true);
+      // A first open must render one frame in the closed position before the
+      // transition starts; an open/switch while mounted can open immediately.
+      if (alreadyMounted) setOpen(true);
       return undefined;
     }
     setOpen(false);
     const timer = setTimeout(() => setNodeId(null), 320);
     return () => clearTimeout(timer);
   }, [ui.editingNodeId]);
+
+  // First mount is intentionally closed. Opening on the next frame lets the
+  // same 300 ms transition play for the slide-in and the slide-out.
+  useEffect(() => {
+    if (!nodeId) return undefined;
+    const frame = requestAnimationFrame(() => setOpen(true));
+    return () => cancelAnimationFrame(frame);
+  }, [nodeId]);
 
   if (!nodeId) return null;
 

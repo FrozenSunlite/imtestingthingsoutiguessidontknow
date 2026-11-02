@@ -1,0 +1,1 @@
+import{g as e}from"./routes-CRUMvheb.js";export default e();
