@@ -5,6 +5,7 @@ import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
 import { CharacterCreatorDialog } from "@/components/skilltree/CharacterCreatorDialog";
 import { playSfx } from "@/lib/audio";
 import { SFX } from "@/lib/sfx";
+import { runScreenTransition } from "@/lib/screenTransition";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
 import Rulebook from "@/components/rulebook/Rulebook";
@@ -164,7 +165,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             <Play className="h-5 w-5" />,
             "Continue",
             "Resume current tree without clearing",
-            () => enterApp("edit"),
+            () => runScreenTransition(() => enterApp("edit")),
             locked
           )}
 
@@ -191,14 +192,14 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
               <BookOpen className="h-5 w-5" />,
               "Rulebook",
               "Read and edit the rulebook",
-              () => setRulebookOpen(true),
+              () => runScreenTransition(() => setRulebookOpen(true)),
               locked
             )}
             {menuBtn(
               <Library className="h-5 w-5" />,
               "Reference Library",
               "Browse the reference library",
-              () => setLibraryOpen(true),
+              () => runScreenTransition(() => setLibraryOpen(true)),
               locked
             )}
           </div>
@@ -207,7 +208,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             <Database className="h-5 w-5" />,
             "Reference Index",
             "Browse official, homebrew and prerelease 5eTools data",
-            () => onReferenceIndex?.(),
+            () => runScreenTransition(() => onReferenceIndex?.()),
             locked
           )}
 
@@ -215,35 +216,35 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             <Wand2 className="h-5 w-5" />,
             "Character Creator",
             "Build a character, with or without a talent tree",
-            () => setCreatorOpen(true)
+            () => runScreenTransition(() => setCreatorOpen(true))
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {menuBtn(
               <Home className="h-5 w-5" />,
               "Architect",
               "Design a home, business or bastion plot",
-              () => onHomebuilder?.(),
+              () => runScreenTransition(() => onHomebuilder?.()),
               locked
             )}
             {menuBtn(
               <Map className="h-5 w-5" />,
               "Dungeon Builder",
               "Build or roll a dungeon or spire",
-              () => onDungeon?.(),
+              () => runScreenTransition(() => onDungeon?.()),
               locked
             )}
             {menuBtn(
               <Boxes className="h-5 w-5" />,
               "Room Builder",
               "Design rooms shared by dungeons and kingdom houses",
-              () => onRoomBuilder?.(),
+              () => runScreenTransition(() => onRoomBuilder?.()),
               locked
             )}
             {menuBtn(
               <Globe2 className="h-5 w-5" />,
               "World Builder",
               "Create a setting, kingdoms, settlements and people",
-              () => onWorldbuilder?.(),
+              () => runScreenTransition(() => onWorldbuilder?.()),
               locked
             )}
           </div>
@@ -251,7 +252,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
             <Swords className="h-5 w-5" />,
             "DM Screen",
             "Quick rules and a dice roller for running the game",
-            () => onDmScreen?.(),
+            () => runScreenTransition(() => onDmScreen?.()),
             locked
           )}
         </div>

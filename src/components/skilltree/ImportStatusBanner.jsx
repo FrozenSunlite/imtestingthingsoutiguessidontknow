@@ -75,7 +75,10 @@ export function ImportStatusBanner() {
               <button
                 type="button"
                 aria-label="Dismiss import result"
-                onClick={dismissImport}
+                onClick={() => {
+                  playSfx(SFX.closePopup, { gain: 0.65 });
+                  dismissImport();
+                }}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
@@ -107,7 +110,10 @@ export function ImportStatusBanner() {
             <button
               type="button"
               aria-label="Dismiss import error"
-              onClick={dismissImport}
+              onClick={() => {
+                playSfx(SFX.closePopup, { gain: 0.65 });
+                dismissImport();
+              }}
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />

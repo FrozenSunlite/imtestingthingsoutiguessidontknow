@@ -255,3 +255,16 @@
   backdrop-filter: none !important;
   transition: none !important;
 }
+
+/* Popup dialogs scale up from almost nothing and shrink back on close. The
+   `scale` property composes with the centering transform, so dialogs stay
+   centred while they pop. */
+@keyframes ttt-pop-in {
+  from { opacity: 0; scale: 0.18; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes ttt-pop-out {
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.18; }
+}

@@ -45,7 +45,7 @@ import { nodeMaxPoints, withTiers } from "@/lib/nodeTiers";
 // Library list entries can be plain names (older saves) or {name, ability}.
 const entryName = (e) => (typeof e === "string" ? e : e?.name || "");
 
-export function NodeEditorPanel({ mobile = false }) {
+export function NodeEditorPanel({ mobile = false, nodeId = null }) {
   const {
     tree,
     nodesById,
@@ -84,7 +84,7 @@ export function NodeEditorPanel({ mobile = false }) {
     }
   };
 
-  const node = ui.editingNodeId ? nodesById[ui.editingNodeId] : null;
+  const node = (nodeId || ui.editingNodeId) ? nodesById[nodeId || ui.editingNodeId] : null;
   if (!node) {
     return (
       <div

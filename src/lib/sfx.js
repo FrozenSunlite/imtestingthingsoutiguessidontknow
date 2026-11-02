@@ -18,6 +18,7 @@ export const SFX = {
   unlockNode: "Unlocking a Node",
   importFinished: "5e Import Finished",
   mainMenu: "Return to Main Menu",
+  closePopup: "Close Popup",
 };
 
 export function playTapSfx() {

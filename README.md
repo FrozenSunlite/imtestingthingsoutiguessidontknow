@@ -122,10 +122,10 @@ changing app code, then restart the launcher.
 
   Sound effects go in `public/sounds`; an effect named `click` is wired to
   buttons, links, tabs and checkboxes automatically. The imported pack also
-  provides dedicated taps, node placement/unlock, connector creation, dialog
-  pop-ups, errors, import completion, the standardized **Main Menu** button, and
-  a seamless panel/dialog resize loop that pauses when the pointer stops and
-  ends on release.
+  provides dedicated taps, node placement/unlock, a swing for connector
+  creation, dialog pop-ups, the popup-close X, errors, import completion, the
+  standardized **Main Menu** button, and a seamless panel/dialog resize loop
+  that pauses when the pointer stops and ends on release.
 - **Character Creator:** available from the main menu even before a project
   exists, and the creator itself can import a talent tree. The four tree builds
   (tree only, tree + race, tree + class, all) plus **race + class** with no tree.
@@ -145,6 +145,10 @@ changing app code, then restart the launcher.
 - **Level up:** the level-up dialog chooses which class gains the level, filters
   benefits to that class and subclass, supports multiclassing into another class,
   and keeps per-class levels alongside the total character level.
+- **Motion:** main-menu section changes fade through black (one second out, one
+  second in). Dialogs pop open from near-zero size and pop closed again when a
+  choice is made. The desktop Edit panel slides in only while a node is being
+  edited and slides away when nothing is being edited.
 - **Installable app:** the build includes a web manifest, icons and an offline
   app-shell service worker, so it can be installed from Chrome on Android
   (or added to the home screen) and launched full-screen. Project data still

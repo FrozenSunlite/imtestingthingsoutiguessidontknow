@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BxaZfB_s.js";
+import { n as Button, r as cn } from "./router-BRsw0RB2.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3205,7 +3205,8 @@ var SFX = {
 	popup: "Pop-Up noise",
 	unlockNode: "Unlocking a Node",
 	importFinished: "5e Import Finished",
-	mainMenu: "Return to Main Menu"
+	mainMenu: "Return to Main Menu",
+	closePopup: "Close Popup"
 };
 function playTapSfx() {
 	const variants = SFX.tap;
@@ -9588,9 +9589,10 @@ var DialogOverlay = React.forwardRef(({ className, ...props }, ref) => /* @__PUR
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 var DialogContent = React.forwardRef(({ className, children, hideOverlay = false, ...props }, ref) => /* @__PURE__ */ jsxs(DialogPortal, { children: [!hideOverlay && /* @__PURE__ */ jsx(DialogOverlay, {}), /* @__PURE__ */ jsxs(DialogPrimitive.Content, {
 	ref,
-	className: cn("fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg", className),
+	className: cn("fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-[ttt-pop-in_160ms_cubic-bezier(0.2,1.5,0.4,1)] data-[state=closed]:animate-[ttt-pop-out_120ms_ease-in] sm:rounded-lg", className),
 	...props,
 	children: [children, /* @__PURE__ */ jsxs(DialogPrimitive.Close, {
+		onClick: () => playSfx(SFX.closePopup, { gain: .7 }),
 		className: "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
 		children: [/* @__PURE__ */ jsx(X, { className: "h-4 w-4" }), /* @__PURE__ */ jsx("span", {
 			className: "sr-only",
@@ -34005,7 +34007,7 @@ function NodeImagePicker({ open, onClose, folder = "Icons", onFolderChange, onPi
 //#endregion
 //#region src/components/skilltree/NodeEditorPanel.jsx
 var entryName = (e) => typeof e === "string" ? e : e?.name || "";
-function NodeEditorPanel({ mobile = false }) {
+function NodeEditorPanel({ mobile = false, nodeId = null }) {
 	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, setSettings } = useTree();
 	const [search, setSearch] = useState("");
 	const [exSearch, setExSearch] = useState("");
@@ -34025,7 +34027,7 @@ function NodeEditorPanel({ mobile = false }) {
 			setUploading(false);
 		}
 	};
-	const node = ui.editingNodeId ? nodesById[ui.editingNodeId] : null;
+	const node = nodeId || ui.editingNodeId ? nodesById[nodeId || ui.editingNodeId] : null;
 	if (!node) return /* @__PURE__ */ jsxs("div", {
 		className: "flex h-full flex-col items-center justify-center border-l bg-card p-6 text-center text-sm text-muted-foreground",
 		style: { width: panelWidth },
@@ -45360,6 +45362,52 @@ function CharacterCreatorDialog({ open, onClose }) {
 	});
 }
 //#endregion
+//#region src/lib/screenTransition.js
+var state = {
+	active: false,
+	phase: "idle"
+};
+var listeners$1 = /* @__PURE__ */ new Set();
+var outTimer = 0;
+var inTimer = 0;
+var emit$1 = () => listeners$1.forEach((listener) => listener());
+function subscribeScreenTransition(listener) {
+	listeners$1.add(listener);
+	return () => listeners$1.delete(listener);
+}
+function getScreenTransition() {
+	return state;
+}
+function runScreenTransition(action, { outMs = 1e3, inMs = 1e3 } = {}) {
+	if (state.active) return;
+	clearTimeout(outTimer);
+	clearTimeout(inTimer);
+	state = {
+		active: true,
+		phase: "out"
+	};
+	emit$1();
+	outTimer = setTimeout(() => {
+		try {
+			action?.();
+		} catch (error) {
+			console.error("Section transition action failed:", error);
+		}
+		state = {
+			active: true,
+			phase: "in"
+		};
+		emit$1();
+		inTimer = setTimeout(() => {
+			state = {
+				active: false,
+				phase: "idle"
+			};
+			emit$1();
+		}, inMs);
+	}, outMs);
+}
+//#endregion
 //#region src/components/skilltree/LaunchMenu.jsx
 function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, onWorldbuilder, onRoomBuilder }) {
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
@@ -45472,7 +45520,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 				}), /* @__PURE__ */ jsxs("div", {
 					className: "space-y-3",
 					children: [
-						menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => enterApp("edit"), locked),
+						menuBtn(/* @__PURE__ */ jsx(Play, { className: "h-5 w-5" }), "Continue", "Resume current tree without clearing", () => runScreenTransition(() => enterApp("edit")), locked),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
 							children: [menuBtn(/* @__PURE__ */ jsx(Plus, { className: "h-5 w-5" }), "New", "Start a fresh skill tree", () => {
@@ -45482,20 +45530,20 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 						}),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
-							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => setRulebookOpen(true), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => setLibraryOpen(true), locked)]
+							children: [menuBtn(/* @__PURE__ */ jsx(BookOpen, { className: "h-5 w-5" }), "Rulebook", "Read and edit the rulebook", () => runScreenTransition(() => setRulebookOpen(true)), locked), menuBtn(/* @__PURE__ */ jsx(Library, { className: "h-5 w-5" }), "Reference Library", "Browse the reference library", () => runScreenTransition(() => setLibraryOpen(true)), locked)]
 						}),
-						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse official, homebrew and prerelease 5eTools data", () => onReferenceIndex?.(), locked),
-						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character, with or without a talent tree", () => setCreatorOpen(true)),
+						menuBtn(/* @__PURE__ */ jsx(Database, { className: "h-5 w-5" }), "Reference Index", "Browse official, homebrew and prerelease 5eTools data", () => runScreenTransition(() => onReferenceIndex?.()), locked),
+						menuBtn(/* @__PURE__ */ jsx(Wand2, { className: "h-5 w-5" }), "Character Creator", "Build a character, with or without a talent tree", () => runScreenTransition(() => setCreatorOpen(true))),
 						/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-1 gap-3 sm:grid-cols-2",
 							children: [
-								menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => onHomebuilder?.(), locked),
-								menuBtn(/* @__PURE__ */ jsx(Map$1, { className: "h-5 w-5" }), "Dungeon Builder", "Build or roll a dungeon or spire", () => onDungeon?.(), locked),
-								menuBtn(/* @__PURE__ */ jsx(Boxes, { className: "h-5 w-5" }), "Room Builder", "Design rooms shared by dungeons and kingdom houses", () => onRoomBuilder?.(), locked),
-								menuBtn(/* @__PURE__ */ jsx(Globe2, { className: "h-5 w-5" }), "World Builder", "Create a setting, kingdoms, settlements and people", () => onWorldbuilder?.(), locked)
+								menuBtn(/* @__PURE__ */ jsx(Home, { className: "h-5 w-5" }), "Architect", "Design a home, business or bastion plot", () => runScreenTransition(() => onHomebuilder?.()), locked),
+								menuBtn(/* @__PURE__ */ jsx(Map$1, { className: "h-5 w-5" }), "Dungeon Builder", "Build or roll a dungeon or spire", () => runScreenTransition(() => onDungeon?.()), locked),
+								menuBtn(/* @__PURE__ */ jsx(Boxes, { className: "h-5 w-5" }), "Room Builder", "Design rooms shared by dungeons and kingdom houses", () => runScreenTransition(() => onRoomBuilder?.()), locked),
+								menuBtn(/* @__PURE__ */ jsx(Globe2, { className: "h-5 w-5" }), "World Builder", "Create a setting, kingdoms, settlements and people", () => runScreenTransition(() => onWorldbuilder?.()), locked)
 							]
 						}),
-						menuBtn(/* @__PURE__ */ jsx(Swords, { className: "h-5 w-5" }), "DM Screen", "Quick rules and a dice roller for running the game", () => onDmScreen?.(), locked)
+						menuBtn(/* @__PURE__ */ jsx(Swords, { className: "h-5 w-5" }), "DM Screen", "Quick rules and a dice roller for running the game", () => runScreenTransition(() => onDmScreen?.()), locked)
 					]
 				})]
 			}),
@@ -82518,6 +82566,37 @@ function MusicPlayer() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/EditPanelSlot.jsx
+function EditPanelSlot() {
+	const { ui } = useTree();
+	const [width] = usePanelWidth();
+	const [nodeId, setNodeId] = useState(ui.editingNodeId || null);
+	const [open, setOpen] = useState(!!ui.editingNodeId);
+	useEffect(() => {
+		if (ui.editingNodeId) {
+			setNodeId(ui.editingNodeId);
+			setOpen(true);
+			return;
+		}
+		setOpen(false);
+		const timer = setTimeout(() => setNodeId(null), 320);
+		return () => clearTimeout(timer);
+	}, [ui.editingNodeId]);
+	if (!nodeId) return null;
+	return /* @__PURE__ */ jsx("div", {
+		className: "relative h-full shrink-0 overflow-hidden",
+		style: {
+			width,
+			marginRight: open ? 0 : -width,
+			transform: open ? "translateX(0)" : "translateX(100%)",
+			opacity: open ? 1 : 0,
+			pointerEvents: open ? "auto" : "none",
+			transition: "margin-right 300ms ease-out, transform 300ms ease-out, opacity 300ms ease-out"
+		},
+		children: /* @__PURE__ */ jsx(NodeEditorPanel, { nodeId })
+	});
+}
+//#endregion
 //#region src/lib/useImportStatus.js
 function useImportStatus() {
 	return useSyncExternalStore(subscribeImportStatus, getImportStatus, () => getImportStatus());
@@ -82589,7 +82668,10 @@ function ImportStatusBanner() {
 					/* @__PURE__ */ jsx("button", {
 						type: "button",
 						"aria-label": "Dismiss import result",
-						onClick: dismissImport,
+						onClick: () => {
+							playSfx(SFX.closePopup, { gain: .65 });
+							dismissImport();
+						},
 						className: "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground",
 						children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
 					})
@@ -82623,13 +82705,29 @@ function ImportStatusBanner() {
 					/* @__PURE__ */ jsx("button", {
 						type: "button",
 						"aria-label": "Dismiss import error",
-						onClick: dismissImport,
+						onClick: () => {
+							playSfx(SFX.closePopup, { gain: .65 });
+							dismissImport();
+						},
 						className: "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground",
 						children: /* @__PURE__ */ jsx(X, { className: "h-3.5 w-3.5" })
 					})
 				]
 			})
 		})
+	});
+}
+//#endregion
+//#region src/components/skilltree/ScreenTransitionOverlay.jsx
+function ScreenTransitionOverlay() {
+	const state = useSyncExternalStore(subscribeScreenTransition, getScreenTransition, () => ({
+		active: false,
+		phase: "idle"
+	}));
+	const dark = state.active && state.phase === "out";
+	return /* @__PURE__ */ jsx("div", {
+		"aria-hidden": "true",
+		className: `fixed inset-0 z-[300] bg-black transition-opacity duration-1000 ease-in-out ${state.active ? "pointer-events-auto" : "pointer-events-none"} ${dark ? "opacity-100" : "opacity-0"}`
 	});
 }
 //#endregion
@@ -84533,10 +84631,10 @@ function Workspace() {
 					mode === "edit" && (ui.selectedConnectionId ? isMobile ? /* @__PURE__ */ jsx("div", {
 						className: "fixed inset-0 z-40 bg-background",
 						children: /* @__PURE__ */ jsx(ConnectorEditorPanel, { mobile: true })
-					}) : /* @__PURE__ */ jsx(ConnectorEditorPanel, {}) : ui.editingNodeId ? isMobile ? /* @__PURE__ */ jsx("div", {
+					}) : /* @__PURE__ */ jsx(ConnectorEditorPanel, {}) : isMobile ? ui.editingNodeId ? /* @__PURE__ */ jsx("div", {
 						className: "fixed inset-0 z-40 bg-background",
 						children: /* @__PURE__ */ jsx(NodeEditorPanel, { mobile: true })
-					}) : /* @__PURE__ */ jsx(NodeEditorPanel, {}) : !isMobile && /* @__PURE__ */ jsx(NodeEditorPanel, {})),
+					}) : null : /* @__PURE__ */ jsx(EditPanelSlot, {})),
 					/* @__PURE__ */ jsx(PoolWindows, {
 						wins: poolWins,
 						setWins: setPoolWins
@@ -84571,7 +84669,8 @@ function Workspace() {
 var SplitComponent = () => /* @__PURE__ */ jsxs(TreeProvider, { children: [
 	/* @__PURE__ */ jsx(Workspace, {}),
 	/* @__PURE__ */ jsx(MusicPlayer, {}),
-	/* @__PURE__ */ jsx(ImportStatusBanner, {})
+	/* @__PURE__ */ jsx(ImportStatusBanner, {}),
+	/* @__PURE__ */ jsx(ScreenTransitionOverlay, {})
 ] });
 //#endregion
 export { SplitComponent as component };

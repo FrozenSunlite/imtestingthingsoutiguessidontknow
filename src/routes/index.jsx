@@ -19,7 +19,9 @@ import { WorldBuilder } from "@/components/skilltree/world/WorldBuilder";
 import { RoomBuilder } from "@/components/skilltree/RoomBuilder";
 import { ActivityLogPanel } from "@/components/skilltree/ActivityLogPanel";
 import { MusicPlayer } from "@/components/skilltree/MusicPlayer";
+import { EditPanelSlot } from "@/components/skilltree/EditPanelSlot";
 import { ImportStatusBanner } from "@/components/skilltree/ImportStatusBanner";
+import { ScreenTransitionOverlay } from "@/components/skilltree/ScreenTransitionOverlay";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
 import { Loader2 } from "lucide-react";
@@ -211,16 +213,14 @@ function Workspace() {
             ) : (
               <ConnectorEditorPanel />
             )
-          ) : ui.editingNodeId ? (
-            isMobile ? (
+          ) : isMobile ? (
+            ui.editingNodeId ? (
               <div className="fixed inset-0 z-40 bg-background">
                 <NodeEditorPanel mobile />
               </div>
-            ) : (
-              <NodeEditorPanel />
-            )
+            ) : null
           ) : (
-            !isMobile && <NodeEditorPanel />
+            <EditPanelSlot />
           ))}
         <PoolWindows wins={poolWins} setWins={setPoolWins} />
         <PinnedNodeCard />
@@ -256,6 +256,7 @@ export const Route = createFileRoute("/")({
       <Workspace />
       <MusicPlayer />
       <ImportStatusBanner />
+      <ScreenTransitionOverlay />
     </TreeProvider>
   ),
   head: () => ({

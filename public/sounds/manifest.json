@@ -9,6 +9,10 @@
       "file": "/sounds/Clicking New.ogg"
     },
     {
+      "name": "Close Popup",
+      "file": "/sounds/Close Popup.ogg"
+    },
+    {
       "name": "Creating a Connector",
       "file": "/sounds/Creating a Connector.ogg"
     },
