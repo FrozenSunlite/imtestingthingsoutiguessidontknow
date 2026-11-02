@@ -1,0 +1,1 @@
+import{g as e}from"./routes-r_MyEbHK.js";export default e();

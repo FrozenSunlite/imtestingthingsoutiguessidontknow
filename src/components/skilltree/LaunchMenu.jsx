@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTree } from "@/lib/treeStore";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { isNativeApp } from "@/lib/appUpdates";
 import { Button } from "@/components/ui/button";
 import { SettingsMenu } from "@/components/skilltree/SettingsMenu";
 import { CharacterCreatorDialog } from "@/components/skilltree/CharacterCreatorDialog";
@@ -42,6 +44,11 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   const { enterApp, startNewTree, tree, character, settings } = useTree();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
+  // Phones and the Android app are dismissed by the OS (swipe/back), not by a
+  // browser tab close. The Exit button only produced a toast and, when the
+  // project was dirty, a browser "Confirm Navigation" prompt.
+  const isMobile = useIsMobile("(max-width: 767px), (pointer: coarse)");
+  const showExit = !isMobile && !isNativeApp();
   const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -149,15 +156,17 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
         >
           <SettingsIcon className="h-5 w-5" />
         </button>
-        <button
-          type="button"
-          onClick={exit}
-          title="Exit"
-          aria-label="Exit"
-          className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent"
-        >
-          <Power className="h-5 w-5" />
-        </button>
+        {showExit && (
+          <button
+            type="button"
+            onClick={exit}
+            title="Exit"
+            aria-label="Exit"
+            className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent"
+          >
+            <Power className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <div className="my-auto w-full max-w-md space-y-6">

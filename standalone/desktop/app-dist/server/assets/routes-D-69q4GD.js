@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-D_8GWXQ2.js";
+import { n as Button, r as cn } from "./router-CQY39TTw.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -46782,6 +46782,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [newConfirmOpen, setNewConfirmOpen] = useState(false);
+	const showExit = !useIsMobile("(max-width: 767px), (pointer: coarse)") && !isNativeApp();
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
@@ -46873,7 +46874,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
 						children: /* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" })
 					}),
-					/* @__PURE__ */ jsx("button", {
+					showExit && /* @__PURE__ */ jsx("button", {
 						type: "button",
 						onClick: exit,
 						title: "Exit",
