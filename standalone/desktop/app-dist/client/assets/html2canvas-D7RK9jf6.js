@@ -1,0 +1,1 @@
+import{g as e}from"./routes-DX1zUXwc.js";export default e();

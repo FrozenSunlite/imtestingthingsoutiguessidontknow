@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CZuvfNg2.js";
+import { n as Button, r as cn } from "./router-Ct6yYawS.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -45044,6 +45044,11 @@ var DropdownMenuShortcut = ({ className, ...props }) => {
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
 //#endregion
 //#region src/components/skilltree/SideTreePanel.jsx
+var NOOP = () => {};
+var clampTooltipPos = (e) => ({
+	x: Math.min(e.clientX + 14, window.innerWidth - 280),
+	y: Math.min(e.clientY + 14, window.innerHeight - 240)
+});
 function prefixTree(nodes, connections, prefix) {
 	const idMap = {};
 	nodes.forEach((n) => idMap[n.id] = `${prefix}-${n.id}`);
@@ -45081,6 +45086,13 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	const containerRef = useRef(null);
 	const fileRef = useRef(null);
 	const dragRef = useRef(null);
+	const viewRef = useRef(view);
+	viewRef.current = view;
+	const transformRef = useRef(null);
+	const pendingViewRef = useRef(null);
+	const commitTimer = useRef(null);
+	const transformRaf = useRef(0);
+	const returnParentRef = useRef(null);
 	const isMain = st?.kind === "main";
 	const nodes = isMain ? tree?.nodes || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.nodes || [] : [];
 	const connections = isMain ? tree?.connections || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.connections || [] : [];
@@ -45110,23 +45122,50 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		const m = 900;
 		const f = (v) => Math.floor(v / step) * step;
 		const c = (v) => Math.ceil(v / step) * step;
+		const minX = f(-view.panX / z) - m;
+		const maxX = c((vp.w - view.panX) / z) + m;
+		const minY = f(-view.panY / z) - m;
+		const maxY = c((vp.h - view.panY) / z) + m;
 		return {
-			minX: f(-view.panX / z) - m,
-			maxX: c((vp.w - view.panX) / z) + m,
-			minY: f(-view.panY / z) - m,
-			maxY: c((vp.h - view.panY) / z) + m
+			minX,
+			maxX,
+			minY,
+			maxY,
+			key: `${minX}|${minY}|${maxX}|${maxY}`
 		};
 	}, [view, vp]);
-	const visibleNodes = useMemo(() => nodes.filter((n) => !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY), [
+	const visibleNodes = useMemo(() => nodes.filter((n) => (n.nodeType || "") !== "informative" && !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY), [
 		nodes,
-		region,
+		region.key,
 		hiddenIds
 	]);
+	const detailLevel = useMemo(() => {
+		const zoom = view.zoom || .1;
+		if (zoom < .28 || visibleNodes.length > 700) return "minimal";
+		if (zoom < .5 || visibleNodes.length > 250) return "low";
+		return "full";
+	}, [view.zoom, visibleNodes.length]);
+	const lowDetail = detailLevel !== "full";
 	const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
+	const availableIds = useMemo(() => {
+		const set = /* @__PURE__ */ new Set();
+		for (const node of visibleNodes) if (isAvailable(node, nodesById, unlockedNames)) set.add(node.id);
+		return set;
+	}, [
+		visibleNodes,
+		nodesById,
+		unlockedNames
+	]);
 	const title = isMain ? tree?.name || "Main tree" : st?.name || "Tree";
-	const levels = settings?.library?.levels || [];
-	const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
-	const eff = effectivePools(pools, character, mergedTree, levels, settings);
+	const levels = useMemo(() => settings?.library?.levels || [], [settings?.library?.levels]);
+	const usage = useMemo(() => poolUsage(mergedTree, settings?.library?.pointTypes), [mergedTree, settings?.library?.pointTypes]);
+	const eff = useMemo(() => effectivePools(pools, character, mergedTree, levels, settings), [
+		pools,
+		character,
+		mergedTree,
+		levels,
+		settings
+	]);
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
@@ -45164,6 +45203,8 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		const vw = containerRef.current?.clientWidth || vp.w || 440;
 		const vh = containerRef.current?.clientHeight || vp.h || 500;
 		const z = Math.min(vw / w, vh / h, 1);
+		clearTimeout(commitTimer.current);
+		pendingViewRef.current = null;
 		setView({
 			zoom: z,
 			panX: -(bounds.minX - 100) * z,
@@ -45185,6 +45226,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 			const vw = containerRef.current?.clientWidth || vp.w || 440;
 			const vh = containerRef.current?.clientHeight || vp.h || 500;
 			const z = Math.max(.4, Math.min(.8, view.zoom || .5));
+			pendingViewRef.current = null;
 			setView({
 				zoom: z,
 				panX: vw / 2 - startNode.x * z,
@@ -45198,6 +45240,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		const n = nodesById[treeFocus.nodeId];
 		if (!n) return;
 		const z = Math.max(view.zoom || .35, .5);
+		pendingViewRef.current = null;
 		setView({
 			zoom: z,
 			panX: (vp.w || 440) / 2 - n.x * z,
@@ -45206,13 +45249,56 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		setSelectedId(n.id);
 		clearTreeFocus();
 	}, [treeFocus, nodesById]);
+	const applyTransform = useCallback(() => {
+		const pv = pendingViewRef.current;
+		const layer = transformRef.current;
+		if (!pv || !layer) return;
+		layer.dataset.navigating = "true";
+		layer.style.transform = `translate3d(${pv.panX}px, ${pv.panY}px, 0) scale(${pv.zoom})`;
+	}, []);
+	const scheduleTransform = useCallback(() => {
+		if (transformRaf.current) return;
+		transformRaf.current = requestAnimationFrame(() => {
+			transformRaf.current = 0;
+			applyTransform();
+		});
+	}, [applyTransform]);
+	const endNavigation = useCallback(() => {
+		if (transformRaf.current) {
+			cancelAnimationFrame(transformRaf.current);
+			transformRaf.current = 0;
+		}
+		if (transformRef.current) transformRef.current.dataset.navigating = "false";
+	}, []);
+	const commitPendingView = useCallback((delay = 180) => {
+		clearTimeout(commitTimer.current);
+		commitTimer.current = setTimeout(() => {
+			const pv = pendingViewRef.current;
+			if (pv) {
+				pendingViewRef.current = null;
+				setView(pv);
+			}
+			endNavigation();
+		}, delay);
+	}, [endNavigation]);
+	useEffect(() => () => {
+		if (transformRaf.current) cancelAnimationFrame(transformRaf.current);
+		clearTimeout(commitTimer.current);
+	}, []);
 	const onPointerDown = (e) => {
 		if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
+		clearTimeout(commitTimer.current);
+		const base = pendingViewRef.current || viewRef.current;
+		if (pendingViewRef.current) {
+			const pv = pendingViewRef.current;
+			pendingViewRef.current = null;
+			setView(pv);
+		}
 		dragRef.current = {
 			sx: e.clientX,
 			sy: e.clientY,
-			panX: view.panX,
-			panY: view.panY
+			panX: base.panX,
+			panY: base.panY
 		};
 		e.currentTarget.setPointerCapture?.(e.pointerId);
 		setSelectedId(null);
@@ -45223,13 +45309,20 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		const dx = e.clientX - d.sx;
 		const dy = e.clientY - d.sy;
 		if (Math.hypot(dx, dy) > 4) dragRef.current.moved = true;
-		setView((v) => ({
-			...v,
+		pendingViewRef.current = {
+			zoom: viewRef.current.zoom,
 			panX: d.panX + dx,
 			panY: d.panY + dy
-		}));
+		};
+		scheduleTransform();
 	};
 	const onPointerUp = () => {
+		if (pendingViewRef.current) {
+			const pv = pendingViewRef.current;
+			pendingViewRef.current = null;
+			setView(pv);
+		}
+		endNavigation();
 		dragRef.current = null;
 	};
 	const onWheel = (e) => {
@@ -45239,16 +45332,17 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		const sx = e.clientX - rect.left;
 		const sy = e.clientY - rect.top;
 		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-		setView((v) => {
-			const z = Math.min(2.5, Math.max(.05, (v.zoom || .3) * factor));
-			const wx = (sx - v.panX) / (v.zoom || .3);
-			const wy = (sy - v.panY) / (v.zoom || .3);
-			return {
-				zoom: z,
-				panX: sx - wx * z,
-				panY: sy - wy * z
-			};
-		});
+		const base = pendingViewRef.current || viewRef.current;
+		const z = Math.min(2.5, Math.max(.05, (base.zoom || .3) * factor));
+		const wx = (sx - base.panX) / (base.zoom || .3);
+		const wy = (sy - base.panY) / (base.zoom || .3);
+		pendingViewRef.current = {
+			zoom: z,
+			panX: sx - wx * z,
+			panY: sy - wy * z
+		};
+		scheduleTransform();
+		commitPendingView();
 	};
 	const [hover, setHover] = useState(null);
 	const hoverTimer = useRef(null);
@@ -45258,14 +45352,10 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		x: 0,
 		y: 0
 	});
-	const clampPos = (e) => ({
-		x: Math.min(e.clientX + 14, window.innerWidth - 280),
-		y: Math.min(e.clientY + 14, window.innerHeight - 240)
-	});
-	const onHover = (e, node) => {
+	const onHover = useCallback((e, node) => {
 		overRef.current = true;
 		pendingNode.current = node;
-		pendingPos.current = clampPos(e);
+		pendingPos.current = clampTooltipPos(e);
 		clearTimeout(hoverTimer.current);
 		hoverTimer.current = setTimeout(() => {
 			hoverTimer.current = null;
@@ -45274,10 +45364,10 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 				...pendingPos.current
 			});
 		}, 1200);
-	};
-	const onHoverMove = (e) => {
+	}, []);
+	const onHoverMove = useCallback((e) => {
 		if (!overRef.current || dragRef.current) return;
-		pendingPos.current = clampPos(e);
+		pendingPos.current = clampTooltipPos(e);
 		setHover((h) => h ? {
 			...h,
 			...pendingPos.current
@@ -45289,13 +45379,13 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 				...pendingPos.current
 			});
 		}, 300);
-	};
-	const onHoverEnd = () => {
+	}, []);
+	const onHoverEnd = useCallback(() => {
 		overRef.current = false;
 		clearTimeout(hoverTimer.current);
 		hoverTimer.current = null;
 		setHover(null);
-	};
+	}, []);
 	useEffect(() => () => clearTimeout(hoverTimer.current), []);
 	const applyPoints = (id, delta) => {
 		if (isMain) {
@@ -45479,7 +45569,9 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	};
 	const investStable = useRef(handleInvest);
 	investStable.current = handleInvest;
-	const onInvest = (node, delta) => investStable.current(node, delta);
+	const onInvest = useCallback((node, delta) => investStable.current(node, delta), []);
+	const openNodeSubtree = useCallback((node) => setSubtreePickNode(node), []);
+	const handleReturnParent = useCallback(() => returnParentRef.current?.(), []);
 	const loadSnapshot = (name, n, c) => {
 		const p = prefixTree(n || [], c || [], slot);
 		setSideTree(slot, {
@@ -45504,11 +45596,11 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		reader.readAsText(file);
 		e.target.value = "";
 	};
-	const onNodePointerDown = (e, node) => {
+	const onNodePointerDown = useCallback((e, node) => {
 		if (e.button !== 0) return;
 		e.stopPropagation();
 		setSelectedId(node.id);
-	};
+	}, []);
 	if (!tree || !st || st.closed) return null;
 	const selected = selectedId ? nodesById[selectedId] : null;
 	const effChoices = effectiveChoices(character, mergedTree);
@@ -45551,6 +45643,9 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 			focusNode(`sub-${parent.hostId}-${parent.subIndex ?? 0}-${current.hostId}`);
 		} else focusNode(current.hostId);
 	};
+	returnParentRef.current = returnToParent;
+	const canOpenSubtree = isMain || st?.subtreeHostId && Array.isArray(st?.hostChain);
+	const renderedView = pendingViewRef.current || view;
 	return /* @__PURE__ */ jsxs("div", {
 		className: cn("flex min-h-0 flex-col bg-card", stacked ? "w-full min-h-0 flex-1" : "h-full", !floating && !stacked && "relative shrink-0", !floating && !stacked && (slot === "left" ? "border-r" : "border-l")),
 		style: floating || stacked ? void 0 : { width },
@@ -45720,11 +45815,12 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 						children: "No tree loaded in this panel — use Load or Import above. E.g. one side for skills, the other for heritage."
 					})
 				}) : /* @__PURE__ */ jsxs("div", {
+					ref: transformRef,
 					style: {
 						position: "absolute",
 						left: 0,
 						top: 0,
-						transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`,
+						transform: `translate3d(${renderedView.panX}px, ${renderedView.panY}px, 0) scale(${renderedView.zoom})`,
 						transformOrigin: "0 0",
 						willChange: "transform"
 					},
@@ -45738,28 +45834,30 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 						altActive: false,
 						hidden: hiddenIds,
 						selectedId: null,
-						onConnPointerDown: () => {},
-						onConnSelect: () => {},
-						onConnContextMenu: () => {}
+						onConnPointerDown: NOOP,
+						onConnSelect: NOOP,
+						onConnContextMenu: NOOP,
+						lowDetail
 					}), visibleNodes.map((n) => /* @__PURE__ */ jsx(SkillNodeView, {
 						node: n,
 						editable: false,
 						selected: selectedId === n.id,
 						showNames: true,
-						available: isAvailable(n, nodesById, unlockedNames),
+						available: availableIds.has(n.id),
 						placeholder: settings.placeholderImage,
 						placeholderFrame: settings.placeholderFrame,
 						highlighted: false,
-						onSelect: () => {},
+						onSelect: NOOP,
 						onPointerDown: onNodePointerDown,
 						onHover,
 						onHoverMove,
 						onHoverEnd,
-						onContextMenu: () => {},
+						onContextMenu: NOOP,
 						onInvest,
-						onOpenSubtree: isMain || st?.subtreeHostId && Array.isArray(st?.hostChain) ? (n) => setSubtreePickNode(n) : void 0,
-						onReturnParent: returnToParent,
-						dblClickInvest: floating
+						onOpenSubtree: canOpenSubtree ? openNodeSubtree : void 0,
+						onReturnParent: handleReturnParent,
+						dblClickInvest: floating,
+						detailLevel
 					}, n.id))]
 				}), /* @__PURE__ */ jsx(NodeTooltip, {
 					hover,

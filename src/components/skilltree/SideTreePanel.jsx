@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useTree,
   poolUsage,
@@ -39,6 +39,14 @@ import { usePanelWidth } from "@/hooks/use-panel-width";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FolderOpen, Maximize, Upload, X } from "lucide-react";
+
+// Stable identities for memoized nodes/connectors. Inline arrow props would
+// make every node re-render on every camera/hover update.
+const NOOP = () => {};
+const clampTooltipPos = (e) => ({
+  x: Math.min(e.clientX + 14, window.innerWidth - 280),
+  y: Math.min(e.clientY + 14, window.innerHeight - 240),
+});
 
 // Prefix node ids so side-tree nodes can never collide with the main tree's
 // (both number from "n0") — character ability choices are keyed by node id.
@@ -98,6 +106,15 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   const containerRef = useRef(null);
   const fileRef = useRef(null);
   const dragRef = useRef(null);
+  // Camera gestures move the world layer directly, like the main canvas, so
+  // panning/zoom does not re-render hundreds of nodes on every frame.
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const transformRef = useRef(null);
+  const pendingViewRef = useRef(null);
+  const commitTimer = useRef(null);
+  const transformRaf = useRef(0);
+  const returnParentRef = useRef(null);
 
   const isMain = st?.kind === "main";
   const nodes = isMain
@@ -140,28 +157,54 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     const m = 900;
     const f = (v) => Math.floor(v / step) * step;
     const c = (v) => Math.ceil(v / step) * step;
-    return {
-      minX: f(-view.panX / z) - m,
-      maxX: c((vp.w - view.panX) / z) + m,
-      minY: f(-view.panY / z) - m,
-      maxY: c((vp.h - view.panY) / z) + m,
-    };
+    const minX = f(-view.panX / z) - m;
+    const maxX = c((vp.w - view.panX) / z) + m;
+    const minY = f(-view.panY / z) - m;
+    const maxY = c((vp.h - view.panY) / z) + m;
+    return { minX, maxX, minY, maxY, key: `${minX}|${minY}|${maxX}|${maxY}` };
   }, [view, vp]);
   const visibleNodes = useMemo(
     () =>
       nodes.filter(
         (n) =>
+          // Informative nodes are editor-only reference, exactly as on the
+          // main canvas outside Edit mode.
+          (n.nodeType || "") !== "informative" &&
           !hiddenIds?.has(n.id) &&
           n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY
       ),
-    [nodes, region, hiddenIds]
+    [nodes, region.key, hiddenIds]
   );
+  // Same detail tiers as the main canvas: large or zoomed-out trees skip the
+  // expensive alpha outlines, socket shadows and connector decoration.
+  const detailLevel = useMemo(() => {
+    const zoom = view.zoom || 0.1;
+    if (zoom < 0.28 || visibleNodes.length > 700) return "minimal";
+    if (zoom < 0.5 || visibleNodes.length > 250) return "low";
+    return "full";
+  }, [view.zoom, visibleNodes.length]);
+  const lowDetail = detailLevel !== "full";
   const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
+  // Availability is status for every visible node; compute it once per view
+  // change instead of on every hover/selection render.
+  const availableIds = useMemo(() => {
+    const set = new Set();
+    for (const node of visibleNodes) {
+      if (isAvailable(node, nodesById, unlockedNames)) set.add(node.id);
+    }
+    return set;
+  }, [visibleNodes, nodesById, unlockedNames]);
   const title = isMain ? tree?.name || "Main tree" : st?.name || "Tree";
-  const levels = settings?.library?.levels || [];
+  const levels = useMemo(() => settings?.library?.levels || [], [settings?.library?.levels]);
 
-  const usage = poolUsage(mergedTree, settings?.library?.pointTypes);
-  const eff = effectivePools(pools, character, mergedTree, levels, settings);
+  const usage = useMemo(
+    () => poolUsage(mergedTree, settings?.library?.pointTypes),
+    [mergedTree, settings?.library?.pointTypes]
+  );
+  const eff = useMemo(
+    () => effectivePools(pools, character, mergedTree, levels, settings),
+    [pools, character, mergedTree, levels, settings]
+  );
 
   useEffect(() => {
     const el = containerRef.current;
@@ -191,6 +234,8 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     const vw = containerRef.current?.clientWidth || vp.w || 440;
     const vh = containerRef.current?.clientHeight || vp.h || 500;
     const z = Math.min(vw / w, vh / h, 1);
+    clearTimeout(commitTimer.current);
+    pendingViewRef.current = null;
     setView({ zoom: z, panX: -(bounds.minX - 100) * z, panY: -(bounds.minY - 100) * z });
   };
   // The node the View camera opens on: the configured starter node, else the
@@ -213,6 +258,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
       const vw = containerRef.current?.clientWidth || vp.w || 440;
       const vh = containerRef.current?.clientHeight || vp.h || 500;
       const z = Math.max(0.4, Math.min(0.8, view.zoom || 0.5));
+      pendingViewRef.current = null;
       setView({
         zoom: z,
         panX: vw / 2 - startNode.x * z,
@@ -230,6 +276,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     const n = nodesById[treeFocus.nodeId];
     if (!n) return;
     const z = Math.max(view.zoom || 0.35, 0.5);
+    pendingViewRef.current = null;
     setView({
       zoom: z,
       panX: (vp.w || 440) / 2 - n.x * z,
@@ -240,10 +287,71 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
      
   }, [treeFocus, nodesById]);
 
-  // Pan and wheel-zoom, mirroring the main canvas.
+  const applyTransform = useCallback(() => {
+    const pv = pendingViewRef.current;
+    const layer = transformRef.current;
+    if (!pv || !layer) return;
+    layer.dataset.navigating = "true";
+    layer.style.transform = `translate3d(${pv.panX}px, ${pv.panY}px, 0) scale(${pv.zoom})`;
+  }, []);
+
+  const scheduleTransform = useCallback(() => {
+    if (transformRaf.current) return;
+    transformRaf.current = requestAnimationFrame(() => {
+      transformRaf.current = 0;
+      applyTransform();
+    });
+  }, [applyTransform]);
+
+  const endNavigation = useCallback(() => {
+    if (transformRaf.current) {
+      cancelAnimationFrame(transformRaf.current);
+      transformRaf.current = 0;
+    }
+    if (transformRef.current) transformRef.current.dataset.navigating = "false";
+  }, []);
+
+  const commitPendingView = useCallback(
+    (delay = 180) => {
+      clearTimeout(commitTimer.current);
+      commitTimer.current = setTimeout(() => {
+        const pv = pendingViewRef.current;
+        if (pv) {
+          pendingViewRef.current = null;
+          setView(pv);
+        }
+        endNavigation();
+      }, delay);
+    },
+    [endNavigation]
+  );
+
+  useEffect(
+    () => () => {
+      if (transformRaf.current) cancelAnimationFrame(transformRaf.current);
+      clearTimeout(commitTimer.current);
+    },
+    []
+  );
+
+  // Pan and wheel-zoom, mirroring the main canvas. The world layer moves by
+  // writing its CSS transform during the gesture; React only renders once when
+  // the camera settles.
   const onPointerDown = (e) => {
     if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
-    dragRef.current = { sx: e.clientX, sy: e.clientY, panX: view.panX, panY: view.panY };
+    clearTimeout(commitTimer.current);
+    const base = pendingViewRef.current || viewRef.current;
+    if (pendingViewRef.current) {
+      const pv = pendingViewRef.current;
+      pendingViewRef.current = null;
+      setView(pv);
+    }
+    dragRef.current = {
+      sx: e.clientX,
+      sy: e.clientY,
+      panX: base.panX,
+      panY: base.panY,
+    };
     e.currentTarget.setPointerCapture?.(e.pointerId);
     setSelectedId(null);
   };
@@ -253,9 +361,20 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     const dx = e.clientX - d.sx;
     const dy = e.clientY - d.sy;
     if (Math.hypot(dx, dy) > 4) dragRef.current.moved = true;
-    setView((v) => ({ ...v, panX: d.panX + dx, panY: d.panY + dy }));
+    pendingViewRef.current = {
+      zoom: viewRef.current.zoom,
+      panX: d.panX + dx,
+      panY: d.panY + dy,
+    };
+    scheduleTransform();
   };
   const onPointerUp = () => {
+    if (pendingViewRef.current) {
+      const pv = pendingViewRef.current;
+      pendingViewRef.current = null;
+      setView(pv);
+    }
+    endNavigation();
     dragRef.current = null;
   };
   const onWheel = (e) => {
@@ -265,12 +384,13 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    setView((v) => {
-      const z = Math.min(2.5, Math.max(0.05, (v.zoom || 0.3) * factor));
-      const wx = (sx - v.panX) / (v.zoom || 0.3);
-      const wy = (sy - v.panY) / (v.zoom || 0.3);
-      return { zoom: z, panX: sx - wx * z, panY: sy - wy * z };
-    });
+    const base = pendingViewRef.current || viewRef.current;
+    const z = Math.min(2.5, Math.max(0.05, (base.zoom || 0.3) * factor));
+    const wx = (sx - base.panX) / (base.zoom || 0.3);
+    const wy = (sy - base.panY) / (base.zoom || 0.3);
+    pendingViewRef.current = { zoom: z, panX: sx - wx * z, panY: sy - wy * z };
+    scheduleTransform();
+    commitPendingView();
   };
 
   // Hover preview, like the main canvas.
@@ -279,23 +399,19 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   const overRef = useRef(false);
   const pendingNode = useRef(null);
   const pendingPos = useRef({ x: 0, y: 0 });
-  const clampPos = (e) => ({
-    x: Math.min(e.clientX + 14, window.innerWidth - 280),
-    y: Math.min(e.clientY + 14, window.innerHeight - 240),
-  });
-  const onHover = (e, node) => {
+  const onHover = useCallback((e, node) => {
     overRef.current = true;
     pendingNode.current = node;
-    pendingPos.current = clampPos(e);
+    pendingPos.current = clampTooltipPos(e);
     clearTimeout(hoverTimer.current);
     hoverTimer.current = setTimeout(() => {
       hoverTimer.current = null;
       setHover({ node: pendingNode.current, ...pendingPos.current });
     }, 1200);
-  };
-  const onHoverMove = (e) => {
+  }, []);
+  const onHoverMove = useCallback((e) => {
     if (!overRef.current || dragRef.current) return;
-    pendingPos.current = clampPos(e);
+    pendingPos.current = clampTooltipPos(e);
     setHover((h) => (h ? { ...h, ...pendingPos.current } : h));
     if (!hoverTimer.current) {
       hoverTimer.current = setTimeout(() => {
@@ -303,13 +419,13 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
         setHover({ node: pendingNode.current, ...pendingPos.current });
       }, 300);
     }
-  };
-  const onHoverEnd = () => {
+  }, []);
+  const onHoverEnd = useCallback(() => {
     overRef.current = false;
     clearTimeout(hoverTimer.current);
     hoverTimer.current = null;
     setHover(null);
-  };
+  }, []);
   useEffect(() => () => clearTimeout(hoverTimer.current), []);
 
   // Point investment: the same gates as the main canvas, but pool checks run
@@ -567,7 +683,9 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   };
   const investStable = useRef(handleInvest);
   investStable.current = handleInvest;
-  const onInvest = (node, delta) => investStable.current(node, delta);
+  const onInvest = useCallback((node, delta) => investStable.current(node, delta), []);
+  const openNodeSubtree = useCallback((node) => setSubtreePickNode(node), []);
+  const handleReturnParent = useCallback(() => returnParentRef.current?.(), []);
 
   // Loading a tree into the slot: snapshot it with slot-prefixed ids.
   const loadSnapshot = (name, n, c) => {
@@ -592,11 +710,11 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     e.target.value = "";
   };
 
-  const onNodePointerDown = (e, node) => {
+  const onNodePointerDown = useCallback((e, node) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     setSelectedId(node.id);
-  };
+  }, []);
 
   if (!tree || !st || st.closed) return null;
   const selected = selectedId ? nodesById[selectedId] : null;
@@ -658,6 +776,12 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
       focusNode(current.hostId);
     }
   };
+  returnParentRef.current = returnToParent;
+  const canOpenSubtree =
+    isMain || (st?.subtreeHostId && Array.isArray(st?.hostChain));
+  // If an unrelated state update renders during a gesture, keep the transform
+  // at the in-flight camera instead of snapping back to the committed one.
+  const renderedView = pendingViewRef.current || view;
 
   return (
     <div
@@ -836,11 +960,12 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
           </div>
         ) : (
           <div
+            ref={transformRef}
             style={{
               position: "absolute",
               left: 0,
               top: 0,
-              transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`,
+              transform: `translate3d(${renderedView.panX}px, ${renderedView.panY}px, 0) scale(${renderedView.zoom})`,
               transformOrigin: "0 0",
               willChange: "transform",
             }}
@@ -855,9 +980,10 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
               altActive={false}
               hidden={hiddenIds}
               selectedId={null}
-              onConnPointerDown={() => {}}
-              onConnSelect={() => {}}
-              onConnContextMenu={() => {}}
+              onConnPointerDown={NOOP}
+              onConnSelect={NOOP}
+              onConnContextMenu={NOOP}
+              lowDetail={lowDetail}
             />
             {visibleNodes.map((n) => (
               <SkillNodeView
@@ -866,24 +992,21 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
                 editable={false}
                 selected={selectedId === n.id}
                 showNames
-                available={isAvailable(n, nodesById, unlockedNames)}
+                available={availableIds.has(n.id)}
                 placeholder={settings.placeholderImage}
                 placeholderFrame={settings.placeholderFrame}
                 highlighted={false}
-                onSelect={() => {}}
+                onSelect={NOOP}
                 onPointerDown={onNodePointerDown}
                 onHover={onHover}
                 onHoverMove={onHoverMove}
                 onHoverEnd={onHoverEnd}
-                onContextMenu={() => {}}
+                onContextMenu={NOOP}
                 onInvest={onInvest}
-                onOpenSubtree={
-                  isMain || (st?.subtreeHostId && Array.isArray(st?.hostChain))
-                    ? (n) => setSubtreePickNode(n)
-                    : undefined
-                }
-                onReturnParent={returnToParent}
+                onOpenSubtree={canOpenSubtree ? openNodeSubtree : undefined}
+                onReturnParent={handleReturnParent}
                 dblClickInvest={floating}
+                detailLevel={detailLevel}
               />
             ))}
           </div>
