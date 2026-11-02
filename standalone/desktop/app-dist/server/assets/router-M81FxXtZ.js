@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useEffect } from "react";
 import { ErrorComponent, HeadContent, Link, Outlet, Scripts, createFileRoute, createRootRoute, createRouter, lazyRouteComponent, rootRouteId, useMatch, useRouter } from "@tanstack/react-router";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { Slot } from "@radix-ui/react-slot";
@@ -156,12 +157,31 @@ var Route$1 = createRootRoute({
 			{
 				name: "description",
 				content: "Build and play homebrew D&D 5e talent trees with a live character sheet."
+			},
+			{
+				name: "theme-color",
+				content: "#0b1020"
 			}
 		],
-		links: [{
-			rel: "stylesheet",
-			href: src_default
-		}]
+		links: [
+			{
+				rel: "stylesheet",
+				href: src_default
+			},
+			{
+				rel: "manifest",
+				href: "/manifest.webmanifest"
+			},
+			{
+				rel: "icon",
+				type: "image/png",
+				href: "/icons/icon-192.png"
+			},
+			{
+				rel: "apple-touch-icon",
+				href: "/icons/apple-touch-icon.png"
+			}
+		]
 	}),
 	errorComponent: DefaultCatchBoundary,
 	notFoundComponent: () => /* @__PURE__ */ jsx(NotFound, {}),
@@ -169,6 +189,10 @@ var Route$1 = createRootRoute({
 	component: RootComponent
 });
 function RootComponent() {
+	useEffect(() => {
+		if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+		navigator.serviceWorker.register("/sw.js").catch(() => {});
+	}, []);
 	return /* @__PURE__ */ jsxs(Fragment, { children: [/* @__PURE__ */ jsx(Outlet, {}), /* @__PURE__ */ jsx(Toaster$1, {})] });
 }
 function RootDocument({ children }) {
@@ -182,7 +206,7 @@ function RootDocument({ children }) {
 }
 //#endregion
 //#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-xbQOhoDF.js");
+var $$splitComponentImporter = () => import("./routes-BmVUP5MQ.js");
 //#endregion
 //#region src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({

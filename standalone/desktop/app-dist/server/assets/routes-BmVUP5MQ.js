@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-CZcfJrUR.js";
+import { n as Button, r as cn } from "./router-M81FxXtZ.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -43657,6 +43657,25 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
+	const [installPrompt, setInstallPrompt] = useState(null);
+	useEffect(() => {
+		const onPrompt = (event) => {
+			event.preventDefault();
+			setInstallPrompt(event);
+		};
+		const onInstalled = () => setInstallPrompt(null);
+		window.addEventListener("beforeinstallprompt", onPrompt);
+		window.addEventListener("appinstalled", onInstalled);
+		return () => {
+			window.removeEventListener("beforeinstallprompt", onPrompt);
+			window.removeEventListener("appinstalled", onInstalled);
+		};
+	}, []);
+	const installApp = async () => {
+		if (!installPrompt) return;
+		installPrompt.prompt();
+		if ((await installPrompt.userChoice)?.outcome === "accepted") setInstallPrompt(null);
+	};
 	useEffect(() => {
 		const openLibrary = () => setLibraryOpen(true);
 		const openRulebook = () => setRulebookOpen(true);
@@ -43700,21 +43719,32 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "absolute right-4 top-4 z-10 flex gap-2",
-				children: [/* @__PURE__ */ jsx("button", {
-					type: "button",
-					onClick: () => setSettingsOpen(true),
-					title: "Settings",
-					"aria-label": "Settings",
-					className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
-					children: /* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" })
-				}), /* @__PURE__ */ jsx("button", {
-					type: "button",
-					onClick: exit,
-					title: "Exit",
-					"aria-label": "Exit",
-					className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
-					children: /* @__PURE__ */ jsx(Power, { className: "h-5 w-5" })
-				})]
+				children: [
+					installPrompt && /* @__PURE__ */ jsx("button", {
+						type: "button",
+						onClick: installApp,
+						title: "Install this app on your device",
+						"aria-label": "Install app",
+						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
+						children: /* @__PURE__ */ jsx(Smartphone, { className: "h-5 w-5" })
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						onClick: () => setSettingsOpen(true),
+						title: "Settings",
+						"aria-label": "Settings",
+						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
+						children: /* @__PURE__ */ jsx(Settings, { className: "h-5 w-5" })
+					}),
+					/* @__PURE__ */ jsx("button", {
+						type: "button",
+						onClick: exit,
+						title: "Exit",
+						"aria-label": "Exit",
+						className: "rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent",
+						children: /* @__PURE__ */ jsx(Power, { className: "h-5 w-5" })
+					})
+				]
 			}),
 			/* @__PURE__ */ jsxs("div", {
 				className: "my-auto w-full max-w-md space-y-6",

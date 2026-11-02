@@ -28,6 +28,7 @@ import {
   Database,
   Globe2,
   Boxes,
+  Smartphone,
 } from "lucide-react";
 
 // First-run main menu: shown before the workspace until an option is picked.
@@ -39,6 +40,28 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   const [saveOpen, setSaveOpen] = useState(false);
   const [rulebookOpen, setRulebookOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+
+  useEffect(() => {
+    const onPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const onInstalled = () => setInstallPrompt(null);
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice?.outcome === "accepted") setInstallPrompt(null);
+  };
 
   useEffect(() => {
     const openLibrary = () => setLibraryOpen(true);
@@ -91,6 +114,17 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   return (
     <div className="blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10">
       <div className="absolute right-4 top-4 z-10 flex gap-2">
+        {installPrompt && (
+          <button
+            type="button"
+            onClick={installApp}
+            title="Install this app on your device"
+            aria-label="Install app"
+            className="rounded-full border bg-card/80 p-2 shadow-lg hover:bg-accent"
+          >
+            <Smartphone className="h-5 w-5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}

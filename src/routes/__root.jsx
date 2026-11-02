@@ -1,4 +1,5 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,10 +13,14 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "I'm Trying's Terrific Talent Tree" },
       { name: "description", content: "Build and play homebrew D&D 5e talent trees with a live character sheet." },
+      { name: "theme-color", content: "#0b1020" },
     ],
     // No icon link: the platform adds the app's logo when serving.
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", href: "/icons/icon-192.png" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
     ],
   }),
   errorComponent: DefaultCatchBoundary,
@@ -25,6 +30,14 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* offline shell is optional */
+    });
+  }, []);
+
   // The close warning lives in TreeProvider: it asks only while the project
   // has unsaved edits, never on every navigation.
   return (

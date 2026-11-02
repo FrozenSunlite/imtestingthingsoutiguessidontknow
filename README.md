@@ -105,6 +105,11 @@ changing app code, then restart the launcher.
   prefilled.
 - **Skills:** Religion uses Wisdom, Technology uses Intelligence, and Presence is
   a Charisma skill for composure, first impressions and social self-presentation.
+- **Installable app:** the build includes a web manifest, icons and an offline
+  app-shell service worker, so it can be installed from Chrome on Android
+  (or added to the home screen) and launched full-screen. Project data still
+  lives in the browser origin's local IndexedDB, so a stable HTTPS address is
+  needed for long-term use.
 - **Mobile layout:** the launch menu, editor panels, View screen tree drawer and
   Reference Library adapt to phone widths; editing opens as a full-screen panel,
   and the View screen shows skill trees in a closeable drawer.

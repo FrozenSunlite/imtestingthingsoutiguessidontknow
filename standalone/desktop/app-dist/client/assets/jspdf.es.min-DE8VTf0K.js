@@ -1,1 +1,0 @@
-import{n as e}from"./routes-DZMnXBOJ.js";export{e as default,e as jsPDF};
