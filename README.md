@@ -110,7 +110,9 @@ changing app code, then restart the launcher.
   default with a song dropdown, fades out and in over one second, and shows a
   bottom-right “Now Playing - SONG” popup (spinning record, six seconds, can be
   turned off). The next shuffled song is chosen and preloaded while the current
-  one plays, so the hand-off at the end of a track is immediate. Tracks live in
+  one plays, so the hand-off at the end of a track is immediate. Muting clears
+  the Now Playing popup and suppresses new ones; unmuting/resuming announces the
+  song that is playing. Tracks live in
   `public/music`; `public/music/Custom` is only used
   when **Custom music** is enabled, and default music is disabled while it is on.
   Rebuild the library after adding files:

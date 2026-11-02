@@ -64,6 +64,15 @@ export function MusicPlayer() {
   const nextUp = useRef(null);
   const lastHandledTrack = useRef("");
   const advancing = useRef(false);
+  const wasAudible = useRef(audio.musicEnabled && !audio.musicMuted);
+
+  const showNowPlaying = useCallback((track) => {
+    const a = audioRef.current;
+    if (!track || !a.nowPlaying || !a.musicEnabled || a.musicMuted) return;
+    setToastTrack(track);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastTrack(null), NOW_PLAYING_MS);
+  }, []);
 
   const startTrack = useCallback(async (track) => {
     if (!track?.file) return false;
@@ -77,16 +86,13 @@ export function MusicPlayer() {
       const upcoming = pickNextRef.current(track.file);
       nextUp.current = upcoming;
       if (upcoming) prefetchMusic(upcoming.file);
-      if (audioRef.current.nowPlaying) {
-        setToastTrack(track);
-        clearTimeout(toastTimer.current);
-        toastTimer.current = setTimeout(() => setToastTrack(null), NOW_PLAYING_MS);
-      }
+      // Never announce songs while the user has music muted or switched off.
+      showNowPlaying(track);
     } else {
       setNeedsGesture(true);
     }
     return ok;
-  }, []);
+  }, [showNowPlaying]);
   const startTrackRef = useRef(startTrack);
   startTrackRef.current = startTrack;
 
@@ -107,6 +113,20 @@ export function MusicPlayer() {
   useEffect(() => {
     configureAudio(audio);
   }, [audio]);
+
+  // Muting/stopping clears the current announcement. Resuming music shows the
+  // song that is playing, so the user knows what came back on.
+  useEffect(() => {
+    const audibleNow = audio.musicEnabled && !audio.musicMuted;
+    const previouslyAudible = wasAudible.current;
+    wasAudible.current = audibleNow;
+    if (!audibleNow) {
+      clearTimeout(toastTimer.current);
+      setToastTrack(null);
+      return;
+    }
+    if (!previouslyAudible) showNowPlaying(getCurrentTrack());
+  }, [audio.musicEnabled, audio.musicMuted, audio.nowPlaying, showNowPlaying]);
 
   useEffect(() => {
     if (!audio.sfxEnabled) return undefined;

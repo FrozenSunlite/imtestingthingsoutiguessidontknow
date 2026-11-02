@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-069w8cHR.js";
+import { n as Button, r as cn } from "./router-B9meTmU_.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -83132,6 +83132,14 @@ function MusicPlayer() {
 	const nextUp = useRef(null);
 	const lastHandledTrack = useRef("");
 	const advancing = useRef(false);
+	const wasAudible = useRef(audio.musicEnabled && !audio.musicMuted);
+	const showNowPlaying = useCallback((track) => {
+		const a = audioRef.current;
+		if (!track || !a.nowPlaying || !a.musicEnabled || a.musicMuted) return;
+		setToastTrack(track);
+		clearTimeout(toastTimer.current);
+		toastTimer.current = setTimeout(() => setToastTrack(null), NOW_PLAYING_MS);
+	}, []);
 	const startTrack = useCallback(async (track) => {
 		if (!track?.file) return false;
 		pendingTrack.current = track;
@@ -83142,14 +83150,10 @@ function MusicPlayer() {
 			const upcoming = pickNextRef.current(track.file);
 			nextUp.current = upcoming;
 			if (upcoming) prefetchMusic(upcoming.file);
-			if (audioRef.current.nowPlaying) {
-				setToastTrack(track);
-				clearTimeout(toastTimer.current);
-				toastTimer.current = setTimeout(() => setToastTrack(null), NOW_PLAYING_MS);
-			}
+			showNowPlaying(track);
 		} else setNeedsGesture(true);
 		return ok;
-	}, []);
+	}, [showNowPlaying]);
 	const startTrackRef = useRef(startTrack);
 	startTrackRef.current = startTrack;
 	const pickNext = useCallback((exclude) => {
@@ -83166,6 +83170,22 @@ function MusicPlayer() {
 	useEffect(() => {
 		configureAudio(audio);
 	}, [audio]);
+	useEffect(() => {
+		const audibleNow = audio.musicEnabled && !audio.musicMuted;
+		const previouslyAudible = wasAudible.current;
+		wasAudible.current = audibleNow;
+		if (!audibleNow) {
+			clearTimeout(toastTimer.current);
+			setToastTrack(null);
+			return;
+		}
+		if (!previouslyAudible) showNowPlaying(getCurrentTrack());
+	}, [
+		audio.musicEnabled,
+		audio.musicMuted,
+		audio.nowPlaying,
+		showNowPlaying
+	]);
 	useEffect(() => {
 		if (!audio.sfxEnabled) return void 0;
 		return installUiSounds(true);
