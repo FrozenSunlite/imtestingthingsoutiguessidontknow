@@ -21,11 +21,23 @@ for (const target of targets) {
   console.log(`copied -> ${target}`);
 }
 
-// Advertise the update only when there is a matching APK to download. Reading
-// the build stamp from the same client folder keeps the APK and update.json in
-// sync; a web-only build never advertises an APK that wasn't rebuilt.
+// Advertise the update only when there is a matching APK to download. Read the
+// stamp that was packaged *inside* the APK (the copied Android assets), not the
+// newer web-only client build; otherwise the app would keep offering the same
+// APK because update.json was ahead of the installed build.
 const clientDir = join("standalone", "desktop", "app-dist", "client");
-const versionFile = join(clientDir, "app-version.json");
+const packagedVersionFile = join(
+  "android",
+  "app",
+  "src",
+  "main",
+  "assets",
+  "public",
+  "app-version.json"
+);
+const versionFile = existsSync(packagedVersionFile)
+  ? packagedVersionFile
+  : join(clientDir, "app-version.json");
 const build = existsSync(versionFile)
   ? JSON.parse(readFileSync(versionFile, "utf8"))
   : { builtAt: new Date().toISOString() };

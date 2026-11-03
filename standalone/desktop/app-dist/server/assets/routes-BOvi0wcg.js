@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CORCb3eJ.js";
+import { n as Button, r as cn } from "./router-BBphDp4_.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -12295,6 +12295,7 @@ function registerServiceWorker() {
 	if (typeof window === "undefined" || registered) return;
 	if (!("serviceWorker" in navigator) || false) return;
 	if (isNativeApp()) return;
+	if (/Electron/i.test(navigator.userAgent)) return;
 	registered = true;
 	navigator.serviceWorker.register("/sw.js").then((reg) => {
 		if (reg.waiting && navigator.serviceWorker.controller) setWaiting(reg.waiting);
@@ -47068,7 +47069,8 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 		if (typeof window === "undefined") return false;
 		return !!window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
 	});
-	const showInstall = !standalone && !isNativeApp();
+	const isElectron = typeof navigator !== "undefined" && /Electron/i.test(navigator.userAgent);
+	const showInstall = !standalone && !isNativeApp() && !isElectron;
 	const installInfo = browserInfo();
 	useEffect(() => {
 		const onPrompt = (event) => {

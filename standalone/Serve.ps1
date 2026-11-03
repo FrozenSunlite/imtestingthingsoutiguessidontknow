@@ -1,13 +1,24 @@
+param(
+  [switch]$NoBrowser,
+  [int]$Port = 4173,
+  [string]$UserDataRoot = ""
+)
+
 $root = Join-Path $PSScriptRoot "desktop\app-dist\client"
 $shell = "_shell.html"
-$port = 4173
+$port = $Port
 # Imported artwork lives outside the build folder so rebuilding the app never
-# wipes it. It is served back from /images/.
-$uploadRoot = Join-Path $PSScriptRoot "desktop\userdata\images"
+# wipes it. It is served back from /images/. Electron passes a writable
+# per-user folder because installed resources are read-only.
+$userDataRoot = $UserDataRoot
+if (-not $userDataRoot) { $userDataRoot = $env:TALENT_TREE_USERDATA }
+if (-not $userDataRoot) { $userDataRoot = Join-Path $PSScriptRoot "desktop\userdata" }
+New-Item -ItemType Directory -Force -Path $userDataRoot | Out-Null
+$uploadRoot = Join-Path $userDataRoot "images"
 New-Item -ItemType Directory -Force -Path $uploadRoot | Out-Null
-$projectRoot = Join-Path $PSScriptRoot "desktop\userdata\projects"
+$projectRoot = Join-Path $userDataRoot "projects"
 New-Item -ItemType Directory -Force -Path $projectRoot | Out-Null
-$pathsFile = Join-Path $PSScriptRoot "desktop\userdata\paths.json"
+$pathsFile = Join-Path $userDataRoot "paths.json"
 $pathConfig = $null
 if (Test-Path $pathsFile -PathType Leaf) {
   try { $pathConfig = Get-Content $pathsFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
@@ -47,7 +58,7 @@ if (-not $assetRoot) {
   }
 }
 if (-not $assetRoot) { $assetRoot = "E:\FANTASY" }
-$assetIndexPath = Join-Path $PSScriptRoot "desktop\userdata\asset-index.json"
+$assetIndexPath = Join-Path $userDataRoot "asset-index.json"
 $script:assetIndexCache = $null
 $imageExts = @(".png", ".apng", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif")
 
@@ -105,7 +116,7 @@ function Get-AssetIndex {
 # HTTP.sys kernel driver, so the port owner is PID 4 (System) and killing the
 # port owner never works. Track the server's own PID instead (and fall back to
 # the one powershell whose command line is just this script).
-$pidFile = Join-Path $PSScriptRoot "server.pid"
+$pidFile = Join-Path $userDataRoot "server.pid"
 if (Test-Path $pidFile) {
   $oldPid = 0
   [void][int]::TryParse((Get-Content $pidFile -Raw -ErrorAction SilentlyContinue).Trim(), [ref]$oldPid)
@@ -179,7 +190,7 @@ $brewImageRoots = @{
   homebrew = "https://raw.githubusercontent.com/TheGiddyLimit/homebrew-img/main/"
   prerelease = "https://5e.tools/"
 }
-$brewCacheDir = Join-Path $PSScriptRoot "desktop\userdata\5etools-cache"
+$brewCacheDir = Join-Path $userDataRoot "5etools-cache"
 New-Item -ItemType Directory -Force -Path $brewCacheDir | Out-Null
 $brewCatalogCache = @{}
 
@@ -255,17 +266,23 @@ function Get-BrewCatalogData([string]$kind) {
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("$url/")
 $listener.Start()
-$launched = $false
-if ($edgePath) {
-  try {
-    Start-Process $edgePath -ArgumentList "--app=$url", "--start-fullscreen" | Out-Null
-    $launched = $true
-  } catch { }
+if (-not $NoBrowser) {
+  $launched = $false
+  if ($edgePath) {
+    try {
+      Start-Process $edgePath -ArgumentList "--app=$url", "--start-fullscreen" | Out-Null
+      $launched = $true
+    } catch { }
+  }
+  if (-not $launched) {
+    # No Edge/Chrome found, or app mode failed: open the default browser instead.
+    try { Start-Process $url | Out-Null } catch { }
+  }
 }
-if (-not $launched) {
-  # No Edge/Chrome found, or app mode failed: open the default browser instead.
-  try { Start-Process $url | Out-Null } catch { }
-}
+# Electron waits for this line, then opens its own window. The launcher scripts
+# simply ignore it.
+Write-Output "READY $url"
+[Console]::Out.Flush()
 while ($listener.IsListening) {
   $ctx = $null
   try { $ctx = $listener.GetContext() } catch { break }
@@ -703,7 +720,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     # prefers its own downloaded release copy (userdata\5etools); an existing
     # E:\5etools install is used as a fallback. Raw files stay on disk and are
     # only read on demand.
-    $fiveManaged = Join-Path $PSScriptRoot "desktop\userdata\5etools"
+    $fiveManaged = Join-Path $userDataRoot "5etools"
     $fiveLegacy = $env:TALENT_TREE_5ETOOLS
     if (-not $fiveLegacy -and $pathConfig -and $pathConfig.fiveTools) { $fiveLegacy = [string]$pathConfig.fiveTools }
     if ($fiveLegacy -and -not (Test-Path $fiveLegacy -PathType Container)) { $fiveLegacy = $null }

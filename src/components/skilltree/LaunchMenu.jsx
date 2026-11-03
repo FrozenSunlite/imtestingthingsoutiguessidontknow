@@ -103,7 +103,8 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
       window.navigator.standalone === true
     );
   });
-  const showInstall = !standalone && !isNativeApp();
+  const isElectron = typeof navigator !== "undefined" && /Electron/i.test(navigator.userAgent);
+  const showInstall = !standalone && !isNativeApp() && !isElectron;
   const installInfo = browserInfo();
 
   useEffect(() => {

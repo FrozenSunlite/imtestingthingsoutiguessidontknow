@@ -1,7 +1,7 @@
 {
   "name": "terrific-talent-tree",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -16,7 +16,9 @@
     "sounds:index": "node scripts/index-sounds.mjs",
     "test": "node --test tests/*.test.mjs",
     "preview": "vite preview",
-    "srd:build": "node scripts/generate-srd-seed.mjs"
+    "srd:build": "node scripts/generate-srd-seed.mjs",
+    "electron": "electron .",
+    "electron:build": "npm run build:standalone && electron-builder --win"
   },
   "dependencies": {
     "@capacitor-community/file-opener": "^8.0.1",
@@ -56,6 +58,8 @@
     "@eslint/js": "^9.19.0",
     "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.20",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
     "eslint": "^9.19.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.0.0",
@@ -63,5 +67,61 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "vite": "^8.2.0"
-  }
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.frozensunlite.talenttree",
+    "productName": "Talent Tree",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "standalone/Serve.ps1",
+        "to": "server/Serve.ps1"
+      },
+      {
+        "from": "standalone/desktop/app-dist/client",
+        "to": "server/desktop/app-dist/client",
+        "filter": [
+          "**/*",
+          "!downloads/**"
+        ]
+      },
+      {
+        "from": "public/icons/icon-512.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Talent Tree"
+    }
+  },
+  "description": "Terrific Talent Tree desktop app",
+  "author": "FrozenSunlite"
 }

@@ -57,6 +57,9 @@ export function registerServiceWorker() {
   if (typeof window === "undefined" || registered) return;
   if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
   if (isNativeApp()) return;
+  // Electron serves the app from the bundled local server; a service worker
+  // would only add a second cache/update path.
+  if (/Electron/i.test(navigator.userAgent)) return;
   registered = true;
 
   navigator.serviceWorker

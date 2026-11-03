@@ -23,8 +23,31 @@ The packaged copy is what most people use:
 - **macOS / Linux:** run `standalone/Start Terrific Talent Tree.command` or
   `standalone/start.sh`, which use the same `Serve.ps1`/`serve.js` server.
 
-Only one server instance runs at a time: `Serve.ps1` tracks its PID in
-`standalone/server.pid` and stops the previous instance before starting.
+Only one server instance runs at a time: `Serve.ps1` tracks its PID in the
+writable user-data folder and stops the previous instance before starting.
+
+### Windows desktop app (no external browser)
+
+The Electron build bundles its own Chromium, so it does not need Edge, Chrome,
+Opera or any other installed browser. It starts the same local PowerShell server
+hidden in the background and opens the app in a native window.
+
+```bash
+npm run build:standalone
+npx electron-builder --win
+```
+
+Outputs in `dist-electron/`:
+
+- `Talent Tree Setup 1.0.0.exe` — installer with Start-menu/desktop shortcuts.
+- `Talent Tree 1.0.0.exe` — portable single executable.
+
+The packaged app keeps its server data under
+`%APPDATA%\Talent Tree\data` (uploads, projects, 5eTools cache), and its browser
+profile under `%APPDATA%\Talent Tree`. Data from the Edge/Chrome standalone copy
+is a different browser profile: export the project with **Save / Load** in the
+old copy and load that file in the desktop app. The installer is unsigned, so
+Windows SmartScreen may ask for confirmation on first run.
 
 ### Development
 
