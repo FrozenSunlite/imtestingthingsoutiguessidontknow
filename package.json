@@ -10,7 +10,8 @@
     "lint:fix": "eslint . --fix",
     "build:standalone": "node scripts/write-version.mjs && vite build --config vite.standalone.config.js",
     "apk:prepare": "node scripts/prepare-apk.mjs",
-    "apk:build": "cd android && gradlew.bat assembleDebug && cd .. && node scripts/publish-apk.mjs",
+    "apk:build": "node scripts/build-apk.mjs",
+    "apk:publish": "node scripts/publish-apk.mjs",
     "music:import": "node scripts/import-music.mjs",
     "sounds:import": "node scripts/import-sounds.mjs",
     "sounds:index": "node scripts/index-sounds.mjs",
@@ -19,7 +20,8 @@
     "srd:build": "node scripts/generate-srd-seed.mjs",
     "electron": "electron .",
     "electron:build": "npm run build:standalone && electron-builder --win && node scripts/publish-desktop.mjs",
-    "desktop:publish": "node scripts/publish-desktop.mjs"
+    "desktop:publish": "node scripts/publish-desktop.mjs",
+    "build:all": "npm run electron:build && npm run apk:prepare && npm run apk:build"
   },
   "dependencies": {
     "@capacitor-community/file-opener": "^8.0.1",

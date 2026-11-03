@@ -20,8 +20,8 @@ Prebuilt builds are attached to the [latest GitHub release](../../releases/lates
 | Windows portable | `TalentTree-Portable-<version>.exe` | Single executable; no installer or auto-update |
 | Android | `TalentTree-Android-<version>.apk` | Offline web build; debug-signed |
 
-Not every release includes every platform; check the assets listed on the
-release you open.
+Windows and Android builds are produced from the same web bundle by
+`npm run build:all`.
 
 The Windows installer is **not code-signed**, so SmartScreen may ask for
 confirmation the first time it runs. The Android APK is **debug-signed**: install
@@ -122,7 +122,8 @@ npm run desktop:publish   # copies the installer + /desktop-update.json into the
 
 Outputs land in `dist-electron/`: an NSIS installer and a portable executable.
 `npm run electron:build` runs the web build, packaging and publish steps
-together.
+together. `npm run build:all` also refreshes and rebuilds the Android APK so
+both platforms ship the same UI.
 
 Auto-updates are supported only in the installed NSIS build, not the portable
 build. On startup the app checks `<desktop update URL>/desktop-update.json`
@@ -132,11 +133,19 @@ host in **Settings → General**.
 
 ### Android build
 
+`npm run build:all` rebuilds the web app, the Windows installers and the APK in
+one pass. For the Android steps alone:
+
 ```bash
 npm run build:standalone
 npm run apk:prepare   # copies the build into capacitor-web and syncs Capacitor
-npm run apk:build     # requires the Android SDK and JDK 21
+npm run apk:build     # finds JDK 17-24 and the Android SDK, then packages + publishes
 ```
+
+`apk:build` looks for a compatible JDK (preferring 21) and the Android SDK via
+`JAVA_HOME` and `ANDROID_HOME` / `ANDROID_SDK_ROOT`, then falls back to the
+toolchain paths on this machine. `apk:prepare` strips desktop installers and
+update files from the packaged client, so they never bloat the APK.
 
 The debug APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 `npm run apk:build` also refreshes the downloadable copy and `update.json` under
