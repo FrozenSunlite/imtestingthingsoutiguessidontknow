@@ -2,6 +2,7 @@ import { memo } from "react";
 import { ChevronDown } from "lucide-react";
 import { IconArt } from "@/components/skilltree/IconArt";
 import { displayLevel, nodeMaxPoints, tierPlan } from "@/lib/nodeTiers";
+import { isBridgeNode } from "@/lib/geometry";
 
 // One node on the canvas. Memoized: while panning only the canvas transform
 // changes, so every prop stays identical and the node skips re-rendering.
@@ -27,7 +28,10 @@ export const SkillNodeView = memo(function SkillNodeView({
   onHoverEnd,
   detailLevel = "full",
 }) {
-  const unlocked = (node.currentPoints || 0) > 0;
+  // Zero-cost / zero-point bridge nodes count as unlocked as soon as their own
+  // prerequisites are met, so they can pass availability through a chain.
+  const autoBridge = isBridgeNode(node) && available;
+  const unlocked = (node.currentPoints || 0) > 0 || autoBridge;
   const dim = !unlocked && !available;
   const simplified = !!detailLevel && detailLevel !== "full";
   const minimal = detailLevel === "minimal";
@@ -114,7 +118,7 @@ export const SkillNodeView = memo(function SkillNodeView({
         } else if (dblClickInvest) {
           // Floating windows: single click selects, double-click invests.
           onSelect?.(node);
-        } else if (available || unlocked) {
+        } else if (!isBridgeNode(node) && (available || unlocked)) {
           onInvest(node, 1);
         }
       }}

@@ -826,7 +826,8 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       # repository/website image root.
       $localImg = [IO.Path]::GetFullPath((Join-Path $fiveLegacy $rel))
       $legacyFull = [IO.Path]::GetFullPath($fiveLegacy)
-      if ($localImg.StartsWith($legacyFull) -and (Test-Path $localImg -PathType Leaf)) {
+      $legacyPrefix = $legacyFull.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+      if (($localImg -eq $legacyFull -or $localImg.StartsWith($legacyPrefix)) -and (Test-Path $localImg -PathType Leaf)) {
         $bytes = [IO.File]::ReadAllBytes($localImg)
       } else {
         $r = Invoke-WebRequest -Uri ($brewImageRoots[$kind] + $encoded) -Headers @{ "User-Agent" = "TerrificTalentTree" } -UseBasicParsing
@@ -970,7 +971,8 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       if (-not $rel) { throw "missing path" }
       $full = [IO.Path]::GetFullPath((Join-Path $root5e $rel))
       $rootFull = [IO.Path]::GetFullPath($root5e)
-      if (-not $full.StartsWith($rootFull) -or -not (Test-Path $full -PathType Leaf)) { throw "bad path" }
+      $rootPrefix = $rootFull.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+      if (-not ($full -eq $rootFull -or $full.StartsWith($rootPrefix)) -or -not (Test-Path $full -PathType Leaf)) { throw "bad path" }
       $bytes = [IO.File]::ReadAllBytes($full)
       $res.ContentType = "application/json; charset=utf-8"
       $res.OutputStream.Write($bytes,0,$bytes.Length)
@@ -987,7 +989,8 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         if (-not $baseDir) { continue }
         $candidate = [IO.Path]::GetFullPath((Join-Path $baseDir $rel))
         $baseFull = [IO.Path]::GetFullPath($baseDir)
-        if ($candidate.StartsWith($baseFull) -and (Test-Path $candidate -PathType Leaf)) {
+        $basePrefix = $baseFull.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        if (($candidate -eq $baseFull -or $candidate.StartsWith($basePrefix)) -and (Test-Path $candidate -PathType Leaf)) {
           $full = $candidate
           break
         }

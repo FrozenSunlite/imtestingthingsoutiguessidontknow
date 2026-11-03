@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C4yeGi86.js";
+import { n as Button, r as cn } from "./router-B4AbQ6-H.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -255,7 +255,8 @@ function collectUnlockedNames(nodes, out = /* @__PURE__ */ new Set()) {
 	}
 	return out;
 }
-function isAvailable(node, nodesById, unlockedNames) {
+var isBridgeNode = (node) => Number(node?.maxPoints) === 0 && Number(node?.cost) === 0;
+function isAvailable(node, nodesById, unlockedNames, seen) {
 	if (isExclusiveBlocked(node, nodesById)) return false;
 	if ((node.requiresNames || []).length > 0) {
 		if (!unlockedNames || !node.requiresNames.every((name) => unlockedNames.has(name))) return false;
@@ -264,9 +265,13 @@ function isAvailable(node, nodesById, unlockedNames) {
 	if (node.requirementMode === "none") return true;
 	const deps = node.dependencies.map((id) => nodesById[id]).filter(Boolean);
 	if (deps.length === 0) return true;
+	const visited = seen || /* @__PURE__ */ new Set();
+	if (node.id != null && visited.has(node.id)) return false;
+	const nextSeen = new Set(visited);
+	if (node.id != null) nextSeen.add(node.id);
 	const reqRaw = Number(node.requiredPoints);
 	const need = (d) => reqRaw === 0 ? Math.max(1, Number(d.cost ?? 1) || 1) : reqRaw > 0 ? reqRaw : 1;
-	const met = deps.filter((d) => (d.currentPoints || 0) >= need(d));
+	const met = deps.filter((d) => (d.currentPoints || 0) >= need(d) || isBridgeNode(d) && isAvailable(d, nodesById, unlockedNames, nextSeen));
 	if (node.requirementMode === "any") return met.length >= 1;
 	return met.length === deps.length;
 }
@@ -4541,7 +4546,18 @@ function entriesFromRaw(raw, preferredProp = "") {
 	if (raw.name) return [raw];
 	return [];
 }
-var entryName$2 = (entry) => String(entry?.name || entry?.title || entry?.caption || entry?.abbreviation || entry?.id || "Untitled");
+var asArray = (value) => Array.isArray(value) ? value : value == null ? [] : [value];
+var textName = (value) => typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+var entryName$2 = (entry) => {
+	const usable = [
+		entry?.name,
+		entry?.title,
+		entry?.caption,
+		entry?.abbreviation,
+		entry?.id
+	].find((value) => textName(value));
+	return usable == null ? "Untitled" : textName(usable);
+};
 var entrySource = (entry) => [entry?.source, entry?.page ? `p.${entry.page}` : ""].filter(Boolean).join(" ");
 var entryMeta = (entry) => {
 	const bits = [];
@@ -4624,18 +4640,18 @@ function fiveText(value) {
 	if (Array.isArray(value)) return value.map(fiveText).filter(Boolean).join("\n");
 	if (typeof value === "object") {
 		if (value.type === "table" || value.type === "tableGroup") return tableRowsText(value);
-		if (value.type === "list") return (value.items || []).map((it) => `• ${fiveText(it)}`).join("\n");
-		if (value.type === "options") return [value.name, ...value.entries || []].map(fiveText).filter(Boolean).join("\n");
-		if (value.type === "inset" || value.type === "insetReadaloud") return [value.name, ...value.entries || []].map(fiveText).filter(Boolean).join("\n");
+		if (value.type === "list") return asArray(value.items).map((it) => `• ${fiveText(it)}`).join("\n");
+		if (value.type === "options") return [value.name, ...asArray(value.entries)].map(fiveText).filter(Boolean).join("\n");
+		if (value.type === "inset" || value.type === "insetReadaloud") return [value.name, ...asArray(value.entries)].map(fiveText).filter(Boolean).join("\n");
 		if (value.type === "item" && (value.name || value.entry || value.entries)) return [value.name ? String(value.name).replace(/:\s*$/, "") : "", fiveText(value.entry ?? value.entries)].filter(Boolean).join(" ");
-		if (value.type === "quote") return [value.byline ? `“${value.byline}”` : "", ...value.entries || []].map(fiveText).filter(Boolean).join("\n");
+		if (value.type === "quote") return [value.byline ? `“${value.byline}”` : "", ...asArray(value.entries)].map(fiveText).filter(Boolean).join("\n");
 		if (value.entries) {
 			const body = fiveText(value.entries);
 			if (value.name && body) return `${value.name}\n${body}`;
 			if (value.name) return String(value.name);
 			return body;
 		}
-		if (value.items) return Object.values(value.items).map(fiveText).filter(Boolean).join("\n");
+		if (value.items) return asArray(value.items).map(fiveText).filter(Boolean).join("\n");
 		if (value.name && value.description) return `${value.name}: ${fiveText(value.description)}`;
 		if (value.name) return String(value.name);
 		if (value.description) return fiveText(value.description);
@@ -4645,9 +4661,9 @@ function fiveText(value) {
 	return String(value);
 }
 function tableRowsText(table) {
-	const columns = table.colLabels || [];
-	const rows = (table.rows || []).map((row) => (Array.isArray(row) ? row : [row]).map((cell) => fiveText(cell)).join(" | "));
-	return [columns.join(" | "), ...rows].filter(Boolean).join("\n");
+	const columns = asArray(table.colLabels);
+	const rows = asArray(table.rows).map((row) => asArray(row).map((cell) => fiveText(cell)).join(" | "));
+	return [columns.map(fiveText).join(" | "), ...rows].filter(Boolean).join("\n");
 }
 var textOf$1 = fiveText;
 function entryText(entry) {
@@ -4664,6 +4680,7 @@ function entryPreview(entry) {
 	return entryText(entry).replace(/\s+/g, " ").trim().slice(0, 500);
 }
 var spellSchool = (code) => {
+	if (typeof code !== "string" && typeof code !== "number") return "";
 	return {
 		A: "Abjuration",
 		C: "Conjuration",
@@ -4676,7 +4693,11 @@ var spellSchool = (code) => {
 	}[String(code || "").toUpperCase()] || code || "";
 };
 var spellTime = (time) => {
-	if (Array.isArray(time)) return time.map((t) => `${t.number || 1} ${t.unit || "action"}`).join(", ");
+	if (Array.isArray(time)) return time.map((t) => {
+		if (t == null) return "";
+		if (typeof t !== "object") return textOf$1(t);
+		return `${t.number || 1} ${t.unit || "action"}`;
+	}).filter(Boolean).join(", ");
 	if (time && typeof time === "object") return `${time.number || 1} ${time.unit || "action"}`;
 	return textOf$1(time);
 };
@@ -4738,18 +4759,21 @@ var spellDuration = (duration) => {
 	return Array.isArray(duration) ? duration.map(one).filter(Boolean).join(", ") : one(duration);
 };
 function spellToLibrary(s) {
+	if (!s || typeof s !== "object" || Array.isArray(s)) return null;
 	const comp = spellComponents(s.components);
+	const level = s.level === 0 || s.level === "0" ? "cantrip" : typeof s.level === "string" || typeof s.level === "number" ? String(s.level) : "";
+	const savingThrows = Array.isArray(s.savingThrow) ? s.savingThrow.filter((v) => typeof v === "string" || typeof v === "number").join(", ") : typeof s.savingThrow === "string" ? s.savingThrow : "";
 	return {
-		name: s.name || "",
-		level: s.level === 0 ? "cantrip" : String(s.level ?? ""),
+		name: textName(s.name),
+		level,
 		school: spellSchool(s.school),
 		subschool: "",
 		repeats: "",
 		castingTime: spellTime(s.time),
 		range: spellRange(s.range),
 		duration: spellDuration(s.duration),
-		saveType: s.savingThrow ? "save" : "none",
-		saveAbility: Array.isArray(s.savingThrow) ? s.savingThrow.join(", ") : s.savingThrow || "",
+		saveType: savingThrows ? "save" : "none",
+		saveAbility: savingThrows,
 		attackKind: s.attack ? "spell" : "",
 		attackMod: "spellcasting",
 		attackAbility: "STR",
@@ -4824,7 +4848,7 @@ var codeOf = (entry) => {
 	return String(raw || "").split("|")[0].trim();
 };
 function itemToLibrary(entry) {
-	if (!entry || !entry.name) return null;
+	if (!entry || !textName(entry.name)) return null;
 	const code = codeOf(entry);
 	const rarity = String(entry.rarity || "none").toLowerCase();
 	const magic = rarity !== "none" && rarity !== "varies";
@@ -4832,7 +4856,7 @@ function itemToLibrary(entry) {
 	const description = [entryText(entry), fiveText(entry.additionalEntries)].filter(Boolean).join("\n\n");
 	const cost = gp(entry.value);
 	const common = {
-		name: entry.name,
+		name: textName(entry.name),
 		cost,
 		description
 	};
@@ -4888,7 +4912,7 @@ function itemToLibrary(entry) {
 				diceCount: dice.diceCount,
 				dieSize: dice.dieSize,
 				damageType: DAMAGE_CODE[String(entry.dmgType || "").toUpperCase()] || fiveText(entry.dmgType),
-				properties: (entry.property || []).map((p) => PROPERTY_CODE[String(p).split("|")[0].toUpperCase()] || fiveText(p)).filter(Boolean),
+				properties: asArray(entry.property).map((p) => PROPERTY_CODE[String(p).split("|")[0].toUpperCase()] || fiveText(p)).filter(Boolean),
 				weight: Number(entry.weight) || 0
 			}
 		};
@@ -5018,33 +5042,35 @@ function itemToLibrary(entry) {
 }
 function conditionToStatus(entry) {
 	const text = entryText(entry);
-	if (!entry?.name) return null;
+	const name = textName(entry?.name);
+	if (!name) return null;
 	return {
-		name: entry.name,
+		name,
 		kind: "condition",
 		description: text.slice(0, 500),
-		effects: text.split(/\n+/).map((s) => s.trim()).filter((s) => s && !s.toLowerCase().startsWith(entry.name.toLowerCase())).slice(0, 12)
+		effects: text.split(/\n+/).map((s) => s.trim()).filter((s) => s && !s.toLowerCase().startsWith(name.toLowerCase())).slice(0, 12)
 	};
 }
 function actionToLibrary(entry) {
-	if (!entry?.name) return null;
+	const name = textName(entry?.name);
+	if (!name) return null;
 	const lower = fiveText(entry.time).toLowerCase();
 	const category = lower.includes("bonus") ? "bonus" : lower.includes("reaction") ? "reaction" : lower.includes("free") || lower.includes("no action") ? "free" : "action";
 	return {
-		name: entry.name,
+		name,
 		description: entryText(entry),
 		category,
 		usesMode: "atwill"
 	};
 }
 function vehicleToLibrary(entry) {
-	if (!entry?.name) return null;
+	const name = textName(entry?.name);
+	if (!name) return null;
 	const terrain = String(entry.terrain || "").toLowerCase();
-	const category = terrain.includes("sea") || terrain.includes("water") ? "Sea" : terrain.includes("air") || terrain.includes("sky") ? "Sky" : terrain.includes("space") ? "Space" : "Land";
 	return {
-		name: entry.name,
+		name,
 		period: "Medieval",
-		category,
+		category: terrain.includes("sea") || terrain.includes("water") ? "Sea" : terrain.includes("air") || terrain.includes("sky") ? "Sky" : terrain.includes("space") ? "Space" : "Land",
 		classification: fiveText(entry.vehicleType),
 		cost: "",
 		speed: fiveText(entry.speed),
@@ -5055,58 +5081,63 @@ function vehicleToLibrary(entry) {
 	};
 }
 function languageToLibrary(entry) {
-	return entry?.name ? String(entry.name) : "";
+	return textName(entry?.name);
 }
 function skillToLibrary(entry) {
-	if (!entry?.name) return null;
+	const name = textName(entry?.name);
+	if (!name) return null;
 	return {
-		name: entry.name,
+		name,
 		ability: String(entry.ability || "").toUpperCase()
 	};
 }
 function senseToLibrary(entry) {
-	if (!entry?.name) return null;
+	const name = textName(entry?.name);
+	if (!name) return null;
 	return {
-		name: entry.name,
+		name,
 		description: entryText(entry)
 	};
 }
 function tableToRollTable(entry) {
-	if (!entry?.name && !entry?.caption) return null;
-	const rows = (entry.rows || []).map((row) => {
-		return {
-			name: (Array.isArray(row) ? row : row?.row || [row]).map((cell) => {
-				if (cell && typeof cell === "object") {
-					if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
-					return fiveText(cell.entry ?? cell.entries ?? cell.name ?? "");
-				}
-				return fiveText(cell);
-			}).filter(Boolean).join(" · "),
-			category: "Table",
-			price: "",
-			currency: "gp",
-			weight: 0,
-			description: "",
-			qty: 1
-		};
-	}).filter((r) => r.name);
+	const name = textName(entry?.name) || textName(entry?.caption);
+	if (!name || !Array.isArray(entry.rows)) return null;
 	return {
-		name: entry.name || entry.caption || "Table",
-		rows
+		name,
+		rows: entry.rows.map((row) => {
+			return {
+				name: asArray(Array.isArray(row) ? row : row?.row ?? row).map((cell) => {
+					if (cell && typeof cell === "object") {
+						if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
+						return fiveText(cell.entry ?? cell.entries ?? cell.name ?? "");
+					}
+					return fiveText(cell);
+				}).filter(Boolean).join(" · "),
+				category: "Table",
+				price: "",
+				currency: "gp",
+				weight: 0,
+				description: "",
+				qty: 1
+			};
+		}).filter((r) => r.name)
 	};
 }
 function featuresForEntry(categoryId, entry, raw) {
+	if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
 	const text = (e, group) => ({
-		name: String(e.name || ""),
+		name: textName(e?.name),
 		text: String(entryText(e) || ""),
-		level: Number(e.level) || 0,
+		level: Number(e?.level) || 0,
 		group
 	});
 	if (categoryId === "feats" || categoryId === "charOptions" || categoryId === "optionalFeatures") return [text(entry, "Feature")];
 	if (categoryId !== "classes") return [];
 	const isSubclass = !!entry.shortName || !!entry.subclassShortName;
 	const sameSource = (f, source) => !source || !f.classSource || f.classSource === source;
-	const features = isSubclass ? (raw?.subclassFeature || []).filter((f) => f.className === entry.className && sameSource(f, entry.classSource) && (f.subclassShortName === entry.shortName || f.subclassShortName === entry.subclassShortName)) : (raw?.classFeature || []).filter((f) => f.className === entry.name && sameSource(f, entry.source));
+	const subclassFeatures = Array.isArray(raw?.subclassFeature) ? raw.subclassFeature : [];
+	const classFeatures = Array.isArray(raw?.classFeature) ? raw.classFeature : [];
+	const features = isSubclass ? subclassFeatures.filter((f) => f?.className === entry.className && sameSource(f, entry.classSource) && (f.subclassShortName === entry.shortName || f.subclassShortName === entry.subclassShortName)) : classFeatures.filter((f) => f?.className === entry.name && sameSource(f, entry.source));
 	features.sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
 	return features.map((f) => text(f, isSubclass ? entry.name : "Class")).filter((f) => f.name);
 }
@@ -5161,7 +5192,7 @@ function featureMechanics(feature) {
 		bonus: ""
 	});
 	if (activation || parts.length || usesMode !== "atwill") actions.push({
-		name: feature?.name || "Feature",
+		name: textName(feature?.name) || "Feature",
 		description: text,
 		category: activation || "free",
 		usesMode,
@@ -6027,10 +6058,11 @@ function normalizeTree(data) {
 	};
 }
 function denormalizeTree(tree) {
+	const nodes = Array.isArray(tree?.nodes) ? tree.nodes : [];
 	const idToNode = {};
-	tree.nodes.forEach((n) => idToNode[n.id] = n);
+	nodes.forEach((n) => idToNode[n.id] = n);
 	return {
-		Skills: tree.nodes.map((n) => ({
+		Skills: nodes.map((n) => ({
 			"Skill Name": n.name,
 			"Skill Id": n.id,
 			"Skill Position": `(${Math.round(n.x / 120)},${Math.round(n.y / 120)})`,
@@ -6044,7 +6076,7 @@ function denormalizeTree(tree) {
 			"Skill Current Points": n.currentPoints,
 			"Skill Level Gain": n.levelGain || 0,
 			"Skill Image": n.image,
-			"Skill Dependencies": tree.nodes.filter((m) => (m.dependencies || []).includes(n.id)).map((m) => m.name),
+			"Skill Dependencies": nodes.filter((m) => (m.dependencies || []).includes(n.id)).map((m) => m.name),
 			"Skill Prerequisite": n.prerequisite || "-",
 			"Skill Talent Type": n.talentTypes?.length ? n.talentTypes.join(", ") : n.talentType || "",
 			"Skill Level Requirement": n.levelReq || 0,
@@ -6098,7 +6130,7 @@ function denormalizeTree(tree) {
 				duration: a.duration || "",
 				concentration: !!a.concentration
 			})),
-			"Skill Resources": n.resources.map((r) => ({
+			"Skill Resources": (n.resources || []).map((r) => ({
 				name: r.name,
 				value: r.uses ?? r.value ?? "",
 				uses: r.uses ?? r.value ?? "",
@@ -6132,13 +6164,13 @@ function denormalizeTree(tree) {
 				"Subtree Default": !!st.default
 			})) } : {}
 		})),
-		"Skill Connectors": (tree.connections || []).map((c) => {
+		"Skill Connectors": (tree?.connections || []).map((c) => {
 			const copy = { ...c };
 			delete copy.id;
 			return copy;
 		}),
-		"Class Name": tree.className,
-		"Project Name": tree.name || tree.className,
+		"Class Name": tree?.className,
+		"Project Name": tree?.name || tree?.className,
 		FullData: {
 			hideLockedSkills: 0,
 			totalStats: {},
@@ -10360,9 +10392,9 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 var clean$1 = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
 var cell = (value) => clean$1(value).replace(/\|/g, "\\|");
 var tableMarkdown = (table) => {
-	const columns = (table.colLabels || []).map(cell);
-	const rows = (table.rows || []).map((row) => {
-		return (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
+	const columns = asArray(table?.colLabels).map(cell);
+	const rows = asArray(table?.rows).map((row) => {
+		return asArray(row?.row ?? row).map((value) => {
 			if (value && typeof value === "object") {
 				if (value.roll) return value.roll.exact != null ? String(value.roll.exact) : `${value.roll.min ?? ""}${value.roll.max != null ? `–${value.roll.max}` : ""}`;
 				return cell(value.entry ?? value.entries ?? value.name ?? "");
@@ -10383,7 +10415,7 @@ var imageMarkdown = (node) => {
 	if (typeof href === "string") return `![${clean$1(node.name) || "Illustration"}](${href})`;
 	if (href?.url) return `![${clean$1(node.name) || "Illustration"}](${href.url})`;
 	if (href?.path) return `![${clean$1(node.name) || "Illustration"}](${href.path})`;
-	if (href?.paths?.length) return href.paths.map((path) => `![${clean$1(node.name) || "Illustration"}](${path})`).join("\n\n");
+	if (href?.paths) return asArray(href.paths).map((path) => `![${clean$1(node.name) || "Illustration"}](${path})`).join("\n\n");
 	return "";
 };
 var refLabel = (node) => clean$1(node?.name || node?.spell || node?.item || node?.creature || node?.condition || node?.optionalfeature || node?.classFeature || node?.subclassFeature || node?.table || node?.book || node?.adventure || "");
@@ -10398,8 +10430,8 @@ function renderEntries(value, depth = 0) {
 			const table = tableMarkdown(value);
 			return [value.name ? `**${clean$1(value.name)}**` : "", table].filter(Boolean).join("\n\n");
 		}
-		case "list": return (value.items || []).map((item) => `- ${clean$1(item).replace(/\n/g, "\n  ")}`).join("\n");
-		case "options": return [value.name ? `**${clean$1(value.name)}**` : "", ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
+		case "list": return asArray(value.items).map((item) => `- ${clean$1(item).replace(/\n/g, "\n  ")}`).join("\n");
+		case "options": return [value.name ? `**${clean$1(value.name)}**` : "", ...asArray(value.entries).map((entry) => renderEntries(entry, depth + 1))].filter(Boolean).join("\n\n");
 		case "inset":
 		case "insetReadaloud": {
 			const body = renderEntries(value.entries, depth + 1).split("\n").map((line) => line ? `> ${line}` : ">").join("\n");
@@ -10414,13 +10446,13 @@ function renderEntries(value, depth = 0) {
 		case "hr": return "---";
 		case "abilityDc":
 		case "abilityAttackMod": {
-			const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
+			const ability = asArray(value.attributes).map((a) => String(a).toUpperCase()).join(", ");
 			return `**${clean$1(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
 		}
 		case "statblock":
 		case "statblockInline": return [value.name ? `**${clean$1(value.name)}**` : "", renderEntries(value.entries, depth + 1)].filter(Boolean).join("\n\n");
 	}
-	if (value.type?.startsWith("ref")) {
+	if (String(value.type || "").startsWith("ref")) {
 		const label = refLabel(value);
 		return label ? `*${label}*` : "";
 	}
@@ -10433,11 +10465,14 @@ function bookChapters(entry) {
 	if (!data.length) return null;
 	return {
 		title: clean$1(entry.name || entry.title || entry.id || "Book"),
-		chapters: data.map((chapter, i) => ({
-			id: chapter.id || `ch${i + 1}`,
-			title: clean$1(chapter.name) || `Chapter ${i + 1}`,
-			entries: chapter.entries
-		})).filter((chapter) => chapter.entries != null)
+		chapters: data.map((chapter, i) => {
+			if (!chapter || typeof chapter !== "object") return null;
+			return {
+				id: chapter.id || `ch${i + 1}`,
+				title: clean$1(chapter.name) || `Chapter ${i + 1}`,
+				entries: chapter.entries
+			};
+		}).filter((chapter) => chapter?.entries != null)
 	};
 }
 function bookChapterMarkdown(chapter) {
@@ -10450,6 +10485,7 @@ function bookToRulebook(entry, fallbackTitle = "") {
 	const source = clean$1(entry.source || entry.id || "");
 	const id = `rb5e-${slug(source)}-${slug(title)}`;
 	let chapters = data.map((chapter, i) => {
+		if (!chapter || typeof chapter !== "object") return null;
 		const chapterTitle = clean$1(chapter.name) || `Chapter ${i + 1}`;
 		const body = renderEntries(chapter.entries, 1);
 		return {
@@ -10457,9 +10493,9 @@ function bookToRulebook(entry, fallbackTitle = "") {
 			title: chapterTitle,
 			content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n")
 		};
-	}).filter((chapter) => chapter.content.trim());
+	}).filter((chapter) => chapter?.content.trim());
 	if (!chapters.length) {
-		const outline = (entry.contents || []).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean$1(name)}`).join("\n");
+		const outline = asArray(entry.contents).map((c) => typeof c === "string" ? c : c?.name).filter(Boolean).map((name) => `- ${clean$1(name)}`).join("\n");
 		const body = renderEntries(entry.entries, 1);
 		chapters = [{
 			id: `${id}-ch1`,
@@ -10603,14 +10639,15 @@ var mods = (value) => {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return "";
 	return Object.entries(value).map(([key, v]) => `${key.toUpperCase()} ${Number(v) >= 0 ? "+" : ""}${v}`).join(", ");
 };
+var asList = (value) => Array.isArray(value) ? value : value == null ? [] : [value];
 var sourceTag = (raw) => {
 	const type = typeof raw?.type === "object" ? raw.type?.type : raw?.type;
-	const typeTags = typeof raw?.type === "object" ? raw.type?.tags || [] : [];
+	const typeTags = typeof raw?.type === "object" ? asList(raw.type?.tags) : [];
 	return [...new Set([
 		type,
 		...typeTags,
-		...raw?.tags || []
-	].filter(Boolean).map(String))];
+		...asList(raw?.tags)
+	].filter((v) => typeof v === "string" || typeof v === "number").map(String))];
 };
 function normalizeImportedMonster(raw) {
 	if (!raw || typeof raw !== "object") return null;
@@ -10632,10 +10669,11 @@ function normalizeImportedMonster(raw) {
 		H: "Huge",
 		G: "Gargantuan"
 	};
-	const sizeText = (Array.isArray(raw.size) ? raw.size : [raw.size]).filter(Boolean).map((s) => sizeMap[s] || s).join(", ");
+	const sizeText = asList(raw.size).filter((s) => typeof s === "string" || typeof s === "number").map((s) => sizeMap[s] || s).join(", ");
 	const speeds = speedEntries(speed);
+	const rawName = raw.name;
 	return {
-		name: textOf(raw.name) || "",
+		name: typeof rawName === "string" || typeof rawName === "number" ? String(rawName).trim() : "",
 		image: typeof (raw.image || raw.img) === "string" ? raw.image || raw.img : "",
 		unique: !!raw.unique,
 		dungeonExempt: !!(raw.dungeonExempt ?? raw.exemptFromDungeon ?? raw.dungeonBlacklisted),
@@ -10668,9 +10706,9 @@ function normalizeImportedMonster(raw) {
 		damageResistances: join$1(raw.damageResist ?? raw.resistances),
 		damageImmunities: join$1(raw.damageImmune ?? raw.immunities),
 		conditionImmunities: join$1(raw.conditionImmune ?? raw.conditionImmunities),
-		initiative: raw.initiative?.mod != null ? String(raw.initiative.mod) : raw.initiative ?? "",
-		proficiencyBonus: raw.pb ?? raw.proficiencyBonus ?? "",
-		xp: raw.xp ?? raw.cr?.xp ?? "",
+		initiative: raw.initiative?.mod != null ? String(raw.initiative.mod) : typeof raw.initiative === "string" || typeof raw.initiative === "number" ? String(raw.initiative) : "",
+		proficiencyBonus: typeof (raw.pb ?? raw.proficiencyBonus) === "string" || typeof (raw.pb ?? raw.proficiencyBonus) === "number" ? String(raw.pb ?? raw.proficiencyBonus) : "",
+		xp: typeof (raw.xp ?? raw.cr?.xp) === "string" || typeof (raw.xp ?? raw.cr?.xp) === "number" ? String(raw.xp ?? raw.cr?.xp) : "",
 		gear: Array.isArray(raw.gear) ? raw.gear.map((g) => typeof g === "string" ? g : g?.name).filter(Boolean).join(", ") : textOf(raw.gear),
 		spellcasting: textOf(raw.spellcasting),
 		traits: listOf(raw.traits ?? raw.trait),
@@ -10812,9 +10850,9 @@ var abilityText = (value) => {
 		if (typeof item !== "object") return;
 		if (item.choose) {
 			const weighted = item.choose.weighted;
-			const from = (weighted?.from || item.choose.from || []).map(abilityLabel).filter(Boolean);
+			const from = asArray(weighted?.from ?? item.choose.from).map(abilityLabel).filter(Boolean);
 			if (!from.length) return;
-			const weights = weighted?.weights || [];
+			const weights = asArray(weighted?.weights);
 			const text = weights.length && Math.max(...weights) > 1 ? `Any of ${from.join(", ")} (+2 to one, +1 to another)` : chooseText(item.choose);
 			if (text) choices.push(text);
 			return;
@@ -10890,12 +10928,16 @@ var prerequisite = (value) => {
 		const l = value.level;
 		bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean(l.class)})` : ""}` : `Level ${l}`);
 	}
-	if (value.race?.length) bits.push(value.race.map((r) => clean(r.name || r)).join(" or "));
-	if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean(r.name || r)).join(" or ")}`);
-	if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean(r.name || r)).join(" or ")}`);
+	const race = asArray(value.race);
+	const background = asArray(value.background);
+	const feat = asArray(value.feat);
+	const ability = asArray(value.ability);
+	if (race.length) bits.push(race.map((r) => clean(r?.name || r)).join(" or "));
+	if (background.length) bits.push(`Background: ${background.map((r) => clean(r?.name || r)).join(" or ")}`);
+	if (feat.length) bits.push(`Feat: ${feat.map((r) => clean(r?.name || r)).join(" or ")}`);
 	if (value.spell) bits.push(`Spell: ${clean(value.spell)}`);
 	if (value.other) bits.push(clean(value.other));
-	if (value.ability?.length) bits.push(value.ability.map((a) => clean(a)).join(", "));
+	if (ability.length) bits.push(ability.map((a) => clean(a)).join(", "));
 	if (!bits.length) return clean(value);
 	return bits.join(", ");
 };
@@ -10916,7 +10958,7 @@ var classNames = (classes) => {
 		["fromClassList", ""],
 		["fromClassListVariant", " (variant)"],
 		["fromSubclass", ""]
-	].flatMap(([key, suffix]) => (classes[key] || []).map((c) => `${clean(c.name || c.className)}${c.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`)).join(", ");
+	].flatMap(([key, suffix]) => asArray(classes[key]).map((c) => `${clean(c?.name || c?.className)}${c?.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`)).join(", ");
 };
 function featureFromRef(ref, list, subclass) {
 	if (!ref) return null;
@@ -10961,7 +11003,7 @@ var textSection = (title, value) => {
 	} : null;
 };
 var rowText = (row) => {
-	return (Array.isArray(row) ? row : row?.row || [row]).map((cell) => {
+	return asArray(Array.isArray(row) ? row : row?.row ?? row).map((cell) => {
 		if (cell && typeof cell === "object") {
 			if (cell.roll) return cell.roll.exact != null ? String(cell.roll.exact) : `${cell.roll.min ?? ""}${cell.roll.max != null ? `–${cell.roll.max}` : ""}`;
 			if (cell.type === "cell") return clean(cell.entry ?? cell.entries ?? "");
@@ -10971,8 +11013,8 @@ var rowText = (row) => {
 };
 var tableBlock = (table) => {
 	if (!table) return null;
-	const columns = (table.colLabels || []).map(clean);
-	const rows = (table.rows || []).slice(0, 100).map(rowText);
+	const columns = asArray(table.colLabels).map(clean);
+	const rows = asArray(table.rows).slice(0, 100).map(rowText);
 	return {
 		title: clean(table.name || table.caption || "Table"),
 		columns,
@@ -11008,14 +11050,14 @@ function entryImage(entry) {
 		entry.cover
 	].find((v) => typeof v === "string" && v) || findImage(entry.entries) || findImage(entry.fluff) || "";
 }
-var contentsList = (contents, depth = 0) => (contents || []).flatMap((c) => {
+var contentsList = (contents, depth = 0) => asArray(contents).flatMap((c) => {
 	if (!c) return [];
 	if (typeof c === "string") return [{
 		label: `${"  ".repeat(depth)}${clean(c)}`,
 		text: ""
 	}];
 	if (c.name) {
-		const headers = (c.headers || []).map((h) => typeof h === "string" ? h : h?.header).filter(Boolean).map((h) => ({
+		const headers = asArray(c.headers).map((h) => typeof h === "string" ? h : h?.header).filter(Boolean).map((h) => ({
 			label: `${"  ".repeat(depth + 1)}${clean(h)}`,
 			text: ""
 		}));
@@ -11084,7 +11126,7 @@ var monsterDetails = (entry) => {
 	};
 };
 var spellDetails = (entry, context = {}) => {
-	const s = spellToLibrary(entry);
+	const s = spellToLibrary(entry) || {};
 	return {
 		fields: [
 			["Level", s.level === "cantrip" ? "Cantrip" : s.level ? `Level ${s.level}` : ""],
@@ -11435,8 +11477,8 @@ var bastionDetails = (entry) => ({
 	sections: [textSection("Description", entry.entries)].filter(Boolean)
 });
 var encounterDetails = (entry) => ({
-	fields: [["Tables", String((entry.tables || []).length)], ["Source", clean(entry.source)]],
-	sections: [...(entry.tables || []).map((t) => tableBlock(t)).filter(Boolean), textSection("Description", entry.entries)].filter(Boolean)
+	fields: [["Tables", String(asArray(entry.tables).length)], ["Source", clean(entry.source)]],
+	sections: [...asArray(entry.tables).map((t) => tableBlock(t)).filter(Boolean), textSection("Description", entry.entries)].filter(Boolean)
 });
 var lootDetails = (entry) => ({
 	fields: [
@@ -11549,23 +11591,40 @@ var DETAILERS = {
 };
 function entryDetails(categoryId, entry, raw, context = {}) {
 	if (!entry) return null;
-	const detailer = categoryId === "classes" ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName) : categoryId === "books" ? (e) => bookDetails(e, false, context) : categoryId === "adventures" ? (e) => bookDetails(e, true, context) : DETAILERS[categoryId] || genericDetails;
-	const body = (categoryId === "spells" ? spellDetails(entry, context) : detailer(entry)) || {
-		fields: [],
-		sections: []
-	};
-	const image = entryImage(entry);
-	return {
-		name: body.name || entryName$2(entry),
-		source: clean(entry.source || entry.classSource || entry.id),
-		page: entry.page,
-		edition: clean(entry.edition),
-		image,
-		raw: entry,
-		book: body.book || null,
-		fields: (body.fields || []).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
-		sections: (body.sections || []).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
-	};
+	try {
+		const detailer = categoryId === "classes" ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName) : categoryId === "books" ? (e) => bookDetails(e, false, context) : categoryId === "adventures" ? (e) => bookDetails(e, true, context) : DETAILERS[categoryId] || genericDetails;
+		const body = (categoryId === "spells" ? spellDetails(entry, context) : detailer(entry)) || {
+			fields: [],
+			sections: []
+		};
+		const image = entryImage(entry);
+		return {
+			name: body.name || entryName$2(entry),
+			source: clean(entry.source || entry.classSource || entry.id),
+			page: entry.page && typeof entry.page === "object" ? "" : entry.page,
+			edition: clean(entry.edition),
+			image,
+			raw: entry,
+			book: body.book || null,
+			fields: asArray(body.fields).map(([label, value]) => [label, CleanField(value)]).filter(([, value]) => value),
+			sections: asArray(body.sections).filter((s) => s.text && clean(s.text) || s.list?.length || s.columns?.length)
+		};
+	} catch {
+		return {
+			name: entryName$2(entry),
+			source: "",
+			page: "",
+			edition: "",
+			image: "",
+			raw: entry,
+			book: null,
+			fields: [],
+			sections: [{
+				title: "Malformed entry",
+				text: fiveText(entry?.entries ?? entry?.description ?? entry?.text) || "This entry does not use a shape the preview can read."
+			}]
+		};
+	}
 }
 function entryDetailsMarkdown(details) {
 	if (!details) return "";
@@ -11579,7 +11638,7 @@ function entryDetailsMarkdown(details) {
 		if (section.columns?.length) out.push([
 			`| ${section.columns.join(" | ")} |`,
 			`| ${section.columns.map(() => "---").join(" | ")} |`,
-			...(section.rows || []).map((row) => `| ${row.map((cell) => String(cell ?? "")).join(" | ")} |`)
+			...asArray(section.rows).map((row) => `| ${asArray(row).map((cell) => String(cell ?? "")).join(" | ")} |`)
 		].join("\n"));
 	});
 	return out.filter(Boolean).join("\n\n");
@@ -30200,7 +30259,8 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 //#endregion
 //#region src/components/skilltree/SkillNodeView.jsx
 var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
-	const unlocked = (node.currentPoints || 0) > 0;
+	const autoBridge = isBridgeNode(node) && available;
+	const unlocked = (node.currentPoints || 0) > 0 || autoBridge;
 	const dim = !unlocked && !available;
 	const simplified = !!detailLevel && detailLevel !== "full";
 	const minimal = detailLevel === "minimal";
@@ -30249,7 +30309,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 			if (editable) onSelect(node);
 			else if (node.__returnNode) onSelect?.(node);
 			else if (dblClickInvest) onSelect?.(node);
-			else if (available || unlocked) onInvest(node, 1);
+			else if (!isBridgeNode(node) && (available || unlocked)) onInvest(node, 1);
 		},
 		onDoubleClick: (e) => {
 			e.stopPropagation();
@@ -53104,7 +53164,7 @@ var BulkLibrary = class {
 	}
 };
 function applyEntryToLibrary(bulk, category, entry, { kind, fallbackTitle, importId } = {}) {
-	if (!entry || !category) return;
+	if (!entry || typeof entry !== "object" || Array.isArray(entry) || !category) return;
 	const img = imageUrl(kind, entry);
 	const tag = (value) => importId ? tagImported(value, importId, {
 		label: fallbackTitle || category.label,
@@ -53137,7 +53197,7 @@ function applyEntryToLibrary(bulk, category, entry, { kind, fallbackTitle, impor
 		}
 		case "spells": {
 			const spell = withImage(spellToLibrary(entry));
-			if (spell.name) bulk.upsert("spells", spell);
+			if (spell?.name) bulk.upsert("spells", spell);
 			return;
 		}
 		case "items": {
@@ -53232,7 +53292,7 @@ function tabsForBrewFile(category, entries, raw, info) {
 	return [];
 }
 function importBrewIntoDraft(bulk, info, category, raw, { makeTabs = true, kind, importId } = {}) {
-	const entries = entriesFromRaw(raw, info?.props?.[0]);
+	const entries = entriesFromRaw(raw, info?.props?.[0]).filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry));
 	if (!entries.length) return {
 		entries: 0,
 		tabs: []
@@ -53253,7 +53313,7 @@ function importSourceIntoDraft(bulk, info, category, raw, source, { makeTabs = t
 		entries: 0,
 		tabs: []
 	};
-	const entries = entriesFromRaw(raw, info?.props?.[0]).filter((entry) => sourceOf$1(entry).toLowerCase() === wanted);
+	const entries = entriesFromRaw(raw, info?.props?.[0]).filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry) && sourceOf$1(entry).toLowerCase() === wanted);
 	if (!entries.length) return {
 		entries: 0,
 		tabs: []
@@ -54043,8 +54103,10 @@ function ReferenceIndexTab() {
 		return true;
 	};
 	const storeRaw = (catId, rawEntry) => {
+		if (!rawEntry || typeof rawEntry !== "object") return;
 		const entry = { ...rawEntry };
 		delete entry.__filePath;
+		if (entryName$2(entry) === "Untitled") return;
 		setSettings((s) => {
 			const map = { ...s.library.fiveETools || {} };
 			const list = Array.isArray(map[catId]) ? [...map[catId]] : [];
@@ -54151,6 +54213,7 @@ function ReferenceIndexTab() {
 		};
 	};
 	const importEntry = async (cat, entry) => {
+		if (!entry || typeof entry !== "object" || Array.isArray(entry) || entryName$2(entry) === "Untitled") return false;
 		const image = await importEntryImage(entry);
 		const withImage = (value) => {
 			if (!value || typeof value === "string") return value;
@@ -54271,112 +54334,138 @@ function ReferenceIndexTab() {
 			total: picked.length
 		});
 		let done = 0;
-		const classImages = /* @__PURE__ */ new Map();
-		if (activeCategory.kind === "classes") for (const entry of picked) classImages.set(entry, await importEntryImage(entry));
-		if (activeCategory.kind === "classes") {
-			const bases = picked.filter((e) => !isSubclassEntry(e));
-			const subs = picked.filter(isSubclassEntry);
-			const bundles = bases.map((base) => ({
-				base,
-				subs: []
-			}));
-			subs.forEach((s) => {
-				const bundle = bundles.find((b) => b.base.name === s.className && (!s.classSource || !b.base.source || b.base.source === s.classSource)) || bundles.find((b) => b.base.name === s.className);
-				if (bundle) bundle.subs.push(s);
-				else {
-					storeRaw(activeCategory.id, tagForImport({
-						...s,
-						image: classImages.get(s) || s.image || ""
-					}));
-					const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
-					if (features.length) {
-						const tabId = addImportedTab(`Subclass: ${entryName$2(s)}${s.source ? ` (${s.source})` : ""}`, features, {
-							category: activeCategory.label,
-							layout: "class",
-							className: s.className,
-							classSource: s.classSource
-						});
-						if (tabId) importTabIdsRef.current.push(tabId);
-						done += 1;
-					}
-				}
-			});
-			for (const { base, subs: selectedSubs } of bundles) {
-				storeRaw(activeCategory.id, tagForImport({
-					...base,
-					image: classImages.get(base) || base.image || ""
+		let failed = 0;
+		try {
+			const classImages = /* @__PURE__ */ new Map();
+			if (activeCategory.kind === "classes") for (const entry of picked) classImages.set(entry, await importEntryImage(entry));
+			if (activeCategory.kind === "classes") {
+				const bases = picked.filter((e) => !isSubclassEntry(e));
+				const subs = picked.filter(isSubclassEntry);
+				const bundles = bases.map((base) => ({
+					base,
+					subs: []
 				}));
-				selectedSubs.forEach((s) => storeRaw(activeCategory.id, tagForImport({
-					...s,
-					image: classImages.get(s) || s.image || ""
-				})));
-				const features = featuresForClassBundle(base, selectedSubs, rawForEntry(base) || rawForEntry(selectedSubs[0]));
-				if (features.length) {
-					const tabId = addImportedTab(`Class: ${entryName$2(base)}${base.source ? ` (${base.source})` : ""}`, features, {
-						category: activeCategory.label,
-						layout: "class",
-						className: base.name,
-						classSource: base.source
+				subs.forEach((s) => {
+					const bundle = bundles.find((b) => b.base.name === s.className && (!s.classSource || !b.base.source || b.base.source === s.classSource)) || bundles.find((b) => b.base.name === s.className);
+					if (bundle) bundle.subs.push(s);
+					else try {
+						storeRaw(activeCategory.id, tagForImport({
+							...s,
+							image: classImages.get(s) || s.image || ""
+						}));
+						const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
+						if (features.length) {
+							const tabId = addImportedTab(`Subclass: ${entryName$2(s)}${s.source ? ` (${s.source})` : ""}`, features, {
+								category: activeCategory.label,
+								layout: "class",
+								className: s.className,
+								classSource: s.classSource
+							});
+							if (tabId) importTabIdsRef.current.push(tabId);
+							done += 1;
+						}
+					} catch {
+						failed += 1;
+					}
+				});
+				for (const { base, subs: selectedSubs } of bundles) {
+					try {
+						storeRaw(activeCategory.id, tagForImport({
+							...base,
+							image: classImages.get(base) || base.image || ""
+						}));
+						selectedSubs.forEach((s) => storeRaw(activeCategory.id, tagForImport({
+							...s,
+							image: classImages.get(s) || s.image || ""
+						})));
+						const features = featuresForClassBundle(base, selectedSubs, rawForEntry(base) || rawForEntry(selectedSubs[0]));
+						if (features.length) {
+							const tabId = addImportedTab(`Class: ${entryName$2(base)}${base.source ? ` (${base.source})` : ""}`, features, {
+								category: activeCategory.label,
+								layout: "class",
+								className: base.name,
+								classSource: base.source
+							});
+							if (tabId) importTabIdsRef.current.push(tabId);
+							done += 1;
+						}
+					} catch {
+						failed += 1;
+					}
+					setImporting(Math.max(0, picked.length - done - failed));
+					updateImport({
+						done: done + failed,
+						total: picked.length,
+						detail: `Class: ${entryName$2(base)}`
 					});
-					if (tabId) importTabIdsRef.current.push(tabId);
-					done += 1;
+					await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
 				}
-				setImporting(Math.max(0, picked.length - done));
+			} else for (const entry of picked) {
+				try {
+					if (await importEntry(activeCategory, entry)) done += 1;
+					else failed += 1;
+				} catch {
+					failed += 1;
+				}
+				setImporting(Math.max(0, picked.length - done - failed));
 				updateImport({
-					done,
+					done: done + failed,
 					total: picked.length,
-					detail: `Class: ${entryName$2(base)}`
+					detail: entryName$2(entry)
 				});
 				await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
 			}
-		} else for (const entry of picked) {
-			await importEntry(activeCategory, entry);
-			done += 1;
-			setImporting(picked.length - done);
-			updateImport({
-				done,
-				total: picked.length,
-				detail: entryName$2(entry)
+			creditAuthorsFor(picked);
+			recordSession(importId, {
+				count: done,
+				tabIds: importTabIdsRef.current
 			});
-			await sleep(Math.max(0, Math.min(5e3, Number(delay) || 0)));
+			toast.success(activeCategory.kind === "classes" ? `Imported ${done} class tab${done === 1 ? "" : "s"}${failed ? ` · ${failed} failed` : ""}.` : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}${failed ? ` · ${failed} failed` : ""}.`);
+		} catch (error) {
+			toast.error(`Import stopped: ${error?.message || error}`);
+		} finally {
+			setImporting(0);
+			setSelected(/* @__PURE__ */ new Set());
+			activeImportRef.current = "";
+			finishImport({
+				count: done,
+				tabs: importTabIdsRef.current.length,
+				errors: failed,
+				label: activeCategory.kind === "classes" ? "Class tabs imported" : `${activeCategory.label} imported`
+			});
 		}
-		setImporting(0);
-		setSelected(/* @__PURE__ */ new Set());
-		creditAuthorsFor(picked);
-		recordSession(importId, {
-			count: done,
-			tabIds: importTabIdsRef.current
-		});
-		activeImportRef.current = "";
-		finishImport({
-			count: done,
-			tabs: importTabIdsRef.current.length,
-			label: activeCategory.kind === "classes" ? "Class tabs imported" : `${activeCategory.label} imported`
-		});
-		toast.success(activeCategory.kind === "classes" ? `Imported ${done} class tab${done === 1 ? "" : "s"}.` : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`);
 	};
 	const importPreview = async () => {
 		if (!preview) return;
 		const importId = newImportId();
 		activeImportRef.current = importId;
 		importTabIdsRef.current = [];
-		beginImport({
-			label: `Importing ${entryName$2(preview)}`,
-			total: 1
-		});
-		await importEntry(activeCategory, preview);
-		recordSession(importId, {
-			count: 1,
-			tabIds: importTabIdsRef.current
-		});
-		activeImportRef.current = "";
-		finishImport({
-			count: 1,
-			tabs: importTabIdsRef.current.length,
-			label: `${entryName$2(preview)} imported`
-		});
-		creditAuthorsFor([preview]);
-		toast.success(`Imported ${entryName$2(preview)}.`);
+		let imported = 0;
+		try {
+			beginImport({
+				label: `Importing ${entryName$2(preview)}`,
+				total: 1
+			});
+			imported = await importEntry(activeCategory, preview) ? 1 : 0;
+			recordSession(importId, {
+				count: imported,
+				tabIds: importTabIdsRef.current
+			});
+			if (imported) {
+				creditAuthorsFor([preview]);
+				toast.success(`Imported ${entryName$2(preview)}.`);
+			} else toast("That entry could not be imported.");
+		} catch (error) {
+			toast.error(`Import failed: ${error?.message || error}`);
+		} finally {
+			activeImportRef.current = "";
+			finishImport({
+				count: imported,
+				tabs: importTabIdsRef.current.length,
+				errors: imported ? 0 : 1,
+				label: `${entryName$2(preview)} imported`
+			});
+		}
 	};
 	const categoryForBrew = (info) => {
 		const id = categoryForProps(info?.props || []);

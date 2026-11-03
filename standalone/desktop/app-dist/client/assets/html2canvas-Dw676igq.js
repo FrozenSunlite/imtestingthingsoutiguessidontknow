@@ -1,1 +1,0 @@
-import{_ as e}from"./routes-B2dr9dT2.js";export default e();

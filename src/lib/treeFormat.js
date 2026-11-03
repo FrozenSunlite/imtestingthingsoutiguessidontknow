@@ -250,9 +250,10 @@ export function normalizeTree(data) {
 
 // Convert the internal tree back to the RPG JSON format.
 export function denormalizeTree(tree) {
+  const nodes = Array.isArray(tree?.nodes) ? tree.nodes : [];
   const idToNode = {};
-  tree.nodes.forEach((n) => (idToNode[n.id] = n));
-  const skills = tree.nodes.map((n) => ({
+  nodes.forEach((n) => (idToNode[n.id] = n));
+  const skills = nodes.map((n) => ({
     "Skill Name": n.name,
     // Node ids travel with the file so exported connectors (which reference
     // them) still resolve after a round-trip.
@@ -266,7 +267,7 @@ export function denormalizeTree(tree) {
     "Skill Level Gain": n.levelGain || 0,
     "Skill Image": n.image,
     // The RPG format stores the inverse list here: the skills that depend on this one.
-    "Skill Dependencies": tree.nodes
+    "Skill Dependencies": nodes
       .filter((m) => (m.dependencies || []).includes(n.id))
       .map((m) => m.name),
     "Skill Prerequisite": n.prerequisite || "-",
@@ -331,7 +332,7 @@ export function denormalizeTree(tree) {
       duration: a.duration || "",
       concentration: !!a.concentration,
     })),
-    "Skill Resources": n.resources.map((r) => ({
+    "Skill Resources": (n.resources || []).map((r) => ({
       name: r.name,
       value: r.uses ?? r.value ?? "",
       uses: r.uses ?? r.value ?? "",
@@ -376,13 +377,13 @@ export function denormalizeTree(tree) {
     // Full connector data (bends, styles, direction flags) — previously
     // connectors were rebuilt only from prerequisites on import, so every
     // decoration was lost.
-    "Skill Connectors": (tree.connections || []).map((c) => {
+    "Skill Connectors": (tree?.connections || []).map((c) => {
       const copy = { ...c };
       delete copy.id;
       return copy;
     }),
-    "Class Name": tree.className,
-    "Project Name": tree.name || tree.className,
+    "Class Name": tree?.className,
+    "Project Name": tree?.name || tree?.className,
     FullData: {
       hideLockedSkills: 0,
       totalStats: {},

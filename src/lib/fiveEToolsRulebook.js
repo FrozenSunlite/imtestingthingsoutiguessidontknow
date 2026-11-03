@@ -1,15 +1,15 @@
 // Convert 5eTools book data into Rulebook chapters (Homebrewery markdown).
 // Book files contain a `bookData` wrapper with a `data` array of chapters;
 // each chapter's `entries` tree is rendered into readable markdown.
-import { fiveText } from "@/lib/fiveETools";
+import { asArray, fiveText } from "@/lib/fiveETools";
 
 const clean = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
 const cell = (value) => clean(value).replace(/\|/g, "\\|");
 
 const tableMarkdown = (table) => {
-  const columns = (table.colLabels || []).map(cell);
-  const rows = (table.rows || []).map((row) => {
-    const cells = (Array.isArray(row) ? row : row?.row || [row]).map((value) => {
+  const columns = asArray(table?.colLabels).map(cell);
+  const rows = asArray(table?.rows).map((row) => {
+    const cells = asArray(row?.row ?? row).map((value) => {
       if (value && typeof value === "object") {
         if (value.roll) {
           return value.roll.exact != null
@@ -38,8 +38,8 @@ const imageMarkdown = (node) => {
   if (typeof href === "string") return `![${clean(node.name) || "Illustration"}](${href})`;
   if (href?.url) return `![${clean(node.name) || "Illustration"}](${href.url})`;
   if (href?.path) return `![${clean(node.name) || "Illustration"}](${href.path})`;
-  if (href?.paths?.length) {
-    return href.paths
+  if (href?.paths) {
+    return asArray(href.paths)
       .map((path) => `![${clean(node.name) || "Illustration"}](${path})`)
       .join("\n\n");
   }
@@ -75,13 +75,13 @@ function renderEntries(value, depth = 0) {
       return [value.name ? `**${clean(value.name)}**` : "", table].filter(Boolean).join("\n\n");
     }
     case "list":
-      return (value.items || [])
+      return asArray(value.items)
         .map((item) => `- ${clean(item).replace(/\n/g, "\n  ")}`)
         .join("\n");
     case "options":
       return [
         value.name ? `**${clean(value.name)}**` : "",
-        ...(value.entries || []).map((entry) => renderEntries(entry, depth + 1)),
+        ...asArray(value.entries).map((entry) => renderEntries(entry, depth + 1)),
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -107,7 +107,7 @@ function renderEntries(value, depth = 0) {
       return "---";
     case "abilityDc":
     case "abilityAttackMod": {
-      const ability = (value.attributes || []).map((a) => String(a).toUpperCase()).join(", ");
+      const ability = asArray(value.attributes).map((a) => String(a).toUpperCase()).join(", ");
       return `**${clean(value.name) || "Ability"}${value.type === "abilityDc" ? " save DC" : " attack modifier"}:** ${ability || "—"}`;
     }
     case "statblock":
@@ -122,7 +122,7 @@ function renderEntries(value, depth = 0) {
       break;
   }
 
-  if (value.type?.startsWith("ref")) {
+  if (String(value.type || "").startsWith("ref")) {
     const label = refLabel(value);
     return label ? `*${label}*` : "";
   }
@@ -157,12 +157,15 @@ export function bookChapters(entry) {
   return {
     title: clean(entry.name || entry.title || entry.id || "Book"),
     chapters: data
-      .map((chapter, i) => ({
-        id: chapter.id || `ch${i + 1}`,
-        title: clean(chapter.name) || `Chapter ${i + 1}`,
-        entries: chapter.entries,
-      }))
-      .filter((chapter) => chapter.entries != null),
+      .map((chapter, i) => {
+        if (!chapter || typeof chapter !== "object") return null;
+        return {
+          id: chapter.id || `ch${i + 1}`,
+          title: clean(chapter.name) || `Chapter ${i + 1}`,
+          entries: chapter.entries,
+        };
+      })
+      .filter((chapter) => chapter?.entries != null),
   };
 }
 
@@ -184,6 +187,7 @@ export function bookToRulebook(entry, fallbackTitle = "") {
   const id = `rb5e-${slug(source)}-${slug(title)}`;
   let chapters = data
     .map((chapter, i) => {
+      if (!chapter || typeof chapter !== "object") return null;
       const chapterTitle = clean(chapter.name) || `Chapter ${i + 1}`;
       const body = renderEntries(chapter.entries, 1);
       return {
@@ -192,10 +196,10 @@ export function bookToRulebook(entry, fallbackTitle = "") {
         content: [`# ${chapterTitle}`, body].filter(Boolean).join("\n\n"),
       };
     })
-    .filter((chapter) => chapter.content.trim());
+    .filter((chapter) => chapter?.content.trim());
 
   if (!chapters.length) {
-    const outline = (entry.contents || [])
+    const outline = asArray(entry.contents)
       .map((c) => (typeof c === "string" ? c : c?.name))
       .filter(Boolean)
       .map((name) => `- ${clean(name)}`)

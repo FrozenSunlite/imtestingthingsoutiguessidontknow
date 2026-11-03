@@ -665,8 +665,10 @@ export function ReferenceIndexTab() {
   };
 
   const storeRaw = (catId, rawEntry) => {
+    if (!rawEntry || typeof rawEntry !== "object") return;
     const entry = { ...rawEntry };
     delete entry.__filePath;
+    if (entryName(entry) === "Untitled") return;
     setSettings((s) => {
       const map = { ...(s.library.fiveETools || {}) };
       const list = Array.isArray(map[catId]) ? [...map[catId]] : [];
@@ -779,6 +781,14 @@ export function ReferenceIndexTab() {
   };
 
   const importEntry = async (cat, entry) => {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      Array.isArray(entry) ||
+      entryName(entry) === "Untitled"
+    ) {
+      return false;
+    }
     const image = await importEntryImage(entry);
     const withImage = (value) => {
       if (!value || typeof value === "string") return value;
@@ -889,7 +899,8 @@ export function ReferenceIndexTab() {
     );
   };
 
-  const importSelected = async () => {    const picked = [...selected].map((i) => entries[i]).filter(Boolean);
+  const importSelected = async () => {
+    const picked = [...selected].map((i) => entries[i]).filter(Boolean);
     if (!picked.length) {
       toast("Select one or more entries first.");
       return;
@@ -906,107 +917,135 @@ export function ReferenceIndexTab() {
       total: picked.length,
     });
     let done = 0;
+    let failed = 0;
 
-    // Class bundles bypass importEntry(), so save their artwork first and
-    // attach it when each base/subclass is stored.
-    const classImages = new Map();
-    if (activeCategory.kind === "classes") {
-      for (const entry of picked) {
-        classImages.set(entry, await importEntryImage(entry));
+    try {
+      // Class bundles bypass importEntry(), so save their artwork first and
+      // attach it when each base/subclass is stored.
+      const classImages = new Map();
+      if (activeCategory.kind === "classes") {
+        for (const entry of picked) {
+          classImages.set(entry, await importEntryImage(entry));
+        }
       }
-    }
 
-    // A class and the subclasses selected with it become one level-aligned
-    // tab: base features in the main ladder, each subclass branching from the
-    // level where it is gained.
-    if (activeCategory.kind === "classes") {
-      const bases = picked.filter((e) => !isSubclassEntry(e));
-      const subs = picked.filter(isSubclassEntry);
-      const bundles = bases.map((base) => ({ base, subs: [] }));
-      subs.forEach((s) => {
-        const bundle =
-          bundles.find(
-            (b) =>
-              b.base.name === s.className &&
-              (!s.classSource || !b.base.source || b.base.source === s.classSource)
-          ) || bundles.find((b) => b.base.name === s.className);
-        if (bundle) bundle.subs.push(s);
-        else {
-          storeRaw(activeCategory.id, tagForImport({
-            ...s,
-            image: classImages.get(s) || s.image || "",
-          }));
-          const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
-          if (features.length) {
-            const tabId = addImportedTab(`Subclass: ${entryName(s)}${s.source ? ` (${s.source})` : ""}`, features, {
-              category: activeCategory.label,
-              layout: "class",
-              className: s.className,
-              classSource: s.classSource,
-            });
-            if (tabId) importTabIdsRef.current.push(tabId);
-            done += 1;
+      // A class and the subclasses selected with it become one level-aligned
+      // tab: base features in the main ladder, each subclass branching from the
+      // level where it is gained.
+      if (activeCategory.kind === "classes") {
+        const bases = picked.filter((e) => !isSubclassEntry(e));
+        const subs = picked.filter(isSubclassEntry);
+        const bundles = bases.map((base) => ({ base, subs: [] }));
+        subs.forEach((s) => {
+          const bundle =
+            bundles.find(
+              (b) =>
+                b.base.name === s.className &&
+                (!s.classSource || !b.base.source || b.base.source === s.classSource)
+            ) || bundles.find((b) => b.base.name === s.className);
+          if (bundle) bundle.subs.push(s);
+          else {
+            try {
+              storeRaw(activeCategory.id, tagForImport({
+                ...s,
+                image: classImages.get(s) || s.image || "",
+              }));
+              const features = featuresForEntry(activeCategory.id, s, rawForEntry(s));
+              if (features.length) {
+                const tabId = addImportedTab(`Subclass: ${entryName(s)}${s.source ? ` (${s.source})` : ""}`, features, {
+                  category: activeCategory.label,
+                  layout: "class",
+                  className: s.className,
+                  classSource: s.classSource,
+                });
+                if (tabId) importTabIdsRef.current.push(tabId);
+                done += 1;
+              }
+            } catch {
+              failed += 1;
+            }
           }
-        }
-      });
-      for (const { base, subs: selectedSubs } of bundles) {
-        storeRaw(activeCategory.id, tagForImport({
-          ...base,
-          image: classImages.get(base) || base.image || "",
-        }));
-        selectedSubs.forEach((s) =>
-          storeRaw(activeCategory.id, tagForImport({
-            ...s,
-            image: classImages.get(s) || s.image || "",
-          }))
-        );
-        const features = featuresForClassBundle(
-          base,
-          selectedSubs,
-          rawForEntry(base) || rawForEntry(selectedSubs[0])
-        );
-        if (features.length) {
-          const tabId = addImportedTab(`Class: ${entryName(base)}${base.source ? ` (${base.source})` : ""}`, features, {
-            category: activeCategory.label,
-            layout: "class",
-            className: base.name,
-            classSource: base.source,
+        });
+        for (const { base, subs: selectedSubs } of bundles) {
+          try {
+            storeRaw(activeCategory.id, tagForImport({
+              ...base,
+              image: classImages.get(base) || base.image || "",
+            }));
+            selectedSubs.forEach((s) =>
+              storeRaw(activeCategory.id, tagForImport({
+                ...s,
+                image: classImages.get(s) || s.image || "",
+              }))
+            );
+            const features = featuresForClassBundle(
+              base,
+              selectedSubs,
+              rawForEntry(base) || rawForEntry(selectedSubs[0])
+            );
+            if (features.length) {
+              const tabId = addImportedTab(`Class: ${entryName(base)}${base.source ? ` (${base.source})` : ""}`, features, {
+                category: activeCategory.label,
+                layout: "class",
+                className: base.name,
+                classSource: base.source,
+              });
+              if (tabId) importTabIdsRef.current.push(tabId);
+              done += 1;
+            }
+          } catch {
+            failed += 1;
+          }
+          setImporting(Math.max(0, picked.length - done - failed));
+          updateImport({
+            done: done + failed,
+            total: picked.length,
+            detail: `Class: ${entryName(base)}`,
           });
-          if (tabId) importTabIdsRef.current.push(tabId);
-          done += 1;
+          await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
         }
-        setImporting(Math.max(0, picked.length - done));
-        updateImport({ done, total: picked.length, detail: `Class: ${entryName(base)}` });
-        await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
+      } else {
+        for (const entry of picked) {
+          try {
+            const ok = await importEntry(activeCategory, entry);
+            if (ok) done += 1;
+            else failed += 1;
+          } catch {
+            failed += 1;
+          }
+          setImporting(Math.max(0, picked.length - done - failed));
+          updateImport({
+            done: done + failed,
+            total: picked.length,
+            detail: entryName(entry),
+          });
+          await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
+        }
       }
-    } else {
-      for (const entry of picked) {
-        await importEntry(activeCategory, entry);
-        done += 1;
-        setImporting(picked.length - done);
-        updateImport({ done, total: picked.length, detail: entryName(entry) });
-        await sleep(Math.max(0, Math.min(5000, Number(delay) || 0)));
-      }
-    }
 
-    setImporting(0);
-    setSelected(new Set());
-    creditAuthorsFor(picked);
-    recordSession(importId, { count: done, tabIds: importTabIdsRef.current });
-    activeImportRef.current = "";
-    finishImport({
-      count: done,
-      tabs: importTabIdsRef.current.length,
-      label:
+      creditAuthorsFor(picked);
+      recordSession(importId, { count: done, tabIds: importTabIdsRef.current });
+      toast.success(
         activeCategory.kind === "classes"
-          ? "Class tabs imported"
-          : `${activeCategory.label} imported`,
-    });
-    toast.success(
-      activeCategory.kind === "classes"
-        ? `Imported ${done} class tab${done === 1 ? "" : "s"}.`
-        : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}.`
-    );
+          ? `Imported ${done} class tab${done === 1 ? "" : "s"}${failed ? ` · ${failed} failed` : ""}.`
+          : `Imported ${done} ${activeCategory.label.toLowerCase()} entr${done === 1 ? "y" : "ies"}${failed ? ` · ${failed} failed` : ""}.`
+      );
+    } catch (error) {
+      toast.error(`Import stopped: ${error?.message || error}`);
+    } finally {
+      setImporting(0);
+      setSelected(new Set());
+      activeImportRef.current = "";
+      finishImport({
+        count: done,
+        tabs: importTabIdsRef.current.length,
+        errors: failed,
+        label:
+          activeCategory.kind === "classes"
+            ? "Class tabs imported"
+            : `${activeCategory.label} imported`,
+      });
+    }
   };
 
   const importPreview = async () => {
@@ -1014,17 +1053,28 @@ export function ReferenceIndexTab() {
     const importId = newImportId();
     activeImportRef.current = importId;
     importTabIdsRef.current = [];
-    beginImport({ label: `Importing ${entryName(preview)}`, total: 1 });
-    await importEntry(activeCategory, preview);
-    recordSession(importId, { count: 1, tabIds: importTabIdsRef.current });
-    activeImportRef.current = "";
-    finishImport({
-      count: 1,
-      tabs: importTabIdsRef.current.length,
-      label: `${entryName(preview)} imported`,
-    });
-    creditAuthorsFor([preview]);
-    toast.success(`Imported ${entryName(preview)}.`);
+    let imported = 0;
+    try {
+      beginImport({ label: `Importing ${entryName(preview)}`, total: 1 });
+      imported = (await importEntry(activeCategory, preview)) ? 1 : 0;
+      recordSession(importId, { count: imported, tabIds: importTabIdsRef.current });
+      if (imported) {
+        creditAuthorsFor([preview]);
+        toast.success(`Imported ${entryName(preview)}.`);
+      } else {
+        toast("That entry could not be imported.");
+      }
+    } catch (error) {
+      toast.error(`Import failed: ${error?.message || error}`);
+    } finally {
+      activeImportRef.current = "";
+      finishImport({
+        count: imported,
+        tabs: importTabIdsRef.current.length,
+        errors: imported ? 0 : 1,
+        label: `${entryName(preview)} imported`,
+      });
+    }
   };
 
   const categoryForBrew = (info) => {

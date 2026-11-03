@@ -277,7 +277,13 @@ export function collectUnlockedNames(nodes, out = new Set()) {
   return out;
 }
 
-export function isAvailable(node, nodesById, unlockedNames) {
+// A node with no point capacity and no cost is a structural bridge: it can
+// never be invested in, so it acts as an automatic pass-through instead of a
+// prerequisite that blocks everything behind it.
+export const isBridgeNode = (node) =>
+  Number(node?.maxPoints) === 0 && Number(node?.cost) === 0;
+
+export function isAvailable(node, nodesById, unlockedNames, seen) {
   if (isExclusiveBlocked(node, nodesById)) return false;
   // Cross-tree prerequisites: named nodes that must be unlocked anywhere —
   // the main tree, another subtree, or this node's own tree.
@@ -289,12 +295,22 @@ export function isAvailable(node, nodesById, unlockedNames) {
   if (node.requirementMode === "none") return true;
   const deps = node.dependencies.map((id) => nodesById[id]).filter(Boolean);
   if (deps.length === 0) return true;
+  // Guard against malformed/cyclic prerequisite data in imported trees.
+  const visited = seen || new Set();
+  if (node.id != null && visited.has(node.id)) return false;
+  const nextSeen = new Set(visited);
+  if (node.id != null) nextSeen.add(node.id);
   // Prerequisite points: 0 means "auto" — whatever it takes to unlock the
-  // prerequisite node itself (its cost, at least one point).
+  // prerequisite node itself (its cost, at least one point). A bridge is
+  // satisfied as soon as it is itself available, even though it has 0 points.
   const reqRaw = Number(node.requiredPoints);
   const need = (d) =>
     reqRaw === 0 ? Math.max(1, Number(d.cost ?? 1) || 1) : reqRaw > 0 ? reqRaw : 1;
-  const met = deps.filter((d) => (d.currentPoints || 0) >= need(d));
+  const met = deps.filter(
+    (d) =>
+      (d.currentPoints || 0) >= need(d) ||
+      (isBridgeNode(d) && isAvailable(d, nodesById, unlockedNames, nextSeen))
+  );
   if (node.requirementMode === "any") return met.length >= 1;
   return met.length === deps.length;
 }

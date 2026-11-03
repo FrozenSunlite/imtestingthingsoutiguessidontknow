@@ -143,15 +143,28 @@ export function entriesFromRaw(raw, preferredProp = "") {
   return [];
 }
 
-export const entryName = (entry) =>
-  String(
-    entry?.name ||
-      entry?.title ||
-      entry?.caption ||
-      entry?.abbreviation ||
-      entry?.id ||
-      "Untitled"
-  );
+// Malformed homebrew files sometimes use a scalar where 5eTools expects a
+// list. Wrapping it keeps every renderer from calling .map on a string/number.
+export const asArray = (value) =>
+  Array.isArray(value) ? value : value == null ? [] : [value];
+
+// Strings/numbers are names; objects and arrays are malformed homebrew data.
+export const textName = (value) =>
+  typeof value === "string" || typeof value === "number"
+    ? String(value).trim()
+    : "";
+
+export const entryName = (entry) => {
+  const candidates = [
+    entry?.name,
+    entry?.title,
+    entry?.caption,
+    entry?.abbreviation,
+    entry?.id,
+  ];
+  const usable = candidates.find((value) => textName(value));
+  return usable == null ? "Untitled" : textName(usable);
+};
 
 export const entrySource = (entry) =>
   [entry?.source, entry?.page ? `p.${entry.page}` : ""].filter(Boolean).join(" ");
@@ -265,13 +278,13 @@ export function fiveText(value) {
       return tableRowsText(value);
     }
     if (value.type === "list") {
-      return (value.items || []).map((it) => `• ${fiveText(it)}`).join("\n");
+      return asArray(value.items).map((it) => `• ${fiveText(it)}`).join("\n");
     }
     if (value.type === "options") {
-      return [value.name, ...(value.entries || [])].map(fiveText).filter(Boolean).join("\n");
+      return [value.name, ...asArray(value.entries)].map(fiveText).filter(Boolean).join("\n");
     }
     if (value.type === "inset" || value.type === "insetReadaloud") {
-      return [value.name, ...(value.entries || [])].map(fiveText).filter(Boolean).join("\n");
+      return [value.name, ...asArray(value.entries)].map(fiveText).filter(Boolean).join("\n");
     }
     if (value.type === "item" && (value.name || value.entry || value.entries)) {
       const label = value.name ? String(value.name).replace(/:\s*$/, "") : "";
@@ -279,7 +292,7 @@ export function fiveText(value) {
       return [label, body].filter(Boolean).join(" ");
     }
     if (value.type === "quote") {
-      return [value.byline ? `“${value.byline}”` : "", ...(value.entries || [])]
+      return [value.byline ? `“${value.byline}”` : "", ...asArray(value.entries)]
         .map(fiveText)
         .filter(Boolean)
         .join("\n");
@@ -290,7 +303,7 @@ export function fiveText(value) {
       if (value.name) return String(value.name);
       return body;
     }
-    if (value.items) return Object.values(value.items).map(fiveText).filter(Boolean).join("\n");
+    if (value.items) return asArray(value.items).map(fiveText).filter(Boolean).join("\n");
     if (value.name && value.description) return `${value.name}: ${fiveText(value.description)}`;
     if (value.name) return String(value.name);
     if (value.description) return fiveText(value.description);
@@ -301,11 +314,11 @@ export function fiveText(value) {
 }
 
 function tableRowsText(table) {
-  const columns = table.colLabels || [];
-  const rows = (table.rows || []).map((row) =>
-    (Array.isArray(row) ? row : [row]).map((cell) => fiveText(cell)).join(" | ")
+  const columns = asArray(table.colLabels);
+  const rows = asArray(table.rows).map((row) =>
+    asArray(row).map((cell) => fiveText(cell)).join(" | ")
   );
-  return [columns.join(" | "), ...rows].filter(Boolean).join("\n");
+  return [columns.map(fiveText).join(" | "), ...rows].filter(Boolean).join("\n");
 }
 
 const textOf = fiveText;
@@ -325,12 +338,22 @@ export function entryPreview(entry) {
 
 
 const spellSchool = (code) => {
+  if (typeof code !== "string" && typeof code !== "number") return "";
   const map = { A: "Abjuration", C: "Conjuration", D: "Divination", E: "Enchantment", I: "Illusion", N: "Necromancy", T: "Transmutation", V: "Evocation" };
   return map[String(code || "").toUpperCase()] || code || "";
 };
 
 const spellTime = (time) => {
-  if (Array.isArray(time)) return time.map((t) => `${t.number || 1} ${t.unit || "action"}`).join(", ");
+  if (Array.isArray(time)) {
+    return time
+      .map((t) => {
+        if (t == null) return "";
+        if (typeof t !== "object") return textOf(t);
+        return `${t.number || 1} ${t.unit || "action"}`;
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
   if (time && typeof time === "object") return `${time.number || 1} ${time.unit || "action"}`;
   return textOf(time);
 };
@@ -391,18 +414,32 @@ const spellDuration = (duration) => {
 
 // A 5eTools spell mapped into the Spells tab's schema.
 export function spellToLibrary(s) {
+  if (!s || typeof s !== "object" || Array.isArray(s)) return null;
   const comp = spellComponents(s.components);
+  const level =
+    s.level === 0 || s.level === "0"
+      ? "cantrip"
+      : typeof s.level === "string" || typeof s.level === "number"
+        ? String(s.level)
+        : "";
+  const savingThrows = Array.isArray(s.savingThrow)
+    ? s.savingThrow
+        .filter((v) => typeof v === "string" || typeof v === "number")
+        .join(", ")
+    : typeof s.savingThrow === "string"
+      ? s.savingThrow
+      : "";
   return {
-    name: s.name || "",
-    level: s.level === 0 ? "cantrip" : String(s.level ?? ""),
+    name: textName(s.name),
+    level,
     school: spellSchool(s.school),
     subschool: "",
     repeats: "",
     castingTime: spellTime(s.time),
     range: spellRange(s.range),
     duration: spellDuration(s.duration),
-    saveType: s.savingThrow ? "save" : "none",
-    saveAbility: Array.isArray(s.savingThrow) ? s.savingThrow.join(", ") : s.savingThrow || "",
+    saveType: savingThrows ? "save" : "none",
+    saveAbility: savingThrows,
     attackKind: s.attack ? "spell" : "",
     attackMod: "spellcasting",
     attackAbility: "STR",
@@ -464,14 +501,14 @@ const codeOf = (entry) => {
 // Normalise a 5eTools item (magic item or base item) into the matching
 // Reference Library tab. Returns null for entries with no useful destination.
 export function itemToLibrary(entry) {
-  if (!entry || !entry.name) return null;
+  if (!entry || !textName(entry.name)) return null;
   const code = codeOf(entry);
   const rarity = String(entry.rarity || "none").toLowerCase();
   const magic = rarity !== "none" && rarity !== "varies";
   const baseName = String(entry.baseItem || "").split("|")[0];
   const description = [entryText(entry), fiveText(entry.additionalEntries)].filter(Boolean).join("\n\n");
   const cost = gp(entry.value);
-  const common = { name: entry.name, cost, description };
+  const common = { name: textName(entry.name), cost, description };
 
   if (entry.poison) {
     const text = entryText(entry);
@@ -526,7 +563,7 @@ export function itemToLibrary(entry) {
         diceCount: dice.diceCount,
         dieSize: dice.dieSize,
         damageType: DAMAGE_CODE[String(entry.dmgType || "").toUpperCase()] || fiveText(entry.dmgType),
-        properties: (entry.property || [])
+        properties: asArray(entry.property)
           .map((p) => PROPERTY_CODE[String(p).split("|")[0].toUpperCase()] || fiveText(p))
           .filter(Boolean),
         weight: Number(entry.weight) || 0,
@@ -646,21 +683,25 @@ export function itemToLibrary(entry) {
 
 export function conditionToStatus(entry) {
   const text = entryText(entry);
-  if (!entry?.name) return null;
+  const name = textName(entry?.name);
+  if (!name) return null;
   return {
-    name: entry.name,
+    name,
     kind: "condition",
     description: text.slice(0, 500),
     effects: text
       .split(/\n+/)
       .map((s) => s.trim())
-      .filter((s) => s && !s.toLowerCase().startsWith(entry.name.toLowerCase()))
+      .filter(
+        (s) => s && !s.toLowerCase().startsWith(name.toLowerCase())
+      )
       .slice(0, 12),
   };
 }
 
 export function actionToLibrary(entry) {
-  if (!entry?.name) return null;
+  const name = textName(entry?.name);
+  if (!name) return null;
   const time = fiveText(entry.time);
   const lower = time.toLowerCase();
   const category = lower.includes("bonus")
@@ -671,7 +712,7 @@ export function actionToLibrary(entry) {
         ? "free"
         : "action";
   return {
-    name: entry.name,
+    name,
     description: entryText(entry),
     category,
     usesMode: "atwill",
@@ -679,7 +720,8 @@ export function actionToLibrary(entry) {
 }
 
 export function vehicleToLibrary(entry) {
-  if (!entry?.name) return null;
+  const name = textName(entry?.name);
+  if (!name) return null;
   const terrain = String(entry.terrain || "").toLowerCase();
   const category = terrain.includes("sea") || terrain.includes("water")
     ? "Sea"
@@ -689,7 +731,7 @@ export function vehicleToLibrary(entry) {
         ? "Space"
         : "Land";
   return {
-    name: entry.name,
+    name,
     period: "Medieval",
     category,
     classification: fiveText(entry.vehicleType),
@@ -703,26 +745,29 @@ export function vehicleToLibrary(entry) {
 }
 
 export function languageToLibrary(entry) {
-  return entry?.name ? String(entry.name) : "";
+  return textName(entry?.name);
 }
 
 export function skillToLibrary(entry) {
-  if (!entry?.name) return null;
+  const name = textName(entry?.name);
+  if (!name) return null;
   return {
-    name: entry.name,
+    name,
     ability: String(entry.ability || "").toUpperCase(),
   };
 }
 
 export function senseToLibrary(entry) {
-  if (!entry?.name) return null;
-  return { name: entry.name, description: entryText(entry) };
+  const name = textName(entry?.name);
+  if (!name) return null;
+  return { name, description: entryText(entry) };
 }
 
 export function tableToRollTable(entry) {
-  if (!entry?.name && !entry?.caption) return null;
-  const rows = (entry.rows || []).map((row) => {
-    const cells = (Array.isArray(row) ? row : row?.row || [row])
+  const name = textName(entry?.name) || textName(entry?.caption);
+  if (!name || !Array.isArray(entry.rows)) return null;
+  const rows = entry.rows.map((row) => {
+    const cells = asArray(Array.isArray(row) ? row : row?.row ?? row)
       .map((cell) => {
         if (cell && typeof cell === "object") {
           if (cell.roll) {
@@ -745,7 +790,7 @@ export function tableToRollTable(entry) {
       qty: 1,
     };
   }).filter((r) => r.name);
-  return { name: entry.name || entry.caption || "Table", rows };
+  return { name, rows };
 }
 
 // Feature list for a class/subclass/feat/option entry. When `raw` is the
@@ -753,10 +798,11 @@ export function tableToRollTable(entry) {
 // arrays. Each feature keeps its level and group so the importer can build a
 // level-aligned class tab with subclass branches.
 export function featuresForEntry(categoryId, entry, raw) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
   const text = (e, group) => ({
-    name: String(e.name || ""),
+    name: textName(e?.name),
     text: String(entryText(e) || ""),
-    level: Number(e.level) || 0,
+    level: Number(e?.level) || 0,
     group,
   });
   if (categoryId === "feats" || categoryId === "charOptions" || categoryId === "optionalFeatures") {
@@ -765,15 +811,17 @@ export function featuresForEntry(categoryId, entry, raw) {
   if (categoryId !== "classes") return [];
   const isSubclass = !!entry.shortName || !!entry.subclassShortName;
   const sameSource = (f, source) => !source || !f.classSource || f.classSource === source;
+  const subclassFeatures = Array.isArray(raw?.subclassFeature) ? raw.subclassFeature : [];
+  const classFeatures = Array.isArray(raw?.classFeature) ? raw.classFeature : [];
   const features = isSubclass
-    ? (raw?.subclassFeature || []).filter(
+    ? subclassFeatures.filter(
         (f) =>
-          f.className === entry.className &&
+          f?.className === entry.className &&
           sameSource(f, entry.classSource) &&
           (f.subclassShortName === entry.shortName || f.subclassShortName === entry.subclassShortName)
       )
-    : (raw?.classFeature || []).filter(
-        (f) => f.className === entry.name && sameSource(f, entry.source)
+    : classFeatures.filter(
+        (f) => f?.className === entry.name && sameSource(f, entry.source)
       );
   features.sort((a, b) => (Number(a.level) || 0) - (Number(b.level) || 0));
   return features
@@ -859,7 +907,7 @@ export function featureMechanics(feature) {
 
   if (activation || parts.length || usesMode !== "atwill") {
     actions.push({
-      name: feature?.name || "Feature",
+      name: textName(feature?.name) || "Feature",
       description: text,
       category: activation || "free",
       usesMode,

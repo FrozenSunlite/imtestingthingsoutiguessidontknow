@@ -48,10 +48,19 @@ const mods = (value) => {
     .join(", ");
 };
 
+const asList = (value) =>
+  Array.isArray(value) ? value : value == null ? [] : [value];
+
 const sourceTag = (raw) => {
   const type = typeof raw?.type === "object" ? raw.type?.type : raw?.type;
-  const typeTags = typeof raw?.type === "object" ? raw.type?.tags || [] : [];
-  return [...new Set([type, ...typeTags, ...(raw?.tags || [])].filter(Boolean).map(String))];
+  const typeTags = typeof raw?.type === "object" ? asList(raw.type?.tags) : [];
+  return [
+    ...new Set(
+      [type, ...typeTags, ...asList(raw?.tags)]
+        .filter((v) => typeof v === "string" || typeof v === "number")
+        .map(String)
+    ),
+  ];
 };
 
 export function normalizeImportedMonster(raw) {
@@ -71,13 +80,17 @@ export function normalizeImportedMonster(raw) {
   const type = typeof raw.type === "object" ? raw.type?.type : raw.type;
   const tags = sourceTag(raw);
   const sizeMap = { T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan" };
-  const sizeText = (Array.isArray(raw.size) ? raw.size : [raw.size])
-    .filter(Boolean)
+  const sizeText = asList(raw.size)
+    .filter((s) => typeof s === "string" || typeof s === "number")
     .map((s) => sizeMap[s] || s)
     .join(", ");
   const speeds = speedEntries(speed);
+  const rawName = raw.name;
   return {
-    name: textOf(raw.name) || "",
+    name:
+      typeof rawName === "string" || typeof rawName === "number"
+        ? String(rawName).trim()
+        : "",
     image: typeof (raw.image || raw.img) === "string" ? raw.image || raw.img : "",
     unique: !!raw.unique,
     dungeonExempt: !!(raw.dungeonExempt ?? raw.exemptFromDungeon ?? raw.dungeonBlacklisted),
@@ -105,9 +118,22 @@ export function normalizeImportedMonster(raw) {
     damageResistances: join(raw.damageResist ?? raw.resistances),
     damageImmunities: join(raw.damageImmune ?? raw.immunities),
     conditionImmunities: join(raw.conditionImmune ?? raw.conditionImmunities),
-    initiative: raw.initiative?.mod != null ? String(raw.initiative.mod) : raw.initiative ?? "",
-    proficiencyBonus: raw.pb ?? raw.proficiencyBonus ?? "",
-    xp: raw.xp ?? raw.cr?.xp ?? "",
+    initiative:
+      raw.initiative?.mod != null
+        ? String(raw.initiative.mod)
+        : typeof raw.initiative === "string" || typeof raw.initiative === "number"
+          ? String(raw.initiative)
+          : "",
+    proficiencyBonus:
+      typeof (raw.pb ?? raw.proficiencyBonus) === "string" ||
+      typeof (raw.pb ?? raw.proficiencyBonus) === "number"
+        ? String(raw.pb ?? raw.proficiencyBonus)
+        : "",
+    xp:
+      typeof (raw.xp ?? raw.cr?.xp) === "string" ||
+      typeof (raw.xp ?? raw.cr?.xp) === "number"
+        ? String(raw.xp ?? raw.cr?.xp)
+        : "",
     gear: Array.isArray(raw.gear)
       ? raw.gear.map((g) => (typeof g === "string" ? g : g?.name)).filter(Boolean).join(", ")
       : textOf(raw.gear),

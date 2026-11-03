@@ -2,7 +2,13 @@
 // The source files use very different shapes (statblocks, spells, class feature
 // ladders, tables, books), so the preview shows the fields that matter for the
 // selected category instead of only the generic description text.
-import { fiveText, entryName, itemToLibrary, spellToLibrary } from "@/lib/fiveETools";
+import {
+  asArray,
+  fiveText,
+  entryName,
+  itemToLibrary,
+  spellToLibrary,
+} from "@/lib/fiveETools";
 import { bookChapters } from "@/lib/fiveEToolsRulebook";
 import { spellClassNames } from "@/lib/fiveEToolsLookup";
 import { normalizeImportedMonster } from "@/lib/monsterImport";
@@ -163,9 +169,11 @@ export const abilityText = (value) => {
     if (typeof item !== "object") return;
     if (item.choose) {
       const weighted = item.choose.weighted;
-      const from = (weighted?.from || item.choose.from || []).map(abilityLabel).filter(Boolean);
+      const from = asArray(weighted?.from ?? item.choose.from)
+        .map(abilityLabel)
+        .filter(Boolean);
       if (!from.length) return;
-      const weights = weighted?.weights || [];
+      const weights = asArray(weighted?.weights);
       const text =
         weights.length && Math.max(...weights) > 1
           ? `Any of ${from.join(", ")} (+2 to one, +1 to another)`
@@ -268,12 +276,16 @@ const prerequisite = (value) => {
     const l = value.level;
     bits.push(typeof l === "object" ? `Level ${l.level ?? ""}${l.class ? ` (${clean(l.class)})` : ""}` : `Level ${l}`);
   }
-  if (value.race?.length) bits.push(value.race.map((r) => clean(r.name || r)).join(" or "));
-  if (value.background?.length) bits.push(`Background: ${value.background.map((r) => clean(r.name || r)).join(" or ")}`);
-  if (value.feat?.length) bits.push(`Feat: ${value.feat.map((r) => clean(r.name || r)).join(" or ")}`);
+  const race = asArray(value.race);
+  const background = asArray(value.background);
+  const feat = asArray(value.feat);
+  const ability = asArray(value.ability);
+  if (race.length) bits.push(race.map((r) => clean(r?.name || r)).join(" or "));
+  if (background.length) bits.push(`Background: ${background.map((r) => clean(r?.name || r)).join(" or ")}`);
+  if (feat.length) bits.push(`Feat: ${feat.map((r) => clean(r?.name || r)).join(" or ")}`);
   if (value.spell) bits.push(`Spell: ${clean(value.spell)}`);
   if (value.other) bits.push(clean(value.other));
-  if (value.ability?.length) bits.push(value.ability.map((a) => clean(a)).join(", "));
+  if (ability.length) bits.push(ability.map((a) => clean(a)).join(", "));
   if (!bits.length) return clean(value);
   return bits.join(", ");
 };
@@ -299,8 +311,8 @@ const classNames = (classes) => {
   ];
   return groups
     .flatMap(([key, suffix]) =>
-      (classes[key] || []).map((c) =>
-        `${clean(c.name || c.className)}${c.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`
+      asArray(classes[key]).map((c) =>
+        `${clean(c?.name || c?.className)}${c?.subclassName ? ` (${clean(c.subclassName)})` : ""}${suffix}`
       )
     )
     .join(", ");
@@ -367,7 +379,7 @@ const textSection = (title, value) => {
 };
 
 const rowText = (row) => {
-  const cells = Array.isArray(row) ? row : row?.row || [row];
+  const cells = asArray(Array.isArray(row) ? row : row?.row ?? row);
   return cells.map((cell) => {
     if (cell && typeof cell === "object") {
       if (cell.roll) {
@@ -383,8 +395,8 @@ const rowText = (row) => {
 
 const tableBlock = (table) => {
   if (!table) return null;
-  const columns = (table.colLabels || []).map(clean);
-  const rows = (table.rows || []).slice(0, 100).map(rowText);
+  const columns = asArray(table.colLabels).map(clean);
+  const rows = asArray(table.rows).slice(0, 100).map(rowText);
   return { title: clean(table.name || table.caption || "Table"), columns, rows };
 };
 
@@ -424,11 +436,11 @@ export function entryImage(entry) {
 }
 
 const contentsList = (contents, depth = 0) =>
-  (contents || []).flatMap((c) => {
+  asArray(contents).flatMap((c) => {
     if (!c) return [];
     if (typeof c === "string") return [{ label: `${"  ".repeat(depth)}${clean(c)}`, text: "" }];
     if (c.name) {
-      const headers = (c.headers || [])
+      const headers = asArray(c.headers)
         .map((h) => (typeof h === "string" ? h : h?.header))
         .filter(Boolean)
         .map((h) => ({ label: `${"  ".repeat(depth + 1)}${clean(h)}`, text: "" }));
@@ -498,7 +510,7 @@ const monsterDetails = (entry) => {
 };
 
 const spellDetails = (entry, context = {}) => {
-  const s = spellToLibrary(entry);
+  const s = spellToLibrary(entry) || {};
   const fields = [
     ["Level", s.level === "cantrip" ? "Cantrip" : s.level ? `Level ${s.level}` : ""],
     ["School", s.school],
@@ -891,11 +903,11 @@ const bastionDetails = (entry) => ({
 
 const encounterDetails = (entry) => ({
   fields: [
-    ["Tables", String((entry.tables || []).length)],
+    ["Tables", String(asArray(entry.tables).length)],
     ["Source", clean(entry.source)],
   ],
   sections: [
-    ...(entry.tables || []).map((t) => tableBlock(t)).filter(Boolean),
+    ...asArray(entry.tables).map((t) => tableBlock(t)).filter(Boolean),
     textSection("Description", entry.entries),
   ].filter(Boolean),
 });
@@ -1046,34 +1058,57 @@ const DETAILERS = {
 
 export function entryDetails(categoryId, entry, raw, context = {}) {
   if (!entry) return null;
-  const detailer =
-    categoryId === "classes"
-      ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName)
-      : categoryId === "books"
-        ? (e) => bookDetails(e, false, context)
-        : categoryId === "adventures"
-          ? (e) => bookDetails(e, true, context)
-          : DETAILERS[categoryId] || genericDetails;
-  const body =
-    (categoryId === "spells"
-      ? spellDetails(entry, context)
-      : detailer(entry)) || { fields: [], sections: [] };
-  const image = entryImage(entry);
-  return {
-    name: body.name || entryName(entry),
-    source: clean(entry.source || entry.classSource || entry.id),
-    page: entry.page,
-    edition: clean(entry.edition),
-    image,
-    raw: entry,
-    book: body.book || null,
-    fields: (body.fields || [])
-      .map(([label, value]) => [label, CleanField(value)])
-      .filter(([, value]) => value),
-    sections: (body.sections || []).filter(
-      (s) => (s.text && clean(s.text)) || s.list?.length || s.columns?.length
-    ),
-  };
+  try {
+    const detailer =
+      categoryId === "classes"
+        ? (e) => classDetails(e, raw, !!e.shortName || !!e.subclassShortName)
+        : categoryId === "books"
+          ? (e) => bookDetails(e, false, context)
+          : categoryId === "adventures"
+            ? (e) => bookDetails(e, true, context)
+            : DETAILERS[categoryId] || genericDetails;
+    const body =
+      (categoryId === "spells"
+        ? spellDetails(entry, context)
+        : detailer(entry)) || { fields: [], sections: [] };
+    const image = entryImage(entry);
+    return {
+      name: body.name || entryName(entry),
+      source: clean(entry.source || entry.classSource || entry.id),
+      page:
+        entry.page && typeof entry.page === "object" ? "" : entry.page,
+      edition: clean(entry.edition),
+      image,
+      raw: entry,
+      book: body.book || null,
+      fields: asArray(body.fields)
+        .map(([label, value]) => [label, CleanField(value)])
+        .filter(([, value]) => value),
+      sections: asArray(body.sections).filter(
+        (s) => (s.text && clean(s.text)) || s.list?.length || s.columns?.length
+      ),
+    };
+  } catch {
+    // A malformed homebrew entry must never take down the Reference Index.
+    return {
+      name: entryName(entry),
+      source: "",
+      page: "",
+      edition: "",
+      image: "",
+      raw: entry,
+      book: null,
+      fields: [],
+      sections: [
+        {
+          title: "Malformed entry",
+          text:
+            fiveText(entry?.entries ?? entry?.description ?? entry?.text) ||
+            "This entry does not use a shape the preview can read.",
+        },
+      ],
+    };
+  }
 }
 
 // Flatten an entryDetails() result into readable markdown. Used when an entry
@@ -1109,8 +1144,8 @@ export function entryDetailsMarkdown(details) {
         [
           `| ${section.columns.join(" | ")} |`,
           `| ${section.columns.map(() => "---").join(" | ")} |`,
-          ...(section.rows || []).map(
-            (row) => `| ${row.map((cell) => String(cell ?? "")).join(" | ")} |`
+          ...asArray(section.rows).map(
+            (row) => `| ${asArray(row).map((cell) => String(cell ?? "")).join(" | ")} |`
           ),
         ].join("\n")
       );

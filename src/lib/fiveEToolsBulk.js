@@ -166,7 +166,7 @@ export function applyEntryToLibrary(
   entry,
   { kind, fallbackTitle, importId } = {}
 ) {
-  if (!entry || !category) return;
+  if (!entry || typeof entry !== "object" || Array.isArray(entry) || !category) return;
   const img = imageUrl(kind, entry);
   const tag = (value) =>
     importId
@@ -196,7 +196,7 @@ export function applyEntryToLibrary(
     }
     case "spells": {
       const spell = withImage(spellToLibrary(entry));
-      if (spell.name) bulk.upsert("spells", spell);
+      if (spell?.name) bulk.upsert("spells", spell);
       return;
     }
     case "items": {
@@ -303,7 +303,9 @@ export function importBrewIntoDraft(
   raw,
   { makeTabs = true, kind, importId } = {}
 ) {
-  const entries = entriesFromRaw(raw, info?.props?.[0]);
+  const entries = entriesFromRaw(raw, info?.props?.[0]).filter(
+    (entry) => entry && typeof entry === "object" && !Array.isArray(entry)
+  );
   if (!entries.length) return { entries: 0, tabs: [] };
   entries.forEach((entry) =>
     applyEntryToLibrary(bulk, category, entry, {
@@ -331,7 +333,11 @@ export function importSourceIntoDraft(
   const wanted = String(source || "").trim().toLowerCase();
   if (!wanted) return { entries: 0, tabs: [] };
   const entries = entriesFromRaw(raw, info?.props?.[0]).filter(
-    (entry) => sourceOf(entry).toLowerCase() === wanted
+    (entry) =>
+      entry &&
+      typeof entry === "object" &&
+      !Array.isArray(entry) &&
+      sourceOf(entry).toLowerCase() === wanted
   );
   if (!entries.length) return { entries: 0, tabs: [] };
   entries.forEach((entry) =>
