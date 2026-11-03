@@ -51,9 +51,11 @@ import {
   AppWindow,
   Search,
   SlidersHorizontal,
+  Scaling,
 } from "lucide-react";
 import { LibraryMenu } from "@/components/skilltree/LibraryMenu";
 import { SaveLoadMenu } from "@/components/skilltree/SaveLoadMenu";
+import { ScaleNodesDialog } from "@/components/skilltree/ScaleNodesDialog";
 import { TabBar } from "@/components/skilltree/TabBar";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { MainMenuButton } from "@/components/skilltree/MainMenuButton";
@@ -91,6 +93,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [scaleOpen, setScaleOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   useEffect(() => {
@@ -372,6 +375,11 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
           <ArrowLeftRight className="mr-1 h-4 w-4" /> Invert Prerequisites
         </Button>
       </InfoTip>
+      <InfoTip label="Scale every node's Appearance → Node Size by a percentage — for example, -20% turns 200 px into 160 px and 100 px into 80 px">
+        <Button size="sm" variant="outline" onClick={() => setScaleOpen(true)}>
+          <Scaling className="mr-1 h-4 w-4" /> Scale Nodes
+        </Button>
+      </InfoTip>
       <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={onImport} />
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -636,6 +644,7 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
       <SettingsMenu open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <LibraryMenu open={libraryOpen} onClose={() => setLibraryOpen(false)} />
       <SaveLoadMenu open={saveOpen} onClose={() => setSaveOpen(false)} />
+      <ScaleNodesDialog open={scaleOpen} onOpenChange={setScaleOpen} />
       <LevelUpDialog open={hpDialog} onClose={() => setHpDialog(false)} />
     </div>
   );

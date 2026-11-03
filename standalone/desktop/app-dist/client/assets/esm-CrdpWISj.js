@@ -1,0 +1,1 @@
+import{b as e}from"./routes-B2dr9dT2.js";var t=e(`FileOpener`);export{t as FileOpener};

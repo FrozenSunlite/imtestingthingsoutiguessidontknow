@@ -41,7 +41,8 @@ desktop app.
 
 - **Tree editor** — node types, connectors, per-node benefits and costs, point
   pools, subtree repeat limits, shared/linked subtrees, character-level and
-  tier gates, and a canvas that culls and lowers detail for large trees.
+  tier gates, a percentage-based bulk node-size scaler, and a canvas that culls
+  and lowers detail for large trees.
 - **Reference Library and Index** — a default library seeded from SRD 5.1 and
   5.2, plus optional project-local 5eTools imports. Search results jump to and
   expand the matching entry; duplicate entries are grouped so one copy can be

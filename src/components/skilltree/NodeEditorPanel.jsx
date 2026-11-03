@@ -840,7 +840,7 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
               <input
                 type="range"
                 min={40}
-                max={300}
+                max={2000}
                 step={10}
                 value={node.size || 100}
                 onChange={(e) => set({ size: Number(e.target.value) })}

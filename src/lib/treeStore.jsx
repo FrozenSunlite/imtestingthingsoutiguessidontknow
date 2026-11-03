@@ -44,6 +44,7 @@ import {
   SHARED_STRUCTURAL_KEYS,
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
+import { scaleNodeList } from "@/lib/nodeSizing";
 import {
   DEFAULT_NODE_TYPES,
   DEFAULT_POINT_TYPES,
@@ -1914,6 +1915,38 @@ export function TreeProvider({ children }) {
     );
   }, []);
 
+  // Universal Appearance -> Node Size scaler. Every node keeps its size
+  // relative to the others; nested subtrees, other tabs and the stashed parent
+  // spaces of the subtree editor are included. Positions stay untouched.
+  const scaleAllNodeSizes = useCallback(
+    (percent) => {
+      const pct = Number(percent);
+      if (!Number.isFinite(pct) || pct === 0 || pct <= -100) return;
+      setTree((t) => {
+        if (!t) return t;
+        return {
+          ...t,
+          nodes: scaleNodeList(t.nodes, pct),
+          tabs: (t.tabs || []).map((tab) =>
+            tab.id === t.activeTabId
+              ? tab
+              : { ...tab, nodes: scaleNodeList(tab.nodes, pct) }
+          ),
+          subtreeEditing: t.subtreeEditing?.stack?.length
+            ? {
+                ...t.subtreeEditing,
+                stack: t.subtreeEditing.stack.map((frame) => ({
+                  ...frame,
+                  nodes: scaleNodeList(frame.nodes, pct),
+                })),
+              }
+            : t.subtreeEditing,
+        };
+      });
+    },
+    [setTree]
+  );
+
   const addNode = useCallback((x, y) => {
     // The id is computed once — inside and outside the updater must agree.
     const id = "n" + Date.now() + "-" + Math.floor(Math.random() * 10000);
@@ -2917,6 +2950,7 @@ export function TreeProvider({ children }) {
     focusNode,
     clearTreeFocus,
     updateNode,
+    scaleAllNodeSizes,
     addNode,
     deleteNode,
     deleteNodes,

@@ -1,11 +1,11 @@
-import { n as Button, r as cn } from "./router-BnoyHgHI.js";
+import { n as Button, r as cn } from "./router-C4yeGi86.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 import { cva } from "class-variance-authority";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, GraduationCap, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, HelpCircle, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
+import { AlertTriangle, AppWindow, Archive, ArrowLeft, ArrowLeftRight, ArrowUpDown, Backpack, Ban, BookOpen, Bot, Box, Boxes, Castle, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, Circle, Clock, Coins, Compass, Construction, Copy, Crosshair, Crown, Database, Diamond, Dices, Disc3, DoorOpen, Download, Eraser, Eye, EyeOff, FileDown, FileText, FileType, FileUp, Flag, FlipHorizontal, FlipVertical, FolderOpen, Footprints, GitBranch, Globe2, GraduationCap, Grid3x3, GripHorizontal, GripVertical, Hammer, Handshake, Heart, HelpCircle, Home, Image as Image$1, ImagePlus, Info, Keyboard, Layers, Library, Link2, ListTree, Loader2, Lock, Map as Map$1, MapPin, MapPinPlus, Maximize, Maximize2, Minus, Moon, MousePointer2, MousePointerClick, Move, MoveRight, Music2, Network, Paintbrush, PanelBottom, PanelLeft, Pencil, Pin, PinOff, Play, Plus, Power, RefreshCw, RotateCcw, RotateCw, Route, Save, Scaling, Scissors, ScrollText, Search, Settings, Share2, Shield, ShieldAlert, ShieldCheck, ShoppingCart, SkipForward, SlidersHorizontal, Smartphone, Sparkles, Store, Sun, Swords, Tent, Trash2, TreePine, TriangleAlert, Undo2, Unlink, Upload, User, UserPlus, UserRound, Users, Volume2, VolumeX, Wand2, Wrench, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
@@ -5681,6 +5681,28 @@ function migrateTalentNames(tree) {
 		nodes
 	} : tree;
 }
+var MAX_NODE_SIZE = 2e3;
+function scaledNodeSize(size, percent) {
+	const base = Number(size);
+	const pct = Number(percent);
+	if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(pct)) return null;
+	const factor = 1 + pct / 100;
+	if (factor <= 0) return null;
+	return Math.max(10, Math.min(MAX_NODE_SIZE, Math.round(base * factor)));
+}
+function scaleNodeList(nodes, percent) {
+	return (nodes || []).map((node) => {
+		const size = scaledNodeSize(node.size || 100, percent);
+		const subtrees = Array.isArray(node.subtrees) ? node.subtrees.map((subtree) => subtree?.nodes ? {
+			...subtree,
+			nodes: scaleNodeList(subtree.nodes, percent)
+		} : subtree) : node.subtrees;
+		const next = { ...node };
+		if (size != null) next.size = size;
+		if (subtrees !== void 0) next.subtrees = subtrees;
+		return next;
+	});
+}
 //#endregion
 //#region src/lib/nodeTiers.js
 function normalizeTiers(node) {
@@ -8556,6 +8578,28 @@ function TreeProvider({ children }) {
 			} : n)
 		} : t);
 	}, []);
+	const scaleAllNodeSizes = useCallback((percent) => {
+		const pct = Number(percent);
+		if (!Number.isFinite(pct) || pct === 0 || pct <= -100) return;
+		setTree((t) => {
+			if (!t) return t;
+			return {
+				...t,
+				nodes: scaleNodeList(t.nodes, pct),
+				tabs: (t.tabs || []).map((tab) => tab.id === t.activeTabId ? tab : {
+					...tab,
+					nodes: scaleNodeList(tab.nodes, pct)
+				}),
+				subtreeEditing: t.subtreeEditing?.stack?.length ? {
+					...t.subtreeEditing,
+					stack: t.subtreeEditing.stack.map((frame) => ({
+						...frame,
+						nodes: scaleNodeList(frame.nodes, pct)
+					}))
+				} : t.subtreeEditing
+			};
+		});
+	}, [setTree]);
 	const addNode = useCallback((x, y) => {
 		const id = "n" + Date.now() + "-" + Math.floor(Math.random() * 1e4);
 		setTree((t) => {
@@ -9474,6 +9518,7 @@ function TreeProvider({ children }) {
 		focusNode,
 		clearTreeFocus,
 		updateNode,
+		scaleAllNodeSizes,
 		addNode,
 		deleteNode,
 		deleteNodes,
@@ -28466,6 +28511,128 @@ function SaveLoadMenu({ open, onClose }) {
 	});
 }
 //#endregion
+//#region src/components/skilltree/ScaleNodesDialog.jsx
+var PRESETS = [
+	-50,
+	-25,
+	-10,
+	10,
+	25,
+	50
+];
+function countNodes(nodes) {
+	return (nodes || []).reduce((sum, node) => sum + 1 + (node.subtrees || []).reduce((subSum, subtree) => subSum + countNodes(subtree.nodes), 0), 0);
+}
+function ScaleNodesDialog({ open, onOpenChange }) {
+	const { tree, scaleAllNodeSizes } = useTree();
+	const [value, setValue] = useState("-10");
+	useEffect(() => {
+		if (open) setValue("-10");
+	}, [open]);
+	const percent = Number(value);
+	const valid = Number.isFinite(percent) && percent !== 0 && percent > -100 && percent <= 300;
+	const nodeCount = useMemo(() => {
+		return (tree?.tabs?.length ? tree.tabs : [{ nodes: tree?.nodes }]).reduce((sum, tab) => sum + countNodes(tab.nodes), 0);
+	}, [tree]);
+	const apply = () => {
+		if (!valid) return;
+		scaleAllNodeSizes(percent);
+		toast.success(`Scaled every node size by ${percent > 0 ? "+" : ""}${percent}%.`);
+		onOpenChange(false);
+	};
+	const sample = (size) => scaledNodeSize(size, percent);
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange,
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-w-md",
+			children: [
+				/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Scale all node sizes" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Multiplies every node's Appearance → Node Size by the same percentage. Node positions, connections and point values stay the same." })] }),
+				/* @__PURE__ */ jsxs("div", {
+					className: "space-y-3",
+					children: [
+						/* @__PURE__ */ jsxs("div", {
+							className: "flex items-center justify-between gap-3",
+							children: [/* @__PURE__ */ jsx(Label, {
+								htmlFor: "node-scale-percent",
+								children: "Percentage change"
+							}), /* @__PURE__ */ jsxs("div", {
+								className: "relative",
+								children: [/* @__PURE__ */ jsx(Input, {
+									id: "node-scale-percent",
+									type: "number",
+									inputMode: "numeric",
+									step: 5,
+									min: -95,
+									max: 300,
+									value,
+									onChange: (e) => setValue(e.target.value),
+									className: "h-8 w-24 pr-7 text-right"
+								}), /* @__PURE__ */ jsx("span", {
+									className: "pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground",
+									children: "%"
+								})]
+							})]
+						}),
+						/* @__PURE__ */ jsx("div", {
+							className: "flex flex-wrap gap-1",
+							children: PRESETS.map((preset) => /* @__PURE__ */ jsx(Button, {
+								type: "button",
+								size: "sm",
+								variant: percent === preset ? "default" : "outline",
+								className: "h-7 px-2 text-xs",
+								onClick: () => setValue(String(preset)),
+								children: preset > 0 ? `+${preset}%` : `${preset}%`
+							}, preset))
+						}),
+						/* @__PURE__ */ jsxs("div", {
+							className: "rounded-md border bg-muted/40 px-3 py-2 text-xs",
+							children: [/* @__PURE__ */ jsx("p", {
+								className: "font-medium",
+								children: "Preview"
+							}), /* @__PURE__ */ jsxs("div", {
+								className: "mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground",
+								children: [/* @__PURE__ */ jsxs("span", { children: [
+									"100 px → ",
+									sample(100) ?? "—",
+									" px"
+								] }), /* @__PURE__ */ jsxs("span", { children: [
+									"200 px → ",
+									sample(200) ?? "—",
+									" px"
+								] })]
+							})]
+						}),
+						!valid && value !== "" && /* @__PURE__ */ jsx("p", {
+							className: "text-[11px] text-destructive",
+							children: "Enter a percentage between -95% and +300% (0% changes nothing)."
+						}),
+						/* @__PURE__ */ jsxs("p", {
+							className: "text-[11px] text-muted-foreground",
+							children: [
+								"Applies to every node in this project, including all tree tabs and nested subtrees. ",
+								nodeCount,
+								" node",
+								nodeCount === 1 ? "" : "s",
+								" found. Use Undo (Ctrl+Z) to reverse it."
+							]
+						})
+					]
+				}),
+				/* @__PURE__ */ jsxs(DialogFooter, { children: [/* @__PURE__ */ jsx(Button, {
+					variant: "outline",
+					onClick: () => onOpenChange(false),
+					children: "Cancel"
+				}), /* @__PURE__ */ jsx(Button, {
+					onClick: apply,
+					disabled: !valid,
+					children: "Apply scale"
+				})] })
+			]
+		})
+	});
+}
+//#endregion
 //#region src/components/skilltree/TabBar.jsx
 function TabBar() {
 	const { tabs, activeTabId, setActiveTab, addTab, renameTab, deleteTab, tree, carry, dropCarriedOnTab } = useTree();
@@ -28946,6 +29113,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
+	const [scaleOpen, setScaleOpen] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 	useEffect(() => {
@@ -29201,6 +29369,15 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 							variant: "outline",
 							onClick: invertPrerequisites,
 							children: [/* @__PURE__ */ jsx(ArrowLeftRight, { className: "mr-1 h-4 w-4" }), " Invert Prerequisites"]
+						})
+					}),
+					/* @__PURE__ */ jsx(InfoTip, {
+						label: "Scale every node's Appearance → Node Size by a percentage — for example, -20% turns 200 px into 160 px and 100 px into 80 px",
+						children: /* @__PURE__ */ jsxs(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: () => setScaleOpen(true),
+							children: [/* @__PURE__ */ jsx(Scaling, { className: "mr-1 h-4 w-4" }), " Scale Nodes"]
 						})
 					}),
 					/* @__PURE__ */ jsx("input", {
@@ -29579,6 +29756,10 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 		/* @__PURE__ */ jsx(SaveLoadMenu, {
 			open: saveOpen,
 			onClose: () => setSaveOpen(false)
+		}),
+		/* @__PURE__ */ jsx(ScaleNodesDialog, {
+			open: scaleOpen,
+			onOpenChange: setScaleOpen
 		}),
 		/* @__PURE__ */ jsx(LevelUpDialog, {
 			open: hpDialog,
@@ -36346,7 +36527,7 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 									children: [/* @__PURE__ */ jsx("input", {
 										type: "range",
 										min: 40,
-										max: 300,
+										max: 2e3,
 										step: 10,
 										value: node.size || 100,
 										onChange: (e) => set({ size: Number(e.target.value) }),
