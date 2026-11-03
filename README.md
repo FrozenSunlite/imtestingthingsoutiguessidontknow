@@ -144,8 +144,10 @@ npm run apk:build     # finds JDK 17-24 and the Android SDK, then packages + pub
 
 `apk:build` looks for a compatible JDK (preferring 21) and the Android SDK via
 `JAVA_HOME` and `ANDROID_HOME` / `ANDROID_SDK_ROOT`, then falls back to the
-toolchain paths on this machine. `apk:prepare` strips desktop installers and
-update files from the packaged client, so they never bloat the APK.
+toolchain paths on this machine. It also sets the Android `versionName` and
+`versionCode` from `package.json`. `apk:prepare` strips desktop installers and
+update files from the packaged client, so they never bloat the APK, and the
+build refuses an APK over 80 MB.
 
 The debug APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
 `npm run apk:build` also refreshes the downloadable copy and `update.json` under

@@ -69,11 +69,31 @@ const env = {
 console.log(`[apk] JDK ${javaHomes[0].major}: ${javaHome}`);
 console.log(`[apk] SDK: ${sdkRoot}`);
 
-execFileSync("cmd.exe", ["/c", "gradlew.bat", "assembleDebug"], {
-  cwd: join(process.cwd(), "android"),
-  stdio: "inherit",
-  env,
-});
+// Keep the Android version in step with package.json. Android needs a
+// monotonically increasing integer versionCode (1.0.2 -> 10002).
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+const parts = String(pkg.version)
+  .split(/[.+-]/)
+  .map((part) => Number(part) || 0);
+const versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2];
+const versionName = pkg.version;
+console.log(`[apk] version ${versionName} (${versionCode})`);
+
+execFileSync(
+  "cmd.exe",
+  [
+    "/c",
+    "gradlew.bat",
+    "assembleDebug",
+    `-PappVersionCode=${versionCode}`,
+    `-PappVersionName=${versionName}`,
+  ],
+  {
+    cwd: join(process.cwd(), "android"),
+    stdio: "inherit",
+    env,
+  }
+);
 
 const apkPath = join(
   process.cwd(),
