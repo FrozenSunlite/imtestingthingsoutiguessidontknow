@@ -310,7 +310,11 @@ export function OnboardingTour() {
   // the tutorial to close instead of disabling the tutorial underneath it.
   useEffect(() => {
     setTutorialOpen(open);
-    return () => setTutorialOpen(false);
+    if (typeof window !== "undefined") window.talentDesktop?.setTutorialOpen(open);
+    return () => {
+      setTutorialOpen(false);
+      if (typeof window !== "undefined") window.talentDesktop?.setTutorialOpen(false);
+    };
   }, [open]);
 
   useEffect(() => {

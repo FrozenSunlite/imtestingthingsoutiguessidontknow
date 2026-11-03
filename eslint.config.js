@@ -8,6 +8,8 @@ export default [
     ignores: [
       "node_modules",
       "dist",
+      "dist-electron",
+      "dist-apk",
       ".tanstack",
       "standalone/desktop/app-dist",
       "standalone/desktop/userdata",

@@ -14,6 +14,8 @@ $userDataRoot = $UserDataRoot
 if (-not $userDataRoot) { $userDataRoot = $env:TALENT_TREE_USERDATA }
 if (-not $userDataRoot) { $userDataRoot = Join-Path $PSScriptRoot "desktop\userdata" }
 New-Item -ItemType Directory -Force -Path $userDataRoot | Out-Null
+$desktopUpdateRoot = Join-Path $userDataRoot "desktop-updates"
+New-Item -ItemType Directory -Force -Path $desktopUpdateRoot | Out-Null
 $uploadRoot = Join-Path $userDataRoot "images"
 New-Item -ItemType Directory -Force -Path $uploadRoot | Out-Null
 $projectRoot = Join-Path $userDataRoot "projects"
@@ -31,6 +33,7 @@ $mimes = @{
   ".apng"="image/apng"
   ".bmp"="image/bmp"; ".avif"="image/avif"; ".woff"="font/woff"; ".woff2"="font/woff2"; ".ttf"="font/ttf"; ".map"="application/json"
   ".apk"="application/vnd.android.package-archive"
+  ".exe"="application/octet-stream"; ".blockmap"="application/octet-stream"
   ".ogg"="audio/ogg"; ".opus"="audio/ogg"; ".mp3"="audio/mpeg"; ".wav"="audio/wav"
   ".m4a"="audio/mp4"; ".flac"="audio/flac"; ".aac"="audio/aac"
 }
@@ -127,7 +130,7 @@ if (Test-Path $pidFile) {
   Remove-Item $pidFile -ErrorAction SilentlyContinue
 }
 Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" -ErrorAction SilentlyContinue |
-  Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match 'Serve\.ps1"?\s*$' } |
+  Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match 'Serve\.ps1' } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Milliseconds 500
 Set-Content -Path $pidFile -Value $PID
@@ -265,7 +268,12 @@ function Get-BrewCatalogData([string]$kind) {
 
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("$url/")
-$listener.Start()
+try {
+  $listener.Start()
+} catch {
+  Write-Error "Could not listen on $url - another program may be using the port."
+  exit 1
+}
 if (-not $NoBrowser) {
   $launched = $false
   if ($edgePath) {
@@ -291,6 +299,25 @@ while ($listener.IsListening) {
   try {
     $path = [Uri]::UnescapeDataString($req.Url.AbsolutePath.TrimStart('/'))
     $res.Headers.Add("Cache-Control", "no-store")
+
+    # --- Windows desktop update feed ---------------------------------------
+    # Electron serves the app itself on this same localhost origin, so it must
+    # also serve the desktop manifest/installer while it is running.
+    if ($req.HttpMethod -eq "GET" -and (
+      $path -eq "desktop-update.json" -or
+      $path -match '^TalentTree-Setup-[0-9][0-9.]*\.exe(\.blockmap)?$'
+    )) {
+      $file = Join-Path $desktopUpdateRoot $path
+      if (-not (Test-Path $file -PathType Leaf)) { $file = Join-Path $root $path }
+      if (-not (Test-Path $file -PathType Leaf)) { throw "missing" }
+      $ext = [IO.Path]::GetExtension($file).ToLower()
+      $ct = if ($mimes[$ext]) { $mimes[$ext] } else { "application/octet-stream" }
+      $bytes = [IO.File]::ReadAllBytes($file)
+      $res.ContentType = $ct
+      $res.OutputStream.Write($bytes,0,$bytes.Length)
+      $res.Close()
+      continue
+    }
 
     # --- Image import -------------------------------------------------------
     # POST /api/upload?name=<original file name> with the raw image bytes as

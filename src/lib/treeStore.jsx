@@ -532,6 +532,9 @@ const DEFAULT_SETTINGS = {
   // The current tunnel is a convenient default; change it in Settings if the
   // hosting address moves.
   updateUrl: "https://abc-bennett-graphical-liabilities.trycloudflare.com",
+  // Optional Windows desktop update host. Empty means "use this PC's built-in
+  // localhost update feed" (the desktop app serves its own manifest/installer).
+  desktopUpdateUrl: "",
 };
 
 // Library list entries used to be plain names; both movement/sense types and
@@ -1736,6 +1739,7 @@ export function TreeProvider({ children }) {
           autoSaveInterval: storedSettings.autoSaveInterval || 60,
           audio: audioSettings,
           updateUrl: storedSettings.updateUrl ?? DEFAULT_SETTINGS.updateUrl,
+          desktopUpdateUrl: storedSettings.desktopUpdateUrl || "",
           levelRules: { ...DEFAULT_SETTINGS.levelRules, ...(storedSettings.levelRules || {}) },
           library: mergeLibrary(storedSettings.library),
         });
@@ -1873,7 +1877,12 @@ export function TreeProvider({ children }) {
   // Warn before the program closes only while edits are unsaved. Leaving the
   // workspace for the main menu deliberately does not ask.
   useEffect(() => {
-    if (!dirty) return undefined;
+    // The Electron desktop window's X must close immediately; project data is
+    // already autosaved into IndexedDB. Keep the browser warning only in the
+    // web/PWA build.
+    if (!dirty || (typeof window !== "undefined" && window.talentDesktop)) {
+      return undefined;
+    }
     const handler = (e) => {
       e.preventDefault();
       e.returnValue = "";

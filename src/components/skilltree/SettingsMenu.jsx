@@ -80,6 +80,7 @@ export function SettingsMenu({ open, onClose }) {
       alive = false;
     };
   }, [open]);
+  const isDesktop = typeof window !== "undefined" && !!window.talentDesktop;
   const audio = { ...DEFAULT_AUDIO_SETTINGS, ...(settings.audio || {}) };
   const [oggSupported, setOggSupported] = useState(true);
   useEffect(() => {
@@ -592,7 +593,27 @@ export function SettingsMenu({ open, onClose }) {
                     ? `This build: ${new Date(buildInfo.builtAt).toLocaleString()}`
                     : "Build information unavailable."}
                 </p>
-                {isNativeApp() ? (
+                {isDesktop ? (
+                  <>
+                    <Label className="text-xs">Desktop update URL (optional)</Label>
+                    <Input
+                      className="h-8"
+                      value={settings.desktopUpdateUrl || ""}
+                      onChange={(e) =>
+                        setSettings((s) => ({
+                          ...s,
+                          desktopUpdateUrl: e.target.value,
+                        }))
+                      }
+                      placeholder="Leave blank for this PC's local feed"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Blank uses the desktop app&apos;s own update feed on
+                      localhost. Set a host only if you publish the desktop
+                      update files somewhere else.
+                    </p>
+                  </>
+                ) : isNativeApp() ? (
                   <>
                     <Label className="text-xs">APK update URL</Label>
                     <Input
@@ -617,9 +638,10 @@ export function SettingsMenu({ open, onClose }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() =>
-                    window.dispatchEvent(new Event("skilltree:check-updates"))
-                  }
+                  onClick={() => {
+                    if (isDesktop) window.talentDesktop?.checkForUpdates();
+                    else window.dispatchEvent(new Event("skilltree:check-updates"));
+                  }}
                 >
                   Check for updates
                 </Button>

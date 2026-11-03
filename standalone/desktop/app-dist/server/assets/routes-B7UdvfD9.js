@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BBphDp4_.js";
+import { n as Button, r as cn } from "./router-BnoyHgHI.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -7366,7 +7366,8 @@ var DEFAULT_SETTINGS = {
 		levelZeroTalentPoints: 2
 	},
 	library: DEFAULT_LIBRARY,
-	updateUrl: "https://abc-bennett-graphical-liabilities.trycloudflare.com"
+	updateUrl: "https://abc-bennett-graphical-liabilities.trycloudflare.com",
+	desktopUpdateUrl: ""
 };
 var normalizeTypeEntry = (e) => typeof e === "string" ? {
 	name: e,
@@ -8414,6 +8415,7 @@ function TreeProvider({ children }) {
 					autoSaveInterval: storedSettings.autoSaveInterval || 60,
 					audio: audioSettings,
 					updateUrl: storedSettings.updateUrl ?? DEFAULT_SETTINGS.updateUrl,
+					desktopUpdateUrl: storedSettings.desktopUpdateUrl || "",
 					levelRules: {
 						...DEFAULT_SETTINGS.levelRules,
 						...storedSettings.levelRules || {}
@@ -8531,7 +8533,7 @@ function TreeProvider({ children }) {
 		dirty
 	]);
 	useEffect(() => {
-		if (!dirty) return void 0;
+		if (!dirty || typeof window !== "undefined" && window.talentDesktop) return;
 		const handler = (e) => {
 			e.preventDefault();
 			e.returnValue = "";
@@ -13148,6 +13150,7 @@ function SettingsMenu({ open, onClose }) {
 			alive = false;
 		};
 	}, [open]);
+	const isDesktop = typeof window !== "undefined" && !!window.talentDesktop;
 	const audio = {
 		...DEFAULT_AUDIO_SETTINGS,
 		...settings.audio || {}
@@ -13818,7 +13821,25 @@ function SettingsMenu({ open, onClose }) {
 											className: "text-[10px] text-muted-foreground",
 											children: buildInfo?.builtAt ? `This build: ${new Date(buildInfo.builtAt).toLocaleString()}` : "Build information unavailable."
 										}),
-										isNativeApp() ? /* @__PURE__ */ jsxs(Fragment, { children: [
+										isDesktop ? /* @__PURE__ */ jsxs(Fragment, { children: [
+											/* @__PURE__ */ jsx(Label, {
+												className: "text-xs",
+												children: "Desktop update URL (optional)"
+											}),
+											/* @__PURE__ */ jsx(Input, {
+												className: "h-8",
+												value: settings.desktopUpdateUrl || "",
+												onChange: (e) => setSettings((s) => ({
+													...s,
+													desktopUpdateUrl: e.target.value
+												})),
+												placeholder: "Leave blank for this PC's local feed"
+											}),
+											/* @__PURE__ */ jsx("p", {
+												className: "text-[10px] text-muted-foreground",
+												children: "Blank uses the desktop app's own update feed on localhost. Set a host only if you publish the desktop update files somewhere else."
+											})
+										] }) : isNativeApp() ? /* @__PURE__ */ jsxs(Fragment, { children: [
 											/* @__PURE__ */ jsx(Label, {
 												className: "text-xs",
 												children: "APK update URL"
@@ -13847,7 +13868,10 @@ function SettingsMenu({ open, onClose }) {
 										/* @__PURE__ */ jsx(Button, {
 											size: "sm",
 											variant: "outline",
-											onClick: () => window.dispatchEvent(new Event("skilltree:check-updates")),
+											onClick: () => {
+												if (isDesktop) window.talentDesktop?.checkForUpdates();
+												else window.dispatchEvent(new Event("skilltree:check-updates"));
+											},
 											children: "Check for updates"
 										})
 									]
@@ -84669,6 +84693,17 @@ function UpdatePrompt() {
 	});
 }
 //#endregion
+//#region src/components/skilltree/DesktopUpdater.jsx
+function DesktopUpdater() {
+	const { settings } = useTree();
+	useEffect(() => {
+		const api = typeof window !== "undefined" ? window.talentDesktop : null;
+		if (!api) return;
+		api.setUpdateUrl(String(settings?.desktopUpdateUrl || "").trim());
+	}, [settings?.desktopUpdateUrl]);
+	return null;
+}
+//#endregion
 //#region src/components/skilltree/PresentationSheet.jsx
 var signed = (n) => n >= 0 ? `+${n}` : String(n);
 var SPELL_LEVELS = [
@@ -88732,7 +88767,11 @@ function OnboardingTour() {
 	}, [setSettings]);
 	useEffect(() => {
 		setTutorialOpen(open);
-		return () => setTutorialOpen(false);
+		if (typeof window !== "undefined") window.talentDesktop?.setTutorialOpen(open);
+		return () => {
+			setTutorialOpen(false);
+			if (typeof window !== "undefined") window.talentDesktop?.setTutorialOpen(false);
+		};
 	}, [open]);
 	useEffect(() => {
 		const start = () => {
@@ -89141,7 +89180,8 @@ var SplitComponent = () => /* @__PURE__ */ jsxs(TreeProvider, { children: [
 	/* @__PURE__ */ jsx(MusicPlayer, {}),
 	/* @__PURE__ */ jsx(ImportStatusBanner, {}),
 	/* @__PURE__ */ jsx(ScreenTransitionOverlay, {}),
-	/* @__PURE__ */ jsx(UpdatePrompt, {})
+	/* @__PURE__ */ jsx(UpdatePrompt, {}),
+	/* @__PURE__ */ jsx(DesktopUpdater, {})
 ] });
 //#endregion
 export { SplitComponent as component };

@@ -23,6 +23,7 @@ import { EditPanelSlot } from "@/components/skilltree/EditPanelSlot";
 import { ImportStatusBanner } from "@/components/skilltree/ImportStatusBanner";
 import { ScreenTransitionOverlay } from "@/components/skilltree/ScreenTransitionOverlay";
 import { UpdatePrompt } from "@/components/skilltree/UpdatePrompt";
+import { DesktopUpdater } from "@/components/skilltree/DesktopUpdater";
 import { ExportPanel } from "@/components/skilltree/ExportPanel";
 import { PoolWindows } from "@/components/skilltree/PoolWindows";
 import { Loader2 } from "lucide-react";
@@ -259,6 +260,7 @@ export const Route = createFileRoute("/")({
       <ImportStatusBanner />
       <ScreenTransitionOverlay />
       <UpdatePrompt />
+      <DesktopUpdater />
     </TreeProvider>
   ),
   head: () => ({

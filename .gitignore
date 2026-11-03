@@ -38,4 +38,7 @@ standalone/server.pid
 
 # Built Windows installers copied here for local/tunnel download (large)
 standalone/desktop/app-dist/client/downloads/*.exe
+standalone/desktop/app-dist/client/TalentTree-Setup-*.exe
+standalone/desktop/app-dist/client/*.blockmap
+standalone/desktop/app-dist/client/desktop-update.json
 
