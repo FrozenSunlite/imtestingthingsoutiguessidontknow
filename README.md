@@ -20,6 +20,9 @@ Prebuilt builds are attached to the [latest GitHub release](../../releases/lates
 | Windows portable | `TalentTree-Portable-<version>.exe` | Single executable; no installer or auto-update |
 | Android | `TalentTree-Android-<version>.apk` | Offline web build; debug-signed |
 
+Not every release includes every platform; check the assets listed on the
+release you open.
+
 The Windows installer is **not code-signed**, so SmartScreen may ask for
 confirmation the first time it runs. The Android APK is **debug-signed**: install
 it for personal use, or rebuild it with a release keystore before distributing
