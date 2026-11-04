@@ -13,6 +13,7 @@ export const SkillNodeView = memo(function SkillNodeView({
   showNames,
   available,
   dmHidden = false,
+  dropTarget = false,
   popIn,
   placeholder,
   placeholderFrame,
@@ -143,6 +144,8 @@ export const SkillNodeView = memo(function SkillNodeView({
       }}
       className={`group ${
         dmHidden ? "opacity-60 " : ""
+      }${
+        dropTarget ? "ring-2 ring-primary ring-offset-2 ring-offset-background " : ""
       }${
         // Blind run: newly revealed nodes pop in; a press squishes the node
         // like a button before the click lands.

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BKm1Qv8e.js";
+import { n as Button, r as cn } from "./router-BtRSyuo_.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6523,6 +6523,355 @@ function hiddenNodeIds(nodes) {
 	}
 	return hidden;
 }
+// src/lib/benefits.js
+var BENEFIT_CATEGORIES = [
+	{
+		id: "spell",
+		label: "Spells"
+	},
+	{
+		id: "feature",
+		label: "Features"
+	},
+	{
+		id: "equipment",
+		label: "Equipment"
+	},
+	{
+		id: "upgrade",
+		label: "Upgrades"
+	},
+	{
+		id: "armor",
+		label: "Armor"
+	},
+	{
+		id: "attribute",
+		label: "Attributes"
+	},
+	{
+		id: "skill",
+		label: "Skill Proficiencies"
+	},
+	{
+		id: "tool",
+		label: "Tool Proficiencies"
+	},
+	{
+		id: "language",
+		label: "Languages"
+	},
+	{
+		id: "speed",
+		label: "Speeds"
+	},
+	{
+		id: "sense",
+		label: "Senses"
+	},
+	{
+		id: "resource",
+		label: "Resources"
+	},
+	{
+		id: "mastery",
+		label: "Weapon Masteries"
+	},
+	{
+		id: "property",
+		label: "Weapon Properties"
+	},
+	{
+		id: "instrument",
+		label: "Instruments"
+	},
+	{
+		id: "stat",
+		label: "Character Stats"
+	},
+	{
+		id: "facility",
+		label: "Facilities"
+	},
+	{
+		id: "object",
+		label: "Objects"
+	},
+	{
+		id: "table",
+		label: "Tables"
+	}
+];
+var names = (value) => (Array.isArray(value) ? value : []).map((item) => typeof item === "string" ? item : item?.name).filter(Boolean);
+var STAT_OPTIONS = [
+	"Hit Points",
+	"Armor Class",
+	"Exhaustion",
+	"Proficiency Bonus",
+	"Initiative",
+	"Speed",
+	"Saving Throws",
+	"Temp HP"
+];
+function benefitOptions(settings, category) {
+	const lib = settings?.library || {};
+	switch (category) {
+		case "spell": return names(benefitSpells(settings));
+		case "feature": return [];
+		case "equipment": return [
+			...names(lib.weapons),
+			...names(lib.armor),
+			...names(lib.adventuringGear)
+		];
+		case "upgrade": return names(lib.weaponUpgrades);
+		case "armor": return names(lib.armor);
+		case "attribute": return names(lib.attributes);
+		case "skill": return names(lib.lists?.skills);
+		case "tool": return [
+			...names(lib.lists?.tools),
+			...names(lib.lists?.artisanTools),
+			...names(lib.lists?.gamingSets),
+			...names(lib.lists?.miscTools),
+			...names(lib.lists?.instruments)
+		];
+		case "instrument": return names(lib.lists?.instruments);
+		case "language": return names(lib.lists?.languages);
+		case "speed": return names(lib.speedTypes);
+		case "sense": return names(lib.senses);
+		case "resource": return names(lib.resources);
+		case "mastery": return names(lib.weaponMasteries);
+		case "property": return names(lib.properties);
+		case "facility": return [...Object.keys(FACILITY_TYPES), ...BASTION_FACILITIES.map((f) => f.name)];
+		case "object": return names(lib.fiveETools?.objects);
+		case "stat": return STAT_OPTIONS;
+		default: return [];
+	}
+}
+var BENEFIT_CATEGORY_FOR_5E = {
+	spells: "spell",
+	items: "equipment",
+	languages: "language",
+	skills: "skill",
+	senses: "sense",
+	objects: "object",
+	vehicles: "equipment",
+	classes: "feature",
+	subclasses: "feature",
+	feats: "feature",
+	optionalFeatures: "feature",
+	optionalfeatures: "feature",
+	charOptions: "feature",
+	backgrounds: "feature",
+	species: "feature",
+	bestiary: "feature",
+	conditions: "feature",
+	actions: "feature",
+	deities: "feature",
+	traps: "feature",
+	tables: "feature",
+	books: "feature",
+	adventures: "feature",
+	encounters: "feature",
+	rulesGlossary: "feature"
+};
+function benefitCategoryForDrop(payload) {
+	const category = String(payload?.category || "");
+	if (BENEFIT_CATEGORIES.some((entry) => entry.id === category)) return category;
+	return BENEFIT_CATEGORY_FOR_5E[category] || "feature";
+}
+function benefitSpells(settings) {
+	const lib = settings?.library || {};
+	const merged = [...Array.isArray(lib.spells) ? lib.spells : [], ...Array.isArray(lib.fiveETools?.spells) ? lib.fiveETools.spells : []];
+	const seen = /* @__PURE__ */ new Set();
+	return merged.filter((spell) => {
+		const name = typeof spell === "string" ? spell : String(spell?.name || "");
+		if (!name || seen.has(name.toLowerCase())) return false;
+		seen.add(name.toLowerCase());
+		return true;
+	});
+}
+var LEVEL_MODES = [
+	{
+		id: "any",
+		label: "Any level"
+	},
+	{
+		id: "equal",
+		label: "Equal to"
+	},
+	{
+		id: "upTo",
+		label: "Up to"
+	},
+	{
+		id: "below",
+		label: "Below"
+	},
+	{
+		id: "equalOrGreater",
+		label: "Equal or greater"
+	},
+	{
+		id: "equalOrLesser",
+		label: "Equal or lesser"
+	}
+];
+var TABLE_SAVE_MODES = [
+	{
+		id: "any",
+		label: "Any"
+	},
+	{
+		id: "save",
+		label: "Saving Throw"
+	},
+	{
+		id: "attack",
+		label: "Spell Attack"
+	},
+	{
+		id: "neither",
+		label: "Neither"
+	}
+];
+var TABLE_RANGE_MODES = [
+	{
+		id: "any",
+		label: "Any"
+	},
+	{
+		id: "melee",
+		label: "Melee"
+	},
+	{
+		id: "ranged",
+		label: "Ranged"
+	},
+	{
+		id: "neither",
+		label: "Neither"
+	}
+];
+var numLevel = (spell) => {
+	const raw = spell?.level ?? spell?.spellLevel ?? spell?.lvl;
+	if (raw === "cantrip" || raw === "0") return 0;
+	return Number(raw) || 0;
+};
+var text = (value) => String(value ?? "").toLowerCase();
+function filterSpells(spells, filters = {}) {
+	return (Array.isArray(spells) ? spells : []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => {
+		if (!s?.name) return false;
+		if (filters.schools?.length) {
+			const school = text(s.school || s.School);
+			if (!filters.schools.some((x) => school.includes(text(x)))) return false;
+		}
+		if (filters.levelMode && filters.levelMode !== "any" && filters.level !== "" && filters.level != null) {
+			const want = Number(filters.level) || 0;
+			const lvl = numLevel(s);
+			if (filters.levelMode === "equal" && lvl !== want) return false;
+			if (filters.levelMode === "upTo" && lvl > want) return false;
+			if (filters.levelMode === "below" && lvl >= want) return false;
+			if (filters.levelMode === "equalOrGreater" && lvl < want) return false;
+			if (filters.levelMode === "equalOrLesser" && lvl > want) return false;
+		}
+		const check = (field, query) => {
+			if (!query) return true;
+			const hay = text(s[field]);
+			return !hay || hay.includes(text(query));
+		};
+		if (!check("subschool", filters.subschool)) return false;
+		if (!check("castingTime", filters.castingTime) && !check("time", filters.castingTime)) return false;
+		if (!check("duration", filters.duration)) return false;
+		if (!check("target", filters.target)) return false;
+		if (!check("area", filters.area)) return false;
+		if (!check("effect", filters.effect)) return false;
+		if (!check("materials", filters.materials) && !check("components", filters.materials)) return false;
+		if (filters.save && filters.save !== "any") {
+			const hasSave = !!(s.save || s.savingThrow);
+			const hasAttack = !!(s.spellAttack || s.attack);
+			if (filters.save === "save" && !hasSave) return false;
+			if (filters.save === "attack" && !hasAttack) return false;
+			if (filters.save === "neither" && (hasSave || hasAttack)) return false;
+		}
+		if (filters.range && filters.range !== "any") {
+			const range = text(s.range || s.rangeType);
+			const melee = /melee|touch|self/.test(range);
+			const ranged = /ranged|feet|foot|mile/.test(range) && !melee;
+			if (filters.range === "melee" && !melee) return false;
+			if (filters.range === "ranged" && !ranged) return false;
+			if (filters.range === "neither" && (melee || ranged)) return false;
+		}
+		return true;
+	});
+}
+function spellTableForDrop({ school = "", subschool = "", parent = "" } = {}) {
+	return {
+		source: "spells",
+		mode: "choose",
+		count: 1,
+		die: "d20",
+		optionsText: "",
+		filters: {
+			schools: school ? [school] : parent ? [parent] : [],
+			levelMode: "any",
+			level: "",
+			subschool: subschool || "",
+			castingTime: "",
+			duration: "",
+			save: "any",
+			range: "any",
+			target: "",
+			area: "",
+			effect: "",
+			materials: ""
+		}
+	};
+}
+function tableOptions(table, spells) {
+	if (!table) return [];
+	if (table.source === "custom") return String(table.optionsText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+	return filterSpells(spells, table.filters || []).map((s) => s.name);
+}
+function tableSummary(table, spells) {
+	if (!table) return "";
+	const options = tableOptions(table, spells);
+	return `${table.mode === "roll" ? `Roll ${table.die || "d20"}` : `Choose ${Number(table.count) || 1}`} from ${table.source === "custom" ? `${options.length} option${options.length === 1 ? "" : "s"}` : `${options.length} matching spell${options.length === 1 ? "" : "s"}`}`;
+}
+function benefitDragProps(category, name, extra = {}) {
+	const payload = JSON.stringify({
+		category,
+		name,
+		...extra
+	});
+	return {
+		draggable: true,
+		onDragStart: (event) => {
+			event.dataTransfer.setData("application/x-benefit", payload);
+			event.dataTransfer.effectAllowed = "copy";
+		}
+	};
+}
+function benefitId() {
+	return `bnf${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
+}
+function collectNodeBenefits(tree) {
+	const out = [];
+	const seen = /* @__PURE__ */ new Set();
+	const walk = (nodes) => {
+		for (const n of nodes || []) {
+			(n.subtrees || []).forEach((st) => walk(st.nodes));
+			if ((Number(n.currentPoints) || 0) <= 0) continue;
+			for (const b of n.benefits || []) {
+				const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
+				if (!b.name || seen.has(key)) continue;
+				seen.add(key);
+				out.push(b);
+			}
+		}
+	};
+	walk(tree?.nodes);
+	return out;
+}
 // src/lib/projectStore.js
 var DB_NAME = "talent-tree";
 var DB_VERSION = 1;
@@ -8848,6 +9197,20 @@ function TreeProvider({ children }) {
 			} : n)
 		} : t);
 	}, []);
+	const addNodeBenefit = useCallback((nodeId, benefit) => {
+		const entry = {
+			...benefit,
+			id: benefit?.id || benefitId()
+		};
+		setTree((t) => t ? {
+			...t,
+			nodes: t.nodes.map((n) => n.id === nodeId ? {
+				...n,
+				benefits: [...n.benefits || [], entry]
+			} : n)
+		} : t);
+		return entry;
+	}, []);
 	const scaleAllNodeSizes = useCallback((percent) => {
 		const pct = Number(percent);
 		if (!Number.isFinite(pct) || pct === 0 || pct <= -100) return;
@@ -9796,6 +10159,7 @@ function TreeProvider({ children }) {
 		focusNode,
 		clearTreeFocus,
 		updateNode,
+		addNodeBenefit,
 		scaleAllNodeSizes,
 		addNode,
 		deleteNode,
@@ -12985,6 +13349,7 @@ var QUICK_REFERENCE = [
 			["Select", "Click · Ctrl/⌘+click to add · drag to box-select"],
 			["Move node", "Drag its body"],
 			["New node", "Double-click empty canvas (Edit mode)"],
+			["Library drop", "Empty canvas = new node · onto a node = granted benefit"],
 			["Draw connector", "Alt+click node → Alt+click node · Esc cancels"],
 			["Delete selection", "Delete key"],
 			["Undo / Redo", "Configurable in Settings → Hotkeys"],
@@ -14685,308 +15050,6 @@ function matchesQuery(value, query) {
 	if (!q) return true;
 	return normText(value).includes(q);
 }
-// src/lib/benefits.js
-var BENEFIT_CATEGORIES = [
-	{
-		id: "spell",
-		label: "Spells"
-	},
-	{
-		id: "equipment",
-		label: "Equipment"
-	},
-	{
-		id: "upgrade",
-		label: "Upgrades"
-	},
-	{
-		id: "armor",
-		label: "Armor"
-	},
-	{
-		id: "attribute",
-		label: "Attributes"
-	},
-	{
-		id: "skill",
-		label: "Skill Proficiencies"
-	},
-	{
-		id: "tool",
-		label: "Tool Proficiencies"
-	},
-	{
-		id: "language",
-		label: "Languages"
-	},
-	{
-		id: "speed",
-		label: "Speeds"
-	},
-	{
-		id: "sense",
-		label: "Senses"
-	},
-	{
-		id: "resource",
-		label: "Resources"
-	},
-	{
-		id: "mastery",
-		label: "Weapon Masteries"
-	},
-	{
-		id: "property",
-		label: "Weapon Properties"
-	},
-	{
-		id: "instrument",
-		label: "Instruments"
-	},
-	{
-		id: "stat",
-		label: "Character Stats"
-	},
-	{
-		id: "facility",
-		label: "Facilities"
-	},
-	{
-		id: "object",
-		label: "Objects"
-	},
-	{
-		id: "table",
-		label: "Tables"
-	}
-];
-var names = (value) => (Array.isArray(value) ? value : []).map((item) => typeof item === "string" ? item : item?.name).filter(Boolean);
-var STAT_OPTIONS = [
-	"Hit Points",
-	"Armor Class",
-	"Exhaustion",
-	"Proficiency Bonus",
-	"Initiative",
-	"Speed",
-	"Saving Throws",
-	"Temp HP"
-];
-function benefitOptions(settings, category) {
-	const lib = settings?.library || {};
-	switch (category) {
-		case "spell": return names(benefitSpells(settings));
-		case "equipment": return [
-			...names(lib.weapons),
-			...names(lib.armor),
-			...names(lib.adventuringGear)
-		];
-		case "upgrade": return names(lib.weaponUpgrades);
-		case "armor": return names(lib.armor);
-		case "attribute": return names(lib.attributes);
-		case "skill": return names(lib.lists?.skills);
-		case "tool": return [
-			...names(lib.lists?.tools),
-			...names(lib.lists?.artisanTools),
-			...names(lib.lists?.gamingSets),
-			...names(lib.lists?.miscTools),
-			...names(lib.lists?.instruments)
-		];
-		case "instrument": return names(lib.lists?.instruments);
-		case "language": return names(lib.lists?.languages);
-		case "speed": return names(lib.speedTypes);
-		case "sense": return names(lib.senses);
-		case "resource": return names(lib.resources);
-		case "mastery": return names(lib.weaponMasteries);
-		case "property": return names(lib.properties);
-		case "facility": return [...Object.keys(FACILITY_TYPES), ...BASTION_FACILITIES.map((f) => f.name)];
-		case "object": return names(lib.fiveETools?.objects);
-		case "stat": return STAT_OPTIONS;
-		default: return [];
-	}
-}
-var BENEFIT_CATEGORY_FOR_5E = {
-	spells: "spell",
-	items: "equipment",
-	languages: "language",
-	skills: "skill",
-	senses: "sense",
-	tables: "table",
-	backgrounds: "other",
-	species: "other",
-	feats: "other",
-	conditions: "other",
-	actions: "other"
-};
-function benefitSpells(settings) {
-	const lib = settings?.library || {};
-	const merged = [...Array.isArray(lib.spells) ? lib.spells : [], ...Array.isArray(lib.fiveETools?.spells) ? lib.fiveETools.spells : []];
-	const seen = /* @__PURE__ */ new Set();
-	return merged.filter((spell) => {
-		const name = typeof spell === "string" ? spell : String(spell?.name || "");
-		if (!name || seen.has(name.toLowerCase())) return false;
-		seen.add(name.toLowerCase());
-		return true;
-	});
-}
-var LEVEL_MODES = [
-	{
-		id: "any",
-		label: "Any level"
-	},
-	{
-		id: "equal",
-		label: "Equal to"
-	},
-	{
-		id: "upTo",
-		label: "Up to"
-	},
-	{
-		id: "below",
-		label: "Below"
-	},
-	{
-		id: "equalOrGreater",
-		label: "Equal or greater"
-	},
-	{
-		id: "equalOrLesser",
-		label: "Equal or lesser"
-	}
-];
-var TABLE_SAVE_MODES = [
-	{
-		id: "any",
-		label: "Any"
-	},
-	{
-		id: "save",
-		label: "Saving Throw"
-	},
-	{
-		id: "attack",
-		label: "Spell Attack"
-	},
-	{
-		id: "neither",
-		label: "Neither"
-	}
-];
-var TABLE_RANGE_MODES = [
-	{
-		id: "any",
-		label: "Any"
-	},
-	{
-		id: "melee",
-		label: "Melee"
-	},
-	{
-		id: "ranged",
-		label: "Ranged"
-	},
-	{
-		id: "neither",
-		label: "Neither"
-	}
-];
-var numLevel = (spell) => {
-	const raw = spell?.level ?? spell?.spellLevel ?? spell?.lvl;
-	if (raw === "cantrip" || raw === "0") return 0;
-	return Number(raw) || 0;
-};
-var text = (value) => String(value ?? "").toLowerCase();
-function filterSpells(spells, filters = {}) {
-	return (Array.isArray(spells) ? spells : []).map((s) => typeof s === "string" ? { name: s } : s).filter((s) => {
-		if (!s?.name) return false;
-		if (filters.schools?.length) {
-			const school = text(s.school || s.School);
-			if (!filters.schools.some((x) => school.includes(text(x)))) return false;
-		}
-		if (filters.levelMode && filters.levelMode !== "any" && filters.level !== "" && filters.level != null) {
-			const want = Number(filters.level) || 0;
-			const lvl = numLevel(s);
-			if (filters.levelMode === "equal" && lvl !== want) return false;
-			if (filters.levelMode === "upTo" && lvl > want) return false;
-			if (filters.levelMode === "below" && lvl >= want) return false;
-			if (filters.levelMode === "equalOrGreater" && lvl < want) return false;
-			if (filters.levelMode === "equalOrLesser" && lvl > want) return false;
-		}
-		const check = (field, query) => {
-			if (!query) return true;
-			const hay = text(s[field]);
-			return !hay || hay.includes(text(query));
-		};
-		if (!check("subschool", filters.subschool)) return false;
-		if (!check("castingTime", filters.castingTime) && !check("time", filters.castingTime)) return false;
-		if (!check("duration", filters.duration)) return false;
-		if (!check("target", filters.target)) return false;
-		if (!check("area", filters.area)) return false;
-		if (!check("effect", filters.effect)) return false;
-		if (!check("materials", filters.materials) && !check("components", filters.materials)) return false;
-		if (filters.save && filters.save !== "any") {
-			const hasSave = !!(s.save || s.savingThrow);
-			const hasAttack = !!(s.spellAttack || s.attack);
-			if (filters.save === "save" && !hasSave) return false;
-			if (filters.save === "attack" && !hasAttack) return false;
-			if (filters.save === "neither" && (hasSave || hasAttack)) return false;
-		}
-		if (filters.range && filters.range !== "any") {
-			const range = text(s.range || s.rangeType);
-			const melee = /melee|touch|self/.test(range);
-			const ranged = /ranged|feet|foot|mile/.test(range) && !melee;
-			if (filters.range === "melee" && !melee) return false;
-			if (filters.range === "ranged" && !ranged) return false;
-			if (filters.range === "neither" && (melee || ranged)) return false;
-		}
-		return true;
-	});
-}
-function tableOptions(table, spells) {
-	if (!table) return [];
-	if (table.source === "custom") return String(table.optionsText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-	return filterSpells(spells, table.filters || []).map((s) => s.name);
-}
-function tableSummary(table, spells) {
-	if (!table) return "";
-	const options = tableOptions(table, spells);
-	return `${table.mode === "roll" ? `Roll ${table.die || "d20"}` : `Choose ${Number(table.count) || 1}`} from ${table.source === "custom" ? `${options.length} option${options.length === 1 ? "" : "s"}` : `${options.length} matching spell${options.length === 1 ? "" : "s"}`}`;
-}
-function benefitDragProps(category, name, extra = {}) {
-	const payload = JSON.stringify({
-		category,
-		name,
-		...extra
-	});
-	return {
-		draggable: true,
-		onDragStart: (event) => {
-			event.dataTransfer.setData("application/x-benefit", payload);
-			event.dataTransfer.effectAllowed = "copy";
-		}
-	};
-}
-function benefitId() {
-	return `bnf${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`;
-}
-function collectNodeBenefits(tree) {
-	const out = [];
-	const seen = /* @__PURE__ */ new Set();
-	const walk = (nodes) => {
-		for (const n of nodes || []) {
-			(n.subtrees || []).forEach((st) => walk(st.nodes));
-			if ((Number(n.currentPoints) || 0) <= 0) continue;
-			for (const b of n.benefits || []) {
-				const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
-				if (!b.name || seen.has(key)) continue;
-				seen.add(key);
-				out.push(b);
-			}
-		}
-	};
-	walk(tree?.nodes);
-	return out;
-}
 // src/components/ui/textarea.jsx
 var Textarea = React.forwardRef(({ className, ...props }, ref) => {
 	return /* @__PURE__ */ jsx("textarea", {
@@ -15349,7 +15412,7 @@ function NameList({ label, entries, onChange, placeholder, dragCategory = "" }) 
 				children: [shown.map(({ v, i }) => /* @__PURE__ */ jsxs("div", {
 					...dragCategory ? benefitDragProps(dragCategory, v) : {},
 					"data-entry-name": typeof v === "string" ? v : "",
-					className: "flex items-center gap-1",
+					className: `flex items-center gap-1 ${dragCategory ? "cursor-grab active:cursor-grabbing" : ""}`,
 					children: [/* @__PURE__ */ jsx(InfoTip, {
 						label: "One entry per row — press + to add another.",
 						children: /* @__PURE__ */ jsx(Input, {
@@ -24726,7 +24789,8 @@ function SpellSchoolsTab() {
 			label: "Spell Schools",
 			entries: schools,
 			onChange: (n) => setLib({ spellSchools: n }),
-			placeholder: "School (e.g. Evocation)"
+			placeholder: "School (e.g. Evocation)",
+			dragCategory: "spellSchool"
 		}), /* @__PURE__ */ jsxs("div", {
 			className: "rounded-md border p-2",
 			children: [
@@ -24759,6 +24823,12 @@ function SpellSchoolsTab() {
 					children: [shown.map(({ s, i }) => /* @__PURE__ */ jsxs("div", {
 						className: "flex items-center gap-1",
 						children: [
+							/* @__PURE__ */ jsx("span", {
+								...benefitDragProps("spellSubschool", s.name, { parent: s.parent }),
+								className: "cursor-grab active:cursor-grabbing",
+								title: "Drag onto a node to grant spells from this subschool",
+								children: /* @__PURE__ */ jsx(GripVertical, { className: "h-3.5 w-3.5 text-muted-foreground" })
+							}),
 							/* @__PURE__ */ jsx(InfoTip, {
 								label: "The subschool's name.",
 								children: /* @__PURE__ */ jsx(Input, {
@@ -30418,7 +30488,7 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 	});
 }
 // src/components/skilltree/SkillNodeView.jsx
-var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, dmHidden = false, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
+var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, dmHidden = false, dropTarget = false, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
 	const autoBridge = isBridgeNode(node) && available;
 	const unlocked = (node.currentPoints || 0) > 0 || autoBridge;
 	const dim = !unlocked && !available;
@@ -30488,7 +30558,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 			cursor: editable ? "grab" : "pointer",
 			textRendering: "geometricPrecision"
 		},
-		className: `group ${dmHidden ? "opacity-60 " : ""}${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
+		className: `group ${dmHidden ? "opacity-60 " : ""}${dropTarget ? "ring-2 ring-primary ring-offset-2 ring-offset-background " : ""}${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
 		children: [
 			/* @__PURE__ */ jsx("div", {
 				className: `ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : dmHidden ? "border-destructive/70" : minimal && unlocked ? "border-[#008000]/80" : minimal && available ? "border-amber-400/60" : "border-white/10"}`,
@@ -31210,12 +31280,389 @@ function CarryGhost() {
 		]
 	});
 }
+// src/components/skilltree/BenefitTableDialog.jsx
+var DEFAULT_TABLE = {
+	source: "spells",
+	mode: "choose",
+	count: 1,
+	die: "d20",
+	optionsText: "",
+	filters: {
+		schools: [],
+		levelMode: "any",
+		level: "",
+		subschool: "",
+		castingTime: "",
+		duration: "",
+		save: "any",
+		range: "any",
+		target: "",
+		area: "",
+		effect: "",
+		materials: ""
+	}
+};
+function BenefitTableDialog({ open, onClose, onSave, spells = [], schools = [], initial = null }) {
+	const [name, setName] = useState("");
+	const [table, setTable] = useState(DEFAULT_TABLE);
+	useEffect(() => {
+		if (!open) return;
+		setName(initial?.name || "");
+		setTable({
+			...DEFAULT_TABLE,
+			...initial?.table || {},
+			filters: {
+				...DEFAULT_TABLE.filters,
+				...initial?.table?.filters || {}
+			}
+		});
+	}, [open, initial]);
+	const matches = useMemo(() => filterSpells(spells, table.filters), [spells, table.filters]);
+	if (!open) return null;
+	const patch = (p) => setTable((t) => ({
+		...t,
+		...p
+	}));
+	const patchFilter = (p) => setTable((t) => ({
+		...t,
+		filters: {
+			...t.filters,
+			...p
+		}
+	}));
+	return /* @__PURE__ */ jsx(Dialog, {
+		open,
+		onOpenChange: (v) => !v && onClose(),
+		children: /* @__PURE__ */ jsxs(DialogContent, {
+			className: "max-w-2xl",
+			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Create a benefit table" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Choose options or roll on a table. Spell tables filter the spell library by school, level, subschool, casting time, duration, save/attack, range, target, area, effect and materials." })] }), /* @__PURE__ */ jsxs("div", {
+				className: "space-y-2",
+				children: [
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-2 gap-2",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "space-y-1",
+							children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Table name"
+							}), /* @__PURE__ */ jsx(Input, {
+								className: "h-8",
+								placeholder: "e.g. Arcane Talent Spells",
+								value: name,
+								onChange: (e) => setName(e.target.value)
+							})]
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "space-y-1",
+							children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Options come from"
+							}), /* @__PURE__ */ jsxs(Select, {
+								value: table.source,
+								onValueChange: (v) => patch({ source: v }),
+								children: [/* @__PURE__ */ jsx(SelectTrigger, {
+									className: "h-8",
+									children: /* @__PURE__ */ jsx(SelectValue, {})
+								}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+									value: "spells",
+									children: "Spell library"
+								}), /* @__PURE__ */ jsx(SelectItem, {
+									value: "custom",
+									children: "Custom list"
+								})] })]
+							})]
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "grid grid-cols-3 gap-2",
+						children: [
+							/* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "How many"
+								}), /* @__PURE__ */ jsxs(Select, {
+									value: table.mode,
+									onValueChange: (v) => patch({ mode: v }),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-8",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
+										value: "choose",
+										children: "Choose N"
+									}), /* @__PURE__ */ jsx(SelectItem, {
+										value: "roll",
+										children: "Roll a die"
+									})] })]
+								})]
+							}),
+							table.mode === "choose" ? /* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Choices"
+								}), /* @__PURE__ */ jsx(Input, {
+									className: "h-8",
+									type: "number",
+									min: 1,
+									value: table.count,
+									onChange: (e) => patch({ count: Math.max(1, Number(e.target.value) || 1) })
+								})]
+							}) : /* @__PURE__ */ jsxs("div", {
+								className: "space-y-1",
+								children: [/* @__PURE__ */ jsx(Label, {
+									className: "text-[10px]",
+									children: "Die"
+								}), /* @__PURE__ */ jsxs(Select, {
+									value: table.die,
+									onValueChange: (v) => patch({ die: v }),
+									children: [/* @__PURE__ */ jsx(SelectTrigger, {
+										className: "h-8",
+										children: /* @__PURE__ */ jsx(SelectValue, {})
+									}), /* @__PURE__ */ jsx(SelectContent, { children: [
+										"d4",
+										"d6",
+										"d8",
+										"d10",
+										"d12",
+										"d20",
+										"d100"
+									].map((d) => /* @__PURE__ */ jsx(SelectItem, {
+										value: d,
+										children: d
+									}, d)) })]
+								})]
+							}),
+							/* @__PURE__ */ jsx("div", {
+								className: "self-end pb-1 text-[10px] text-muted-foreground",
+								children: table.source === "spells" ? `${matches.length} spell${matches.length === 1 ? "" : "s"} match` : `${String(table.optionsText || "").split(/\r?\n/).filter((s) => s.trim()).length} options`
+							})
+						]
+					}),
+					table.source === "spells" ? /* @__PURE__ */ jsxs("div", {
+						className: "space-y-2 rounded-md border p-2",
+						children: [
+							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
+								className: "text-[10px]",
+								children: "Schools"
+							}), /* @__PURE__ */ jsx("div", {
+								className: "mt-1 flex flex-wrap gap-1",
+								children: schools.map((school) => {
+									const on = table.filters.schools.includes(school);
+									return /* @__PURE__ */ jsx("button", {
+										type: "button",
+										onClick: () => patchFilter({ schools: on ? table.filters.schools.filter((s) => s !== school) : [...table.filters.schools, school] }),
+										className: `rounded border px-1.5 py-0.5 text-[10px] ${on ? "border-primary bg-primary/10" : "hover:bg-accent"}`,
+										children: school
+									}, school);
+								})
+							})] }),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Level relation"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: table.filters.levelMode,
+											onValueChange: (v) => patchFilter({ levelMode: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: LEVEL_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
+												value: m.id,
+												children: m.label
+											}, m.id)) })]
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Level (0 = cantrip)"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											type: "number",
+											min: 0,
+											value: table.filters.level,
+											onChange: (e) => patchFilter({ level: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Subschool"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "e.g. Dunamancy",
+											value: table.filters.subschool,
+											onChange: (e) => patchFilter({ subschool: e.target.value })
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Casting time"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "Action, Bonus…",
+											value: table.filters.castingTime,
+											onChange: (e) => patchFilter({ castingTime: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Duration"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "Instant, 1 minute…",
+											value: table.filters.duration,
+											onChange: (e) => patchFilter({ duration: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Save / attack"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: table.filters.save,
+											onValueChange: (v) => patchFilter({ save: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: TABLE_SAVE_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
+												value: m.id,
+												children: m.label
+											}, m.id)) })]
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-3 gap-2",
+								children: [
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Melee / ranged"
+										}), /* @__PURE__ */ jsxs(Select, {
+											value: table.filters.range,
+											onValueChange: (v) => patchFilter({ range: v }),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsx(SelectContent, { children: TABLE_RANGE_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
+												value: m.id,
+												children: m.label
+											}, m.id)) })]
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Target"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "e.g. one creature",
+											value: table.filters.target,
+											onChange: (e) => patchFilter({ target: e.target.value })
+										})]
+									}),
+									/* @__PURE__ */ jsxs("div", {
+										className: "space-y-1",
+										children: [/* @__PURE__ */ jsx(Label, {
+											className: "text-[10px]",
+											children: "Area of effect"
+										}), /* @__PURE__ */ jsx(Input, {
+											className: "h-8",
+											placeholder: "e.g. 20-foot cone",
+											value: table.filters.area,
+											onChange: (e) => patchFilter({ area: e.target.value })
+										})]
+									})
+								]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "grid grid-cols-2 gap-2",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Effect"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										placeholder: "e.g. damage, healing",
+										value: table.filters.effect,
+										onChange: (e) => patchFilter({ effect: e.target.value })
+									})]
+								}), /* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(Label, {
+										className: "text-[10px]",
+										children: "Casting materials"
+									}), /* @__PURE__ */ jsx(Input, {
+										className: "h-8",
+										placeholder: "e.g. a bit of fleece",
+										value: table.filters.materials,
+										onChange: (e) => patchFilter({ materials: e.target.value })
+									})]
+								})]
+							})
+						]
+					}) : /* @__PURE__ */ jsxs("div", {
+						className: "space-y-1",
+						children: [/* @__PURE__ */ jsx(Label, {
+							className: "text-[10px]",
+							children: "Options (one per line)"
+						}), /* @__PURE__ */ jsx(Textarea, {
+							className: "min-h-24",
+							placeholder: "Fire Bolt\nMagic Missile\nShield",
+							value: table.optionsText,
+							onChange: (e) => patch({ optionsText: e.target.value })
+						})]
+					}),
+					/* @__PURE__ */ jsxs("div", {
+						className: "flex justify-end gap-1",
+						children: [/* @__PURE__ */ jsx(Button, {
+							variant: "outline",
+							onClick: onClose,
+							children: "Cancel"
+						}), /* @__PURE__ */ jsx(Button, {
+							disabled: !name.trim(),
+							onClick: () => {
+								onSave({
+									name: name.trim(),
+									table
+								});
+								onClose();
+							},
+							children: "Add table"
+						})]
+					})
+				]
+			})]
+		})
+	});
+}
 // src/components/skilltree/SkillTreeCanvas.jsx
 var lastCentredKey = "";
 var emptyTabs = /* @__PURE__ */ new Set();
 function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundContextMenu }) {
 	const isMobile = useIsMobile();
-	const { tree, nodesById, grid, ui, setUi, updateNode, addNode, rotateNodes, deleteNodes, deleteConnection, flipNode, investPoint, pools, character, setCharacter, settings, undo, redo, addBend, moveBend, moveNodes, toggleDependency, copyNodes, cutNodes, pasteClipboard, mergedTree, openSubtreePanel, startCarry, exitSubtreeEditor } = useTree();
+	const { tree, nodesById, grid, ui, setUi, updateNode, addNodeBenefit, addNode, rotateNodes, deleteNodes, deleteConnection, flipNode, investPoint, pools, character, setCharacter, settings, undo, redo, addBend, moveBend, moveNodes, toggleDependency, copyNodes, cutNodes, pasteClipboard, mergedTree, openSubtreePanel, startCarry, exitSubtreeEditor } = useTree();
 	const view = useView();
 	const setView = useViewSet();
 	const viewRef = useRef(view);
@@ -31331,6 +31778,8 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 	const [choiceNode, setChoiceNode] = useState(null);
 	const [subtreePicker, setSubtreePicker] = useState(null);
 	const [connMenu, setConnMenu] = useState(null);
+	const [dropNodeId, setDropNodeId] = useState(null);
+	const [schoolDrop, setSchoolDrop] = useState(null);
 	const hoverTimer = useRef(null);
 	const linkDoneRef = useRef(false);
 	useEffect(() => {
@@ -32249,38 +32698,106 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		}));
 		if (wasEmpty) centreOnWorld(0, 0);
 	};
+	const dropNodeAt = (e) => {
+		if (typeof document === "undefined" || !document.elementsFromPoint) return null;
+		for (const element of document.elementsFromPoint(e.clientX, e.clientY)) {
+			const id = (element.closest?.("[data-node-id]"))?.getAttribute("data-node-id");
+			if (id && nodesById[id]) return nodesById[id];
+		}
+		return null;
+	};
+	const readDropPayload = (e) => {
+		try {
+			const raw5e = e.dataTransfer.getData("application/x-5etools-entry");
+			if (raw5e) return {
+				kind: "5e",
+				payload: JSON.parse(raw5e)
+			};
+			const rawBenefit = e.dataTransfer.getData("application/x-benefit");
+			if (rawBenefit) return {
+				kind: "benefit",
+				payload: JSON.parse(rawBenefit)
+			};
+		} catch {
+			return null;
+		}
+		return null;
+	};
 	const onDragOver = (e) => {
 		if (!editable) return;
-		if (![...e.dataTransfer.types || []].includes("application/x-5etools-entry")) return;
+		const types = [...e.dataTransfer.types || []];
+		if (!types.includes("application/x-5etools-entry") && !types.includes("application/x-benefit")) return;
 		e.preventDefault();
 		e.dataTransfer.dropEffect = "copy";
+		const next = dropNodeAt(e)?.id || null;
+		setDropNodeId((current) => current === next ? current : next);
+	};
+	const onDragLeave = (e) => {
+		if (!e.currentTarget.contains(e.relatedTarget)) setDropNodeId(null);
 	};
 	const onDrop = (e) => {
 		if (!editable) return;
-		const raw = e.dataTransfer.getData("application/x-5etools-entry");
-		if (!raw) return;
+		const dropped = readDropPayload(e);
+		setDropNodeId(null);
+		if (!dropped?.payload) return;
 		e.preventDefault();
-		try {
-			const payload = JSON.parse(raw);
-			const rect = containerRef.current.getBoundingClientRect();
-			const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-			const p = snapPoint(w.x, w.y, grid);
-			const id = addNode(p.x, p.y);
-			updateNode(id, {
+		const payload = dropped.payload;
+		const node = dropNodeAt(e);
+		if (!node && (payload.category === "spellSchool" || payload.category === "spellSubschool")) {
+			toast("Drop a spell school onto an existing node to create a spell table.");
+			return;
+		}
+		if (node) {
+			if (payload.category === "spellSchool" || payload.category === "spellSubschool") {
+				const subschool = payload.category === "spellSubschool";
+				setSchoolDrop({
+					nodeId: node.id,
+					nodeName: node.name || "node",
+					name: `${payload.name || "Spell"} Spells`,
+					table: spellTableForDrop({
+						school: subschool ? "" : payload.name || "",
+						subschool: subschool ? payload.name || "" : "",
+						parent: subschool ? payload.parent || "" : ""
+					})
+				});
+				setUi((u) => ({
+					...u,
+					selectedNodeId: node.id
+				}));
+				return;
+			}
+			const mapped = benefitCategoryForDrop(payload);
+			addNodeBenefit(node.id, {
+				category: mapped === "table" && !payload.table ? "feature" : mapped,
 				name: payload.name || "Imported Entry",
+				source: payload.source || payload.flavor || "",
 				description: payload.description || "",
-				flavor: payload.flavor || "",
-				image: payload.image || ""
+				image: payload.image || "",
+				...payload.table ? { table: payload.table } : {}
 			});
 			setUi((u) => ({
 				...u,
-				selectedNodeId: id,
-				editingNodeId: null
+				selectedNodeId: node.id
 			}));
-			toast.success(`“${payload.name || "Entry"}” added to the workspace.`);
-		} catch {
-			toast.error("Could not read the dropped entry.");
+			toast.success(`“${payload.name || "Entry"}” added to “${node.name || "node"}”.`);
+			return;
 		}
+		const rect = containerRef.current.getBoundingClientRect();
+		const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+		const p = snapPoint(w.x, w.y, grid);
+		const id = addNode(p.x, p.y);
+		updateNode(id, {
+			name: payload.name || "Imported Entry",
+			description: payload.description || "",
+			flavor: payload.flavor || payload.source || "",
+			image: payload.image || ""
+		});
+		setUi((u) => ({
+			...u,
+			selectedNodeId: id,
+			editingNodeId: null
+		}));
+		toast.success(`“${payload.name || "Entry"}” added to the workspace.`);
 	};
 	const commitInvest = (n, delta, optionNames) => {
 		investPoint(n.id, delta);
@@ -32458,6 +32975,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 			onWheel,
 			onDoubleClick,
 			onDragOver,
+			onDragLeave,
 			onDrop,
 			onContextMenu: (e) => {
 				e.preventDefault();
@@ -32509,6 +33027,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 							selected: ui.selectedNodeId === n.id || (ui.selectedNodeIds || []).includes(n.id),
 							showNames: ui.showNames,
 							dmHidden: dmHiddenIds.has(n.id),
+							dropTarget: dropNodeId === n.id,
 							available: availableIds.has(n.id),
 							placeholder: settings.placeholderImage,
 							placeholderFrame: settings.placeholderFrame,
@@ -32613,6 +33132,23 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 						setSubtreePicker(null);
 					},
 					onClose: () => setSubtreePicker(null)
+				}),
+				/* @__PURE__ */ jsx(BenefitTableDialog, {
+					open: !!schoolDrop,
+					initial: schoolDrop,
+					spells: benefitSpells(settings),
+					schools: settings?.library?.spellSchools || [],
+					onClose: () => setSchoolDrop(null),
+					onSave: ({ name, table }) => {
+						if (!schoolDrop) return;
+						addNodeBenefit(schoolDrop.nodeId, {
+							category: "table",
+							name,
+							table
+						});
+						toast.success(`“${name}” added to “${schoolDrop.nodeName}”.`);
+						setSchoolDrop(null);
+					}
 				}),
 				!isMobile && /* @__PURE__ */ jsx(MiniMap, {
 					nodes: hiddenIds ? tree.nodes.filter((n) => !hiddenIds.has(n.id)) : tree.nodes,
@@ -33840,371 +34376,6 @@ function NodeResourcesSection({ node, set }) {
 				children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add resource"]
 			})
 		]
-	});
-}
-// src/components/skilltree/BenefitTableDialog.jsx
-var DEFAULT_TABLE = {
-	source: "spells",
-	mode: "choose",
-	count: 1,
-	die: "d20",
-	optionsText: "",
-	filters: {
-		schools: [],
-		levelMode: "any",
-		level: "",
-		subschool: "",
-		castingTime: "",
-		duration: "",
-		save: "any",
-		range: "any",
-		target: "",
-		area: "",
-		effect: "",
-		materials: ""
-	}
-};
-function BenefitTableDialog({ open, onClose, onSave, spells = [], schools = [] }) {
-	const [name, setName] = useState("");
-	const [table, setTable] = useState(DEFAULT_TABLE);
-	const matches = useMemo(() => filterSpells(spells, table.filters), [spells, table.filters]);
-	if (!open) return null;
-	const patch = (p) => setTable((t) => ({
-		...t,
-		...p
-	}));
-	const patchFilter = (p) => setTable((t) => ({
-		...t,
-		filters: {
-			...t.filters,
-			...p
-		}
-	}));
-	return /* @__PURE__ */ jsx(Dialog, {
-		open,
-		onOpenChange: (v) => !v && onClose(),
-		children: /* @__PURE__ */ jsxs(DialogContent, {
-			className: "max-w-2xl",
-			children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Create a benefit table" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Choose options or roll on a table. Spell tables filter the spell library by school, level, subschool, casting time, duration, save/attack, range, target, area, effect and materials." })] }), /* @__PURE__ */ jsxs("div", {
-				className: "space-y-2",
-				children: [
-					/* @__PURE__ */ jsxs("div", {
-						className: "grid grid-cols-2 gap-2",
-						children: [/* @__PURE__ */ jsxs("div", {
-							className: "space-y-1",
-							children: [/* @__PURE__ */ jsx(Label, {
-								className: "text-[10px]",
-								children: "Table name"
-							}), /* @__PURE__ */ jsx(Input, {
-								className: "h-8",
-								placeholder: "e.g. Arcane Talent Spells",
-								value: name,
-								onChange: (e) => setName(e.target.value)
-							})]
-						}), /* @__PURE__ */ jsxs("div", {
-							className: "space-y-1",
-							children: [/* @__PURE__ */ jsx(Label, {
-								className: "text-[10px]",
-								children: "Options come from"
-							}), /* @__PURE__ */ jsxs(Select, {
-								value: table.source,
-								onValueChange: (v) => patch({ source: v }),
-								children: [/* @__PURE__ */ jsx(SelectTrigger, {
-									className: "h-8",
-									children: /* @__PURE__ */ jsx(SelectValue, {})
-								}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-									value: "spells",
-									children: "Spell library"
-								}), /* @__PURE__ */ jsx(SelectItem, {
-									value: "custom",
-									children: "Custom list"
-								})] })]
-							})]
-						})]
-					}),
-					/* @__PURE__ */ jsxs("div", {
-						className: "grid grid-cols-3 gap-2",
-						children: [
-							/* @__PURE__ */ jsxs("div", {
-								className: "space-y-1",
-								children: [/* @__PURE__ */ jsx(Label, {
-									className: "text-[10px]",
-									children: "How many"
-								}), /* @__PURE__ */ jsxs(Select, {
-									value: table.mode,
-									onValueChange: (v) => patch({ mode: v }),
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-8",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsxs(SelectContent, { children: [/* @__PURE__ */ jsx(SelectItem, {
-										value: "choose",
-										children: "Choose N"
-									}), /* @__PURE__ */ jsx(SelectItem, {
-										value: "roll",
-										children: "Roll a die"
-									})] })]
-								})]
-							}),
-							table.mode === "choose" ? /* @__PURE__ */ jsxs("div", {
-								className: "space-y-1",
-								children: [/* @__PURE__ */ jsx(Label, {
-									className: "text-[10px]",
-									children: "Choices"
-								}), /* @__PURE__ */ jsx(Input, {
-									className: "h-8",
-									type: "number",
-									min: 1,
-									value: table.count,
-									onChange: (e) => patch({ count: Math.max(1, Number(e.target.value) || 1) })
-								})]
-							}) : /* @__PURE__ */ jsxs("div", {
-								className: "space-y-1",
-								children: [/* @__PURE__ */ jsx(Label, {
-									className: "text-[10px]",
-									children: "Die"
-								}), /* @__PURE__ */ jsxs(Select, {
-									value: table.die,
-									onValueChange: (v) => patch({ die: v }),
-									children: [/* @__PURE__ */ jsx(SelectTrigger, {
-										className: "h-8",
-										children: /* @__PURE__ */ jsx(SelectValue, {})
-									}), /* @__PURE__ */ jsx(SelectContent, { children: [
-										"d4",
-										"d6",
-										"d8",
-										"d10",
-										"d12",
-										"d20",
-										"d100"
-									].map((d) => /* @__PURE__ */ jsx(SelectItem, {
-										value: d,
-										children: d
-									}, d)) })]
-								})]
-							}),
-							/* @__PURE__ */ jsx("div", {
-								className: "self-end pb-1 text-[10px] text-muted-foreground",
-								children: table.source === "spells" ? `${matches.length} spell${matches.length === 1 ? "" : "s"} match` : `${String(table.optionsText || "").split(/\r?\n/).filter((s) => s.trim()).length} options`
-							})
-						]
-					}),
-					table.source === "spells" ? /* @__PURE__ */ jsxs("div", {
-						className: "space-y-2 rounded-md border p-2",
-						children: [
-							/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
-								className: "text-[10px]",
-								children: "Schools"
-							}), /* @__PURE__ */ jsx("div", {
-								className: "mt-1 flex flex-wrap gap-1",
-								children: schools.map((school) => {
-									const on = table.filters.schools.includes(school);
-									return /* @__PURE__ */ jsx("button", {
-										type: "button",
-										onClick: () => patchFilter({ schools: on ? table.filters.schools.filter((s) => s !== school) : [...table.filters.schools, school] }),
-										className: `rounded border px-1.5 py-0.5 text-[10px] ${on ? "border-primary bg-primary/10" : "hover:bg-accent"}`,
-										children: school
-									}, school);
-								})
-							})] }),
-							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-3 gap-2",
-								children: [
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Level relation"
-										}), /* @__PURE__ */ jsxs(Select, {
-											value: table.filters.levelMode,
-											onValueChange: (v) => patchFilter({ levelMode: v }),
-											children: [/* @__PURE__ */ jsx(SelectTrigger, {
-												className: "h-8",
-												children: /* @__PURE__ */ jsx(SelectValue, {})
-											}), /* @__PURE__ */ jsx(SelectContent, { children: LEVEL_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
-												value: m.id,
-												children: m.label
-											}, m.id)) })]
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Level (0 = cantrip)"
-										}), /* @__PURE__ */ jsx(Input, {
-											className: "h-8",
-											type: "number",
-											min: 0,
-											value: table.filters.level,
-											onChange: (e) => patchFilter({ level: e.target.value })
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Subschool"
-										}), /* @__PURE__ */ jsx(Input, {
-											className: "h-8",
-											placeholder: "e.g. Dunamancy",
-											value: table.filters.subschool,
-											onChange: (e) => patchFilter({ subschool: e.target.value })
-										})]
-									})
-								]
-							}),
-							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-3 gap-2",
-								children: [
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Casting time"
-										}), /* @__PURE__ */ jsx(Input, {
-											className: "h-8",
-											placeholder: "Action, Bonus…",
-											value: table.filters.castingTime,
-											onChange: (e) => patchFilter({ castingTime: e.target.value })
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Duration"
-										}), /* @__PURE__ */ jsx(Input, {
-											className: "h-8",
-											placeholder: "Instant, 1 minute…",
-											value: table.filters.duration,
-											onChange: (e) => patchFilter({ duration: e.target.value })
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Save / attack"
-										}), /* @__PURE__ */ jsxs(Select, {
-											value: table.filters.save,
-											onValueChange: (v) => patchFilter({ save: v }),
-											children: [/* @__PURE__ */ jsx(SelectTrigger, {
-												className: "h-8",
-												children: /* @__PURE__ */ jsx(SelectValue, {})
-											}), /* @__PURE__ */ jsx(SelectContent, { children: TABLE_SAVE_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
-												value: m.id,
-												children: m.label
-											}, m.id)) })]
-										})]
-									})
-								]
-							}),
-							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-3 gap-2",
-								children: [
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Melee / ranged"
-										}), /* @__PURE__ */ jsxs(Select, {
-											value: table.filters.range,
-											onValueChange: (v) => patchFilter({ range: v }),
-											children: [/* @__PURE__ */ jsx(SelectTrigger, {
-												className: "h-8",
-												children: /* @__PURE__ */ jsx(SelectValue, {})
-											}), /* @__PURE__ */ jsx(SelectContent, { children: TABLE_RANGE_MODES.map((m) => /* @__PURE__ */ jsx(SelectItem, {
-												value: m.id,
-												children: m.label
-											}, m.id)) })]
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Target"
-										}), /* @__PURE__ */ jsx(Input, {
-											className: "h-8",
-											placeholder: "e.g. one creature",
-											value: table.filters.target,
-											onChange: (e) => patchFilter({ target: e.target.value })
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(Label, {
-											className: "text-[10px]",
-											children: "Area of effect"
-										}), /* @__PURE__ */ jsx(Input, {
-											className: "h-8",
-											placeholder: "e.g. 20-foot cone",
-											value: table.filters.area,
-											onChange: (e) => patchFilter({ area: e.target.value })
-										})]
-									})
-								]
-							}),
-							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-2 gap-2",
-								children: [/* @__PURE__ */ jsxs("div", {
-									className: "space-y-1",
-									children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Effect"
-									}), /* @__PURE__ */ jsx(Input, {
-										className: "h-8",
-										placeholder: "e.g. damage, healing",
-										value: table.filters.effect,
-										onChange: (e) => patchFilter({ effect: e.target.value })
-									})]
-								}), /* @__PURE__ */ jsxs("div", {
-									className: "space-y-1",
-									children: [/* @__PURE__ */ jsx(Label, {
-										className: "text-[10px]",
-										children: "Casting materials"
-									}), /* @__PURE__ */ jsx(Input, {
-										className: "h-8",
-										placeholder: "e.g. a bit of fleece",
-										value: table.filters.materials,
-										onChange: (e) => patchFilter({ materials: e.target.value })
-									})]
-								})]
-							})
-						]
-					}) : /* @__PURE__ */ jsxs("div", {
-						className: "space-y-1",
-						children: [/* @__PURE__ */ jsx(Label, {
-							className: "text-[10px]",
-							children: "Options (one per line)"
-						}), /* @__PURE__ */ jsx(Textarea, {
-							className: "min-h-24",
-							placeholder: "Fire Bolt\nMagic Missile\nShield",
-							value: table.optionsText,
-							onChange: (e) => patch({ optionsText: e.target.value })
-						})]
-					}),
-					/* @__PURE__ */ jsxs("div", {
-						className: "flex justify-end gap-1",
-						children: [/* @__PURE__ */ jsx(Button, {
-							variant: "outline",
-							onClick: onClose,
-							children: "Cancel"
-						}), /* @__PURE__ */ jsx(Button, {
-							disabled: !name.trim(),
-							onClick: () => {
-								onSave({
-									name: name.trim(),
-									table
-								});
-								onClose();
-							},
-							children: "Add table"
-						})]
-					})
-				]
-			})]
-		})
 	});
 }
 // src/components/skilltree/NodeBenefitsSection.jsx
@@ -89014,12 +89185,13 @@ var STEPS = [
 		title: "Drag data onto the workspace",
 		intro: "The fastest way to turn reference material into a node is to drag it from the library.",
 		points: [
-			"Open Reference Library → 5eTools Imports, then drag an entry onto the canvas.",
+			"Open Reference Library → 5eTools Imports, then drag an entry onto empty canvas to create a node.",
+			"Drop the same entry onto an existing node to add it as a granted benefit (spells, equipment, features, proficiencies and more).",
 			"The new node gets the entry name, full stat block and text in the description, plus its artwork when available.",
 			"The same works for the dedicated Backgrounds, Species, Deities, Objects and Traps tabs.",
 			"Ctrl/⌘+K searches nodes, library entries, rooms, dungeons and rulebook chapters."
 		],
-		tip: "Drop the entry where you want the node. The library panel can stay open on the left."
+		tip: "Drop on a node to attach it; drop on empty space to create a new node. The library can stay open on the left."
 	},
 	{
 		id: "rulebook",

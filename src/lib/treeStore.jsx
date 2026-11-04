@@ -59,6 +59,7 @@ import {
 } from "@/lib/pointTypes";
 import { nodeMaxPoints } from "@/lib/nodeTiers";
 import { hiddenNodeIds } from "@/lib/nodeVisibility";
+import { benefitId } from "@/lib/benefits";
 import {
   LEGACY_KEYS,
   readProjectValue,
@@ -1955,6 +1956,24 @@ export function TreeProvider({ children }) {
     );
   }, []);
 
+  // Add a dropped library/Reference entry to a node's granted benefits.
+  const addNodeBenefit = useCallback((nodeId, benefit) => {
+    const entry = { ...benefit, id: benefit?.id || benefitId() };
+    setTree((t) =>
+      t
+        ? {
+            ...t,
+            nodes: t.nodes.map((n) =>
+              n.id === nodeId
+                ? { ...n, benefits: [...(n.benefits || []), entry] }
+                : n
+            ),
+          }
+        : t
+    );
+    return entry;
+  }, []);
+
   // Universal Appearance -> Node Size scaler. Every node keeps its size
   // relative to the others; nested subtrees, other tabs and the stashed parent
   // spaces of the subtree editor are included. Positions stay untouched.
@@ -3000,6 +3019,7 @@ export function TreeProvider({ children }) {
     focusNode,
     clearTreeFocus,
     updateNode,
+    addNodeBenefit,
     scaleAllNodeSizes,
     addNode,
     deleteNode,

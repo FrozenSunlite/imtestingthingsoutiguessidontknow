@@ -306,7 +306,9 @@ export function NameList({ label, entries, onChange, placeholder, dragCategory =
             key={i}
             {...(dragCategory ? benefitDragProps(dragCategory, v) : {})}
             data-entry-name={typeof v === "string" ? v : ""}
-            className="flex items-center gap-1"
+            className={`flex items-center gap-1 ${
+              dragCategory ? "cursor-grab active:cursor-grabbing" : ""
+            }`}
           >
             <InfoTip label="One entry per row — press + to add another.">
               <Input

@@ -83,6 +83,7 @@ const QUICK_REFERENCE = [
       ["Select", "Click · Ctrl/⌘+click to add · drag to box-select"],
       ["Move node", "Drag its body"],
       ["New node", "Double-click empty canvas (Edit mode)"],
+      ["Library drop", "Empty canvas = new node · onto a node = granted benefit"],
       ["Draw connector", "Alt+click node → Alt+click node · Esc cancels"],
       ["Delete selection", "Delete key"],
       ["Undo / Redo", "Configurable in Settings → Hotkeys"],

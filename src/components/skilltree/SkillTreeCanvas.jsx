@@ -43,9 +43,15 @@ import { AbilityChoiceDialog } from "@/components/skilltree/AbilityChoiceDialog"
 import { SubtreePickerDialog } from "@/components/skilltree/SubtreePickerDialog";
 import { ConnectorMenu } from "@/components/skilltree/ConnectorMenu";
 import { CarryGhost } from "@/components/skilltree/CarryGhost";
+import { BenefitTableDialog } from "@/components/skilltree/BenefitTableDialog";
 import { playSfx } from "@/lib/audio";
 import { SFX } from "@/lib/sfx";
 import { hiddenNodeIds } from "@/lib/nodeVisibility";
+import {
+  benefitCategoryForDrop,
+  benefitSpells,
+  spellTableForDrop,
+} from "@/lib/benefits";
 
 // Camera framing bookkeeping. Module scope on purpose: it must survive canvas
 // unmounts, so returning from the character sheet keeps the current view.
@@ -63,6 +69,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     ui,
     setUi,
     updateNode,
+    addNodeBenefit,
     addNode,
     rotateNodes,
     deleteNodes,
@@ -239,6 +246,8 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
   // the player can pick which tree to open in a side panel.
   const [subtreePicker, setSubtreePicker] = useState(null);
   const [connMenu, setConnMenu] = useState(null); // {x, y, conn, world}
+  const [dropNodeId, setDropNodeId] = useState(null);
+  const [schoolDrop, setSchoolDrop] = useState(null);
   const hoverTimer = useRef(null);
   // Set when a link completes, so the click that finishes it doesn't also
   // select the target node and open the editor panel.
@@ -1201,37 +1210,112 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     if (wasEmpty) centreOnWorld(0, 0);
   };
 
-  // Drag an entry from Reference Library → 5eTools Imports onto the workspace.
-  // The entry's name, source, stats and body text become the new node's
-  // description, and its artwork becomes the node image when one was imported.
+  // Drag an entry from the Reference Library or a Library tab:
+  // - dropped on an existing node, it becomes a granted benefit on that node;
+  // - dropped on empty workspace, it becomes a new node.
+  const dropNodeAt = (e) => {
+    if (typeof document === "undefined" || !document.elementsFromPoint) return null;
+    for (const element of document.elementsFromPoint(e.clientX, e.clientY)) {
+      const holder = element.closest?.("[data-node-id]");
+      const id = holder?.getAttribute("data-node-id");
+      if (id && nodesById[id]) return nodesById[id];
+    }
+    return null;
+  };
+
+  const readDropPayload = (e) => {
+    try {
+      const raw5e = e.dataTransfer.getData("application/x-5etools-entry");
+      if (raw5e) return { kind: "5e", payload: JSON.parse(raw5e) };
+      const rawBenefit = e.dataTransfer.getData("application/x-benefit");
+      if (rawBenefit) return { kind: "benefit", payload: JSON.parse(rawBenefit) };
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
   const onDragOver = (e) => {
     if (!editable) return;
-    if (![...(e.dataTransfer.types || [])].includes("application/x-5etools-entry")) return;
+    const types = [...(e.dataTransfer.types || [])];
+    if (
+      !types.includes("application/x-5etools-entry") &&
+      !types.includes("application/x-benefit")
+    ) {
+      return;
+    }
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
+    const node = dropNodeAt(e);
+    const next = node?.id || null;
+    setDropNodeId((current) => (current === next ? current : next));
+  };
+  const onDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setDropNodeId(null);
   };
   const onDrop = (e) => {
     if (!editable) return;
-    const raw = e.dataTransfer.getData("application/x-5etools-entry");
-    if (!raw) return;
+    const dropped = readDropPayload(e);
+    setDropNodeId(null);
+    if (!dropped?.payload) return;
     e.preventDefault();
-    try {
-      const payload = JSON.parse(raw);
-      const rect = containerRef.current.getBoundingClientRect();
-      const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-      const p = snapPoint(w.x, w.y, grid);
-      const id = addNode(p.x, p.y);
-      updateNode(id, {
-        name: payload.name || "Imported Entry",
-        description: payload.description || "",
-        flavor: payload.flavor || "",
-        image: payload.image || "",
-      });
-      setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: null }));
-      toast.success(`“${payload.name || "Entry"}” added to the workspace.`);
-    } catch {
-      toast.error("Could not read the dropped entry.");
+    const payload = dropped.payload;
+    const node = dropNodeAt(e);
+
+    if (
+      !node &&
+      (payload.category === "spellSchool" || payload.category === "spellSubschool")
+    ) {
+      toast("Drop a spell school onto an existing node to create a spell table.");
+      return;
     }
+
+    if (node) {
+      if (payload.category === "spellSchool" || payload.category === "spellSubschool") {
+        const subschool = payload.category === "spellSubschool";
+        setSchoolDrop({
+          nodeId: node.id,
+          nodeName: node.name || "node",
+          name: `${payload.name || "Spell"} Spells`,
+          table: spellTableForDrop({
+            school: subschool ? "" : payload.name || "",
+            subschool: subschool ? payload.name || "" : "",
+            parent: subschool ? payload.parent || "" : "",
+          }),
+        });
+        setUi((u) => ({ ...u, selectedNodeId: node.id }));
+        return;
+      }
+      const mapped = benefitCategoryForDrop(payload);
+      addNodeBenefit(node.id, {
+        // A table row dragged by name has no table definition; keep its text
+        // as a Feature instead of creating an empty table benefit.
+        category: mapped === "table" && !payload.table ? "feature" : mapped,
+        name: payload.name || "Imported Entry",
+        source: payload.source || payload.flavor || "",
+        description: payload.description || "",
+        image: payload.image || "",
+        ...(payload.table ? { table: payload.table } : {}),
+      });
+      setUi((u) => ({ ...u, selectedNodeId: node.id }));
+      toast.success(
+        `“${payload.name || "Entry"}” added to “${node.name || "node"}”.`
+      );
+      return;
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const w = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const p = snapPoint(w.x, w.y, grid);
+    const id = addNode(p.x, p.y);
+    updateNode(id, {
+      name: payload.name || "Imported Entry",
+      description: payload.description || "",
+      flavor: payload.flavor || payload.source || "",
+      image: payload.image || "",
+    });
+    setUi((u) => ({ ...u, selectedNodeId: id, editingNodeId: null }));
+    toast.success(`“${payload.name || "Entry"}” added to the workspace.`);
   };
 
   // Point investment. Nodes with ability options (e.g. Fighting Style) open a
@@ -1481,6 +1565,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       onWheel={onWheel}
       onDoubleClick={onDoubleClick}
       onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
       onDrop={onDrop}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -1531,6 +1616,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
             selected={ui.selectedNodeId === n.id || (ui.selectedNodeIds || []).includes(n.id)}
             showNames={ui.showNames}
             dmHidden={dmHiddenIds.has(n.id)}
+            dropTarget={dropNodeId === n.id}
             available={availableIds.has(n.id)}
             placeholder={settings.placeholderImage}
             placeholderFrame={settings.placeholderFrame}
@@ -1648,6 +1734,24 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
           setSubtreePicker(null);
         }}
         onClose={() => setSubtreePicker(null)}
+      />
+
+      <BenefitTableDialog
+        open={!!schoolDrop}
+        initial={schoolDrop}
+        spells={benefitSpells(settings)}
+        schools={settings?.library?.spellSchools || []}
+        onClose={() => setSchoolDrop(null)}
+        onSave={({ name, table }) => {
+          if (!schoolDrop) return;
+          addNodeBenefit(schoolDrop.nodeId, {
+            category: "table",
+            name,
+            table,
+          });
+          toast.success(`“${name}” added to “${schoolDrop.nodeName}”.`);
+          setSchoolDrop(null);
+        }}
       />
 
       {!isMobile && (

@@ -170,12 +170,13 @@ const STEPS = [
     intro:
       "The fastest way to turn reference material into a node is to drag it from the library.",
     points: [
-      "Open Reference Library → 5eTools Imports, then drag an entry onto the canvas.",
+      "Open Reference Library → 5eTools Imports, then drag an entry onto empty canvas to create a node.",
+      "Drop the same entry onto an existing node to add it as a granted benefit (spells, equipment, features, proficiencies and more).",
       "The new node gets the entry name, full stat block and text in the description, plus its artwork when available.",
       "The same works for the dedicated Backgrounds, Species, Deities, Objects and Traps tabs.",
       "Ctrl/⌘+K searches nodes, library entries, rooms, dungeons and rulebook chapters.",
     ],
-    tip: "Drop the entry where you want the node. The library panel can stay open on the left.",
+    tip: "Drop on a node to attach it; drop on empty space to create a new node. The library can stay open on the left.",
   },
   {
     id: "rulebook",

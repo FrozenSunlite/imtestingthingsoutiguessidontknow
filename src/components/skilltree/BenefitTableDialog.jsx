@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -48,9 +48,31 @@ const DEFAULT_TABLE = {
 
 // Build a "choose N" or "roll" table for a node benefit. Spell tables store
 // the full filter set; custom tables use a plain list of options.
-export function BenefitTableDialog({ open, onClose, onSave, spells = [], schools = [] }) {
+export function BenefitTableDialog({
+  open,
+  onClose,
+  onSave,
+  spells = [],
+  schools = [],
+  initial = null,
+}) {
   const [name, setName] = useState("");
   const [table, setTable] = useState(DEFAULT_TABLE);
+
+  // Open with a prefilled school/subschool when a dragged school is dropped.
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name || "");
+    setTable({
+      ...DEFAULT_TABLE,
+      ...(initial?.table || {}),
+      filters: {
+        ...DEFAULT_TABLE.filters,
+        ...(initial?.table?.filters || {}),
+      },
+    });
+  }, [open, initial]);
+
   const matches = useMemo(
     () => filterSpells(spells, table.filters),
     [spells, table.filters]

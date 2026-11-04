@@ -5,6 +5,7 @@ import { FACILITY_TYPES, BASTION_FACILITIES } from "./homestead.js";
 
 export const BENEFIT_CATEGORIES = [
   { id: "spell", label: "Spells" },
+  { id: "feature", label: "Features" },
   { id: "equipment", label: "Equipment" },
   { id: "upgrade", label: "Upgrades" },
   { id: "armor", label: "Armor" },
@@ -47,6 +48,8 @@ export function benefitOptions(settings, category) {
   switch (category) {
     case "spell":
       return names(benefitSpells(settings));
+    case "feature":
+      return [];
     case "equipment":
       return [
         ...names(lib.weapons),
@@ -103,13 +106,38 @@ export const BENEFIT_CATEGORY_FOR_5E = {
   languages: "language",
   skills: "skill",
   senses: "sense",
-  tables: "table",
-  backgrounds: "other",
-  species: "other",
-  feats: "other",
-  conditions: "other",
-  actions: "other",
+  objects: "object",
+  vehicles: "equipment",
+  // Class features, feats, subclass/optional features, species traits and the
+  // rest of the rules-text categories become generic "Features" benefits.
+  classes: "feature",
+  subclasses: "feature",
+  feats: "feature",
+  optionalFeatures: "feature",
+  optionalfeatures: "feature",
+  charOptions: "feature",
+  backgrounds: "feature",
+  species: "feature",
+  bestiary: "feature",
+  conditions: "feature",
+  actions: "feature",
+  deities: "feature",
+  traps: "feature",
+  tables: "feature",
+  books: "feature",
+  adventures: "feature",
+  encounters: "feature",
+  rulesGlossary: "feature",
 };
+
+// Pick the benefit bucket for a dropped library/reference payload. Local
+// library drags already carry a benefit category; 5eTools entries carry the
+// Reference Index category id.
+export function benefitCategoryForDrop(payload) {
+  const category = String(payload?.category || "");
+  if (BENEFIT_CATEGORIES.some((entry) => entry.id === category)) return category;
+  return BENEFIT_CATEGORY_FOR_5E[category] || "feature";
+}
 
 // The spell library plus any 5eTools spells imported into the project. This
 // makes spell-table filters work even when the character's own spell list is
@@ -212,6 +240,33 @@ export function filterSpells(spells, filters = {}) {
     }
     return true;
   });
+}
+
+// A drop from the Spell Schools tab becomes an editable spell table: the
+// school/subschool is pre-filtered, and the table dialog lets the DM choose
+// levels, casting style, number of choices and any other spell filters.
+export function spellTableForDrop({ school = "", subschool = "", parent = "" } = {}) {
+  return {
+    source: "spells",
+    mode: "choose",
+    count: 1,
+    die: "d20",
+    optionsText: "",
+    filters: {
+      schools: school ? [school] : parent ? [parent] : [],
+      levelMode: "any",
+      level: "",
+      subschool: subschool || "",
+      castingTime: "",
+      duration: "",
+      save: "any",
+      range: "any",
+      target: "",
+      area: "",
+      effect: "",
+      materials: "",
+    },
+  };
 }
 
 export function tableOptions(table, spells) {

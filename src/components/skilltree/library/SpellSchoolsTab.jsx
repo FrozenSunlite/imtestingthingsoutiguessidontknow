@@ -10,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
+import { GripVertical, Plus, X } from "lucide-react";
 import { InfoTip } from "@/components/skilltree/InfoTip";
+import { benefitDragProps } from "@/lib/benefits";
 import { NameList } from "./shared";
 
 // Reference Library tab: spell schools (Evocation…) and subschools
@@ -37,6 +38,7 @@ export function SpellSchoolsTab() {
         entries={schools}
         onChange={(n) => setLib({ spellSchools: n })}
         placeholder="School (e.g. Evocation)"
+        dragCategory="spellSchool"
       />
       <div className="rounded-md border p-2">
         <div className="flex items-center justify-between">
@@ -62,6 +64,13 @@ export function SpellSchoolsTab() {
         <div className="mt-1 space-y-1">
           {shown.map(({ s, i }) => (
             <div key={i} className="flex items-center gap-1">
+              <span
+                {...benefitDragProps("spellSubschool", s.name, { parent: s.parent })}
+                className="cursor-grab active:cursor-grabbing"
+                title="Drag onto a node to grant spells from this subschool"
+              >
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+              </span>
               <InfoTip label="The subschool's name.">
                 <Input
                   className="h-8 flex-1"
