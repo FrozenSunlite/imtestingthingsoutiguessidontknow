@@ -1,0 +1,1 @@
+import{b as e}from"./routes-N1tLZyWO.js";var t=e(`FileOpener`);export{t as FileOpener};

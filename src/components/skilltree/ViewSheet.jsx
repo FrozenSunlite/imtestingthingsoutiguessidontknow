@@ -15,7 +15,16 @@ import { ActionActivationDialog } from "./ActionActivationDialog";
 import { DiceRoller } from "./DiceRoller";
 import { InfoTip } from "./InfoTip";
 import Rulebook from "@/components/rulebook/Rulebook";
-import { BookOpen, Dices, Download, PanelBottom, PanelLeft, Play } from "lucide-react";
+import {
+  BookOpen,
+  Dices,
+  Download,
+  EyeOff,
+  PanelBottom,
+  PanelLeft,
+  Play,
+  X,
+} from "lucide-react";
 
 // The tabbed "View" screen: a player-facing character sheet, organized like
 // the sheet but split across tabs — Character, Actions, Inventory, Spells and
@@ -23,7 +32,7 @@ import { BookOpen, Dices, Download, PanelBottom, PanelLeft, Play } from "lucide-
 // the left (investing points there feeds this sheet); the working "Values"
 // sheet appears as one more tab, but only in dev mode.
 export function ViewSheet({ onExport }) {
-  const { character, sideTrees, setSideTree } = useTree();
+  const { character, setCharacter, sideTrees, setSideTree, setUi } = useTree();
   const [actOpen, setActOpen] = useState(false);
   const [diceOpen, setDiceOpen] = useState(false);
   const dev = !!character.devMode;
@@ -33,6 +42,16 @@ export function ViewSheet({ onExport }) {
   const togglePanel = (slot, def) => {
     const st = sideTrees?.[slot];
     setSideTree(slot, st ? { ...st, closed: !st.closed } : def);
+  };
+  const clearSelection = () => {
+    setUi((u) => ({
+      ...u,
+      selectedNodeId: null,
+      editingNodeId: null,
+      selectedNodeIds: [],
+      selectedConnectionId: null,
+    }));
+    window.dispatchEvent(new CustomEvent("skilltree:clear-selection"));
   };
 
   return (
@@ -45,6 +64,24 @@ export function ViewSheet({ onExport }) {
           onClick={() => togglePanel("left", { kind: "main" })}
         >
           <PanelLeft className="mr-1 h-4 w-4" /> Skill tree
+        </Button>
+        <Button
+          size="sm"
+          variant={character.hideLockedNodes ? "secondary" : "outline"}
+          title="Blind run: hide locked nodes and reveal them as prerequisites are met"
+          onClick={() =>
+            setCharacter({ ...character, hideLockedNodes: !character.hideLockedNodes })
+          }
+        >
+          <EyeOff className="mr-1 h-4 w-4" /> Blind run
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          title="Deselect every node in the View trees"
+          onClick={clearSelection}
+        >
+          <X className="mr-1 h-4 w-4" /> Deselect all
         </Button>
         <Button
           size="sm"

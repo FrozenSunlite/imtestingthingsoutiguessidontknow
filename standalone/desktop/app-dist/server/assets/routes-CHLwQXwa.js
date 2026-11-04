@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-Y35RYqqP.js";
+import { n as Button, r as cn } from "./router-DfoCU9l0.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5629,6 +5629,40 @@ function setSubtreePoint(nodes, path, points) {
 	});
 	return changed ? out : nodes;
 }
+function subtreeRootKeys(nodes) {
+	const ids = new Set((nodes || []).map((node) => node.id));
+	return new Set((nodes || []).filter((node) => !node.__returnNode && !(node.dependencies || []).some((id) => ids.has(id))).map((node) => node.__originalId || node.id));
+}
+function collectSubtreeInstances(tree) {
+	const out = [];
+	const visit = (nodes, hostId = "") => {
+		for (const node of nodes || []) for (const subtree of node.subtrees || []) {
+			out.push({
+				subtree,
+				hostId: hostId || node.id
+			});
+			visit(subtree.nodes, hostId || node.id);
+		}
+	};
+	visit(tree?.nodes);
+	for (const tab of tree?.tabs || []) visit(tab.nodes);
+	return out;
+}
+function sharedSubtreeConflict(tree, subtree, node, hostId = "") {
+	if (!subtree?.exclusive || !subtree?.sharedId) return null;
+	const roots = subtreeRootKeys(subtree.nodes);
+	const key = node?.__originalId || node?.id;
+	if (!roots.has(key)) return null;
+	for (const instance of collectSubtreeInstances(tree)) {
+		if (instance.subtree === subtree) continue;
+		if (hostId && instance.hostId === hostId) continue;
+		if (instance.subtree.sharedId !== subtree.sharedId) continue;
+		const otherRoots = subtreeRootKeys(instance.subtree.nodes);
+		const taken = (instance.subtree.nodes || []).find((candidate) => otherRoots.has(candidate.__originalId || candidate.id) && (Number(candidate.currentPoints) || 0) > 0);
+		if (taken) return taken;
+	}
+	return null;
+}
 function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
 	const subtree = (host?.subtrees || [])[subIndex] ?? (host?.subtrees || [])[0] ?? {};
 	const subLabel = subtree.poolName || subtree.name || host?.name || "Subtree";
@@ -8636,6 +8670,7 @@ function TreeProvider({ children }) {
 				maxPurchases: Math.max(0, Number(resolved.subtree.maxPurchases) || 0),
 				poolName: resolved.subtree.poolName || "",
 				exclusive: !!resolved.subtree.exclusive,
+				sharedId: resolved.subtree.sharedId || "",
 				abilityReqs: resolved.subtree.abilityReqs || [],
 				nodes: flat.nodes,
 				connections: flat.connections
@@ -45960,7 +45995,7 @@ function Rulebook({ className = "" }) {
 }
 // src/components/skilltree/ViewSheet.jsx
 function ViewSheet({ onExport }) {
-	const { character, sideTrees, setSideTree } = useTree();
+	const { character, setCharacter, sideTrees, setSideTree, setUi } = useTree();
 	const [actOpen, setActOpen] = useState(false);
 	const [diceOpen, setDiceOpen] = useState(false);
 	const dev = !!character.devMode;
@@ -45971,6 +46006,16 @@ function ViewSheet({ onExport }) {
 			...st,
 			closed: !st.closed
 		} : def);
+	};
+	const clearSelection = () => {
+		setUi((u) => ({
+			...u,
+			selectedNodeId: null,
+			editingNodeId: null,
+			selectedNodeIds: [],
+			selectedConnectionId: null
+		}));
+		window.dispatchEvent(new CustomEvent("skilltree:clear-selection"));
 	};
 	return /* @__PURE__ */ jsxs("div", {
 		className: "mx-auto flex h-full w-full max-w-5xl flex-col p-4",
@@ -45984,6 +46029,23 @@ function ViewSheet({ onExport }) {
 						title: "Show the skill tree panel on the left — invest points there and the effects apply to the character",
 						onClick: () => togglePanel("left", { kind: "main" }),
 						children: [/* @__PURE__ */ jsx(PanelLeft, { className: "mr-1 h-4 w-4" }), " Skill tree"]
+					}),
+					/* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: character.hideLockedNodes ? "secondary" : "outline",
+						title: "Blind run: hide locked nodes and reveal them as prerequisites are met",
+						onClick: () => setCharacter({
+							...character,
+							hideLockedNodes: !character.hideLockedNodes
+						}),
+						children: [/* @__PURE__ */ jsx(EyeOff, { className: "mr-1 h-4 w-4" }), " Blind run"]
+					}),
+					/* @__PURE__ */ jsxs(Button, {
+						size: "sm",
+						variant: "outline",
+						title: "Deselect every node in the View trees",
+						onClick: clearSelection,
+						children: [/* @__PURE__ */ jsx(X, { className: "mr-1 h-4 w-4" }), " Deselect all"]
 					}),
 					/* @__PURE__ */ jsxs(Button, {
 						size: "sm",
@@ -46258,6 +46320,15 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	const commitTimer = useRef(null);
 	const transformRaf = useRef(0);
 	const returnParentRef = useRef(null);
+	useEffect(() => {
+		const clear = () => {
+			setSelectedId(null);
+			setChoiceNode(null);
+			setSubtreePickNode(null);
+		};
+		window.addEventListener("skilltree:clear-selection", clear);
+		return () => window.removeEventListener("skilltree:clear-selection", clear);
+	}, []);
 	const isMain = st?.kind === "main";
 	const hostHidden = useMemo(() => {
 		if (isMain) return false;
@@ -46673,6 +46744,13 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 					return;
 				}
 			}
+			if (isSub && st.exclusive && cur === 0) {
+				const otherInstance = sharedSubtreeConflict(tree, st, n, st.subtreeHostId || "");
+				if (otherInstance) {
+					toast.error(`Mutually exclusive with “${otherInstance.name || "another branch"}” in another shared subtree — refund it first.`);
+					return;
+				}
+			}
 			if (cur === 0 && isExclusiveBlocked(n, nodesById)) {
 				const other = nodes.find((m) => m.id !== n.id && (m.currentPoints || 0) > 0 && ((n.exclusiveWith || []).includes(m.id) || (m.exclusiveWith || []).includes(n.id)));
 				toast.error(`Mutually exclusive with ${other?.name || "another node"} — refund it first.`);
@@ -47075,6 +47153,23 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 					/* @__PURE__ */ jsx("p", {
 						className: "mt-1 text-[11px] leading-snug text-muted-foreground",
 						children: selected.description || "No description."
+					}),
+					(selected.resources || []).length > 0 && /* @__PURE__ */ jsx("div", {
+						className: "mt-1 flex flex-wrap gap-1",
+						children: selected.resources.map((resource, index) => {
+							const amount = resource.valueType === "equal" ? resource.equalTo === "level" ? "per level" : `= ${resource.equalTo || "?"}` : resource.uses ?? resource.value ?? "";
+							return /* @__PURE__ */ jsxs("span", {
+								className: "rounded border bg-accent/40 px-1.5 py-0.5 text-[10px]",
+								children: [
+									/* @__PURE__ */ jsx("span", {
+										className: "font-semibold",
+										children: resource.name || "Resource"
+									}),
+									amount !== "" ? `: ${amount}` : "",
+									resource.recovery && resource.recovery !== "none" ? ` (${resource.recovery} rest)` : ""
+								]
+							}, `${resource.name || "resource"}-${index}`);
+						})
 					})
 				]
 			}),

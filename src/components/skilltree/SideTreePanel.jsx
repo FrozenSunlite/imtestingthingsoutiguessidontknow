@@ -21,6 +21,7 @@ import { abilityReqStatus } from "@/lib/skills";
 import { tierGate, nodeMaxPoints } from "@/lib/nodeTiers";
 import { isAvailable, isExclusiveBlocked, collectUnlockedNames } from "@/lib/geometry";
 import { hiddenNodeIds } from "@/lib/nodeVisibility";
+import { sharedSubtreeConflict } from "@/lib/subtrees";
 import { SkillNodeView } from "@/components/skilltree/SkillNodeView";
 import { ConnectionLayer } from "@/components/skilltree/ConnectionLayer";
 import { NodeTooltip } from "@/components/skilltree/NodeTooltip";
@@ -116,6 +117,16 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   const commitTimer = useRef(null);
   const transformRaf = useRef(0);
   const returnParentRef = useRef(null);
+
+  useEffect(() => {
+    const clear = () => {
+      setSelectedId(null);
+      setChoiceNode(null);
+      setSubtreePickNode(null);
+    };
+    window.addEventListener("skilltree:clear-selection", clear);
+    return () => window.removeEventListener("skilltree:clear-selection", clear);
+  }, []);
 
   const isMain = st?.kind === "main";
   // A host the DM hid takes its open subtree windows with it.
@@ -586,6 +597,20 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
         if (takenRoot) {
           toast.error(
             `Mutually exclusive with “${takenRoot.name || "another branch"}” — refund it first.`
+          );
+          return;
+        }
+      }
+      if (isSub && st.exclusive && cur === 0) {
+        const otherInstance = sharedSubtreeConflict(
+          tree,
+          st,
+          n,
+          st.subtreeHostId || ""
+        );
+        if (otherInstance) {
+          toast.error(
+            `Mutually exclusive with “${otherInstance.name || "another branch"}” in another shared subtree — refund it first.`
           );
           return;
         }
@@ -1064,6 +1089,30 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
           <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
             {selected.description || "No description."}
           </p>
+          {(selected.resources || []).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {selected.resources.map((resource, index) => {
+                const amount =
+                  resource.valueType === "equal"
+                    ? resource.equalTo === "level"
+                      ? "per level"
+                      : `= ${resource.equalTo || "?"}`
+                    : resource.uses ?? resource.value ?? "";
+                return (
+                  <span
+                    key={`${resource.name || "resource"}-${index}`}
+                    className="rounded border bg-accent/40 px-1.5 py-0.5 text-[10px]"
+                  >
+                    <span className="font-semibold">{resource.name || "Resource"}</span>
+                    {amount !== "" ? `: ${amount}` : ""}
+                    {resource.recovery && resource.recovery !== "none"
+                      ? ` (${resource.recovery} rest)`
+                      : ""}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

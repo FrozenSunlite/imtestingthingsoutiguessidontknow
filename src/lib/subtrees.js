@@ -472,6 +472,61 @@ export function setSubtreePoint(nodes, path, points) {
 // investments back) and `__originalId` (used to open its own nested subtree in
 // another tab). Legacy host copies are skipped unless `keepHostCopies` is set
 // (dev mode); the return node is always included so it can navigate upwards.
+// Root nodes of a subtree are the branches the player chooses between. The
+// return/host marker and any node with a dependency inside the subtree are not
+// roots. Flattened play nodes keep their definition id in __originalId.
+function subtreeRootKeys(nodes) {
+  const ids = new Set((nodes || []).map((node) => node.id));
+  return new Set(
+    (nodes || [])
+      .filter(
+        (node) =>
+          !node.__returnNode &&
+          !(node.dependencies || []).some((id) => ids.has(id))
+      )
+      .map((node) => node.__originalId || node.id)
+  );
+}
+
+function collectSubtreeInstances(tree) {
+  const out = [];
+  const visit = (nodes, hostId = "") => {
+    for (const node of nodes || []) {
+      for (const subtree of node.subtrees || []) {
+        out.push({ subtree, hostId: hostId || node.id });
+        visit(subtree.nodes, hostId || node.id);
+      }
+    }
+  };
+  visit(tree?.nodes);
+  for (const tab of tree?.tabs || []) visit(tab.nodes);
+  return out;
+}
+
+// Shared subtrees are the same definition instantiated under several host
+// talents. When a shared subtree is exclusive, picking a root branch in any
+// instance must lock the equivalent roots in every other instance, across all
+// project tabs.
+export function sharedSubtreeConflict(tree, subtree, node, hostId = "") {
+  if (!subtree?.exclusive || !subtree?.sharedId) return null;
+  const roots = subtreeRootKeys(subtree.nodes);
+  const key = node?.__originalId || node?.id;
+  if (!roots.has(key)) return null;
+  for (const instance of collectSubtreeInstances(tree)) {
+    if (instance.subtree === subtree) continue;
+    if (hostId && instance.hostId === hostId) continue;
+    if (instance.subtree.sharedId !== subtree.sharedId) continue;
+    const otherRoots = subtreeRootKeys(instance.subtree.nodes);
+    const taken = (instance.subtree.nodes || []).find(
+      (candidate) =>
+        otherRoots.has(candidate.__originalId || candidate.id) &&
+        (Number(candidate.currentPoints) || 0) > 0
+    );
+    if (taken) return taken;
+  }
+  return null;
+}
+
 export function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
   const subtree =
     (host?.subtrees || [])[subIndex] ?? (host?.subtrees || [])[0] ?? {};

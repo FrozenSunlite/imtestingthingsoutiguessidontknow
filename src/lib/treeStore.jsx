@@ -1276,6 +1276,7 @@ export function TreeProvider({ children }) {
         maxPurchases: Math.max(0, Number(resolved.subtree.maxPurchases) || 0),
         poolName: resolved.subtree.poolName || "",
         exclusive: !!resolved.subtree.exclusive,
+        sharedId: resolved.subtree.sharedId || "",
         abilityReqs: resolved.subtree.abilityReqs || [],
         nodes: flat.nodes,
         connections: flat.connections,
