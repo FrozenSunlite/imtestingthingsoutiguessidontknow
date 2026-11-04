@@ -1,1 +1,0 @@
-import{b as e}from"./routes-Bp9gSV_G.js";var t=e(`FileOpener`);export{t as FileOpener};

@@ -27,9 +27,9 @@ export function SubtreeNodeEditor({ node, set, settings }) {
           <Input
             className="h-7"
             type="number"
-            min={1}
+            min={0}
             value={node.maxPoints}
-            onChange={(e) => set({ maxPoints: Math.max(1, Number(e.target.value) || 1) })}
+            onChange={(e) => set({ maxPoints: Math.max(0, Number(e.target.value) || 0) })}
           />
         </div>
       </div>

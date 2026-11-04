@@ -438,7 +438,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     const updated = nodes.map((m) => {
       if (m.id !== id) return m;
       const rawMax = Number(m.maxPoints);
-      const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+      const max = Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1;
       const cur = Number(m.currentPoints) || 0;
       const next = Math.max(0, Math.min(max, cur + delta));
       // Acquisition order for the sheet's unlocked lists: first point stamps it.

@@ -135,6 +135,9 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
     updateNode(id, {
       name: node.name + " (copy)",
       maxPoints: node.maxPoints,
+      maxPointsMode: node.maxPointsMode || "manual",
+      maxPointsBonus: node.maxPointsBonus ?? 0,
+      maxPointsSubtree: node.maxPointsSubtree ?? 0,
       description: node.description,
       flavor: node.flavor,
       resources: node.resources,

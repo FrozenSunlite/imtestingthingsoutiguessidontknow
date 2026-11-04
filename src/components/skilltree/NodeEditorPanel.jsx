@@ -303,7 +303,7 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
 
         {/* ── Investment ───────────────────────────────────────────── */}
         <FieldGroup label="Costs & Investment" collapsible>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <InfoTip label="Points spent from the pool each time a point is invested here (0 = free).">
                 <Label>Node Cost</Label>
@@ -313,17 +313,6 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
                 min={0}
                 value={node.cost ?? 1}
                 onChange={(e) => set({ cost: Math.max(0, Number(e.target.value) || 0) })}
-              />
-            </div>
-            <div className="space-y-1">
-              <InfoTip label="How many times this node can be invested (1 = one-time pick).">
-                <Label>Max Points</Label>
-              </InfoTip>
-              <Input
-                type="number"
-                min={1}
-                value={node.maxPoints}
-                onChange={(e) => set({ maxPoints: Math.max(1, Number(e.target.value) || 1) })}
               />
             </div>
             <div className="space-y-1">
@@ -339,6 +328,93 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
                 }
               />
             </div>
+          </div>
+
+          <div className="mt-2 space-y-1">
+            <InfoTip label="How many times this node can be invested. Manual is a flat number; the other sources recalculate automatically. Free, auto-granted, return and 0-point nodes do not count as subtree nodes.">
+              <Label>Max Points</Label>
+            </InfoTip>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Select
+                value={node.maxPointsMode || "manual"}
+                onValueChange={(value) =>
+                  set({
+                    maxPointsMode: value,
+                    maxPointsBonus: Math.max(0, Number(node.maxPointsBonus) || 0),
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 min-w-40 flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual (flat)</SelectItem>
+                  <SelectItem value="subtreeAll">All subtree nodes</SelectItem>
+                  <SelectItem value="subtreeSelected">Selected subtree nodes</SelectItem>
+                  <SelectItem value="tiers">Tier count</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {(node.maxPointsMode || "manual") === "manual" ? (
+                <Input
+                  className="h-8 w-24"
+                  type="number"
+                  min={0}
+                  value={node.maxPoints ?? 1}
+                  onChange={(e) =>
+                    set({ maxPoints: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground">+ flat</span>
+                  <Input
+                    className="h-8 w-16"
+                    type="number"
+                    min={0}
+                    value={node.maxPointsBonus ?? 0}
+                    onChange={(e) =>
+                      set({ maxPointsBonus: Math.max(0, Number(e.target.value) || 0) })
+                    }
+                  />
+                  <span className="font-medium">= {nodeMaxPoints(node)}</span>
+                </div>
+              )}
+            </div>
+
+            {node.maxPointsMode === "subtreeSelected" && (
+              <Select
+                value={String(node.maxPointsSubtree ?? 0)}
+                onValueChange={(value) => set({ maxPointsSubtree: Number(value) || 0 })}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue placeholder="Choose a subtree" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(node.subtrees || []).length ? (
+                    (node.subtrees || []).map((subtree, index) => (
+                      <SelectItem key={subtree.id || index} value={String(index)}>
+                        {subtree.name || `Subtree ${index + 1}`}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="0" disabled>
+                      No subtrees
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
+
+            {node.maxPointsMode && node.maxPointsMode !== "manual" && (
+              <p className="text-[10px] text-muted-foreground">
+                {node.maxPointsMode === "tiers"
+                  ? "Counts the tiers defined below; tier point totals adjust to match."
+                  : node.maxPointsMode === "subtreeSelected"
+                    ? "Counts investable nodes in the chosen subtree."
+                    : "Counts investable nodes in every subtree (free, auto-granted, return and 0-point nodes excluded)."}
+              </p>
+            )}
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div className="space-y-1">

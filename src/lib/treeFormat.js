@@ -11,6 +11,57 @@ const parseList = (value) =>
         .map((item) => item.trim())
         .filter(Boolean);
 
+const NODE_ARRAY_FIELDS = [
+  "dependencies",
+  "exclusiveWith",
+  "resources",
+  "actions",
+  "options",
+  "grants",
+  "proficiencies",
+  "requiredProficiencies",
+  "abilityReqs",
+  "tiers",
+  "talentTypes",
+  "choiceProficiencies",
+  "requiresNames",
+];
+
+// Hand-written/partial trees often omit optional arrays. Fill them once so the
+// canvas, node editor and export never call .map on undefined.
+export function withNodeDefaults(node) {
+  if (!node || typeof node !== "object" || Array.isArray(node)) return node;
+  const next = { ...node };
+  for (const field of NODE_ARRAY_FIELDS) {
+    if (!Array.isArray(next[field])) next[field] = [];
+  }
+  const rawMax = Number(next.maxPoints);
+  next.maxPoints = Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1;
+  const rawCost = Number(next.cost);
+  next.cost = Number.isFinite(rawCost) ? Math.max(0, rawCost) : 1;
+  next.currentPoints = Math.max(0, Number(next.currentPoints) || 0);
+  if (!["manual", "subtreeAll", "subtreeSelected", "tiers"].includes(next.maxPointsMode)) {
+    next.maxPointsMode = "manual";
+  }
+  next.maxPointsBonus = Math.max(0, Number(next.maxPointsBonus) || 0);
+  next.maxPointsSubtree = Math.max(0, Number(next.maxPointsSubtree) || 0);
+  const subtrees = Array.isArray(next.subtrees)
+    ? next.subtrees
+    : next.subtree && typeof next.subtree === "object"
+      ? [next.subtree]
+      : [];
+  next.subtrees = subtrees.map((subtree) =>
+    subtree && typeof subtree === "object"
+      ? {
+          ...subtree,
+          nodes: (Array.isArray(subtree.nodes) ? subtree.nodes : []).map(withNodeDefaults),
+        }
+      : subtree
+  );
+  delete next.subtree;
+  return next;
+}
+
 // The six node types. Each maps to the pool its points are spent from;
 // "attribute" nodes spend Attribute Points and grant +1 to a chosen attribute
 // per invested point. Mundane nodes spend Talent Points like any other —
@@ -46,7 +97,7 @@ export function normalizeTree(data) {
     return {
       className: source.className || "Skill Tree",
       name: source.name || source.className || "Skill Tree",
-      nodes: source.nodes,
+      nodes: source.nodes.map(withNodeDefaults),
       connections: source.connections,
     };
   }
@@ -70,6 +121,13 @@ export function normalizeTree(data) {
       x: typeof pos.x === "number" ? pos.x : 0,
       y: typeof pos.y === "number" ? pos.y : 0,
       maxPoints,
+      maxPointsMode: ["manual", "subtreeAll", "subtreeSelected", "tiers"].includes(
+        s["Skill Max Points Mode"]
+      )
+        ? s["Skill Max Points Mode"]
+        : "manual",
+      maxPointsBonus: Math.max(0, Number(s["Skill Max Points Bonus"]) || 0),
+      maxPointsSubtree: Math.max(0, Number(s["Skill Max Points Subtree"]) || 0),
       currentPoints: s["Skill Current Points"] ?? 0,
       levelGain: Math.max(0, Number(s["Skill Level Gain"]) || 0),
       image: s["Skill Image"] || "",
@@ -243,7 +301,7 @@ export function normalizeTree(data) {
   return {
     className: source["Class Name"] || "Skill Tree",
     name: source["Project Name"] || source.name || source["Class Name"] || "Skill Tree",
-    nodes,
+    nodes: nodes.map(withNodeDefaults),
     connections,
   };
 }
@@ -263,6 +321,9 @@ export function denormalizeTree(tree) {
     "Skill Level": 1,
     "Skill Description": n.description,
     "Skill Max Points": n.maxPoints,
+    "Skill Max Points Mode": n.maxPointsMode || "manual",
+    "Skill Max Points Bonus": n.maxPointsBonus ?? 0,
+    "Skill Max Points Subtree": n.maxPointsSubtree ?? 0,
     "Skill Current Points": n.currentPoints,
     "Skill Level Gain": n.levelGain || 0,
     "Skill Image": n.image,

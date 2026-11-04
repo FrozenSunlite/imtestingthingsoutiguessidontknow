@@ -45,6 +45,7 @@ import {
 } from "@/lib/subtrees";
 import { migrateTalentNames } from "@/lib/treeMigrations";
 import { scaleNodeList } from "@/lib/nodeSizing";
+import { applyAutoMaxPointsToTree } from "@/lib/autoMaxPoints";
 import {
   DEFAULT_NODE_TYPES,
   DEFAULT_POINT_TYPES,
@@ -254,7 +255,7 @@ export {
   normalizeTree,
   denormalizeTree,
 } from "@/lib/treeFormat";
-import { normalizeTree } from "@/lib/treeFormat";
+import { normalizeTree, withNodeDefaults } from "@/lib/treeFormat";
 
 // Which point pool a node is spent from: the node's own currency override when
 // set, otherwise the point type assigned to its node type.
@@ -375,8 +376,8 @@ export function migrateSubtrees(tree) {
 }
 
 export function migrateTree(tree) {
-  const migrateOne = (t) =>
-    migrateReturnNodes(
+  const migrateOne = (t) => {
+    const migrated = migrateReturnNodes(
       stripLegacyAutoGrants(
         migrateSubtrees(
           migrateOptionRequires(
@@ -385,6 +386,15 @@ export function migrateTree(tree) {
         )
       )
     );
+    return migrated
+      ? {
+          ...migrated,
+          nodes: (Array.isArray(migrated.nodes) ? migrated.nodes : []).map(
+            withNodeDefaults
+          ),
+        }
+      : migrated;
+  };
   const out = migrateOne(tree);
   // Tabs keep their own node lists; ensureTabs() later promotes the active
   // tab's nodes, so every tab has to be migrated too or the cleanup is lost.
@@ -977,7 +987,15 @@ function buildImportedTab(name, features, meta = {}) {
 }
 
 export function TreeProvider({ children }) {
-  const [treeRaw, setTreeRaw] = useState(null);
+  const [treeRaw, setTreeRawState] = useState(null);
+  // Every tree write goes through the auto Max Points pass, so edits inside a
+  // subtree, tab moves and imports all refresh dependent formulas.
+  const setTreeRaw = useCallback((updater) => {
+    setTreeRawState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      return applyAutoMaxPointsToTree(next);
+    });
+  }, []);
   // Unsaved-changes tracking: any edit marks the project dirty, while an
   // explicit save, a load and New clear it again. Only a dirty project warns
   // when the program is closed — backing out to the menu never nags.

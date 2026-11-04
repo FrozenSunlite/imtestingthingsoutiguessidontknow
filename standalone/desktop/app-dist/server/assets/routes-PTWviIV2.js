@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DOAPdt2i.js";
+import { n as Button, r as cn } from "./router-DEnIr5s7.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5733,9 +5733,11 @@ function tiersForNode(node) {
 	if (node?.__returnNode) return [];
 	const tiers = normalizeTiers(node);
 	if (tiers.length) return tiers;
+	const rawMax = Number(node?.maxPoints);
+	if (Number.isFinite(rawMax) && rawMax <= 0) return [];
 	return [{
 		level: Math.max(0, Number(node?.levelReq) || 0),
-		points: Math.max(1, Number(node?.maxPoints) || 1),
+		points: Math.max(1, rawMax || 1),
 		label: "",
 		subtreeId: ""
 	}];
@@ -5798,11 +5800,14 @@ function withTiers(node, tiers) {
 		label: String(tier.label || "").trim() || `Tier ${index + 1}`,
 		subtreeId: tier.subtreeId || ""
 	}));
-	if (!clean.length) return {
-		...node,
-		tiers: [],
-		maxPoints: Math.max(1, Number(node.maxPoints) || 1)
-	};
+	if (!clean.length) {
+		const rawMax = Number(node.maxPoints);
+		return {
+			...node,
+			tiers: [],
+			maxPoints: Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1
+		};
+	}
 	return {
 		...node,
 		tiers: clean,
@@ -5810,8 +5815,188 @@ function withTiers(node, tiers) {
 		levelReq: clean[0].level || 0
 	};
 }
+// src/lib/autoMaxPoints.js
+var MAX_POINTS_MODES = [
+	"manual",
+	"subtreeAll",
+	"subtreeSelected",
+	"tiers"
+];
+var subtreesOf = (node) => Array.isArray(node?.subtrees) ? node.subtrees : node?.subtree ? [node.subtree] : [];
+function isInvestableSubtreeNode(node) {
+	if (!node || typeof node !== "object") return false;
+	if (node.__returnNode || node.__autoGranted || node.__hostCopy) return false;
+	if (node.nodeType === "informative") return false;
+	if (Number(node.maxPoints) === 0) return false;
+	return Number(node.cost ?? 1) > 0;
+}
+function countSubtreeNodes(nodes) {
+	return (Array.isArray(nodes) ? nodes : []).reduce((sum, node) => {
+		if (!isInvestableSubtreeNode(node)) return sum;
+		const nested = subtreesOf(node).flatMap((subtree) => subtree.nodes || []);
+		return sum + 1 + countSubtreeNodes(nested);
+	}, 0);
+}
+function autoMaxPointsFor(node) {
+	const mode = node?.maxPointsMode || "manual";
+	if (!MAX_POINTS_MODES.includes(mode) || mode === "manual") return null;
+	const bonus = Math.max(0, Math.floor(Number(node?.maxPointsBonus) || 0));
+	if (mode === "tiers") return (normalizeTiers(node).length || 1) + bonus;
+	const subtrees = subtreesOf(node);
+	return countSubtreeNodes(mode === "subtreeSelected" ? subtrees[Math.max(0, Math.min(subtrees.length - 1, Number(node?.maxPointsSubtree) || 0))]?.nodes || [] : subtrees.flatMap((subtree) => subtree.nodes || [])) + bonus;
+}
+function sameTiers(a, b) {
+	const left = Array.isArray(a) ? a : [];
+	const right = Array.isArray(b) ? b : [];
+	if (left.length !== right.length) return false;
+	return left.every((tier, index) => Number(tier.level) === Number(right[index].level) && Number(tier.points) === Number(right[index].points) && String(tier.label || "") === String(right[index].label || "") && String(tier.subtreeId || "") === String(right[index].subtreeId || ""));
+}
+function resizeTiers(tiers, total, { onePerTier = false } = {}) {
+	const desired = Math.max(0, Math.floor(Number(total) || 0));
+	if (desired <= 0 || !tiers.length) return [];
+	if (desired < tiers.length) return tiers.slice(0, desired).map((tier) => ({
+		...tier,
+		points: 1
+	}));
+	const out = tiers.map((tier) => ({
+		...tier,
+		points: onePerTier ? 1 : tier.points
+	}));
+	let sum = out.reduce((value, tier) => value + tier.points, 0);
+	if (sum < desired) out[out.length - 1].points += desired - sum;
+	else if (sum > desired) {
+		let excess = sum - desired;
+		for (let index = out.length - 1; index >= 0 && excess > 0; index -= 1) {
+			const take = Math.min(out[index].points - 1, excess);
+			out[index].points -= take;
+			excess -= take;
+		}
+	}
+	return out;
+}
+function applyAutoMaxPoints(nodes) {
+	if (!Array.isArray(nodes)) return nodes;
+	let changed = false;
+	const out = nodes.map((node) => {
+		if (!node || typeof node !== "object") return node;
+		const subtrees = subtreesOf(node);
+		let subtreeChanged = false;
+		const nextSubtrees = subtrees.map((subtree) => {
+			const nextNodes = applyAutoMaxPoints(subtree?.nodes || []);
+			if (nextNodes === subtree?.nodes) return subtree;
+			subtreeChanged = true;
+			return {
+				...subtree,
+				nodes: nextNodes
+			};
+		});
+		let nextNode = subtreeChanged ? {
+			...node,
+			subtrees: nextSubtrees
+		} : node;
+		if (subtreeChanged) changed = true;
+		const desired = autoMaxPointsFor(nextNode);
+		if (desired == null) return nextNode;
+		const resized = resizeTiers(normalizeTiers(nextNode), desired, { onePerTier: nextNode.maxPointsMode === "tiers" });
+		const maxPoints = desired;
+		if (Number(nextNode.maxPoints) === maxPoints && sameTiers(nextNode.tiers, resized)) return nextNode;
+		changed = true;
+		nextNode = {
+			...nextNode,
+			maxPoints,
+			tiers: resized,
+			...resized.length ? { levelReq: resized[0].level || 0 } : {}
+		};
+		return nextNode;
+	});
+	return changed ? out : nodes;
+}
+function hasAutoMaxPoints(nodes) {
+	return (Array.isArray(nodes) ? nodes : []).some((node) => node?.maxPointsMode && node.maxPointsMode !== "manual" || subtreesOf(node).some((subtree) => hasAutoMaxPoints(subtree?.nodes)));
+}
+function applyAutoMaxPointsToTree(tree) {
+	if (!tree) return tree;
+	if (!(hasAutoMaxPoints(tree.nodes) || Array.isArray(tree.tabs) && tree.tabs.some((tab) => hasAutoMaxPoints(tab?.nodes)) || Array.isArray(tree.subtreeEditing?.stack) && tree.subtreeEditing.stack.some((frame) => hasAutoMaxPoints(frame?.nodes)))) return tree;
+	let changed = false;
+	const nodes = applyAutoMaxPoints(tree.nodes);
+	if (nodes !== tree.nodes) changed = true;
+	const tabs = (Array.isArray(tree.tabs) ? tree.tabs : []).map((tab) => {
+		const next = applyAutoMaxPoints(tab?.nodes);
+		if (next === tab?.nodes) return tab;
+		changed = true;
+		return {
+			...tab,
+			nodes: next
+		};
+	});
+	let subtreeEditing = tree.subtreeEditing;
+	if (Array.isArray(subtreeEditing?.stack) && subtreeEditing.stack.length) {
+		let stackChanged = false;
+		const stack = subtreeEditing.stack.map((frame) => {
+			const next = applyAutoMaxPoints(frame?.nodes);
+			if (next === frame?.nodes) return frame;
+			stackChanged = true;
+			return {
+				...frame,
+				nodes: next
+			};
+		});
+		if (stackChanged) {
+			changed = true;
+			subtreeEditing = {
+				...subtreeEditing,
+				stack
+			};
+		}
+	}
+	return changed ? {
+		...tree,
+		nodes,
+		tabs,
+		subtreeEditing
+	} : tree;
+}
 // src/lib/treeFormat.js
 var parseList = (value) => Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : String(value || "").split(/[,;]/).map((item) => item.trim()).filter(Boolean);
+var NODE_ARRAY_FIELDS = [
+	"dependencies",
+	"exclusiveWith",
+	"resources",
+	"actions",
+	"options",
+	"grants",
+	"proficiencies",
+	"requiredProficiencies",
+	"abilityReqs",
+	"tiers",
+	"talentTypes",
+	"choiceProficiencies",
+	"requiresNames"
+];
+function withNodeDefaults(node) {
+	if (!node || typeof node !== "object" || Array.isArray(node)) return node;
+	const next = { ...node };
+	for (const field of NODE_ARRAY_FIELDS) if (!Array.isArray(next[field])) next[field] = [];
+	const rawMax = Number(next.maxPoints);
+	next.maxPoints = Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1;
+	const rawCost = Number(next.cost);
+	next.cost = Number.isFinite(rawCost) ? Math.max(0, rawCost) : 1;
+	next.currentPoints = Math.max(0, Number(next.currentPoints) || 0);
+	if (![
+		"manual",
+		"subtreeAll",
+		"subtreeSelected",
+		"tiers"
+	].includes(next.maxPointsMode)) next.maxPointsMode = "manual";
+	next.maxPointsBonus = Math.max(0, Number(next.maxPointsBonus) || 0);
+	next.maxPointsSubtree = Math.max(0, Number(next.maxPointsSubtree) || 0);
+	next.subtrees = (Array.isArray(next.subtrees) ? next.subtrees : next.subtree && typeof next.subtree === "object" ? [next.subtree] : []).map((subtree) => subtree && typeof subtree === "object" ? {
+		...subtree,
+		nodes: (Array.isArray(subtree.nodes) ? subtree.nodes : []).map(withNodeDefaults)
+	} : subtree);
+	delete next.subtree;
+	return next;
+}
 var NODE_TYPES = [
 	{
 		value: "skill",
@@ -5856,7 +6041,7 @@ function normalizeTree(data) {
 	if (!source.Skills && !source.skills && Array.isArray(source.nodes) && Array.isArray(source.connections)) return {
 		className: source.className || "Skill Tree",
 		name: source.name || source.className || "Skill Tree",
-		nodes: source.nodes,
+		nodes: source.nodes.map(withNodeDefaults),
 		connections: source.connections
 	};
 	const raw = source.Skills || source.skills || [];
@@ -5876,6 +6061,14 @@ function normalizeTree(data) {
 			x: typeof pos.x === "number" ? pos.x : 0,
 			y: typeof pos.y === "number" ? pos.y : 0,
 			maxPoints,
+			maxPointsMode: [
+				"manual",
+				"subtreeAll",
+				"subtreeSelected",
+				"tiers"
+			].includes(s["Skill Max Points Mode"]) ? s["Skill Max Points Mode"] : "manual",
+			maxPointsBonus: Math.max(0, Number(s["Skill Max Points Bonus"]) || 0),
+			maxPointsSubtree: Math.max(0, Number(s["Skill Max Points Subtree"]) || 0),
 			currentPoints: s["Skill Current Points"] ?? 0,
 			levelGain: Math.max(0, Number(s["Skill Level Gain"]) || 0),
 			image: s["Skill Image"] || "",
@@ -6037,7 +6230,7 @@ function normalizeTree(data) {
 	return {
 		className: source["Class Name"] || "Skill Tree",
 		name: source["Project Name"] || source.name || source["Class Name"] || "Skill Tree",
-		nodes,
+		nodes: nodes.map(withNodeDefaults),
 		connections
 	};
 }
@@ -6057,6 +6250,9 @@ function denormalizeTree(tree) {
 			"Skill Level": 1,
 			"Skill Description": n.description,
 			"Skill Max Points": n.maxPoints,
+			"Skill Max Points Mode": n.maxPointsMode || "manual",
+			"Skill Max Points Bonus": n.maxPointsBonus ?? 0,
+			"Skill Max Points Subtree": n.maxPointsSubtree ?? 0,
 			"Skill Current Points": n.currentPoints,
 			"Skill Level Gain": n.levelGain || 0,
 			"Skill Image": n.image,
@@ -7210,7 +7406,13 @@ function migrateSubtrees(tree) {
 	} : tree;
 }
 function migrateTree(tree) {
-	const migrateOne = (t) => migrateReturnNodes(stripLegacyAutoGrants(migrateSubtrees(migrateOptionRequires(migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t)))))));
+	const migrateOne = (t) => {
+		const migrated = migrateReturnNodes(stripLegacyAutoGrants(migrateSubtrees(migrateOptionRequires(migrateNodeTypes(migrateTalentNames(unwrapSubtreeEditing(t)))))));
+		return migrated ? {
+			...migrated,
+			nodes: (Array.isArray(migrated.nodes) ? migrated.nodes : []).map(withNodeDefaults)
+		} : migrated;
+	};
 	const out = migrateOne(tree);
 	if (Array.isArray(out?.tabs) && out.tabs.length) {
 		let changed = false;
@@ -7775,7 +7977,12 @@ function buildImportedTab(name, features, meta = {}) {
 	};
 }
 function TreeProvider({ children }) {
-	const [treeRaw, setTreeRaw] = useState(null);
+	const [treeRaw, setTreeRawState] = useState(null);
+	const setTreeRaw = useCallback((updater) => {
+		setTreeRawState((prev) => {
+			return applyAutoMaxPointsToTree(typeof updater === "function" ? updater(prev) : updater);
+		});
+	}, []);
 	const [dirty, setDirty] = useState(false);
 	const hydratedRef = useRef(false);
 	const srdSeedStartedRef = useRef(false);
@@ -34736,9 +34943,9 @@ function SubtreeNodeEditor({ node, set, settings }) {
 					}), /* @__PURE__ */ jsx(Input, {
 						className: "h-7",
 						type: "number",
-						min: 1,
+						min: 0,
 						value: node.maxPoints,
-						onChange: (e) => set({ maxPoints: Math.max(1, Number(e.target.value) || 1) })
+						onChange: (e) => set({ maxPoints: Math.max(0, Number(e.target.value) || 0) })
 					})]
 				})]
 			}),
@@ -35857,43 +36064,112 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 						collapsible: true,
 						children: [
 							/* @__PURE__ */ jsxs("div", {
-								className: "grid grid-cols-3 gap-2",
+								className: "grid grid-cols-2 gap-2",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(InfoTip, {
+										label: "Points spent from the pool each time a point is invested here (0 = free).",
+										children: /* @__PURE__ */ jsx(Label, { children: "Node Cost" })
+									}), /* @__PURE__ */ jsx(Input, {
+										type: "number",
+										min: 0,
+										value: node.cost ?? 1,
+										onChange: (e) => set({ cost: Math.max(0, Number(e.target.value) || 0) })
+									})]
+								}), /* @__PURE__ */ jsxs("div", {
+									className: "space-y-1",
+									children: [/* @__PURE__ */ jsx(InfoTip, {
+										label: "Points that must already be invested in a prerequisite node before this one unlocks. 0 = auto: whatever it takes to unlock the prerequisite.",
+										children: /* @__PURE__ */ jsx(Label, { children: "Prerequisite Points" })
+									}), /* @__PURE__ */ jsx(Input, {
+										type: "number",
+										min: 0,
+										value: Number(node.requiredPoints) === 0 ? 0 : node.requiredPoints,
+										onChange: (e) => set({ requiredPoints: Math.max(0, Number(e.target.value) || 0) })
+									})]
+								})]
+							}),
+							/* @__PURE__ */ jsxs("div", {
+								className: "mt-2 space-y-1",
 								children: [
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(InfoTip, {
-											label: "Points spent from the pool each time a point is invested here (0 = free).",
-											children: /* @__PURE__ */ jsx(Label, { children: "Node Cost" })
-										}), /* @__PURE__ */ jsx(Input, {
-											type: "number",
-											min: 0,
-											value: node.cost ?? 1,
-											onChange: (e) => set({ cost: Math.max(0, Number(e.target.value) || 0) })
-										})]
+									/* @__PURE__ */ jsx(InfoTip, {
+										label: "How many times this node can be invested. Manual is a flat number; the other sources recalculate automatically. Free, auto-granted, return and 0-point nodes do not count as subtree nodes.",
+										children: /* @__PURE__ */ jsx(Label, { children: "Max Points" })
 									}),
 									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(InfoTip, {
-											label: "How many times this node can be invested (1 = one-time pick).",
-											children: /* @__PURE__ */ jsx(Label, { children: "Max Points" })
-										}), /* @__PURE__ */ jsx(Input, {
-											type: "number",
-											min: 1,
-											value: node.maxPoints,
-											onChange: (e) => set({ maxPoints: Math.max(1, Number(e.target.value) || 1) })
-										})]
-									}),
-									/* @__PURE__ */ jsxs("div", {
-										className: "space-y-1",
-										children: [/* @__PURE__ */ jsx(InfoTip, {
-											label: "Points that must already be invested in a prerequisite node before this one unlocks. 0 = auto: whatever it takes to unlock the prerequisite.",
-											children: /* @__PURE__ */ jsx(Label, { children: "Prerequisite Points" })
-										}), /* @__PURE__ */ jsx(Input, {
+										className: "flex flex-wrap items-center gap-1.5",
+										children: [/* @__PURE__ */ jsxs(Select, {
+											value: node.maxPointsMode || "manual",
+											onValueChange: (value) => set({
+												maxPointsMode: value,
+												maxPointsBonus: Math.max(0, Number(node.maxPointsBonus) || 0)
+											}),
+											children: [/* @__PURE__ */ jsx(SelectTrigger, {
+												className: "h-8 min-w-40 flex-1",
+												children: /* @__PURE__ */ jsx(SelectValue, {})
+											}), /* @__PURE__ */ jsxs(SelectContent, { children: [
+												/* @__PURE__ */ jsx(SelectItem, {
+													value: "manual",
+													children: "Manual (flat)"
+												}),
+												/* @__PURE__ */ jsx(SelectItem, {
+													value: "subtreeAll",
+													children: "All subtree nodes"
+												}),
+												/* @__PURE__ */ jsx(SelectItem, {
+													value: "subtreeSelected",
+													children: "Selected subtree nodes"
+												}),
+												/* @__PURE__ */ jsx(SelectItem, {
+													value: "tiers",
+													children: "Tier count"
+												})
+											] })]
+										}), (node.maxPointsMode || "manual") === "manual" ? /* @__PURE__ */ jsx(Input, {
+											className: "h-8 w-24",
 											type: "number",
 											min: 0,
-											value: Number(node.requiredPoints) === 0 ? 0 : node.requiredPoints,
-											onChange: (e) => set({ requiredPoints: Math.max(0, Number(e.target.value) || 0) })
+											value: node.maxPoints ?? 1,
+											onChange: (e) => set({ maxPoints: Math.max(0, Number(e.target.value) || 0) })
+										}) : /* @__PURE__ */ jsxs("div", {
+											className: "flex items-center gap-1.5 text-xs",
+											children: [
+												/* @__PURE__ */ jsx("span", {
+													className: "text-muted-foreground",
+													children: "+ flat"
+												}),
+												/* @__PURE__ */ jsx(Input, {
+													className: "h-8 w-16",
+													type: "number",
+													min: 0,
+													value: node.maxPointsBonus ?? 0,
+													onChange: (e) => set({ maxPointsBonus: Math.max(0, Number(e.target.value) || 0) })
+												}),
+												/* @__PURE__ */ jsxs("span", {
+													className: "font-medium",
+													children: ["= ", nodeMaxPoints(node)]
+												})
+											]
 										})]
+									}),
+									node.maxPointsMode === "subtreeSelected" && /* @__PURE__ */ jsxs(Select, {
+										value: String(node.maxPointsSubtree ?? 0),
+										onValueChange: (value) => set({ maxPointsSubtree: Number(value) || 0 }),
+										children: [/* @__PURE__ */ jsx(SelectTrigger, {
+											className: "h-8",
+											children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Choose a subtree" })
+										}), /* @__PURE__ */ jsx(SelectContent, { children: (node.subtrees || []).length ? (node.subtrees || []).map((subtree, index) => /* @__PURE__ */ jsx(SelectItem, {
+											value: String(index),
+											children: subtree.name || `Subtree ${index + 1}`
+										}, subtree.id || index)) : /* @__PURE__ */ jsx(SelectItem, {
+											value: "0",
+											disabled: true,
+											children: "No subtrees"
+										}) })]
+									}),
+									node.maxPointsMode && node.maxPointsMode !== "manual" && /* @__PURE__ */ jsx("p", {
+										className: "text-[10px] text-muted-foreground",
+										children: node.maxPointsMode === "tiers" ? "Counts the tiers defined below; tier point totals adjust to match." : node.maxPointsMode === "subtreeSelected" ? "Counts investable nodes in the chosen subtree." : "Counts investable nodes in every subtree (free, auto-granted, return and 0-point nodes excluded)."
 									})
 								]
 							}),
@@ -36940,6 +37216,9 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 		updateNode(id, {
 			name: node.name + " (copy)",
 			maxPoints: node.maxPoints,
+			maxPointsMode: node.maxPointsMode || "manual",
+			maxPointsBonus: node.maxPointsBonus ?? 0,
+			maxPointsSubtree: node.maxPointsSubtree ?? 0,
 			description: node.description,
 			flavor: node.flavor,
 			resources: node.resources,
@@ -38672,8 +38951,8 @@ function CharacterTab() {
 	const benefitSpellList = benefitSpells(settings);
 	const testAdjust = (n, delta) => {
 		if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
-			const max = Math.max(1, Number(n.maxPoints) || 1);
-			const next = Math.max(0, Math.min(max, (Number(n.currentPoints) || 0) + delta));
+			const rawMax = Number(n.maxPoints);
+			const next = Math.max(0, Math.min(Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1, (Number(n.currentPoints) || 0) + delta));
 			setSubtreeNodePoints(n.__hostChain, n.__path || [n.__originalId], next);
 			if ((n.proficiencies || []).length) setCharacter((c) => ({
 				...c,
@@ -45717,7 +45996,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		const updated = nodes.map((m) => {
 			if (m.id !== id) return m;
 			const rawMax = Number(m.maxPoints);
-			const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 1;
+			const max = Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1;
 			const cur = Number(m.currentPoints) || 0;
 			const next = Math.max(0, Math.min(max, cur + delta));
 			return cur === 0 && next > 0 ? {

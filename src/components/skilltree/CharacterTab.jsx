@@ -187,7 +187,8 @@ export function CharacterTab() {
   const testAdjust = (n, delta) => {
     // Subtree rows live in the host's nested tree, not in tree.nodes.
     if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
-      const max = Math.max(1, Number(n.maxPoints) || 1);
+      const rawMax = Number(n.maxPoints);
+      const max = Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1;
       const next = Math.max(0, Math.min(max, (Number(n.currentPoints) || 0) + delta));
       setSubtreeNodePoints(n.__hostChain, n.__path || [n.__originalId], next);
       if ((n.proficiencies || []).length)

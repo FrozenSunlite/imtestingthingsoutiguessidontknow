@@ -24,10 +24,14 @@ export function tiersForNode(node) {
   if (node?.__returnNode) return [];
   const tiers = normalizeTiers(node);
   if (tiers.length) return tiers;
+  // A zero-point node (including a free bridge) must stay at zero instead of
+  // falling back to the usual one-point default.
+  const rawMax = Number(node?.maxPoints);
+  if (Number.isFinite(rawMax) && rawMax <= 0) return [];
   return [
     {
       level: Math.max(0, Number(node?.levelReq) || 0),
-      points: Math.max(1, Number(node?.maxPoints) || 1),
+      points: Math.max(1, rawMax || 1),
       label: "",
       subtreeId: "",
     },
@@ -108,10 +112,11 @@ export function withTiers(node, tiers) {
       subtreeId: tier.subtreeId || "",
     }));
   if (!clean.length) {
+    const rawMax = Number(node.maxPoints);
     return {
       ...node,
       tiers: [],
-      maxPoints: Math.max(1, Number(node.maxPoints) || 1),
+      maxPoints: Number.isFinite(rawMax) ? Math.max(0, rawMax) : 1,
     };
   }
   return {
