@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C323SoFy.js";
+import { n as Button, r as cn } from "./router-Y35RYqqP.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -32338,14 +32338,15 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		}
 		if (editable && (e.ctrlKey || e.metaKey)) {
 			const cur = ui.selectedNodeIds || [];
-			const group = cur.includes(node.id) ? cur.filter((id) => id !== node.id) : [...cur, node.id];
+			const wasSelected = cur.includes(node.id);
+			const group = wasSelected ? cur.filter((id) => id !== node.id) : [...cur, node.id];
 			setUi((u) => ({
 				...u,
-				selectedNodeId: node.id,
+				selectedNodeId: group.length ? wasSelected ? group[group.length - 1] : node.id : null,
 				selectedNodeIds: group,
 				selectedConnectionId: null
 			}));
-			if (!group.length) return;
+			if (wasSelected) return;
 			dragRef.current = {
 				type: "node",
 				el: e.currentTarget,

@@ -725,16 +725,24 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     // Ctrl+click toggles the node in a multi-selection.
     if (editable && (e.ctrlKey || e.metaKey)) {
       const cur = ui.selectedNodeIds || [];
-      const group = cur.includes(node.id)
+      const wasSelected = cur.includes(node.id);
+      const group = wasSelected
         ? cur.filter((id) => id !== node.id)
         : [...cur, node.id];
       setUi((u) => ({
         ...u,
-        selectedNodeId: node.id,
+        // Removing the primary node must clear the primary selection too,
+        // otherwise it still renders as selected.
+        selectedNodeId: group.length
+          ? wasSelected
+            ? group[group.length - 1]
+            : node.id
+          : null,
         selectedNodeIds: group,
         selectedConnectionId: null,
       }));
-      if (!group.length) return;
+      // Ctrl+click on an already-selected node is an unselect, not a drag.
+      if (wasSelected) return;
       dragRef.current = {
         type: "node",
         el: e.currentTarget,
