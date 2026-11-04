@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CJOyV_ek.js";
+import { n as Button, r as cn } from "./router-pJmPC737.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -7602,7 +7602,7 @@ var DEFAULT_SETTINGS = {
 		levelZeroTalentPoints: 2
 	},
 	library: DEFAULT_LIBRARY,
-	updateUrl: "https://gist.githubusercontent.com/FrozenSunlite/d8d5810880985fb22e4b315a68020ee9/raw",
+	updateUrl: "https://raw.githubusercontent.com/FrozenSunlite/talent-tree-updates/main",
 	desktopUpdateUrl: ""
 };
 var normalizeTypeEntry = (e) => typeof e === "string" ? {

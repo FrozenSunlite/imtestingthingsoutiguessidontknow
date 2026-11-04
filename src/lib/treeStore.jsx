@@ -540,11 +540,10 @@ const DEFAULT_SETTINGS = {
   },
   library: DEFAULT_LIBRARY,
   // Native APK update host. Empty on the web (the service worker handles it).
-  // Stable, binary-only update feed (the APK and update.json live in a public
-  // gist; the source repository stays private). Change it in Settings to point
-  // at another host.
+  // Stable, binary-only update feed. The public update repository contains
+  // only the signed APK and update.json; the source repository stays private.
   updateUrl:
-    "https://gist.githubusercontent.com/FrozenSunlite/d8d5810880985fb22e4b315a68020ee9/raw",
+    "https://raw.githubusercontent.com/FrozenSunlite/talent-tree-updates/main",
   // Optional Windows desktop update host. Empty means "use this PC's built-in
   // localhost update feed" (the desktop app serves its own manifest/installer).
   desktopUpdateUrl: "",

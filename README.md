@@ -161,32 +161,23 @@ The signed APK lands in `android/app/build/outputs/apk/release/app-release.apk`.
 `npm run apk:build` also refreshes the downloadable copy and `update.json` under
 `standalone/desktop/app-dist/client/downloads/`. The APK checks
 `<update URL>/update.json` on startup, downloads a newer build in the app, and
-hands it to the Android installer. The default update URL is a stable,
-binary-only public gist; the source repository stays private.
+hands it to the Android installer. The default update URL is the stable,
+binary-only public `FrozenSunlite/talent-tree-updates` repository; the source
+repository stays private.
 
-Publish the signed APK and manifest to that feed with either:
+Publish the signed APK and manifest to that feed with:
 
 ```bash
-npm run release:all   # build everything, then publish the APK
-npm run apk:gist      # publish only the existing APK
+npm run release:all      # build everything, then mirror the release + update.json
+npm run release:mirror   # mirror the existing build only
 ```
 
-`apk:gist` uses `GITHUB_TOKEN` when set, otherwise the local git credential
-helper. It force-updates the gist so old APKs do not accumulate in its history.
-
-### Private build archive
-
-`npm run release:mirror` mirrors the current release into the private
-`FrozenSunlite/talent-tree-updates` repository (installer, portable build,
-signed APK and `update.json`). `npm run release:all` builds everything and
-mirrors it there. `npm run release:public` additionally publishes the APK to the
-optional public gist feed.
-
-Private GitHub assets cannot be downloaded anonymously. For beta testing,
-install builds manually from the private repository, add testers as read-only
-collaborators, or use Firebase App Distribution / Google Play internal testing.
-The in-app Android updater needs a public or authenticated host, not a private
-repository URL without credentials.
+The feed is served from
+`https://raw.githubusercontent.com/FrozenSunlite/talent-tree-updates/main/update.json`,
+which points at the versioned APK in the latest release. The repository holds
+build artifacts and manifests only—never source or secrets. Older builds can
+still use the optional gist feed with `npm run apk:gist` / `release:public`,
+but that feed is deprecated because it has a small quota.
 
 ### Media
 

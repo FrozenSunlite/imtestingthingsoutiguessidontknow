@@ -1,0 +1,1 @@
+export{r as default,r as jsPDF}from"./routes-DwTaLiWa.js";

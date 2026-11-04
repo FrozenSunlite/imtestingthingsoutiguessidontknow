@@ -1,1 +1,0 @@
-import{b as e}from"./routes-nyQlmrYM.js";var t=e(`FileOpener`);export{t as FileOpener};

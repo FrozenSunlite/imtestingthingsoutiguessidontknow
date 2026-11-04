@@ -110,4 +110,32 @@ for (const asset of assets) {
   }
   console.log(`ok ${asset.name}`);
 }
+
+// Keep the public feed manifest on main pointing at this release's versioned
+// APK. The raw URL is what the Android app fetches.
+const manifestPath = join("standalone", "desktop", "app-dist", "client", "update.json");
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+manifest.apk = `https://github.com/${REPO}/releases/latest/download/TalentTree-Android-${version}.apk`;
+const existingManifest = await fetch(
+  `https://api.github.com/repos/${REPO}/contents/update.json`,
+  { headers }
+).then((response) => (response.ok ? response.json() : null));
+const updateBody = {
+  message: `Update Android feed to ${version}`,
+  content: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`).toString("base64"),
+  branch: "main",
+};
+if (existingManifest?.sha) updateBody.sha = existingManifest.sha;
+const updateResponse = await fetch(
+  `https://api.github.com/repos/${REPO}/contents/update.json`,
+  {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify(updateBody),
+  }
+);
+if (!updateResponse.ok) {
+  throw new Error(`update.json: ${updateResponse.status} ${await updateResponse.text()}`);
+}
+console.log(`feed -> https://raw.githubusercontent.com/${REPO}/main/update.json`);
 console.log(`mirrored ${tag} -> https://github.com/${REPO}/releases/tag/${tag}`);
