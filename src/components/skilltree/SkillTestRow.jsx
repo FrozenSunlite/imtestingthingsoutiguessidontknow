@@ -75,6 +75,12 @@ export default function SkillTestRow({ node, onAdjust, onJump }) {
           {node.description && (
             <p className="text-[10px] leading-snug text-muted-foreground">{node.description}</p>
           )}
+          {node.flavor && (
+            <p className="text-[10px] italic leading-snug text-muted-foreground">{node.flavor}</p>
+          )}
+          <p className="text-[9px] italic text-muted-foreground">
+            Flavor is free — reword or replace it; the rules above still apply.
+          </p>
           {subtreePicks.map((s) => (
             <div key={s.name}>
               <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">

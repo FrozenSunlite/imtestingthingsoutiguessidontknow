@@ -3104,6 +3104,9 @@ function scaledValue(r, node, vars, profBonus, tagCounts) {
     const tag = sc.talentTag || talentTypesOf(node)[0] || "";
     bonus = tag ? (tagCounts[tag] || 0) * per : 0;
   } else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
+  else if (sc.mode === "perPoint") {
+    bonus = Number(base) * Math.max(0, (Number(node?.currentPoints) || 1) - 1);
+  }
   return String(base + bonus);
 }
 
@@ -3282,6 +3285,9 @@ export function aggregateResources(tree, character, levels = []) {
         const tag = sc.talentTag || talentTypesOf(node)[0] || "";
         bonus = tag ? (tagCounts[tag] || 0) * per : 0;
       } else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
+      else if (sc.mode === "perPoint") {
+        bonus = value.num * Math.max(0, (Number(node?.currentPoints) || 1) - 1);
+      }
       if (r.mode === "replace") entry.replaced = value.num + bonus;
       else entry.uses += value.num + bonus;
     } else if (r.mode === "replace") {
@@ -3371,6 +3377,9 @@ export function aggregateResources(tree, character, levels = []) {
   tree?.nodes.forEach((n) => {
     if ((n.currentPoints || 0) <= 0) return;
     (n.resources || []).forEach((r, i) => {
+      // Effects marked as second-rank only start applying once enough points
+      // are invested in the node.
+      if ((Number(r.minPoints) || 1) > (Number(n.currentPoints) || 0)) return;
       // Toggleable resources apply only while their effect is switched on.
       if (r.toggle && !(character.activeToggles || []).includes(`${n.id}:${i}`)) return;
       add(r, n);
@@ -3378,7 +3387,12 @@ export function aggregateResources(tree, character, levels = []) {
     // Benefits assigned to the node's Resources category are real resources
     // too; a numeric amount stacks into the resource's uses.
     (n.benefits || [])
-      .filter((b) => b?.category === "resource" && b.name)
+      .filter(
+        (b) =>
+          b?.category === "resource" &&
+          b.name &&
+          (Number(b.minPoints) || 1) <= (Number(n.currentPoints) || 0)
+      )
       .forEach((b) =>
         add(
           {
@@ -3395,7 +3409,8 @@ export function aggregateResources(tree, character, levels = []) {
       .filter(
         (b) =>
           b?.category === "stat" &&
-          ["Hit Points", "Exertion", "Exhaustion"].includes(String(b.name || "").trim())
+          ["Hit Points", "Exertion", "Exhaustion"].includes(String(b.name || "").trim()) &&
+          (Number(b.minPoints) || 1) <= (Number(n.currentPoints) || 0)
       )
       .forEach((b) =>
         add(

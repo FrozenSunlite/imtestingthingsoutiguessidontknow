@@ -3,6 +3,7 @@ import { useTree, poolUsage, effectivePools, statVars, aggregateResources, profB
 import { pointTypesFor } from "@/lib/pointTypes";
 import { groupUnlocked } from "@/lib/unlocked";
 import { hiddenNodeIds } from "@/lib/nodeVisibility";
+import { collectNodePassives } from "@/lib/passives";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "./PanelResizer";
 import {
@@ -92,6 +93,9 @@ export function PresentationSheet({ innerRef, onExport }) {
   const unlocked = (tree?.nodes || []).filter(
     (n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0
   );
+  const passives = collectNodePassives({
+    nodes: (tree?.nodes || []).filter((n) => !dmHidden.has(n.id)),
+  });
   // Heritage-purchased nodes first, then Talent-pool nodes grouped by Talent
   // Type (alphabetized), each in acquisition order.
   const {
@@ -378,6 +382,24 @@ export function PresentationSheet({ innerRef, onExport }) {
             );
           })}
         </Section>
+
+        {passives.length > 0 && (
+          <Section title="Passive Effects">
+            <div className="space-y-1">
+              {passives.map((passive) => (
+                <div key={`${passive.nodeId}:${passive.name}`} className="rounded border border-slate-200 px-2 py-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold">{passive.name}</span>
+                    <span className="text-[9px] text-slate-500">{passive.nodeName}</span>
+                  </div>
+                  {passive.description && (
+                    <p className="mt-0.5 text-[10px] leading-snug text-slate-600">{passive.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Proficiencies */}
         {profLines.length > 0 && (

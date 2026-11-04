@@ -46,6 +46,11 @@ export function NodeHoverCard({ node, nodesById, extra = null }) {
       {node.flavor && (
         <p className="mt-1 whitespace-pre-wrap italic text-muted-foreground">{node.flavor}</p>
       )}
+      {(node.description || node.flavor) && (
+        <p className="mt-1 text-[10px] italic text-muted-foreground">
+          Flavor is free — reword or replace it; the rules above still apply.
+        </p>
+      )}
       {node.resources?.length > 0 && (
         <div className="mt-2 space-y-0.5">
           {node.resources.map((r, i) => (

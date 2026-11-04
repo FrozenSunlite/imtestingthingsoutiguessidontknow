@@ -47,6 +47,11 @@ export function NodeDetailBody({ node, nodesById, blind = false }) {
         <p className="mt-2 whitespace-pre-wrap text-xs leading-snug">{node.description}</p>
       )}
       {node.flavor && <p className="mt-1 text-xs italic text-muted-foreground">{node.flavor}</p>}
+      {(node.description || node.flavor) && (
+        <p className="mt-1 text-[10px] italic text-muted-foreground">
+          Flavor is free — reword or replace it; the rules above still apply.
+        </p>
+      )}
 
       {(node.actions || []).length > 0 && (
         <div className="mt-2">

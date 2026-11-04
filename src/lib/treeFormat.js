@@ -25,6 +25,7 @@ const NODE_ARRAY_FIELDS = [
   "talentTypes",
   "choiceProficiencies",
   "requiresNames",
+  "passives",
 ];
 
 // Hand-written/partial trees often omit optional arrays. Fill them once so the

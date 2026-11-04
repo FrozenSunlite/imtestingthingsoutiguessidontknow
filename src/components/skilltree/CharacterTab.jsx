@@ -13,6 +13,7 @@ import {
 import { pointTypesFor } from "@/lib/pointTypes";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
 import { hiddenNodeIds } from "@/lib/nodeVisibility";
+import { collectNodePassives } from "@/lib/passives";
 import { collectNodeBenefits, BENEFIT_CATEGORIES, tableSummary, tableOptions, benefitSpells } from "@/lib/benefits";
 import SkillTestRow from "./SkillTestRow";
 import { HitPointsCard } from "./HitPointsCard";
@@ -192,6 +193,7 @@ export function CharacterTab() {
     items: collectNodeBenefits(benefitTree).filter((b) => b.category === cat.id),
   })).filter((g) => g.items.length);
   const benefitSpellList = benefitSpells(settings);
+  const passives = collectNodePassives(benefitTree);
 
   // Test add/remove: a raw point change plus the proficiency side effects the
   // normal invest flow applies — no prerequisite, pool or level gates.
@@ -710,6 +712,34 @@ export function CharacterTab() {
                     );
                   })}
                 </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
+      {passives.length > 0 && (
+        <SectionCard title="Passive Effects">
+          <div className="space-y-1.5">
+            {passives.map((passive) => (
+              <div
+                key={`${passive.nodeId}:${passive.name}`}
+                className="rounded-lg border bg-accent/30 px-2.5 py-1.5"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] font-semibold">{passive.name}</span>
+                  <span className="shrink-0 text-[9px] text-muted-foreground">
+                    {passive.nodeName}
+                    {(Number(passive.minPoints) || 1) > 1
+                      ? ` · ${passive.minPoints}+ points`
+                      : ""}
+                  </span>
+                </div>
+                {passive.description && (
+                  <p className="mt-0.5 whitespace-pre-wrap text-[10px] leading-snug text-muted-foreground">
+                    {passive.description}
+                  </p>
+                )}
               </div>
             ))}
           </div>

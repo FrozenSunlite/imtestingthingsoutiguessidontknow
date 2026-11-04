@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-zaXniGiq.js";
+import { n as Button, r as cn } from "./router-r5zxIqOq.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -2688,6 +2688,7 @@ function collectActions(tree, vars = {}) {
 		if ((n.currentPoints || 0) <= 0) return;
 		(n.actions || []).forEach((a, i) => {
 			if (!a?.name) return;
+			if ((Number(a.minPoints) || 1) > (Number(n.currentPoints) || 0)) return;
 			const usesMode = a.usesMode || "atwill";
 			let ownUses = null;
 			if (usesMode === "own") {
@@ -5982,7 +5983,8 @@ var NODE_ARRAY_FIELDS = [
 	"tiers",
 	"talentTypes",
 	"choiceProficiencies",
-	"requiresNames"
+	"requiresNames",
+	"passives"
 ];
 function withNodeDefaults(node) {
 	if (!node || typeof node !== "object" || Array.isArray(node)) return node;
@@ -6862,6 +6864,7 @@ function collectNodeBenefits(tree) {
 			(n.subtrees || []).forEach((st) => walk(st.nodes));
 			if ((Number(n.currentPoints) || 0) <= 0) continue;
 			for (const b of n.benefits || []) {
+				if ((Number(b.minPoints) || 1) > (Number(n.currentPoints) || 0)) continue;
 				const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
 				if (!b.name || seen.has(key)) continue;
 				seen.add(key);
@@ -10242,6 +10245,7 @@ function scaledValue(r, node, vars, profBonus, tagCounts) {
 		const tag = sc.talentTag || talentTypesOf(node)[0] || "";
 		bonus = tag ? (tagCounts[tag] || 0) * per : 0;
 	} else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
+	else if (sc.mode === "perPoint") bonus = Number(base) * Math.max(0, (Number(node?.currentPoints) || 1) - 1);
 	return String(base + bonus);
 }
 function talentTypesOf(node) {
@@ -10390,6 +10394,7 @@ function aggregateResources(tree, character, levels = []) {
 				const tag = sc.talentTag || talentTypesOf(node)[0] || "";
 				bonus = tag ? (tagCounts[tag] || 0) * per : 0;
 			} else if (sc.mode === "taken") bonus = (node?.currentPoints || 0) * per;
+			else if (sc.mode === "perPoint") bonus = value.num * Math.max(0, (Number(node?.currentPoints) || 1) - 1);
 			if (r.mode === "replace") entry.replaced = value.num + bonus;
 			else entry.uses += value.num + bonus;
 		} else if (r.mode === "replace") {
@@ -10469,10 +10474,11 @@ function aggregateResources(tree, character, levels = []) {
 	tree?.nodes.forEach((n) => {
 		if ((n.currentPoints || 0) <= 0) return;
 		(n.resources || []).forEach((r, i) => {
+			if ((Number(r.minPoints) || 1) > (Number(n.currentPoints) || 0)) return;
 			if (r.toggle && !(character.activeToggles || []).includes(`${n.id}:${i}`)) return;
 			add(r, n);
 		});
-		(n.benefits || []).filter((b) => b?.category === "resource" && b.name).forEach((b) => add({
+		(n.benefits || []).filter((b) => b?.category === "resource" && b.name && (Number(b.minPoints) || 1) <= (Number(n.currentPoints) || 0)).forEach((b) => add({
 			name: b.name,
 			type: "point",
 			valueType: "flat",
@@ -10483,7 +10489,7 @@ function aggregateResources(tree, character, levels = []) {
 			"Hit Points",
 			"Exertion",
 			"Exhaustion"
-		].includes(String(b.name || "").trim())).forEach((b) => add({
+		].includes(String(b.name || "").trim()) && (Number(b.minPoints) || 1) <= (Number(n.currentPoints) || 0)).forEach((b) => add({
 			name: String(b.name).trim(),
 			type: "point",
 			valueType: "flat",
@@ -30112,6 +30118,10 @@ function NodeHoverCard({ node, nodesById, extra = null }) {
 				className: "mt-1 whitespace-pre-wrap italic text-muted-foreground",
 				children: node.flavor
 			}),
+			(node.description || node.flavor) && /* @__PURE__ */ jsx("p", {
+				className: "mt-1 text-[10px] italic text-muted-foreground",
+				children: "Flavor is free — reword or replace it; the rules above still apply."
+			}),
 			node.resources?.length > 0 && /* @__PURE__ */ jsx("div", {
 				className: "mt-2 space-y-0.5",
 				children: node.resources.map((r, i) => /* @__PURE__ */ jsxs("div", {
@@ -30433,6 +30443,10 @@ function AltDescriptionWindow({ win, nodes, onJumpNode, onOpenSubtree, onClose }
 			node.flavor && /* @__PURE__ */ jsx("p", {
 				className: "mt-2 whitespace-pre-wrap italic text-muted-foreground",
 				children: node.flavor
+			}),
+			(node.description || node.flavor) && /* @__PURE__ */ jsx("p", {
+				className: "mt-1 text-[10px] italic text-muted-foreground",
+				children: "Flavor is free — reword or replace it; the rules above still apply."
 			}),
 			/* @__PURE__ */ jsx("p", {
 				className: "mt-2 shrink-0 text-[10px] text-muted-foreground",
@@ -34547,6 +34561,70 @@ function NodeBenefitsSection({ node, set }) {
 		]
 	});
 }
+// src/components/skilltree/NodePassivesSection.jsx
+function NodePassivesSection({ node, set }) {
+	const passives = node.passives || [];
+	const patch = (index, value) => {
+		const next = [...passives];
+		next[index] = {
+			...next[index],
+			...value
+		};
+		set({ passives: next });
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-1",
+		children: [
+			/* @__PURE__ */ jsx(InfoTip, {
+				label: "Conditional or second-rank effects. They appear on the character sheet once the node has at least the listed number of points.",
+				children: /* @__PURE__ */ jsx(Label, { children: "Passive Effects" })
+			}),
+			passives.map((passive, index) => /* @__PURE__ */ jsxs("div", {
+				className: "space-y-1 rounded-md border p-2",
+				children: [/* @__PURE__ */ jsxs("div", {
+					className: "flex items-center gap-1",
+					children: [
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-8 flex-1",
+							placeholder: "Effect name (e.g. Danger Sense)",
+							value: passive.name || "",
+							onChange: (event) => patch(index, { name: event.target.value })
+						}),
+						/* @__PURE__ */ jsx(Input, {
+							className: "h-8 w-16",
+							type: "number",
+							min: 1,
+							title: "Minimum points invested",
+							value: passive.minPoints ?? 1,
+							onChange: (event) => patch(index, { minPoints: Math.max(1, Number(event.target.value) || 1) })
+						}),
+						/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "ghost",
+							onClick: () => set({ passives: passives.filter((_, i) => i !== index) }),
+							children: /* @__PURE__ */ jsx(X, { className: "h-4 w-4" })
+						})
+					]
+				}), /* @__PURE__ */ jsx(Textarea, {
+					className: "min-h-12 text-xs",
+					placeholder: "Concise rules text shown on the sheet",
+					value: passive.description || "",
+					onChange: (event) => patch(index, { description: event.target.value })
+				})]
+			}, index)),
+			/* @__PURE__ */ jsxs(Button, {
+				size: "sm",
+				variant: "outline",
+				onClick: () => set({ passives: [...passives, {
+					name: "",
+					minPoints: 1,
+					description: ""
+				}] }),
+				children: [/* @__PURE__ */ jsx(Plus, { className: "mr-1 h-4 w-4" }), " Add passive effect"]
+			})
+		]
+	});
+}
 // src/components/skilltree/BonusDiceEditor.jsx
 var SPELL_LEVELS$1 = [
 	["cantrip", "Cantrip"],
@@ -36807,6 +36885,15 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 								})
 							}),
 							/* @__PURE__ */ jsx(FieldGroup, {
+								label: "Passive Effects",
+								sub: true,
+								collapsible: true,
+								children: /* @__PURE__ */ jsx(NodePassivesSection, {
+									node,
+									set
+								})
+							}),
+							/* @__PURE__ */ jsx(FieldGroup, {
 								label: "Actions",
 								sub: true,
 								collapsible: true,
@@ -36954,6 +37041,10 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 										/* @__PURE__ */ jsx("code", { children: "[[Node Name / Subtree]]" }),
 										" to open one of its subtrees — links are clickable in the View-mode Alt-description window."
 									]
+								}),
+								/* @__PURE__ */ jsx("p", {
+									className: "text-[10px] italic text-muted-foreground",
+									children: "Keep mechanics factual in Description. Flavor is free — put color in Flavor Text and players can reword or replace it without changing the rules."
 								})
 							]
 						}), /* @__PURE__ */ jsxs("div", {
@@ -37817,6 +37908,33 @@ function groupUnlocked(nodes, { includeAutoGranted = false, pointTypes = DEFAULT
 		pointGroups
 	};
 }
+// src/lib/passives.js
+function collectNodePassives(tree) {
+	const out = [];
+	const seen = /* @__PURE__ */ new Set();
+	const walk = (nodes) => {
+		for (const node of nodes || []) {
+			(node.subtrees || []).forEach((subtree) => walk(subtree.nodes));
+			const points = Number(node.currentPoints) || 0;
+			if (points <= 0) continue;
+			for (const passive of node.passives || []) {
+				if (!passive?.name) continue;
+				if ((Number(passive.minPoints) || 1) > points) continue;
+				const key = `${node.id}|${passive.name}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				out.push({
+					nodeId: node.id,
+					nodeName: node.name,
+					points,
+					...passive
+				});
+			}
+		}
+	};
+	walk(tree?.nodes);
+	return out;
+}
 // src/components/skilltree/SkillTestRow.jsx
 function SkillTestRow({ node, onAdjust, onJump }) {
 	const [open, setOpen] = useState(false);
@@ -37871,19 +37989,30 @@ function SkillTestRow({ node, onAdjust, onJump }) {
 			})]
 		}), open && hasDetail && /* @__PURE__ */ jsxs("div", {
 			className: "mt-1 space-y-1 border-t pt-1",
-			children: [node.description && /* @__PURE__ */ jsx("p", {
-				className: "text-[10px] leading-snug text-muted-foreground",
-				children: node.description
-			}), subtreePicks.map((s) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
-				className: "text-[9px] font-bold uppercase tracking-widest text-muted-foreground",
-				children: s.name
-			}), /* @__PURE__ */ jsx("div", {
-				className: "mt-0.5 flex flex-wrap gap-1",
-				children: s.picks.map((p, i) => /* @__PURE__ */ jsx("span", {
-					className: "rounded bg-muted px-1.5 py-0.5 text-[9px]",
-					children: p
-				}, i))
-			})] }, s.name))]
+			children: [
+				node.description && /* @__PURE__ */ jsx("p", {
+					className: "text-[10px] leading-snug text-muted-foreground",
+					children: node.description
+				}),
+				node.flavor && /* @__PURE__ */ jsx("p", {
+					className: "text-[10px] italic leading-snug text-muted-foreground",
+					children: node.flavor
+				}),
+				/* @__PURE__ */ jsx("p", {
+					className: "text-[9px] italic text-muted-foreground",
+					children: "Flavor is free — reword or replace it; the rules above still apply."
+				}),
+				subtreePicks.map((s) => /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("div", {
+					className: "text-[9px] font-bold uppercase tracking-widest text-muted-foreground",
+					children: s.name
+				}), /* @__PURE__ */ jsx("div", {
+					className: "mt-0.5 flex flex-wrap gap-1",
+					children: s.picks.map((p, i) => /* @__PURE__ */ jsx("span", {
+						className: "rounded bg-muted px-1.5 py-0.5 text-[9px]",
+						children: p
+					}, i))
+				})] }, s.name))
+			]
 		})]
 	});
 }
@@ -39222,6 +39351,7 @@ function CharacterTab() {
 		items: collectNodeBenefits(benefitTree).filter((b) => b.category === cat.id)
 	})).filter((g) => g.items.length);
 	const benefitSpellList = benefitSpells(settings);
+	const passives = collectNodePassives(benefitTree);
 	const testAdjust = (n, delta) => {
 		if (n.__subtreeLabel && Array.isArray(n.__hostChain)) {
 			const rawMax = Number(n.maxPoints);
@@ -39705,6 +39835,28 @@ function CharacterTab() {
 							}, b.id);
 						})
 					})] }, g.id))
+				})
+			}),
+			passives.length > 0 && /* @__PURE__ */ jsx(SectionCard, {
+				title: "Passive Effects",
+				children: /* @__PURE__ */ jsx("div", {
+					className: "space-y-1.5",
+					children: passives.map((passive) => /* @__PURE__ */ jsxs("div", {
+						className: "rounded-lg border bg-accent/30 px-2.5 py-1.5",
+						children: [/* @__PURE__ */ jsxs("div", {
+							className: "flex items-baseline justify-between gap-2",
+							children: [/* @__PURE__ */ jsx("span", {
+								className: "text-[11px] font-semibold",
+								children: passive.name
+							}), /* @__PURE__ */ jsxs("span", {
+								className: "shrink-0 text-[9px] text-muted-foreground",
+								children: [passive.nodeName, (Number(passive.minPoints) || 1) > 1 ? ` · ${passive.minPoints}+ points` : ""]
+							})]
+						}), passive.description && /* @__PURE__ */ jsx("p", {
+							className: "mt-0.5 whitespace-pre-wrap text-[10px] leading-snug text-muted-foreground",
+							children: passive.description
+						})]
+					}, `${passive.nodeId}:${passive.name}`))
 				})
 			}),
 			/* @__PURE__ */ jsx(ActiveEffects, {}),
@@ -46958,6 +47110,10 @@ function NodeDetailBody({ node, nodesById, blind = false }) {
 		node.flavor && /* @__PURE__ */ jsx("p", {
 			className: "mt-1 text-xs italic text-muted-foreground",
 			children: node.flavor
+		}),
+		(node.description || node.flavor) && /* @__PURE__ */ jsx("p", {
+			className: "mt-1 text-[10px] italic text-muted-foreground",
+			children: "Flavor is free — reword or replace it; the rules above still apply."
 		}),
 		(node.actions || []).length > 0 && /* @__PURE__ */ jsxs("div", {
 			className: "mt-2",
@@ -85443,6 +85599,7 @@ function PresentationSheet({ innerRef, onExport }) {
 	const spells = character.spellList || [];
 	const dmHidden = character.devMode ? /* @__PURE__ */ new Set() : hiddenNodeIds(tree?.nodes || []);
 	const unlocked = (tree?.nodes || []).filter((n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0);
+	const passives = collectNodePassives({ nodes: (tree?.nodes || []).filter((n) => !dmHidden.has(n.id)) });
 	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, pointGroups } = groupUnlocked(unlocked, {
 		includeAutoGranted: !!character.devMode,
 		pointTypes: settings?.library?.pointTypes
@@ -85784,6 +85941,28 @@ function PresentationSheet({ innerRef, onExport }) {
 								]
 							}, key);
 						})]
+					}),
+					passives.length > 0 && /* @__PURE__ */ jsx(Section, {
+						title: "Passive Effects",
+						children: /* @__PURE__ */ jsx("div", {
+							className: "space-y-1",
+							children: passives.map((passive) => /* @__PURE__ */ jsxs("div", {
+								className: "rounded border border-slate-200 px-2 py-1",
+								children: [/* @__PURE__ */ jsxs("div", {
+									className: "flex items-baseline justify-between gap-2",
+									children: [/* @__PURE__ */ jsx("span", {
+										className: "text-xs font-semibold",
+										children: passive.name
+									}), /* @__PURE__ */ jsx("span", {
+										className: "text-[9px] text-slate-500",
+										children: passive.nodeName
+									})]
+								}), passive.description && /* @__PURE__ */ jsx("p", {
+									className: "mt-0.5 text-[10px] leading-snug text-slate-600",
+									children: passive.description
+								})]
+							}, `${passive.nodeId}:${passive.name}`))
+						})
 					}),
 					profLines.length > 0 && /* @__PURE__ */ jsx(Section, {
 						title: "Proficiencies",

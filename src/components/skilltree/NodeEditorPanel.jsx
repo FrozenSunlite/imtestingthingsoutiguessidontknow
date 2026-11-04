@@ -36,6 +36,7 @@ import { matchesQuery } from "@/lib/textSearch";
 import { NodeActionsSection } from "@/components/skilltree/NodeActionsSection";
 import { NodeResourcesSection } from "@/components/skilltree/NodeResourcesSection";
 import { NodeBenefitsSection } from "@/components/skilltree/NodeBenefitsSection";
+import { NodePassivesSection } from "@/components/skilltree/NodePassivesSection";
 import { BonusDiceEditor } from "@/components/skilltree/BonusDiceEditor";
 import { SubtreesSection } from "@/components/skilltree/SubtreesSection";
 import { ProficienciesEditor } from "@/components/skilltree/ProficienciesEditor";
@@ -779,6 +780,10 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
           </FieldGroup>
 
           {/* ── Actions ──────────────────────────────────────────────── */}
+          <FieldGroup label="Passive Effects" sub collapsible>
+            <NodePassivesSection node={node} set={set} />
+          </FieldGroup>
+
           <FieldGroup label="Actions" sub collapsible>
             <NodeActionsSection node={node} set={set} />
           </FieldGroup>
@@ -901,6 +906,10 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
             <p className="text-[10px] text-muted-foreground">
               Links: type <code>[[Node Name]]</code> to jump to a node, or <code>[[Node Name / Subtree]]</code> to open
               one of its subtrees — links are clickable in the View-mode Alt-description window.
+            </p>
+            <p className="text-[10px] italic text-muted-foreground">
+              Keep mechanics factual in Description. Flavor is free — put color in Flavor Text and players can reword
+              or replace it without changing the rules.
             </p>
           </div>
           <div className="space-y-1">

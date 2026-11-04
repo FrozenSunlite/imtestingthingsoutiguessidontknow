@@ -52,6 +52,11 @@ export function AltDescriptionWindow({ win, nodes, onJumpNode, onOpenSubtree, on
       {node.flavor && (
         <p className="mt-2 whitespace-pre-wrap italic text-muted-foreground">{node.flavor}</p>
       )}
+      {(node.description || node.flavor) && (
+        <p className="mt-1 text-[10px] italic text-muted-foreground">
+          Flavor is free — reword or replace it; the rules above still apply.
+        </p>
+      )}
       <p className="mt-2 shrink-0 text-[10px] text-muted-foreground">
         Click a link to jump · release Alt or leave to close
       </p>

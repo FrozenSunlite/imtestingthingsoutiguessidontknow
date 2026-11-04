@@ -322,6 +322,7 @@ export function collectNodeBenefits(tree) {
       (n.subtrees || []).forEach((st) => walk(st.nodes));
       if ((Number(n.currentPoints) || 0) <= 0) continue;
       for (const b of n.benefits || []) {
+        if ((Number(b.minPoints) || 1) > (Number(n.currentPoints) || 0)) continue;
         const key = `${b.category}|${String(b.name || "").toLowerCase()}`;
         if (!b.name || seen.has(key)) continue;
         seen.add(key);

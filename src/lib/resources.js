@@ -364,6 +364,7 @@ export function collectActions(tree, vars = {}) {
     if ((n.currentPoints || 0) <= 0) return;
     (n.actions || []).forEach((a, i) => {
       if (!a?.name) return;
+      if ((Number(a.minPoints) || 1) > (Number(n.currentPoints) || 0)) return;
       const usesMode = a.usesMode || "atwill";
       let ownUses = null;
       if (usesMode === "own") {
