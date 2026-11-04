@@ -213,6 +213,13 @@
   0%, 100% { transform: translateX(-3.5%) skewX(-2deg); }
   50% { transform: translateX(3.5%) skewX(2deg); }
 }
+.blue-fire {
+  isolation: isolate;
+}
+.blue-fire::before,
+.blue-fire::after {
+  z-index: 0;
+}
 .blue-fire::before {
   content: "";
   position: fixed;
@@ -243,6 +250,24 @@
   animation:
     blue-fire-flicker 2.2s ease-in-out infinite reverse,
     blue-fire-sway 5.5s ease-in-out infinite;
+}
+
+/* Phones repaint fixed blurred layers very aggressively while scrolling. Two
+   animated blur layers plus a backdrop blur on every menu card can make cards
+   disappear mid-scroll on some Android/iOS browsers. Keep the ambience but make
+   it static and cheap, and keep card backgrounds opaque without compositing. */
+@media (max-width: 767px), (pointer: coarse) {
+  .launch-menu::before,
+  .launch-menu::after {
+    animation: none;
+    filter: none;
+    opacity: 0.5;
+  }
+  .launch-menu-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: hsl(var(--card) / 0.94);
+  }
 }
 
 /* Mobile browsers (iOS Safari in particular) report a larger 100vh than the

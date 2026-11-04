@@ -169,8 +169,9 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
       title={sub}
       aria-disabled={disabled}
       className={
-        "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" +
-        (disabled ? " cursor-not-allowed opacity-40" : "")
+        "launch-menu-card group flex w-full items-center gap-4 rounded-xl border border-border/60 px-5 py-4 text-left shadow-lg transition-colors hover:border-primary/60 hover:bg-accent " +
+        (isMobile ? "bg-card " : "bg-card/80 backdrop-blur ") +
+        (disabled ? "cursor-not-allowed opacity-40" : "")
       }
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -184,7 +185,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
   );
 
   return (
-    <div className="blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10 sm:pt-20">
+    <div className="blue-fire launch-menu relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10 sm:pt-20">
       <div className="z-10 mb-3 flex w-full max-w-md justify-end gap-2 sm:absolute sm:right-4 sm:top-4 sm:mb-0 sm:w-auto">
         {showInstall && (
           <button
@@ -228,7 +229,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
         )}
       </div>
 
-      <div className="my-auto w-full max-w-md space-y-6">
+      <div className="relative z-10 my-0 w-full max-w-md space-y-6 sm:my-auto">
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold tracking-tight text-primary drop-shadow-[0_0_16px_rgba(0,229,255,0.5)] sm:text-3xl">
             I'm Trying's Terrific Talent Tree
@@ -336,7 +337,7 @@ export function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIn
         </div>
       </div>
 
-      <footer className="mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70">
+      <footer className="relative z-10 mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70">
         Not for Commercial Resale
       </footer>
 

@@ -1,1 +1,0 @@
-export{r as default,r as jsPDF}from"./routes-D2gSiXYy.js";

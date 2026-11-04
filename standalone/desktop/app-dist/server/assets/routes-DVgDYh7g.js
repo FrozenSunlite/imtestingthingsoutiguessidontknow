@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DEnIr5s7.js";
+import { n as Button, r as cn } from "./router-CJOyV_ek.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -47414,7 +47414,8 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 	const { enterApp, startNewTree, tree, character, settings } = useTree();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [newConfirmOpen, setNewConfirmOpen] = useState(false);
-	const showExit = !useIsMobile("(max-width: 767px), (pointer: coarse)") && !isNativeApp();
+	const isMobile = useIsMobile("(max-width: 767px), (pointer: coarse)");
+	const showExit = !isMobile && !isNativeApp();
 	const [saveOpen, setSaveOpen] = useState(false);
 	const [rulebookOpen, setRulebookOpen] = useState(false);
 	const [libraryOpen, setLibraryOpen] = useState(false);
@@ -47476,7 +47477,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 		disabled,
 		title: sub,
 		"aria-disabled": disabled,
-		className: "group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-card/80 px-5 py-4 text-left shadow-lg backdrop-blur transition-colors hover:border-primary/60 hover:bg-accent" + (disabled ? " cursor-not-allowed opacity-40" : ""),
+		className: "launch-menu-card group flex w-full items-center gap-4 rounded-xl border border-border/60 px-5 py-4 text-left shadow-lg transition-colors hover:border-primary/60 hover:bg-accent " + (isMobile ? "bg-card " : "bg-card/80 backdrop-blur ") + (disabled ? "cursor-not-allowed opacity-40" : ""),
 		children: [/* @__PURE__ */ jsx("span", {
 			className: "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
 			children: icon
@@ -47492,7 +47493,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 		})]
 	});
 	return /* @__PURE__ */ jsxs("div", {
-		className: "blue-fire relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10 sm:pt-20",
+		className: "blue-fire launch-menu relative flex min-h-screen flex-col items-center bg-gradient-to-b from-background via-background to-muted px-4 py-10 sm:pt-20",
 		children: [
 			/* @__PURE__ */ jsxs("div", {
 				className: "z-10 mb-3 flex w-full max-w-md justify-end gap-2 sm:absolute sm:right-4 sm:top-4 sm:mb-0 sm:w-auto",
@@ -47532,7 +47533,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 				]
 			}),
 			/* @__PURE__ */ jsxs("div", {
-				className: "my-auto w-full max-w-md space-y-6",
+				className: "relative z-10 my-0 w-full max-w-md space-y-6 sm:my-auto",
 				children: [/* @__PURE__ */ jsxs("div", {
 					className: "text-center",
 					children: [/* @__PURE__ */ jsx("h1", {
@@ -47573,7 +47574,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 				})]
 			}),
 			/* @__PURE__ */ jsx("footer", {
-				className: "mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70",
+				className: "relative z-10 mt-8 w-full max-w-md pb-2 text-center text-[10px] text-muted-foreground/70",
 				children: "Not for Commercial Resale"
 			}),
 			/* @__PURE__ */ jsx(Dialog, {
