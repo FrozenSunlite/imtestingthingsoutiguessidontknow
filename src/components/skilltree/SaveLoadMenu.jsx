@@ -108,12 +108,15 @@ export function SaveLoadMenu({ open, onClose }) {
     );
   };
 
+  const projectNameFromFile = (file) => String(file || "").replace(/\.json$/i, "");
+
   const loadDisk = async (file, backup = false) => {
     const data = await loadProjectFile(file, { backup });
     if (!data) {
       toast.error("Could not read that project file.");
       return;
     }
+    if (!backup) setName(projectNameFromFile(file));
     applyLoadedSave(await rehydrateImages(data), "sheet");
     onClose();
   };
@@ -132,6 +135,7 @@ export function SaveLoadMenu({ open, onClose }) {
   };
 
   const doLoad = (entry) => {
+    setName(entry.name || "");
     applyLoadedSave(entry, "sheet");
     onClose();
   };
@@ -227,6 +231,9 @@ export function SaveLoadMenu({ open, onClose }) {
               onChange={(e) => setName(e.target.value)}
               placeholder="Project name"
             />
+            <p className="text-[10px] text-muted-foreground">
+              Click a saved project below to reuse its name, then Save to overwrite it.
+            </p>
           </div>
           <Button onClick={doSave} disabled={!tree || busy}>
             <Save className="mr-1 h-4 w-4" /> Save
@@ -253,7 +260,14 @@ export function SaveLoadMenu({ open, onClose }) {
           {saves.map((s) => (
             <div
               key={s.id}
-              className="flex items-center gap-1 rounded px-2 py-1.5 text-sm hover:bg-accent"
+              onClick={(event) => {
+                if (event.target.closest("button")) return;
+                setName(s.name || "");
+              }}
+              title="Click to use this name, or use the folder button to load it"
+              className={`flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm hover:bg-accent ${
+                name === s.name ? "bg-accent" : ""
+              }`}
             >
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{s.name}</div>
@@ -289,7 +303,17 @@ export function SaveLoadMenu({ open, onClose }) {
             </p>
           )}
           {diskSaves.map((file) => (
-            <div key={file.file} className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent">
+            <div
+              key={file.file}
+              onClick={(event) => {
+                if (event.target.closest("button")) return;
+                setName(projectNameFromFile(file.file));
+              }}
+              title="Click to use this name, or use the folder button to load the file"
+              className={`flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent ${
+                name === projectNameFromFile(file.file) ? "bg-accent" : ""
+              }`}
+            >
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{file.file}</div>
                 <div className="text-[9px] text-muted-foreground">
