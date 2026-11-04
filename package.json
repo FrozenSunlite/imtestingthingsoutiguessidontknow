@@ -1,7 +1,7 @@
 {
   "name": "terrific-talent-tree",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -12,6 +12,7 @@
     "apk:prepare": "node scripts/prepare-apk.mjs",
     "apk:build": "node scripts/build-apk.mjs",
     "apk:publish": "node scripts/publish-apk.mjs",
+    "apk:gist": "node scripts/publish-apk-gist.mjs",
     "music:import": "node scripts/import-music.mjs",
     "sounds:import": "node scripts/import-sounds.mjs",
     "sounds:index": "node scripts/index-sounds.mjs",
@@ -21,7 +22,8 @@
     "electron": "electron .",
     "electron:build": "npm run build:standalone && electron-builder --win && node scripts/publish-desktop.mjs",
     "desktop:publish": "node scripts/publish-desktop.mjs",
-    "build:all": "npm run electron:build && npm run apk:prepare && npm run apk:build"
+    "build:all": "npm run electron:build && npm run apk:prepare && npm run apk:build",
+    "release:all": "npm run build:all && npm run apk:gist"
   },
   "dependencies": {
     "@capacitor-community/file-opener": "^8.0.1",
@@ -59,7 +61,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.6.0",
     "@eslint/js": "^9.19.0",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@vitejs/plugin-react": "^6.2.1",
     "autoprefixer": "^10.4.20",
     "electron": "^45.2.1",
     "electron-builder": "^26.18.0",
@@ -69,7 +71,7 @@
     "globals": "^15.14.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
-    "vite": "^8.2.0"
+    "vite": "^8.3.5"
   },
   "main": "electron/main.cjs",
   "build": {
@@ -129,5 +131,8 @@
     }
   },
   "description": "Terrific Talent Tree desktop app",
-  "author": "FrozenSunlite"
+  "author": "FrozenSunlite",
+  "overrides": {
+    "brace-expansion@^1.1.7": "1.1.21"
+  }
 }

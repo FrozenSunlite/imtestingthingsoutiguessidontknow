@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B4AbQ6-H.js";
+import { n as Button, r as cn } from "./router-DOAPdt2i.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -20,7 +20,7 @@ import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-//#region src/lib/geometry.js
+// src/lib/geometry.js
 function connectionPath(x1, y1, x2, y2, style = "curved") {
 	if (style === "straight") return `M ${x1} ${y1} L ${x2} ${y2}`;
 	if (style === "angular") {
@@ -445,8 +445,7 @@ function nearestConnectionTarget(pts, x, y) {
 		bendDist
 	};
 }
-//#endregion
-//#region src/lib/homestead.js
+// src/lib/homestead.js
 var STATIONS = {
 	wretched: {
 		label: "Wretched",
@@ -1941,8 +1940,7 @@ function livingStyle(plot) {
 		rationsPerWeek: [...count("Garden"), ...count("Farmland")].reduce((n, g) => n + g.w * g.h, 0)
 	};
 }
-//#endregion
-//#region src/lib/homesteadStore.js
+// src/lib/homesteadStore.js
 var KEY$2 = "skilltree:homestead";
 function loadPlots() {
 	try {
@@ -1973,8 +1971,7 @@ function snapshotPlot(plot) {
 	snap.importedAt = (/* @__PURE__ */ new Date()).toISOString();
 	return snap;
 }
-//#endregion
-//#region src/lib/skills.js
+// src/lib/skills.js
 var STATS$6 = [
 	"STR",
 	"DEX",
@@ -2187,8 +2184,7 @@ function abilityReqStatus(reqs, stats, abilityMods = {}) {
 		missing
 	};
 }
-//#endregion
-//#region src/lib/resources.js
+// src/lib/resources.js
 var SIZE_LADDER = [
 	"fine",
 	"diminutive",
@@ -2971,8 +2967,7 @@ function damageAffinities(character, tree = null, lib = null) {
 		claims
 	};
 }
-//#endregion
-//#region src/lib/hotkeys.js
+// src/lib/hotkeys.js
 var DEFAULT_HOTKEYS = {
 	undo: "ctrl+z",
 	redo: "ctrl+y",
@@ -3016,8 +3011,7 @@ function formatCombo(combo) {
 	if (!combo) return "—";
 	return String(combo).split("+").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("+");
 }
-//#endregion
-//#region src/lib/audio.js
+// src/lib/audio.js
 var DEFAULT_AUDIO_SETTINGS = {
 	musicEnabled: true,
 	sfxEnabled: true,
@@ -3326,8 +3320,7 @@ async function playSfx(name, { gain = 1 } = {}) {
 	await loadSoundManifest();
 	if (soundIndex?.size) await playSfx(name, { gain });
 }
-//#endregion
-//#region src/lib/sfx.js
+// src/lib/sfx.js
 var SFX = {
 	tap: [
 		"Tap Variant 1",
@@ -3398,8 +3391,7 @@ function installUiSounds(enabled) {
 		window.removeEventListener("unhandledrejection", onError);
 	};
 }
-//#endregion
-//#region src/lib/dieScaling.js
+// src/lib/dieScaling.js
 function buildLadder(maxCount = 10) {
 	const out = ["1"];
 	for (let count = 1; count <= maxCount; count += 1) {
@@ -3517,8 +3509,7 @@ function resolveResourceDie(entry, lib = null) {
 		mode
 	});
 }
-//#endregion
-//#region src/lib/dungeonRooms.js
+// src/lib/dungeonRooms.js
 var LAYOUTS = [
 	{
 		shape: "Rectangle",
@@ -4218,8 +4209,7 @@ function makeRoom(category, name, index) {
 }
 var STARTER_DUNGEON_ROOMS = Object.entries(CATEGORY_ROOMS).flatMap(([category, names]) => names.map((name, index) => makeRoom(category, name, index)));
 new Set(STARTER_DUNGEON_ROOMS.map((r) => r.id));
-//#endregion
-//#region src/lib/fiveEToolsCache.js
+// src/lib/fiveEToolsCache.js
 var sources = /* @__PURE__ */ new Map();
 function cacheFiveEToolsSource(path, data) {
 	if (path) sources.set(path, data);
@@ -4234,8 +4224,7 @@ function restoreFiveEToolsSources(obj) {
 function cachedFiveEToolsSource(path) {
 	return sources.get(path);
 }
-//#endregion
-//#region src/lib/fiveETools.js
+// src/lib/fiveETools.js
 var FIVE_CATEGORIES = [
 	{
 		id: "rulesGlossary",
@@ -5239,8 +5228,7 @@ function featureMechanics(feature) {
 		resources
 	};
 }
-//#endregion
-//#region src/lib/optionTree.js
+// src/lib/optionTree.js
 function subtreeOptions(opt, nodesById) {
 	const st = opt?.subtree;
 	if (!st || st.mode === "none") return [];
@@ -5258,8 +5246,7 @@ function optionAtPath(node, pathStr, nodesById) {
 	}
 	return opt;
 }
-//#endregion
-//#region src/lib/subtrees.js
+// src/lib/subtrees.js
 var DEFAULT_SUBTREE = {
 	id: "",
 	name: "Subtree 1",
@@ -5667,8 +5654,7 @@ function flattenSubtreeForPlay(host, subIndex = 0, keepHostCopies = false) {
 		}))
 	};
 }
-//#endregion
-//#region src/lib/treeMigrations.js
+// src/lib/treeMigrations.js
 function migrateTalentNames(tree) {
 	if (!tree?.nodes) return tree;
 	let changed = false;
@@ -5734,8 +5720,7 @@ function scaleNodeList(nodes, percent) {
 		return next;
 	});
 }
-//#endregion
-//#region src/lib/nodeTiers.js
+// src/lib/nodeTiers.js
 function normalizeTiers(node) {
 	return (Array.isArray(node?.tiers) ? node.tiers : []).filter((tier) => tier && Number(tier.points) > 0).map((tier, index) => ({
 		level: Math.max(0, Number(tier.level) || 0),
@@ -5825,8 +5810,7 @@ function withTiers(node, tiers) {
 		levelReq: clean[0].level || 0
 	};
 }
-//#endregion
-//#region src/lib/treeFormat.js
+// src/lib/treeFormat.js
 var parseList = (value) => Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : String(value || "").split(/[,;]/).map((item) => item.trim()).filter(Boolean);
 var NODE_TYPES = [
 	{
@@ -6179,8 +6163,7 @@ function denormalizeTree(tree) {
 		}
 	};
 }
-//#endregion
-//#region src/lib/pointTypes.js
+// src/lib/pointTypes.js
 var DEFAULT_NODE_TYPES = NODE_TYPES.map(({ value, label }) => ({
 	value,
 	label
@@ -6310,8 +6293,7 @@ function levelZeroPointsFor(settings) {
 	});
 	return out;
 }
-//#endregion
-//#region src/lib/projectStore.js
+// src/lib/projectStore.js
 var DB_NAME = "talent-tree";
 var DB_VERSION = 1;
 var KV_STORE = "kv";
@@ -6434,8 +6416,7 @@ async function migrateLegacyStorage() {
 	} catch {}
 	return moved;
 }
-//#endregion
-//#region src/lib/projectFiles.js
+// src/lib/projectFiles.js
 async function saveProjectToDisk(payload, { name = "", manual = false } = {}) {
 	if (!payload) return null;
 	const safeName = String(name || payload.name || "Terrific Talent Tree Project");
@@ -6493,8 +6474,7 @@ async function deleteProjectFile(file, { backup = false } = {}) {
 		return false;
 	}
 }
-//#endregion
-//#region src/lib/srdSeed.js
+// src/lib/srdSeed.js
 var SRD_SEED_URL = "/srd/srd-seed.json";
 var SRD_ATTRIBUTION = {
 	srd51: "This work includes material taken from the System Reference Document 5.1 (\"SRD 5.1\") by Wizards of the Coast LLC, available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.",
@@ -7420,7 +7400,7 @@ var DEFAULT_SETTINGS = {
 		levelZeroTalentPoints: 2
 	},
 	library: DEFAULT_LIBRARY,
-	updateUrl: "https://abc-bennett-graphical-liabilities.trycloudflare.com",
+	updateUrl: "https://gist.githubusercontent.com/FrozenSunlite/d8d5810880985fb22e4b315a68020ee9/raw",
 	desktopUpdateUrl: ""
 };
 var normalizeTypeEntry = (e) => typeof e === "string" ? {
@@ -10091,8 +10071,7 @@ function poolUsage(tree, pointTypes = DEFAULT_POINT_TYPES) {
 	});
 	return usage;
 }
-//#endregion
-//#region src/hooks/use-is-mobile.js
+// src/hooks/use-is-mobile.js
 function useIsMobile(query = "(max-width: 767px)") {
 	const [mobile, setMobile] = useState(() => {
 		if (typeof window === "undefined" || !window.matchMedia) return false;
@@ -10112,8 +10091,7 @@ function useIsMobile(query = "(max-width: 767px)") {
 	}, [query]);
 	return mobile;
 }
-//#endregion
-//#region src/lib/imageBitmap.js
+// src/lib/imageBitmap.js
 async function loadImageSource(blob) {
 	if (!blob) throw new Error("No image data");
 	if (typeof createImageBitmap === "function") try {
@@ -10139,8 +10117,7 @@ async function loadImageSource(blob) {
 		URL.revokeObjectURL(url);
 	}
 }
-//#endregion
-//#region src/lib/imageStore.js
+// src/lib/imageStore.js
 var UPLOAD_ENDPOINT = "/api/upload";
 var MAX_FALLBACK_EDGE = 512;
 var MAX_UPLOAD_BYTES = 26214400;
@@ -10341,8 +10318,7 @@ async function rehydrateImages(payload) {
 		return mapMarkdownImages(text, resolve);
 	});
 }
-//#endregion
-//#region src/components/ui/dialog.jsx
+// src/components/ui/dialog.jsx
 var Dialog = DialogPrimitive.Root;
 var DialogPortal = DialogPrimitive.Portal;
 var DialogOverlay = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(DialogPrimitive.Overlay, {
@@ -10387,8 +10363,7 @@ var DialogDescription = React.forwardRef(({ className, ...props }, ref) => /* @_
 	...props
 }));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
-//#endregion
-//#region src/lib/fiveEToolsRulebook.js
+// src/lib/fiveEToolsRulebook.js
 var clean$1 = (value) => fiveText(value).replace(/\r\n/g, "\n").trim();
 var cell = (value) => clean$1(value).replace(/\|/g, "\\|");
 var tableMarkdown = (table) => {
@@ -10515,8 +10490,7 @@ function bookToRulebook(entry, fallbackTitle = "") {
 		chapters
 	};
 }
-//#endregion
-//#region src/lib/fiveEToolsLookup.js
+// src/lib/fiveEToolsLookup.js
 var cache = null;
 var pending$1 = null;
 async function loadSpellLookup() {
@@ -10544,8 +10518,7 @@ function spellClassNames(entry, lookup) {
 	});
 	return Array.from(classes).sort().join(", ");
 }
-//#endregion
-//#region src/lib/monsterSpeeds.js
+// src/lib/monsterSpeeds.js
 var TYPE_ALIASES = {
 	walk: "Standard",
 	land: "Standard",
@@ -10602,8 +10575,7 @@ function speedEntries(speed) {
 function speedTextFromEntries(entries) {
 	return (entries || []).filter((e) => e && e.type && Number.isFinite(Number(e.spaces))).map((e) => e.type === "Standard" ? `${e.spaces} spaces` : `${e.type} ${e.spaces} spaces`).join(", ");
 }
-//#endregion
-//#region src/lib/monsterImport.js
+// src/lib/monsterImport.js
 var textOf = (value) => {
 	if (value == null) return "";
 	if (typeof value === "string") return value;
@@ -10726,8 +10698,7 @@ function normalizeImportedMonster(raw) {
 function importMonsterPayload(data) {
 	return (Array.isArray(data) ? data : Array.isArray(data?.monsters) ? data.monsters : Array.isArray(data?.monster) ? data.monster : data && typeof data === "object" ? [data] : []).map(normalizeImportedMonster).filter((m) => m?.name);
 }
-//#endregion
-//#region src/lib/fiveEToolsView.js
+// src/lib/fiveEToolsView.js
 var clean = (value) => fiveText(value).replace(/[ \t]+\n/g, "\n").trim();
 var titleCase = (s) => String(s || "").split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 var join = (value, sep = ", ") => {
@@ -11656,8 +11627,7 @@ function CleanField(value) {
 	}
 	return String(value);
 }
-//#endregion
-//#region src/lib/characterCreation.js
+// src/lib/characterCreation.js
 var COIN_TYPES = [
 	{
 		id: "cp",
@@ -11904,8 +11874,7 @@ function classBenefitsFor(tree, { className, classSource, subclassName, level })
 		group: node.featureGroup || "Class"
 	}));
 }
-//#endregion
-//#region src/components/ui/label.jsx
+// src/components/ui/label.jsx
 var labelVariants = cva("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70");
 var Label = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(LabelPrimitive.Root, {
 	ref,
@@ -11913,8 +11882,7 @@ var Label = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ j
 	...props
 }));
 Label.displayName = LabelPrimitive.Root.displayName;
-//#endregion
-//#region src/components/ui/select.jsx
+// src/components/ui/select.jsx
 var Select = SelectPrimitive.Root;
 var SelectGroup = SelectPrimitive.Group;
 var SelectValue = SelectPrimitive.Value;
@@ -11979,8 +11947,7 @@ var SelectSeparator = React.forwardRef(({ className, ...props }, ref) => /* @__P
 	...props
 }));
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
-//#endregion
-//#region src/components/skilltree/LevelUpDialog.jsx
+// src/components/skilltree/LevelUpDialog.jsx
 var classKey = (entry) => `${entry.name}|${entry.source || ""}`;
 function LevelUpDialog({ open, onClose }) {
 	const { character, setCharacter, setPools, settings, tree } = useTree();
@@ -12266,8 +12233,7 @@ function LevelUpDialog({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/ui/switch.jsx
+// src/components/ui/switch.jsx
 var Switch = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(SwitchPrimitives.Root, {
 	className: cn("peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input", className),
 	...props,
@@ -12275,8 +12241,7 @@ var Switch = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ 
 	children: /* @__PURE__ */ jsx(SwitchPrimitives.Thumb, { className: cn("pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0") })
 }));
 Switch.displayName = SwitchPrimitives.Root.displayName;
-//#endregion
-//#region src/components/ui/input.jsx
+// src/components/ui/input.jsx
 var Input = React.forwardRef(({ className, type, ...props }, ref) => {
 	return /* @__PURE__ */ jsx("input", {
 		type,
@@ -12286,8 +12251,7 @@ var Input = React.forwardRef(({ className, type, ...props }, ref) => {
 	});
 });
 Input.displayName = "Input";
-//#endregion
-//#region src/lib/importHistory.js
+// src/lib/importHistory.js
 var sequence = 0;
 function newImportId() {
 	sequence += 1;
@@ -12354,8 +12318,7 @@ function removeImportFromLibrary(library, importId) {
 		tabIds: record?.tabIds || []
 	};
 }
-//#endregion
-//#region src/lib/appUpdates.js
+// src/lib/appUpdates.js
 var listeners$3 = /* @__PURE__ */ new Set();
 var state$1 = {
 	waiting: null,
@@ -12574,8 +12537,7 @@ async function downloadAndInstallApk(url, { onProgress } = {}) {
 		};
 	}
 }
-//#endregion
-//#region src/lib/useMusicLibrary.js
+// src/lib/useMusicLibrary.js
 var EMPTY = {
 	default: [],
 	custom: []
@@ -12609,13 +12571,11 @@ function useMusicLibrary() {
 	}, []);
 	return library;
 }
-//#endregion
-//#region src/lib/useAudio.js
+// src/lib/useAudio.js
 function useCurrentTrack() {
 	return useSyncExternalStore(subscribeCurrentTrack, getCurrentTrack, () => null);
 }
-//#endregion
-//#region src/components/ui/slider.jsx
+// src/components/ui/slider.jsx
 var Slider = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsxs(SliderPrimitive.Root, {
 	ref,
 	className: cn("relative flex w-full touch-none select-none items-center", className),
@@ -12626,8 +12586,7 @@ var Slider = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ 
 	}), /* @__PURE__ */ jsx(SliderPrimitive.Thumb, { className: "block h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" })]
 }));
 Slider.displayName = SliderPrimitive.Root.displayName;
-//#endregion
-//#region src/components/ui/tabs.jsx
+// src/components/ui/tabs.jsx
 var Tabs = TabsPrimitive.Root;
 var TabsList = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(TabsPrimitive.List, {
 	ref,
@@ -12647,8 +12606,7 @@ var TabsContent = React.forwardRef(({ className, ...props }, ref) => /* @__PURE_
 	...props
 }));
 TabsContent.displayName = TabsPrimitive.Content.displayName;
-//#endregion
-//#region src/components/skilltree/HotkeyRow.jsx
+// src/components/skilltree/HotkeyRow.jsx
 function HotkeyRow({ label, combo, onChange }) {
 	const [listening, setListening] = useState(false);
 	useEffect(() => {
@@ -12683,8 +12641,7 @@ function HotkeyRow({ label, combo, onChange }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/HelpContent.jsx
+// src/components/skilltree/HelpContent.jsx
 var TUTORIAL = [
 	{
 		part: "1. The Main Menu (where you start)",
@@ -12907,8 +12864,7 @@ function HelpContent() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/useTheme.js
+// src/lib/useTheme.js
 var DEFAULT_CUSTOM = {
 	background: "#12161d",
 	surface: "#1a2029",
@@ -13202,8 +13158,7 @@ function useTheme() {
 	}, [theme]);
 	return [theme, setTheme];
 }
-//#endregion
-//#region src/components/skilltree/SettingsMenu.jsx
+// src/components/skilltree/SettingsMenu.jsx
 var HOTKEY_LABELS = [
 	["undo", "Undo"],
 	["redo", "Redo"],
@@ -14439,8 +14394,7 @@ function SettingsMenu({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/lib/textSearch.js
+// src/lib/textSearch.js
 function normText(value) {
 	let s;
 	try {
@@ -14465,8 +14419,7 @@ function matchesQuery(value, query) {
 	if (!q) return true;
 	return normText(value).includes(q);
 }
-//#endregion
-//#region src/lib/benefits.js
+// src/lib/benefits.js
 var BENEFIT_CATEGORIES = [
 	{
 		id: "spell",
@@ -14768,8 +14721,7 @@ function collectNodeBenefits(tree) {
 	walk(tree?.nodes);
 	return out;
 }
-//#endregion
-//#region src/components/ui/textarea.jsx
+// src/components/ui/textarea.jsx
 var Textarea = React.forwardRef(({ className, ...props }, ref) => {
 	return /* @__PURE__ */ jsx("textarea", {
 		className: cn("flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm", className),
@@ -14778,8 +14730,7 @@ var Textarea = React.forwardRef(({ className, ...props }, ref) => {
 	});
 });
 Textarea.displayName = "Textarea";
-//#endregion
-//#region src/components/ui/tooltip.jsx
+// src/components/ui/tooltip.jsx
 var TooltipProvider = TooltipPrimitive.Provider;
 var Tooltip = TooltipPrimitive.Root;
 var TooltipTrigger = TooltipPrimitive.Trigger;
@@ -14790,8 +14741,7 @@ var TooltipContent = React.forwardRef(({ className, sideOffset = 4, ...props }, 
 	...props
 }) }));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
-//#endregion
-//#region src/components/skilltree/InfoTip.jsx
+// src/components/skilltree/InfoTip.jsx
 function InfoTip({ label, children, side = "bottom" }) {
 	if (!label) return children;
 	return /* @__PURE__ */ jsx(TooltipProvider, {
@@ -14805,8 +14755,7 @@ function InfoTip({ label, children, side = "bottom" }) {
 		})] })
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/shared.jsx
+// src/components/skilltree/library/shared.jsx
 var COIN_SUFFIX = {
 	copper: "cp",
 	silver: "sp",
@@ -15161,8 +15110,7 @@ function NameList({ label, entries, onChange, placeholder, dragCategory = "" }) 
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/ShopTab.jsx
+// src/components/skilltree/library/ShopTab.jsx
 var DEFAULT_CURRENCIES$1 = [
 	{
 		key: "copper",
@@ -15262,8 +15210,7 @@ function ShopTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/GearContents.jsx
+// src/components/skilltree/library/GearContents.jsx
 function GearContents({ contents, onChange }) {
 	const set = (j, patch) => onChange(contents.map((r, k) => k === j ? {
 		...r,
@@ -15365,8 +15312,7 @@ function GearContents({ contents, onChange }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/GearTabs.jsx
+// src/components/skilltree/library/GearTabs.jsx
 var containerLike = (cat) => /container|pack|kit/i.test(cat || "");
 var holdsItems = (e) => e.isContainer != null ? !!e.isContainer : containerLike(e.category);
 function AdventuringGearTab() {
@@ -15974,8 +15920,7 @@ function PoisonsTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ShopImportDialog.jsx
+// src/components/skilltree/ShopImportDialog.jsx
 var CATEGORIES = [
 	[
 		"weapons",
@@ -16159,8 +16104,7 @@ function ShopImportDialog({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/RollTablesTab.jsx
+// src/components/skilltree/library/RollTablesTab.jsx
 function RollTablesTab() {
 	const t = useLibList("rollTables");
 	return /* @__PURE__ */ jsxs("div", {
@@ -16393,8 +16337,7 @@ function RollTableEditor({ table, onChange, onDelete }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/LootTablesTab.jsx
+// src/components/skilltree/library/LootTablesTab.jsx
 var LOOT_CATEGORIES$1 = [
 	[
 		"weapons",
@@ -16726,8 +16669,7 @@ function SubtableEditor({ subtable, onChange, onDelete }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/dmLoot.js
+// src/lib/dmLoot.js
 var LOOT_CATEGORIES = [
 	[
 		"weapons",
@@ -16894,8 +16836,7 @@ function rollEncounter(table, monsters = []) {
 		};
 	}).filter((r) => r && r.count > 0);
 }
-//#endregion
-//#region src/components/skilltree/library/LootPoolsTab.jsx
+// src/components/skilltree/library/LootPoolsTab.jsx
 function LootPoolsTab() {
 	const t = useLibList("lootPools");
 	const fileRef = useRef(null);
@@ -17216,8 +17157,7 @@ function EntryEditor({ entry, pools, selfName, onChange, onDelete }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/EncounterTablesTab.jsx
+// src/components/skilltree/library/EncounterTablesTab.jsx
 function EncounterTablesTab() {
 	const t = useLibList("encounterTables");
 	const { settings } = useTree();
@@ -17531,8 +17471,7 @@ function EncounterTableEditor({ table, monsters, onChange, onDelete }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/DowntimeTab.jsx
+// src/components/skilltree/library/DowntimeTab.jsx
 function DowntimeTab() {
 	const d = useLibList("downtimeActions");
 	return /* @__PURE__ */ jsxs("div", {
@@ -17598,8 +17537,7 @@ function DowntimeTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/SubChips.jsx
+// src/components/skilltree/library/SubChips.jsx
 function SubChips({ values, value, onChange, className }) {
 	const all = ["__all__", ...(values || []).filter(Boolean)];
 	return /* @__PURE__ */ jsx("div", {
@@ -17617,8 +17555,7 @@ function SubChips({ values, value, onChange, className }) {
 function matchesSub(value, filter) {
 	return !filter || filter === "__all__" || (value || "") === filter;
 }
-//#endregion
-//#region src/components/skilltree/library/ReferenceTabs.jsx
+// src/components/skilltree/library/ReferenceTabs.jsx
 function LanguagesTab() {
 	const { settings, setSettings } = useTree();
 	const lib = settings.library;
@@ -17674,8 +17611,7 @@ function GearCategoriesTab() {
 		placeholder: "e.g. Tools"
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/WondrousActions.jsx
+// src/components/skilltree/library/WondrousActions.jsx
 function WondrousActions({ item, onPatch }) {
 	const acts = item.itemActions || [];
 	const setActs = (next) => onPatch({ itemActions: next });
@@ -17749,8 +17685,7 @@ function WondrousActions({ item, onPatch }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/CombatTabs.jsx
+// src/components/skilltree/library/CombatTabs.jsx
 function WondrousTab() {
 	const { settings, setSettings } = useTree();
 	const lib = settings.library;
@@ -18189,8 +18124,7 @@ function VehiclesTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/WeaponPropertiesTab.jsx
+// src/components/skilltree/library/WeaponPropertiesTab.jsx
 function WeaponPropertiesTab() {
 	const { items, add, patch, remove, query, setQuery, shown } = useLibList("properties");
 	return /* @__PURE__ */ jsxs("div", {
@@ -18226,8 +18160,7 @@ function WeaponPropertiesTab() {
 		}, i))]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/WeaponMasteriesTab.jsx
+// src/components/skilltree/library/WeaponMasteriesTab.jsx
 function WeaponMasteriesTab() {
 	const { items, add, patch, remove, query, setQuery, shown } = useLibList("weaponMasteries");
 	return /* @__PURE__ */ jsxs("div", {
@@ -18291,8 +18224,7 @@ function WeaponMasteriesTab() {
 		}, i))]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/LevelsTab.jsx
+// src/components/skilltree/library/LevelsTab.jsx
 var legacyKey = (id) => id === "talent" ? "talentPoints" : id === "heritage" ? "heritagePoints" : id === "attribute" ? "attributePoints" : null;
 function LevelsTab() {
 	const { settings, setSettings } = useTree();
@@ -18495,8 +18427,7 @@ function LevelsTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/PointTypesTab.jsx
+// src/components/skilltree/library/PointTypesTab.jsx
 function PointTypesTab() {
 	const { settings, setSettings } = useTree();
 	const pointTypes = pointTypesFor(settings);
@@ -18627,8 +18558,7 @@ function PointTypesTab() {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/NodeTypesTab.jsx
+// src/components/skilltree/library/NodeTypesTab.jsx
 function NodeTypesTab() {
 	const { settings, setSettings, tree } = useTree();
 	const nodeTypes = nodeTypesFor(settings);
@@ -18735,8 +18665,7 @@ function NodeTypesTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/CreatureTypesTab.jsx
+// src/components/skilltree/library/CreatureTypesTab.jsx
 function CreatureTypesTab() {
 	const { items, add, patch, remove, query, setQuery, shown } = useLibList("creatureTypes");
 	return /* @__PURE__ */ jsxs("div", {
@@ -18769,8 +18698,7 @@ function CreatureTypesTab() {
 		}, i))]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/SpeedSensesTabs.jsx
+// src/components/skilltree/library/SpeedSensesTabs.jsx
 function TypeListTab({ libKey, addLabel, placeholder, tip, dragCategory }) {
 	const { items, add, patch, remove, query, setQuery, shown } = useLibList(libKey);
 	return /* @__PURE__ */ jsxs("div", {
@@ -18825,8 +18753,7 @@ function SensesLibraryTab() {
 		dragCategory: "sense"
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/ResourcesTab.jsx
+// src/components/skilltree/library/ResourcesTab.jsx
 var DIE_SIZES$2 = [
 	"d4",
 	"d6",
@@ -18986,8 +18913,7 @@ function ResourcesTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/DieScalingTab.jsx
+// src/components/skilltree/library/DieScalingTab.jsx
 var average = (value) => {
 	const stats = dieStats(value);
 	if (!stats) return "—";
@@ -19076,8 +19002,7 @@ function DieScalingTab() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/dungeonGen.js
+// src/lib/dungeonGen.js
 var DUNGEON_RANKS = {
 	E: {
 		label: "E",
@@ -20679,8 +20604,7 @@ function dungeonBounds(dungeon) {
 function categoryColor(category) {
 	return (DUNGEON_CATEGORIES.find(([c]) => c === category) || [])[1] || "#94a3b8";
 }
-//#endregion
-//#region src/components/skilltree/library/DungeonRoomsTab.jsx
+// src/components/skilltree/library/DungeonRoomsTab.jsx
 var CONNECTORS$1 = [
 	"Doorway",
 	"Double Door",
@@ -20943,8 +20867,7 @@ function DungeonRoomsTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/rulebook/Homebrewery.jsx
+// src/components/rulebook/Homebrewery.jsx
 function Homebrewery({ text = "", className = "" }) {
 	const blocks = useMemo(() => splitBlocks(text), [text]);
 	return /* @__PURE__ */ jsx("div", {
@@ -21083,8 +21006,7 @@ function MarkdownBlock({ text }) {
 		children: text
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/ReferenceEntryPreview.jsx
+// src/components/skilltree/library/ReferenceEntryPreview.jsx
 function BookReader({ book }) {
 	const [index, setIndex] = useState(0);
 	const safeIndex = Math.min(index, Math.max(0, book.chapters.length - 1));
@@ -21226,8 +21148,7 @@ function ReferenceEntryPreview({ details, imageSrc, onImport, importingLabel }) 
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/FiveEToolsImportsTab.jsx
+// src/components/skilltree/library/FiveEToolsImportsTab.jsx
 function FiveEToolsImportsTab() {
 	const { settings, setSettings } = useTree();
 	const data = settings?.library?.fiveETools || {};
@@ -21387,8 +21308,7 @@ function FiveEToolsImportsTab() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/projectAssets.js
+// src/lib/projectAssets.js
 var IMAGE_URL_RE = /^(?:data:image\/|\/images\/|\/api\/5etools\/(?:image|brew-image)|\/api\/image-proxy|https?:\/\/\S+\.(?:png|jpe?g|gif|webp|bmp|avif|svg)(?:[?#]\S*)?$)/i;
 var MARKDOWN_IMAGE_RE = /!\[([^\]]*)\]\(([^)\s]+)((?:\s+"[^"]*")?)\)/g;
 function imageUrlsInText(text) {
@@ -21449,8 +21369,7 @@ var formatBytes = (bytes) => {
 	if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
 	return `${(n / 1048576).toFixed(2)} MB`;
 };
-//#endregion
-//#region src/components/skilltree/library/MediaTab.jsx
+// src/components/skilltree/library/MediaTab.jsx
 function MediaTab() {
 	const { settings, setSettings, tree, setTree, character, setCharacter } = useTree();
 	const [serverImages, setServerImages] = useState([]);
@@ -21678,8 +21597,7 @@ function MediaTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/FiveEToolsCategoryTab.jsx
+// src/components/skilltree/library/FiveEToolsCategoryTab.jsx
 var ENTRY_FIELDS = {
 	backgrounds: [
 		[
@@ -22243,8 +22161,7 @@ function FiveEToolsCategoryTab({ categoryId }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/DuplicatesTab.jsx
+// src/components/skilltree/library/DuplicatesTab.jsx
 var LIBRARY_ARRAYS = [
 	"spells",
 	"monsters",
@@ -22444,8 +22361,7 @@ function DuplicatesTab() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/encounterXp.js
+// src/lib/encounterXp.js
 var XP_BY_CR = {
 	0: 10,
 	.125: 25,
@@ -22689,8 +22605,7 @@ function encounterXp(rows = [], monsters = [], { partySize = 4 } = {}) {
 		lowerDifficulty: difficultyFor(adjustedXp, thresholdsFor(lowerLevel, partySize))
 	};
 }
-//#endregion
-//#region src/components/skilltree/library/EncounterXpCalculator.jsx
+// src/components/skilltree/library/EncounterXpCalculator.jsx
 var fmt$3 = (n) => Number(n || 0).toLocaleString();
 var tagPool = (monsters, tag) => {
 	const needle = String(tag || "").toLowerCase();
@@ -22975,8 +22890,7 @@ function EncounterXpCalculator() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ActionPartsEditor.jsx
+// src/components/skilltree/ActionPartsEditor.jsx
 var STATS$4 = [
 	"STR",
 	"DEX",
@@ -23343,8 +23257,7 @@ function ActionTargetingFields({ action, onChange }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/ActionsTab.jsx
+// src/components/skilltree/library/ActionsTab.jsx
 function ActionsTab() {
 	const { settings, setSettings } = useTree();
 	const actions = settings?.library?.actions || [];
@@ -23693,8 +23606,7 @@ function ActionsTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/ui/checkbox.jsx
+// src/components/ui/checkbox.jsx
 var Checkbox = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsx(CheckboxPrimitive.Root, {
 	ref,
 	className: cn("peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground", className),
@@ -23705,8 +23617,7 @@ var Checkbox = React.forwardRef(({ className, ...props }, ref) => /* @__PURE__ *
 	})
 }));
 Checkbox.displayName = CheckboxPrimitive.Root.displayName;
-//#endregion
-//#region src/components/skilltree/library/SpellsTab.jsx
+// src/components/skilltree/library/SpellsTab.jsx
 var LEVELS$2 = [
 	["cantrip", "Cantrip"],
 	["1", "1st level"],
@@ -24524,8 +24435,7 @@ function ListHeaderWrapper({ onAdd, query, setQuery }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/SpellSchoolsTab.jsx
+// src/components/skilltree/library/SpellSchoolsTab.jsx
 function SpellSchoolsTab() {
 	const { settings, setSettings } = useTree();
 	const lib = settings?.library || {};
@@ -24643,8 +24553,7 @@ function SpellSchoolsTab() {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/TriggersTab.jsx
+// src/components/skilltree/library/TriggersTab.jsx
 var COMMON_TRIGGERS = [
 	"On Attack",
 	"On Hit",
@@ -24698,8 +24607,7 @@ function TriggersTab() {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/StatusEffectsTab.jsx
+// src/components/skilltree/library/StatusEffectsTab.jsx
 function StatusEffectsTab() {
 	const { settings, setSettings } = useTree();
 	const statusEffects = settings?.library?.statusEffects || [];
@@ -24814,8 +24722,7 @@ function StatusEffectsTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ImageField.jsx
+// src/components/skilltree/ImageField.jsx
 function ImageField({ label = "Image", value = "", onChange, placeholder = "Image URL or upload…", info = "", previewClass = "h-28 w-28" }) {
 	const fileRef = useRef(null);
 	const [busy, setBusy] = useState(false);
@@ -24912,8 +24819,7 @@ function ImageField({ label = "Image", value = "", onChange, placeholder = "Imag
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/FamiliarTab.jsx
+// src/components/skilltree/FamiliarTab.jsx
 var ABILITIES = [
 	["str", "STR"],
 	["dex", "DEX"],
@@ -25531,8 +25437,7 @@ function FamiliarTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/library/MonstersTab.jsx
+// src/components/skilltree/library/MonstersTab.jsx
 var BLANK = {
 	name: "",
 	image: "",
@@ -26644,8 +26549,7 @@ function MonstersTab() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/upgrades.js
+// src/lib/upgrades.js
 function hasSpellcasting(character = {}) {
 	return (character?.spellList || []).length > 0 || !!character?.spellStat || Number(character?.modifiers?.spellAttack || 0) !== 0;
 }
@@ -26705,8 +26609,7 @@ function applyUpgrades(base = {}, upgrades = []) {
 		damage: [baseText, ...riders].filter(Boolean).join(" + ")
 	};
 }
-//#endregion
-//#region src/components/skilltree/library/UpgradesTab.jsx
+// src/components/skilltree/library/UpgradesTab.jsx
 function UpgradesTab() {
 	const { settings } = useTree();
 	const lib = settings.library;
@@ -26964,8 +26867,7 @@ function UpgradesTab() {
 		]
 	});
 }
-//#endregion
-//#region src/hooks/use-panel-width.js
+// src/hooks/use-panel-width.js
 var KEY$1 = "skilltree:editorWidth";
 var EVT = "skilltree:panel-width";
 function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KEY$1) {
@@ -26991,8 +26893,7 @@ function usePanelWidth(defaultWidth = 340, min = 260, max = 720, key = KEY$1) {
 	};
 	return [width, set];
 }
-//#endregion
-//#region src/components/skilltree/PanelResizer.jsx
+// src/components/skilltree/PanelResizer.jsx
 function PanelResizer({ width, onResize, edge = "left", min = 260, max = 720 }) {
 	const [globalWidth, setGlobal] = usePanelWidth();
 	const w = width ?? globalWidth;
@@ -27024,8 +26925,7 @@ function PanelResizer({ width, onResize, edge = "left", min = 260, max = 720 }) 
 		}
 	});
 }
-//#endregion
-//#region src/components/skilltree/LibraryMenu.jsx
+// src/components/skilltree/LibraryMenu.jsx
 var STATS_LIST = [
 	"STR",
 	"DEX",
@@ -28239,8 +28139,7 @@ function LibraryMenu({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/SaveLoadMenu.jsx
+// src/components/skilltree/SaveLoadMenu.jsx
 function SaveLoadMenu({ open, onClose }) {
 	const { tree, character, pools, settings, applyLoadedSave, clearDirty } = useTree();
 	const [saves, setSaves] = useState([]);
@@ -28569,8 +28468,7 @@ function SaveLoadMenu({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/ScaleNodesDialog.jsx
+// src/components/skilltree/ScaleNodesDialog.jsx
 var PRESETS = [
 	-50,
 	-25,
@@ -28691,8 +28589,7 @@ function ScaleNodesDialog({ open, onOpenChange }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/TabBar.jsx
+// src/components/skilltree/TabBar.jsx
 function TabBar() {
 	const { tabs, activeTabId, setActiveTab, addTab, renameTab, deleteTab, tree, carry, dropCarriedOnTab } = useTree();
 	const [editingId, setEditingId] = useState(null);
@@ -28765,8 +28662,7 @@ function TabBar() {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/MainMenuButton.jsx
+// src/components/skilltree/MainMenuButton.jsx
 function MainMenuButton({ onClick, compact = false, className = "", variant = "outline" }) {
 	const go = () => {
 		playSfx(SFX.mainMenu, { gain: .75 });
@@ -28795,8 +28691,7 @@ function MainMenuButton({ onClick, compact = false, className = "", variant = "o
 		})
 	});
 }
-//#endregion
-//#region src/lib/treeSearch.js
+// src/lib/treeSearch.js
 var SEARCH_FIELDS = [
 	{
 		key: "n",
@@ -28912,8 +28807,7 @@ function searchNodes(nodes, raw) {
 	out.sort((a, b) => b.score - a.score || String(a.node.name || "").localeCompare(String(b.node.name || "")));
 	return out;
 }
-//#endregion
-//#region src/components/skilltree/SearchWindow.jsx
+// src/components/skilltree/SearchWindow.jsx
 var MIN_W = 260;
 var MIN_H = 220;
 var MAX_W = 800;
@@ -29064,8 +28958,7 @@ function SearchWindow({ query, setQuery, matches, onPick, onClose }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SearchBox.jsx
+// src/components/skilltree/SearchBox.jsx
 function SearchBox({ onPick, fullWidth = false }) {
 	const { tree, setUi } = useTree();
 	const [query, setQuery] = useState("");
@@ -29160,8 +29053,7 @@ function SearchBox({ onPick, fullWidth = false }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/Toolbar.jsx
+// src/components/skilltree/Toolbar.jsx
 function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 	const { tree, mode, setMode, setScreen, grid, setGrid, ui, setUi, pools, setPools, character, setCharacter, importTree, invertPrerequisites, setTree, settings, mergedTree, sheetOnly } = useTree();
 	const setView = useViewSet();
@@ -29826,8 +29718,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 		})
 	] });
 }
-//#endregion
-//#region src/components/skilltree/NodeHoverCard.jsx
+// src/components/skilltree/NodeHoverCard.jsx
 function NodeHoverCard({ node, nodesById, extra = null }) {
 	const { settings } = useTree();
 	if (!node) return null;
@@ -29892,8 +29783,7 @@ function NodeHoverCard({ node, nodesById, extra = null }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SubtreePreview.jsx
+// src/components/skilltree/SubtreePreview.jsx
 var clamp$6 = (x, y) => {
 	if (typeof window === "undefined") return {
 		x,
@@ -30017,8 +29907,7 @@ function SubtreePreview({ subtree, width = 232, interactive = false }) {
 		})
 	})] });
 }
-//#endregion
-//#region src/components/skilltree/NodeTooltip.jsx
+// src/components/skilltree/NodeTooltip.jsx
 function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
 	if (!hover) return null;
 	const { node } = hover;
@@ -30051,8 +29940,7 @@ function NodeTooltip({ hover, nodesById, subtreePreview = false }) {
 		})
 	});
 }
-//#endregion
-//#region src/lib/nodeLinks.js
+// src/lib/nodeLinks.js
 function linkParts(text) {
 	const parts = [];
 	const re = /\[\[([^\]]+)\]\]/g;
@@ -30111,8 +29999,7 @@ function resolveLinkTarget(name, nodes = []) {
 	}
 	return null;
 }
-//#endregion
-//#region src/components/skilltree/RichDescription.jsx
+// src/components/skilltree/RichDescription.jsx
 function RichDescription({ text, nodes = [], onJumpNode, onOpenSubtree, className = "" }) {
 	const s = String(text || "");
 	const parts = linkParts(s);
@@ -30141,8 +30028,7 @@ function RichDescription({ text, nodes = [], onJumpNode, onOpenSubtree, classNam
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/AltDescriptionWindow.jsx
+// src/components/skilltree/AltDescriptionWindow.jsx
 function AltDescriptionWindow({ win, nodes, onJumpNode, onOpenSubtree, onClose }) {
 	const closingRef = useRef(false);
 	useEffect(() => {
@@ -30209,8 +30095,7 @@ function AltDescriptionWindow({ win, nodes, onJumpNode, onOpenSubtree, onClose }
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/IconArt.jsx
+// src/components/skilltree/IconArt.jsx
 function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "", hideOnInvalid = false }) {
 	if (circular) return /* @__PURE__ */ jsx("div", {
 		className: `relative shrink-0 overflow-hidden rounded-full ${className}`,
@@ -30256,8 +30141,7 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 		}
 	});
 }
-//#endregion
-//#region src/components/skilltree/SkillNodeView.jsx
+// src/components/skilltree/SkillNodeView.jsx
 var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
 	const autoBridge = isBridgeNode(node) && available;
 	const unlocked = (node.currentPoints || 0) > 0 || autoBridge;
@@ -30419,8 +30303,7 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 		]
 	});
 });
-//#endregion
-//#region src/components/skilltree/ConnectionLayer.jsx
+// src/components/skilltree/ConnectionLayer.jsx
 var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, visibleIds, style, showArrows, connector, altActive, selectedId, hidden, onConnPointerDown, onConnSelect, onConnContextMenu, lowDetail = false }) {
 	const visible = useMemo(() => {
 		const set = new Set(visibleIds);
@@ -30539,8 +30422,7 @@ var ConnectionLayer = memo(function ConnectionLayer({ connections, nodesById, vi
 		})]
 	});
 });
-//#endregion
-//#region src/components/skilltree/GridLayer.jsx
+// src/components/skilltree/GridLayer.jsx
 var MAX_PIXELS = 16777216;
 function GridLayer({ bounds, grid, zoom }) {
 	const ref = useRef(null);
@@ -30625,8 +30507,7 @@ function GridLayer({ bounds, grid, zoom }) {
 		}
 	});
 }
-//#endregion
-//#region src/components/skilltree/MiniMap.jsx
+// src/components/skilltree/MiniMap.jsx
 var W = 224;
 var H = 150;
 function MiniMap({ nodes, gridBounds, view, vp, onJump }) {
@@ -30730,8 +30611,7 @@ function MiniMap({ nodes, gridBounds, view, vp, onJump }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/AbilityChoiceDialog.jsx
+// src/components/skilltree/AbilityChoiceDialog.jsx
 function AbilityChoiceDialog({ node, nodesById, choices, perTake = 1, onPick, onClose }) {
 	const [picked, setPicked] = useState([]);
 	const [drill, setDrill] = useState(null);
@@ -30907,8 +30787,7 @@ function AbilityChoiceDialog({ node, nodesById, choices, perTake = 1, onPick, on
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/SubtreePickerDialog.jsx
+// src/components/skilltree/SubtreePickerDialog.jsx
 function SubtreePickerDialog({ node, onPick, onClose }) {
 	const { character, mergedTree } = useTree();
 	if (!node) return null;
@@ -30982,8 +30861,7 @@ function SubtreePickerDialog({ node, onPick, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/ConnectorMenu.jsx
+// src/components/skilltree/ConnectorMenu.jsx
 function ConnectorMenu({ menu, editable, onFork, onDelete, onClose }) {
 	if (!editable || !menu) return null;
 	const item = (label, icon, onClick, danger) => /* @__PURE__ */ jsx(InfoTip, {
@@ -31014,8 +30892,7 @@ function ConnectorMenu({ menu, editable, onFork, onDelete, onClose }) {
 		children: [item("Fork here — new child node", /* @__PURE__ */ jsx(GitBranch, { className: "h-4 w-4" }), () => onFork(menu.world), false), item("Delete connector", /* @__PURE__ */ jsx(Trash2, { className: "h-4 w-4" }), () => onDelete(menu.conn.id), true)]
 	})] });
 }
-//#endregion
-//#region src/components/skilltree/CarryGhost.jsx
+// src/components/skilltree/CarryGhost.jsx
 function CarryGhost() {
 	const { carry, endCarry } = useTree();
 	const [pos, setPos] = useState(null);
@@ -31052,8 +30929,7 @@ function CarryGhost() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SkillTreeCanvas.jsx
+// src/components/skilltree/SkillTreeCanvas.jsx
 var lastCentredKey = "";
 var emptyTabs = /* @__PURE__ */ new Set();
 function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundContextMenu }) {
@@ -32526,8 +32402,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		/* @__PURE__ */ jsx(CarryGhost, {})
 	] });
 }
-//#endregion
-//#region src/components/skilltree/FieldGroup.jsx
+// src/components/skilltree/FieldGroup.jsx
 var OPEN_STATE = /* @__PURE__ */ new Map();
 function FieldGroup({ label, children, className = "", collapsible = false, defaultOpen = false, sub = false }) {
 	const [open, setOpenState] = useState(() => OPEN_STATE.has(label) ? OPEN_STATE.get(label) : defaultOpen);
@@ -32558,8 +32433,7 @@ function FieldGroup({ label, children, className = "", collapsible = false, defa
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/NodePicker.jsx
+// src/components/skilltree/NodePicker.jsx
 function NodePicker({ nodes, value, onChange, placeholder = "Search nodes…", className = "" }) {
 	const [q, setQ] = useState("");
 	const [open, setOpen] = useState(false);
@@ -32601,8 +32475,7 @@ function NodePicker({ nodes, value, onChange, placeholder = "Search nodes…", c
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ResourcePicker.jsx
+// src/components/skilltree/ResourcePicker.jsx
 function ResourcePicker({ value, onChange, items, placeholder }) {
 	const [open, setOpen] = useState(false);
 	const matches = searchCatalog(items, value);
@@ -32650,8 +32523,7 @@ function ResourcePicker({ value, onChange, items, placeholder }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/NodeActionsSection.jsx
+// src/components/skilltree/NodeActionsSection.jsx
 function NodeActionsSection({ node, set }) {
 	const { tree, character, settings, setSettings } = useTree();
 	const catalog = resourceCatalog(tree, character?.manualResources, settings?.library);
@@ -33146,8 +33018,7 @@ function NodeActionsSection({ node, set }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/NodeResourcesSection.jsx
+// src/components/skilltree/NodeResourcesSection.jsx
 function NodeResourcesSection({ node, set }) {
 	const { tree, character, settings } = useTree();
 	const catalog = resourceCatalog(tree, character?.manualResources, settings?.library);
@@ -33684,8 +33555,7 @@ function NodeResourcesSection({ node, set }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/BenefitTableDialog.jsx
+// src/components/skilltree/BenefitTableDialog.jsx
 var DEFAULT_TABLE = {
 	source: "spells",
 	mode: "choose",
@@ -34050,8 +33920,7 @@ function BenefitTableDialog({ open, onClose, onSave, spells = [], schools = [] }
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/NodeBenefitsSection.jsx
+// src/components/skilltree/NodeBenefitsSection.jsx
 function NodeBenefitsSection({ node, set }) {
 	const { settings } = useTree();
 	const [drafts, setDrafts] = useState({});
@@ -34220,8 +34089,7 @@ function NodeBenefitsSection({ node, set }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/BonusDiceEditor.jsx
+// src/components/skilltree/BonusDiceEditor.jsx
 var SPELL_LEVELS$1 = [
 	["cantrip", "Cantrip"],
 	["1", "1st level"],
@@ -34646,8 +34514,7 @@ function BonusDiceEditor({ node, set, settings }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/AbilityReqEditor.jsx
+// src/components/skilltree/AbilityReqEditor.jsx
 function AbilityReqEditor({ reqs = [], onChange, label = "Ability Score Requirement", info, compact = false }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "space-y-1",
@@ -34716,8 +34583,7 @@ function AbilityReqEditor({ reqs = [], onChange, label = "Ability Score Requirem
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ProficienciesEditor.jsx
+// src/components/skilltree/ProficienciesEditor.jsx
 function ProficienciesEditor({ node, set }) {
 	return /* @__PURE__ */ jsxs(FieldGroup, {
 		label: "Granted Proficiencies",
@@ -34843,8 +34709,7 @@ function ProficienciesEditor({ node, set }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SubtreeNodeEditor.jsx
+// src/components/skilltree/SubtreeNodeEditor.jsx
 function SubtreeNodeEditor({ node, set, settings }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "mt-1.5 space-y-2 rounded-md border bg-muted/40 p-2",
@@ -34903,8 +34768,7 @@ function SubtreeNodeEditor({ node, set, settings }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SubtreesSection.jsx
+// src/components/skilltree/SubtreesSection.jsx
 function SubtreesSection({ node, set }) {
 	const { enterSubtreeEditor, carry, dropCarriedOnSubtree, settings, setSettings, updateSubtreeInstance, loadSharedSubtree, unlinkSubtree, saveSharedSubtree } = useTree();
 	const [dropKey, setDropKey] = useState(null);
@@ -35273,8 +35137,7 @@ function SubtreesSection({ node, set }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/worldAssets.js
+// src/lib/worldAssets.js
 var FLOOR_TEXTURES = [
 	{
 		id: "grass",
@@ -35590,8 +35453,7 @@ var roomBundle = (roomType) => ROOM_ASSET_BUNDLES[roomType] || {
 	query: String(roomType || "furniture"),
 	types: ["Furnishing", "Object"]
 };
-//#endregion
-//#region src/components/skilltree/NodeImagePicker.jsx
+// src/components/skilltree/NodeImagePicker.jsx
 function NodeImagePicker({ open, onClose, folder = "Icons", onFolderChange, onPick, title = "Choose node artwork" }) {
 	const [draftFolder, setDraftFolder] = useState(folder || "");
 	const [query, setQuery] = useState("");
@@ -35754,8 +35616,7 @@ function NodeImagePicker({ open, onClose, folder = "Icons", onFolderChange, onPi
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/NodeEditorPanel.jsx
+// src/components/skilltree/NodeEditorPanel.jsx
 var entryName = (e) => typeof e === "string" ? e : e?.name || "";
 function NodeEditorPanel({ mobile = false, nodeId = null }) {
 	const { tree, nodesById, ui, setUi, updateNode, deleteNode, rotateNode, flipNode, toggleDependency, settings, setSettings } = useTree();
@@ -36814,8 +36675,7 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ConnectorEditorPanel.jsx
+// src/components/skilltree/ConnectorEditorPanel.jsx
 function ConnectorEditorPanel({ mobile = false }) {
 	const { tree, nodesById, ui, setUi, updateConnection, removeBend } = useTree();
 	const [panelWidth] = usePanelWidth();
@@ -37002,8 +36862,7 @@ function ConnectorEditorPanel({ mobile = false }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ContextMenu.jsx
+// src/components/skilltree/ContextMenu.jsx
 function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onClose }) {
 	const { rotateNode, flipNode, deleteNode, addNode, setUi, updateNode, patchTab, toggleDependency, invertPrerequisites, grid, ui, copyNodes, cutNodes, moveNodesToTab, tabs, activeTabId, tree, enterSubtreeEditor } = useTree();
 	if (!editable) {
@@ -37240,8 +37099,7 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 		})
 	})] });
 }
-//#endregion
-//#region src/components/skilltree/SendToSubtreeDialog.jsx
+// src/components/skilltree/SendToSubtreeDialog.jsx
 function SendToSubtreeDialog({ open, rows, onClose }) {
 	const { sendNodesToSubtree } = useTree();
 	const [choices, setChoices] = useState({});
@@ -37315,8 +37173,7 @@ function SendToSubtreeDialog({ open, rows, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/lib/unlocked.js
+// src/lib/unlocked.js
 function collectSubtreeUnlocked(tree) {
 	const out = [];
 	const walk = (subtree, host, chain, label) => {
@@ -37413,8 +37270,7 @@ function groupUnlocked(nodes, { includeAutoGranted = false, pointTypes = DEFAULT
 		pointGroups
 	};
 }
-//#endregion
-//#region src/components/skilltree/SkillTestRow.jsx
+// src/components/skilltree/SkillTestRow.jsx
 function SkillTestRow({ node, onAdjust, onJump }) {
 	const [open, setOpen] = useState(false);
 	const isSubtree = !!node.__subtreeLabel;
@@ -37484,8 +37340,7 @@ function SkillTestRow({ node, onAdjust, onJump }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/ui/progress.jsx
+// src/components/ui/progress.jsx
 var Progress = React.forwardRef(({ className, value, ...props }, ref) => /* @__PURE__ */ jsx(ProgressPrimitive.Root, {
 	ref,
 	className: cn("relative h-2 w-full overflow-hidden rounded-full bg-primary/20", className),
@@ -37496,8 +37351,7 @@ var Progress = React.forwardRef(({ className, value, ...props }, ref) => /* @__P
 	})
 }));
 Progress.displayName = ProgressPrimitive.Root.displayName;
-//#endregion
-//#region src/components/skilltree/PlusBadge.jsx
+// src/components/skilltree/PlusBadge.jsx
 function PlusBadge({ value }) {
 	const v = Number(value) || 0;
 	if (v === 0) return null;
@@ -37506,8 +37360,7 @@ function PlusBadge({ value }) {
 		children: v > 0 ? `+${v}` : String(v)
 	});
 }
-//#endregion
-//#region src/components/skilltree/RestDialog.jsx
+// src/components/skilltree/RestDialog.jsx
 var signed$5 = (n) => n >= 0 ? `+${n}` : String(n);
 function RestDialog({ mode, onClose }) {
 	const { mergedTree: tree, character, setCharacter, settings } = useTree();
@@ -37662,8 +37515,7 @@ function RestDialog({ mode, onClose }) {
 function level1(character) {
 	return Number(character.hitDiceCount) || Number(character.level) || 1;
 }
-//#endregion
-//#region src/components/skilltree/HitPointsCard.jsx
+// src/components/skilltree/HitPointsCard.jsx
 var signed$4 = (n) => n >= 0 ? `+${n}` : String(n);
 function HitPointsCard() {
 	const { mergedTree: tree, character, setCharacter, settings } = useTree();
@@ -37970,8 +37822,7 @@ function HitPointsCard() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ActiveEffects.jsx
+// src/components/skilltree/ActiveEffects.jsx
 function ActiveEffects() {
 	const { mergedTree: tree, character, setCharacter, settings } = useTree();
 	const active = character.activeToggles || [];
@@ -38040,8 +37891,7 @@ function ActiveEffects() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/CapacityBar.jsx
+// src/components/skilltree/CapacityBar.jsx
 function CapacityBar({ character, tree, carried, capacity }) {
 	const enc = encumbranceInfo(character, tree);
 	const pct = capacity > 0 ? Math.min(100, carried / capacity * 100) : 0;
@@ -38065,8 +37915,7 @@ function CapacityBar({ character, tree, carried, capacity }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SpeedSection.jsx
+// src/components/skilltree/SpeedSection.jsx
 function MovementCell({ label, final, base, adds, notes, onBase, unit = "spaces" }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "rounded-xl border bg-accent/40 px-3 py-2.5 text-center",
@@ -38192,8 +38041,7 @@ function SpeedSection({ sheet, character, setCharacter, tree, types, enc }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SensesSection.jsx
+// src/components/skilltree/SensesSection.jsx
 function SensesSection({ sheet, character, setCharacter, senses }) {
 	return /* @__PURE__ */ jsxs("section", {
 		className: "rounded-2xl border bg-card p-5",
@@ -38250,8 +38098,7 @@ function SensesSection({ sheet, character, setCharacter, senses }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/StatusSection.jsx
+// src/components/skilltree/StatusSection.jsx
 function StageTrack({ label, value, max = 6, onChange, note }) {
 	const stages = Math.max(0, Math.min(max, Math.round(Number(value) || 0)));
 	const tones = [
@@ -38434,8 +38281,7 @@ function StatusSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/DamageAffinitiesSection.jsx
+// src/components/skilltree/DamageAffinitiesSection.jsx
 var COLUMNS = [
 	[
 		"resist",
@@ -38535,8 +38381,7 @@ function DamageAffinitiesSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SaveDCsSection.jsx
+// src/components/skilltree/SaveDCsSection.jsx
 var KINDS = [
 	["none", "Nothing"],
 	["flat", "Flat number"],
@@ -38738,8 +38583,7 @@ function SaveDCsSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/CharacterTab.jsx
+// src/components/skilltree/CharacterTab.jsx
 var signed$3 = (n) => n >= 0 ? `+${n}` : String(n);
 var IDENTITY = [
 	["name", "Name"],
@@ -39331,8 +39175,7 @@ function CharacterTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/TokenForge.jsx
+// src/components/skilltree/TokenForge.jsx
 var PREVIEW = 224;
 async function signUri(uri) {
 	if (!uri) return "";
@@ -39627,8 +39470,7 @@ function TokenForge() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/PortraitDisplay.jsx
+// src/components/skilltree/PortraitDisplay.jsx
 function PortraitDisplay() {
 	const { character } = useTree();
 	const uri = character.portraitUri || "";
@@ -39653,8 +39495,7 @@ function PortraitDisplay() {
 		children: "No portrait yet — upload one in the Token Forge below."
 	})] });
 }
-//#endregion
-//#region src/components/skilltree/FluffTab.jsx
+// src/components/skilltree/FluffTab.jsx
 var APPEARANCE$1 = [
 	["eyes", "Eyes"],
 	["skin", "Skin"],
@@ -39827,8 +39668,7 @@ function FluffTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/PropertyTab.jsx
+// src/components/skilltree/PropertyTab.jsx
 var KIND_ICONS$1 = {
 	home: Home,
 	business: Store,
@@ -40129,8 +39969,7 @@ function ImportDialog({ open, onClose, onImport, existing }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/CarryCalculator.jsx
+// src/components/skilltree/CarryCalculator.jsx
 var SIZES = [
 	["tiny", "Tiny"],
 	["small", "Small"],
@@ -40282,8 +40121,7 @@ function CarryCalculator({ character, setCharacter }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/AbilitiesSection.jsx
+// src/components/skilltree/AbilitiesSection.jsx
 function AbilitiesSection() {
 	const { mergedTree: tree, character } = useTree();
 	const choices = effectiveChoices(character, tree);
@@ -40346,8 +40184,7 @@ function AbilitiesSection() {
 		}, node.id))
 	})] });
 }
-//#endregion
-//#region src/components/skilltree/ProficienciesSection.jsx
+// src/components/skilltree/ProficienciesSection.jsx
 var LISTS = [
 	["skills", "Skill Proficiencies"],
 	["tools", "Tool Proficiencies"],
@@ -40498,8 +40335,7 @@ function ProficienciesSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/WeaponUpgradesSection.jsx
+// src/components/skilltree/WeaponUpgradesSection.jsx
 function WeaponUpgradesSection() {
 	const { character, setCharacter, settings } = useTree();
 	const lib = settings?.library || {};
@@ -40688,8 +40524,7 @@ function WeaponUpgradesSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/InventorySection.jsx
+// src/components/skilltree/InventorySection.jsx
 var DEFAULT_CURRENCIES = [
 	{
 		key: "copper",
@@ -41222,8 +41057,7 @@ function InventorySection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ShopSection.jsx
+// src/components/skilltree/ShopSection.jsx
 function ShopSection() {
 	const { mergedTree: tree, character, setCharacter, settings } = useTree();
 	const [q, setQ] = useState("");
@@ -41376,8 +41210,7 @@ function ShopSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ModifiersSection.jsx
+// src/components/skilltree/ModifiersSection.jsx
 var STATS$3 = [
 	"STR",
 	"DEX",
@@ -41686,8 +41519,7 @@ function ModifiersSection() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/spells.js
+// src/lib/spells.js
 function parseCastingTime(text) {
 	const t = String(text || "").toLowerCase();
 	if (!t) return {
@@ -41806,8 +41638,7 @@ function componentsText(spell) {
 	}
 	return parts.join(", ");
 }
-//#endregion
-//#region src/components/skilltree/SpellDetails.jsx
+// src/components/skilltree/SpellDetails.jsx
 var fmtSigned = (n) => {
 	const x = Math.round(Number(n) || 0);
 	return x >= 0 ? `+${x}` : `${x}`;
@@ -42018,8 +41849,7 @@ function SpellDetails({ spell, character, sheet = {} }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SpellLibraryPicker.jsx
+// src/components/skilltree/SpellLibraryPicker.jsx
 var LEVELS$1 = [
 	["cantrip", "Cantrip"],
 	["1", "1st level"],
@@ -42113,8 +41943,7 @@ function SpellLibraryPicker({ spells, onPick }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/SpellListSection.jsx
+// src/components/skilltree/SpellListSection.jsx
 var LEVELS = [
 	["cantrip", "Cantrip"],
 	["1", "1st level"],
@@ -42311,8 +42140,7 @@ function AddSpellRow({ onAdd }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ActionsSection.jsx
+// src/components/skilltree/ActionsSection.jsx
 var REST_LABEL$2 = {
 	none: "no automatic recovery",
 	short: "short rest",
@@ -42903,8 +42731,7 @@ function ActionsSection() {
 		]
 	})] });
 }
-//#endregion
-//#region src/components/skilltree/DerivedResourcesSection.jsx
+// src/components/skilltree/DerivedResourcesSection.jsx
 function DerivedResourcesSection() {
 	const { mergedTree: tree, character, setCharacter, settings } = useTree();
 	const levels = settings?.library?.levels || [];
@@ -43156,8 +42983,7 @@ function DerivedResourcesSection() {
 		})
 	] });
 }
-//#endregion
-//#region src/components/skilltree/SheetDetailsSection.jsx
+// src/components/skilltree/SheetDetailsSection.jsx
 var TEXTAREAS = [
 	["traits", "Personality Traits"],
 	["ideals", "Ideals"],
@@ -43257,8 +43083,7 @@ function SheetDetailsSection() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/CharacterSheet.jsx
+// src/components/skilltree/CharacterSheet.jsx
 var STATS$2 = [
 	"STR",
 	"DEX",
@@ -43705,8 +43530,7 @@ function CharacterSheet({ onExport, fill = false }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ActionActivationDialog.jsx
+// src/components/skilltree/ActionActivationDialog.jsx
 var PICK_LABEL = {
 	weapon: "Choose a weapon…",
 	spell: "Choose a spell…",
@@ -44131,8 +43955,7 @@ function ActionActivationDialog({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/DiceRoller.jsx
+// src/components/skilltree/DiceRoller.jsx
 var DICE$1 = [
 	4,
 	6,
@@ -44546,8 +44369,7 @@ function DiceRoller({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/lib/rulebookStore.js
+// src/lib/rulebookStore.js
 var KEY = "skilltree:rulebook";
 var newChapterId = () => "ch" + Date.now() + "-" + Math.floor(Math.random() * 1e3);
 var newBookId = () => "bk" + Date.now() + "-" + Math.floor(Math.random() * 1e3);
@@ -44690,8 +44512,7 @@ function addCreditNames(names = []) {
 	} catch {}
 	return added;
 }
-//#endregion
-//#region src/components/rulebook/Rulebook.jsx
+// src/components/rulebook/Rulebook.jsx
 function Rulebook({ className = "" }) {
 	const { settings, setSettings } = useTree();
 	const [rb, setRb] = useState(() => loadRulebook());
@@ -45294,8 +45115,7 @@ function Rulebook({ className = "" }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ViewSheet.jsx
+// src/components/skilltree/ViewSheet.jsx
 function ViewSheet({ onExport }) {
 	const { character, sideTrees, setSideTree } = useTree();
 	const [actOpen, setActOpen] = useState(false);
@@ -45476,8 +45296,7 @@ function ViewSheet({ onExport }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/ui/dropdown-menu.jsx
+// src/components/ui/dropdown-menu.jsx
 var DropdownMenu = DropdownMenuPrimitive.Root;
 var DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 var DropdownMenuSubTrigger = React.forwardRef(({ className, inset, children, ...props }, ref) => /* @__PURE__ */ jsxs(DropdownMenuPrimitive.SubTrigger, {
@@ -45546,8 +45365,7 @@ var DropdownMenuShortcut = ({ className, ...props }) => {
 	});
 };
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
-//#endregion
-//#region src/components/skilltree/SideTreePanel.jsx
+// src/components/skilltree/SideTreePanel.jsx
 var NOOP = () => {};
 var clampTooltipPos = (e) => ({
 	x: Math.min(e.clientX + 14, window.innerWidth - 280),
@@ -46443,8 +46261,7 @@ function SaveItems({ onPick }) {
 		}, s.id))
 	] });
 }
-//#endregion
-//#region src/components/skilltree/StackSplitter.jsx
+// src/components/skilltree/StackSplitter.jsx
 function StackSplitter({ value = .5, onChange, min = .18 }) {
 	return /* @__PURE__ */ jsx("div", {
 		role: "separator",
@@ -46471,8 +46288,7 @@ function StackSplitter({ value = .5, onChange, min = .18 }) {
 		}
 	});
 }
-//#endregion
-//#region src/components/skilltree/ViewTreeColumn.jsx
+// src/components/skilltree/ViewTreeColumn.jsx
 var SPLIT_KEY = "skilltree:sideSplit";
 function ViewTreeColumn({ mobile = false }) {
 	const { sideTrees } = useTree();
@@ -46541,8 +46357,7 @@ function ViewTreeColumn({ mobile = false }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/PinnedNodeCard.jsx
+// src/components/skilltree/PinnedNodeCard.jsx
 var CARD_W = 288;
 var REST_LABEL$1 = {
 	none: "",
@@ -46762,8 +46577,7 @@ function PinnedNodeCard() {
 		onClose: () => onClose(node.id)
 	}, node.id)) });
 }
-//#endregion
-//#region src/components/skilltree/CharacterCreatorDialog.jsx
+// src/components/skilltree/CharacterCreatorDialog.jsx
 var MODE_ICONS = {
 	tree: TreePine,
 	"tree-race": UserRound,
@@ -47234,8 +47048,7 @@ function CharacterCreatorDialog({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/lib/screenTransition.js
+// src/lib/screenTransition.js
 var state = {
 	active: false,
 	phase: "idle"
@@ -47280,8 +47093,7 @@ function runScreenTransition(action, { outMs = 1e3, inMs = 1e3 } = {}) {
 		}, inMs);
 	}, outMs);
 }
-//#endregion
-//#region src/components/skilltree/LaunchMenu.jsx
+// src/components/skilltree/LaunchMenu.jsx
 function browserInfo() {
 	if (typeof navigator === "undefined") return {
 		name: "your browser",
@@ -47551,8 +47363,7 @@ function LaunchMenu({ onHomebuilder, onDmScreen, onDungeon, onReferenceIndex, on
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/CombatTracker.jsx
+// src/components/skilltree/CombatTracker.jsx
 function CombatTracker({ tracker, setTracker, monsters }) {
 	const [sort, setSort] = useState("name");
 	const [pick, setPick] = useState("");
@@ -48064,8 +47875,7 @@ function LootRowSection({ e, patch }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/EncountersLoot.jsx
+// src/components/skilltree/EncountersLoot.jsx
 function EncountersLoot({ monsters, pools, encounterTables, onEncounter }) {
 	const [tableId, setTableId] = useState("");
 	const [encResult, setEncResult] = useState(null);
@@ -48253,8 +48063,7 @@ function LootLines({ result, emptyNote }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/dmReference.js
+// src/lib/dmReference.js
 var CONDITIONS = [
 	["Blinded", "Can't see; auto-fail sight checks; attack rolls against you have advantage, yours have disadvantage."],
 	["Charmed", "Can't attack the charmer; the charmer has advantage on social interaction checks with you."],
@@ -48311,8 +48120,7 @@ var EXHAUSTION = [
 	["5", "Speed reduced to 0"],
 	["6", "Death"]
 ];
-//#endregion
-//#region src/components/skilltree/LibraryReference.jsx
+// src/components/skilltree/LibraryReference.jsx
 function LibraryReference({ spells }) {
 	const [q, setQ] = useState("");
 	const matches = spells.filter((s) => (s.name || "").toLowerCase().includes(q.trim().toLowerCase()));
@@ -48419,8 +48227,7 @@ function RefCard({ title, items }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/DmDiceRoller.jsx
+// src/components/skilltree/DmDiceRoller.jsx
 var DICE = [
 	4,
 	6,
@@ -48535,8 +48342,7 @@ function DmDiceRoller() {
 		]
 	});
 }
-//#endregion
-//#region src/lib/roomThreat.js
+// src/lib/roomThreat.js
 function spawnRows(spawns = []) {
 	return (spawns || []).map((text) => {
 		const value = String(text || "").trim();
@@ -48571,8 +48377,7 @@ function roomThreat(room, monsters = [], partyLevel = 1, partySize = 4) {
 		ratio: thresholds[3] ? xp.adjustedXp / thresholds[3] : 0
 	};
 }
-//#endregion
-//#region src/components/skilltree/dungeon/DungeonMap.jsx
+// src/components/skilltree/dungeon/DungeonMap.jsx
 var PX = 7;
 var PAD = 7;
 function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, onContextMenu, highlightIds = [], highlightConnectionIds = [], sessionMode = false, visitedIds = [], currentRoomId = "" }) {
@@ -49028,8 +48833,7 @@ function DungeonMap({ dungeon, selectedId, onSelect, onMoveRoom, onResizeRoom, o
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/dungeon/RoomBattleMap.jsx
+// src/components/skilltree/dungeon/RoomBattleMap.jsx
 function RoomBattleMap({ room }) {
 	if (!room) return null;
 	const local = roomShapeCells(room);
@@ -49461,8 +49265,7 @@ function RoomBattleMap({ room }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/dungeon/RoomShapeBuilder.jsx
+// src/components/skilltree/dungeon/RoomShapeBuilder.jsx
 var TOOLS = [
 	[
 		"floor",
@@ -50428,8 +50231,7 @@ function RoomShapeBuilder({ open = true, onOpenChange, inline = false, room, onS
 		})
 	});
 }
-//#endregion
-//#region src/lib/dungeonAnalysis.js
+// src/lib/dungeonAnalysis.js
 var DANGER_ORDER = [
 	"Trivial",
 	"Easy",
@@ -50532,8 +50334,7 @@ function analyzeDungeon(dungeon, partyLevel, monsters = [], currency = "gp") {
 		payout: dungeonPayout(dungeon, currency)
 	};
 }
-//#endregion
-//#region src/lib/currency.js
+// src/lib/currency.js
 var CURRENCY_OPTIONS = [
 	{
 		value: "cp",
@@ -50561,8 +50362,7 @@ var currencyOf = (settings) => {
 	if (typeof raw !== "string") return "gp";
 	return raw.trim() || "gp";
 };
-//#endregion
-//#region src/components/skilltree/dungeon/DungeonDangerPanel.jsx
+// src/components/skilltree/dungeon/DungeonDangerPanel.jsx
 var DANGER_STYLE = {
 	Trivial: "bg-slate-500/15 text-slate-600 dark:text-slate-300",
 	Easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
@@ -50670,8 +50470,7 @@ function DungeonDangerPanel({ dungeon, partyLevel, monsters = [], rank = "E", cu
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/dungeon/DungeonGenerator.jsx
+// src/components/skilltree/dungeon/DungeonGenerator.jsx
 var lines = (arr) => (arr || []).join("\n");
 var split = (text) => String(text || "").split("\n").map((s) => s.trim()).filter(Boolean);
 var CONNECTORS = [
@@ -52891,8 +52690,7 @@ function DungeonGenerator({ onExit, embedded = false }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/dmTrackerStore.js
+// src/lib/dmTrackerStore.js
 var DM_TRACKER_KEY = "skilltree:dmTracker";
 function loadDmTracker() {
 	try {
@@ -52905,8 +52703,7 @@ function loadDmTracker() {
 		entries: []
 	};
 }
-//#endregion
-//#region src/components/skilltree/DMScreen.jsx
+// src/components/skilltree/DMScreen.jsx
 function DMScreen({ onExit }) {
 	const { settings } = useTree();
 	const monsters = (settings?.library?.monsters || []).filter((m) => m.name);
@@ -53039,8 +52836,7 @@ function DMScreen({ onExit }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/fiveEToolsBulk.js
+// src/lib/fiveEToolsBulk.js
 var nameKey = (value) => String(typeof value === "string" ? value : value?.name || "").toLowerCase();
 var sourceOf$1 = (entry) => String(entry?.source || entry?.classSource || entry?.subclassSource || entry?.bookSource || entry?.monster?.source || "");
 var isSubclass = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
@@ -53393,8 +53189,7 @@ async function localizeBulkImages(library, kind, { limit = 400 } = {}) {
 		skipped: Math.max(0, targets.length - chosen.length)
 	};
 }
-//#endregion
-//#region src/lib/fiveEToolsCredits.js
+// src/lib/fiveEToolsCredits.js
 var addName = (out, value) => {
 	if (!value) return;
 	if (Array.isArray(value)) {
@@ -53420,8 +53215,7 @@ function authorsFromBrew(raw, entry, info) {
 	if (info?.author) addName(out, info.author);
 	return [...out];
 }
-//#endregion
-//#region src/components/skilltree/library/VirtualList.jsx
+// src/components/skilltree/library/VirtualList.jsx
 function VirtualList({ items = [], rowHeight = 46, overscan = 8, render, getKey, className = "", empty = null }) {
 	const ref = useRef(null);
 	const [scrollTop, setScrollTop] = useState(0);
@@ -53467,8 +53261,7 @@ function VirtualList({ items = [], rowHeight = 46, overscan = 8, render, getKey,
 		})
 	});
 }
-//#endregion
-//#region src/lib/importStatus.js
+// src/lib/importStatus.js
 var initial = {
 	state: "idle",
 	label: "",
@@ -53544,8 +53337,7 @@ function dismissImport() {
 	current = initial;
 	emit();
 }
-//#endregion
-//#region src/components/skilltree/library/ReferenceIndexTab.jsx
+// src/components/skilltree/library/ReferenceIndexTab.jsx
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 var ROOTS = [
 	["data", "Official & Partnered"],
@@ -55355,8 +55147,7 @@ function ReferenceIndexTab() {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ReferenceIndexPage.jsx
+// src/components/skilltree/ReferenceIndexPage.jsx
 function ReferenceIndexPage({ onExit }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "flex h-screen flex-col bg-background text-foreground",
@@ -55392,8 +55183,7 @@ function ReferenceIndexPage({ onExit }) {
 		})]
 	});
 }
-//#endregion
-//#region src/lib/homesteadEdit.js
+// src/lib/homesteadEdit.js
 var clone = (x) => JSON.parse(JSON.stringify(x));
 var exists = (plot, kind, id) => kind === "facility" ? (plot.facilities || []).some((x) => x.id === id) : kind === "furnishing" ? (plot.furnishings || []).some((x) => x.id === id) : kind === "connection" ? (plot.connections || []).some((x) => x.id === id) : kind === "wall" ? (plot.walls || []).some((x) => x.id === id) : false;
 function selectionValid(plot, selection) {
@@ -55579,8 +55369,7 @@ function pasteClipboard(clipboard, plot, floorId) {
 	}
 	return null;
 }
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadContextMenu.jsx
+// src/components/skilltree/homestead/HomesteadContextMenu.jsx
 function HomesteadContextMenu({ menu, fac, onAttach, onAddRoom, onWallRoom, onRotate, onDelete, onSelect, onClose }) {
 	if (!menu) return null;
 	const isFac = menu.kind === "facility" && fac;
@@ -55663,8 +55452,7 @@ function HomesteadContextMenu({ menu, fac, onAttach, onAddRoom, onWallRoom, onRo
 		]
 	})] });
 }
-//#endregion
-//#region src/lib/homesteadBastionOrders.js
+// src/lib/homesteadBastionOrders.js
 var BASTION_ORDERS = {
 	"Throne Room": {
 		"order": "Empower",
@@ -55992,8 +55780,7 @@ var BASTION_ORDERS = {
 		"fixed": "Forgotten Realms"
 	}
 };
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadCanvas.jsx
+// src/components/skilltree/homestead/HomesteadCanvas.jsx
 var OPENING_TYPES = /* @__PURE__ */ new Set([
 	"Doorway",
 	"Double Door",
@@ -57914,8 +57701,7 @@ function deleteByKind(update, plot, kind, id) {
 		walls: (p.walls || []).filter((x) => x.id !== id)
 	}));
 }
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadPalette.jsx
+// src/components/skilltree/homestead/HomesteadPalette.jsx
 function PaletteSection({ title, children }) {
 	const [open, setOpen] = useState(true);
 	return /* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsxs("button", {
@@ -58080,8 +57866,7 @@ function HomesteadPalette({ plot, tool, setTool }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/SelectedPanel.jsx
+// src/components/skilltree/homestead/SelectedPanel.jsx
 function SelectedPanel({ plot, selection, update }) {
 	if (!selection) return null;
 	if (selection.kind === "multi") {
@@ -58527,8 +58312,7 @@ function AttachmentEditor({ plot: _plot, f, keyName, update }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadSummary.jsx
+// src/components/skilltree/homestead/HomesteadSummary.jsx
 function HomesteadSummary({ plot, update }) {
 	const { settings, setSettings, character } = useTree();
 	const devMode = !!character.devMode;
@@ -58815,8 +58599,7 @@ var Stat$2 = ({ label, value, font }) => /* @__PURE__ */ jsxs("div", {
 		children: value
 	})]
 });
-//#endregion
-//#region src/lib/homesteadTurns.js
+// src/lib/homesteadTurns.js
 function rollDice$1(expr) {
 	const m = String(expr).toLowerCase().match(/^(\d+)d(\d+)(?:\s*[x×]\s*(\d+))?$/);
 	if (!m) return {
@@ -58928,8 +58711,7 @@ function businessActions(plot) {
 	}
 	return actions;
 }
-//#endregion
-//#region src/lib/homesteadLabor.js
+// src/lib/homesteadLabor.js
 var FURNISH_NEEDS = {
 	Workstation: {
 		need: 1,
@@ -59016,8 +58798,7 @@ function laborNeeds(plot) {
 }
 var laborAssigned = (plot, id) => (plot.labor || {})[id] || 0;
 var laborAssignedTotal = (plot) => laborNeeds(plot).reduce((n, l) => n + laborAssigned(plot, l.id), 0);
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadBenefits.jsx
+// src/components/skilltree/homestead/HomesteadBenefits.jsx
 function HomesteadBenefits({ plot }) {
 	const byType = /* @__PURE__ */ new Map();
 	const groups = [];
@@ -59161,8 +58942,7 @@ function HomesteadBenefits({ plot }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/homesteadBusiness.js
+// src/lib/homesteadBusiness.js
 var BUSINESS_SKILLS = [
 	{
 		skill: "Athletics",
@@ -59849,8 +59629,7 @@ var evalGold = (expr) => {
 	for (let i = 0; i < Math.min(50, Number(m[1])); i++) total += 1 + Math.floor(Math.random() * Number(m[2]));
 	return total * (Number(m[3]) || 1);
 };
-//#endregion
-//#region src/components/skilltree/homestead/BusinessTurnPanel.jsx
+// src/components/skilltree/homestead/BusinessTurnPanel.jsx
 var d20 = () => 1 + Math.floor(Math.random() * 20);
 var useMoney = () => {
 	const { settings } = useTree();
@@ -60820,8 +60599,7 @@ var KV = ({ label, value }) => /* @__PURE__ */ jsxs("div", {
 		children: value
 	})]
 });
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadTurns.jsx
+// src/components/skilltree/homestead/HomesteadTurns.jsx
 function HomesteadTurns({ plot, update }) {
 	const [mode, setMode] = useState("bastion");
 	if (!plot) return null;
@@ -60976,8 +60754,7 @@ function BastionPanel({ plot, log }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/HomesteadActions.jsx
+// src/components/skilltree/homestead/HomesteadActions.jsx
 function HomesteadActions({ plot, update }) {
 	const log = (entry) => update((p) => ({
 		...p,
@@ -61134,8 +60911,7 @@ function ActionCard({ a, badge, action, result, locked: _locked, lockNote }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/LaborPanel.jsx
+// src/components/skilltree/homestead/LaborPanel.jsx
 function LaborPanel({ plot, update }) {
 	const needs = laborNeeds(plot);
 	const free = (plot.staff || 0) - laborAssignedTotal(plot);
@@ -61241,8 +61017,7 @@ function LaborPanel({ plot, update }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/PlotSetupDialog.jsx
+// src/components/skilltree/homestead/PlotSetupDialog.jsx
 function PlotSetupDialog({ kind, onClose, onCreate }) {
 	const [name, setName] = useState("");
 	const [ownership, setOwnership] = useState("purchased");
@@ -61435,8 +61210,7 @@ function PlotSetupDialog({ kind, onClose, onCreate }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/LivingStylePanel.jsx
+// src/components/skilltree/homestead/LivingStylePanel.jsx
 function LivingStylePanel({ plot }) {
 	const s = livingStyle(plot);
 	const st = STATIONS[s.overall] || STATIONS.modest;
@@ -61508,8 +61282,7 @@ var Stat$1 = ({ label, value }) => /* @__PURE__ */ jsxs("div", {
 		children: label
 	}), /* @__PURE__ */ jsx("span", { children: value })]
 });
-//#endregion
-//#region src/components/skilltree/homestead/LivingQualityPanel.jsx
+// src/components/skilltree/homestead/LivingQualityPanel.jsx
 function LivingQualityPanel({ plot }) {
 	const s = livingStyle(plot);
 	const q = LIVING_QUALITY[s.overall] || LIVING_QUALITY.modest;
@@ -61555,8 +61328,7 @@ function LivingQualityPanel({ plot }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/homestead/Homebuilder.jsx
+// src/components/skilltree/homestead/Homebuilder.jsx
 var KIND_ICONS = {
 	home: Home,
 	business: Store,
@@ -62505,8 +62277,7 @@ function MetaPanel({ plot, update, isLand, devMode }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/clipboard.js
+// src/lib/clipboard.js
 async function copyText(text) {
 	const value = String(text ?? "");
 	if (!value) return false;
@@ -62531,8 +62302,7 @@ async function copyText(text) {
 		return false;
 	}
 }
-//#endregion
-//#region src/lib/worldNames.js
+// src/lib/worldNames.js
 var CULTURES = [
 	"Human",
 	"Elven",
@@ -63545,8 +63315,7 @@ function generateNpc({ culture = "Human", role = "settlement", settlementKind = 
 		notes: ""
 	};
 }
-//#endregion
-//#region src/lib/worldBiomes.js
+// src/lib/worldBiomes.js
 var BIOMES = [
 	{
 		id: "grassland",
@@ -63690,8 +63459,7 @@ var BIOMES = [
 		]
 	}
 ];
-//#endregion
-//#region src/lib/cityLayout.js
+// src/lib/cityLayout.js
 var COMFORT_ORDER = [
 	"Wretched",
 	"Squalid",
@@ -64180,8 +63948,7 @@ function applyCityLayout(settlement) {
 	});
 	return layout;
 }
-//#endregion
-//#region src/lib/facilityRooms.js
+// src/lib/facilityRooms.js
 var ROOM_FOCUS = {
 	living: {
 		label: "Living",
@@ -64621,8 +64388,7 @@ function roomTypePool({ templateRooms = [], buildingType = "", buildingCategory 
 		rank: priority(type)
 	})).sort((a, b) => a.rank - b.rank || a.position - b.position).map((item) => item.type);
 }
-//#endregion
-//#region src/lib/interiorGen.js
+// src/lib/interiorGen.js
 var ROOM_TEXTURES = {
 	Bedroom: "wood",
 	Kitchen: "stone",
@@ -65258,8 +65024,7 @@ function ensureInterior(building, settlement = null, { seed = "", force = false 
 		population: buildingPopulation(interior.rooms)
 	};
 }
-//#endregion
-//#region src/lib/worldDevelopments.js
+// src/lib/worldDevelopments.js
 var DEVELOPMENT_TERRAIN_LABELS = {
 	Any: "Any",
 	Difficult: "Difficult terrain",
@@ -66383,8 +66148,7 @@ function advanceDevelopments(kingdom, world) {
 	});
 	return log;
 }
-//#endregion
-//#region src/lib/worldGen.js
+// src/lib/worldGen.js
 var ERAS = [
 	{
 		id: "caveman",
@@ -68547,8 +68311,7 @@ function routeFor(world, fromId, toId) {
 function kingdomForNation(world, nationId) {
 	return (world?.kingdoms || []).find((k) => k.nationId === nationId) || null;
 }
-//#endregion
-//#region src/components/skilltree/world/SettingForm.jsx
+// src/components/skilltree/world/SettingForm.jsx
 var randomSeed = () => `${Math.random().toString(36).slice(2, 7)}-${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
 function SettingForm({ onCreate, compact = false }) {
 	const [name, setName] = useState("");
@@ -68766,8 +68529,7 @@ function SettingForm({ onCreate, compact = false }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/worldEditor.js
+// src/lib/worldEditor.js
 var clamp$2 = (value, min, max) => Math.max(min, Math.min(max, value));
 var copy = (world) => JSON.parse(JSON.stringify(world));
 var cellAt = (realm, x, y) => {
@@ -69428,8 +69190,7 @@ function generateSettlementsOnMap(worldInput, { realmId = "", nationId = "", cou
 		added
 	};
 }
-//#endregion
-//#region src/components/skilltree/world/WorldMap.jsx
+// src/components/skilltree/world/WorldMap.jsx
 var biomeColor = (id) => BIOMES.find((b) => b.id === id)?.color || "#3b3b45";
 var clamp$1 = (value, min, max) => Math.max(min, Math.min(max, value));
 var MAP_TOOLS = [
@@ -70714,8 +70475,7 @@ function WorldMap({ world, selectedId, onSelect, onOpenSettlement, onTextures, o
 		]
 	});
 }
-//#endregion
-//#region src/lib/worldSim.js
+// src/lib/worldSim.js
 var DAYS_PER_MONTH = 30;
 var MONTHS = [
 	"January",
@@ -70899,8 +70659,7 @@ function addCaravan(world, { fromKingdomId, toKingdomId, cargo = "mixed goods" }
 	}];
 	return next;
 }
-//#endregion
-//#region src/lib/player.js
+// src/lib/player.js
 var GOODS = [
 	{
 		id: "grain",
@@ -71656,8 +71415,7 @@ function abandonDelve(worldInput) {
 		}
 	};
 }
-//#endregion
-//#region src/lib/questGen.js
+// src/lib/questGen.js
 var QUEST_TYPES = [
 	{
 		id: "hunt",
@@ -72061,8 +71819,7 @@ function completeQuest(world, questId) {
 function questsForSettlement(world, settlementId) {
 	return (world?.quests || []).filter((quest) => quest.settlementId === settlementId || quest.targetSettlementId === settlementId);
 }
-//#endregion
-//#region src/components/skilltree/world/PlayPanel.jsx
+// src/components/skilltree/world/PlayPanel.jsx
 var fmt$2 = (value) => Number(value || 0).toLocaleString();
 function Card({ title, icon: Icon, children, className = "" }) {
 	return /* @__PURE__ */ jsxs("div", {
@@ -72703,8 +72460,7 @@ function PlayPanel({ world, character, settings, onChange, onStartCombat, onOpen
 		]
 	});
 }
-//#endregion
-//#region src/lib/kingdom.js
+// src/lib/kingdom.js
 function normalizeKingdomEconomy(kingdom) {
 	if (!kingdom) return kingdom;
 	kingdom.stats = { ...kingdom.stats || {} };
@@ -75442,8 +75198,7 @@ function applyKingdomAction(kingdomInput, actionId, world = null) {
 		log
 	};
 }
-//#endregion
-//#region src/lib/worldUpgrade.js
+// src/lib/worldUpgrade.js
 var renameRole = (value) => {
 	const key = String(value || "").toLowerCase();
 	if (key === "spymaster" || key === "counter-intel" || key === "counter intel") return "Counter-Intel";
@@ -75675,8 +75430,7 @@ function upgradeWorld(world) {
 	next.layoutVersion = 2;
 	return changed ? next : world;
 }
-//#endregion
-//#region src/lib/worldHealth.js
+// src/lib/worldHealth.js
 var RESOURCE_KEYS = /* @__PURE__ */ new Set([
 	"ec",
 	"mc",
@@ -75857,8 +75611,7 @@ function repairWorld(worldInput, character = null) {
 	};
 	return upgradeWorld(next) || next;
 }
-//#endregion
-//#region src/components/skilltree/world/WorldHealthPanel.jsx
+// src/components/skilltree/world/WorldHealthPanel.jsx
 var severityStyles = {
 	error: {
 		icon: AlertTriangle,
@@ -75998,8 +75751,7 @@ function WorldHealthPanel({ world, character, onChange }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/roomStickers.js
+// src/lib/roomStickers.js
 var clamp01 = (value) => Math.max(0, Math.min(1, Number(value) || 0));
 var CORNERS = [
 	{
@@ -76145,8 +75897,7 @@ function roomStickerList(room, templateUrls = []) {
 	if (Array.isArray(room?.stickers) && (room.stickers.length || room?.stickersCustom)) return room.stickers.map((sticker, index) => normalizeSticker(sticker, room, index));
 	return buildStickerLayout(room, Array.isArray(room?.assets) && room.assets.length ? room.assets : templateUrls);
 }
-//#endregion
-//#region src/components/skilltree/world/SettlementView.jsx
+// src/components/skilltree/world/SettlementView.jsx
 var CATEGORY_COLOR = {
 	Residential: "#8b7355",
 	Commercial: "#b08a3e",
@@ -77751,8 +77502,7 @@ function Stat({ icon: Icon, label, value }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/world/KingdomPanel.jsx
+// src/components/skilltree/world/KingdomPanel.jsx
 var fmt$1 = (n) => Number(n || 0).toLocaleString();
 function KingdomPanel({ world, kingdomId, onChange, onSelect }) {
 	const { character } = useTree();
@@ -79037,8 +78787,7 @@ function KingdomPanel({ world, kingdomId, onChange, onSelect }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/world/QuestsPanel.jsx
+// src/components/skilltree/world/QuestsPanel.jsx
 var STATUS_ORDER = {
 	available: 0,
 	active: 1,
@@ -79977,8 +79726,7 @@ function buildParticipantRoster({ character, derived, allies = [], monsterCounts
 	});
 	return participants;
 }
-//#endregion
-//#region src/components/skilltree/world/CombatStage.jsx
+// src/components/skilltree/world/CombatStage.jsx
 var CELL = 40;
 var TERRAIN_COLOR = {
 	rubble: "#4a4038",
@@ -80791,8 +80539,7 @@ function CombatStage({ world, character, derived, monsters = [], seed = null, on
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/world/DevelopmentsPanel.jsx
+// src/components/skilltree/world/DevelopmentsPanel.jsx
 var STATUS_LABEL = {
 	building: "Under construction",
 	built: "Built",
@@ -81055,8 +80802,7 @@ function DevelopmentsPanel({ world, onChange, onShowMap, onOpenSettlement }) {
 		]
 	});
 }
-//#endregion
-//#region src/lib/stickerUsage.js
+// src/lib/stickerUsage.js
 function collectStickerUsage(world) {
 	const usages = /* @__PURE__ */ new Map();
 	const add = (url, usage) => {
@@ -81130,8 +80876,7 @@ function stickerFileName(url) {
 	const text = String(url || "").split("?")[0].split("/").pop() || url || "Sticker";
 	return decodeURIComponent(text);
 }
-//#endregion
-//#region src/lib/worldEncounters.js
+// src/lib/worldEncounters.js
 var TYPE_FALLBACK = "Unclassified";
 function monsterTypeOf(monster) {
 	const type = typeof monster?.type === "object" ? monster.type?.type : monster?.type;
@@ -81191,8 +80936,7 @@ function buildWorldEncounterTables(monsters = [], { partySize = 4 } = {}) {
 	});
 	return tables;
 }
-//#endregion
-//#region src/lib/dispositions.js
+// src/lib/dispositions.js
 var DISPOSITIONS = [
 	{
 		id: "allied",
@@ -81249,8 +80993,7 @@ function dispositionFor(world, npc, reference = null) {
 	return "hated";
 }
 var dispositionRank = (id) => Math.max(0, DISPOSITIONS.findIndex((disposition) => disposition.id === id));
-//#endregion
-//#region src/lib/foundryExport.js
+// src/lib/foundryExport.js
 var esc = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 var nl = (value) => esc(value).replace(/\n/g, "<br>");
 var page = (name, html, level = 1) => ({
@@ -81485,8 +81228,7 @@ function downloadFoundryExport(world, character) {
 	a.click();
 	URL.revokeObjectURL(url);
 }
-//#endregion
-//#region src/components/skilltree/world/WorldBuilder.jsx
+// src/components/skilltree/world/WorldBuilder.jsx
 var TABS = [
 	[
 		"overview",
@@ -83924,8 +83666,7 @@ function Metric({ icon: Icon, label, value }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/RoomBuilder.jsx
+// src/components/skilltree/RoomBuilder.jsx
 var blankRoom = (index) => ({
 	id: `room_${Date.now().toString(36)}_${index}`,
 	name: `Room ${index + 1}`,
@@ -84355,8 +84096,7 @@ function RoomBuilder({ onExit, onArchitect }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ActivityLogPanel.jsx
+// src/components/skilltree/ActivityLogPanel.jsx
 function ActivityLogPanel() {
 	const { character, setCharacter } = useTree();
 	const [open, setOpen] = useState(true);
@@ -84399,8 +84139,7 @@ function ActivityLogPanel() {
 		})]
 	});
 }
-//#endregion
-//#region src/components/skilltree/MusicPlayer.jsx
+// src/components/skilltree/MusicPlayer.jsx
 function SpinningRecord() {
 	return /* @__PURE__ */ jsxs("svg", {
 		viewBox: "0 0 40 40",
@@ -84674,8 +84413,7 @@ function MusicPlayer() {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/EditPanelSlot.jsx
+// src/components/skilltree/EditPanelSlot.jsx
 function EditPanelSlot() {
 	const { ui } = useTree();
 	const [width] = usePanelWidth();
@@ -84713,13 +84451,11 @@ function EditPanelSlot() {
 		children: /* @__PURE__ */ jsx(NodeEditorPanel, { nodeId })
 	});
 }
-//#endregion
-//#region src/lib/useImportStatus.js
+// src/lib/useImportStatus.js
 function useImportStatus() {
 	return useSyncExternalStore(subscribeImportStatus, getImportStatus, () => getImportStatus());
 }
-//#endregion
-//#region src/components/skilltree/ImportStatusBanner.jsx
+// src/components/skilltree/ImportStatusBanner.jsx
 function ImportStatusBanner() {
 	const status = useImportStatus();
 	useEffect(() => {
@@ -84834,8 +84570,7 @@ function ImportStatusBanner() {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/ScreenTransitionOverlay.jsx
+// src/components/skilltree/ScreenTransitionOverlay.jsx
 function ScreenTransitionOverlay() {
 	const state = useSyncExternalStore(subscribeScreenTransition, getScreenTransition, () => ({
 		active: false,
@@ -84847,8 +84582,7 @@ function ScreenTransitionOverlay() {
 		className: `fixed inset-0 z-[300] bg-black transition-opacity duration-1000 ease-in-out ${state.active ? "pointer-events-auto" : "pointer-events-none"} ${dark ? "opacity-100" : "opacity-0"}`
 	});
 }
-//#endregion
-//#region src/lib/tutorialState.js
+// src/lib/tutorialState.js
 var tutorialOpen = false;
 var listeners = /* @__PURE__ */ new Set();
 function setTutorialOpen(value) {
@@ -84864,8 +84598,7 @@ function subscribeTutorialOpen(listener) {
 	listeners.add(listener);
 	return () => listeners.delete(listener);
 }
-//#endregion
-//#region src/components/skilltree/UpdatePrompt.jsx
+// src/components/skilltree/UpdatePrompt.jsx
 function UpdatePrompt() {
 	const { settings } = useTree();
 	const updates = useAppUpdates();
@@ -84962,8 +84695,7 @@ function UpdatePrompt() {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/DesktopUpdater.jsx
+// src/components/skilltree/DesktopUpdater.jsx
 function DesktopUpdater() {
 	const { settings } = useTree();
 	useEffect(() => {
@@ -84973,8 +84705,7 @@ function DesktopUpdater() {
 	}, [settings?.desktopUpdateUrl]);
 	return null;
 }
-//#endregion
-//#region src/components/skilltree/PresentationSheet.jsx
+// src/components/skilltree/PresentationSheet.jsx
 var signed = (n) => n >= 0 ? `+${n}` : String(n);
 var SPELL_LEVELS = [
 	["cantrip", "Cantrips"],
@@ -85600,8 +85331,7 @@ function PresentationSheet({ innerRef, onExport }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/skilltree/ExportPanel.jsx
+// src/components/skilltree/ExportPanel.jsx
 var STATS = [
 	"STR",
 	"DEX",
@@ -85920,8 +85650,7 @@ function ExportPanel({ open, onClose }) {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/PoolWindows.jsx
+// src/components/skilltree/PoolWindows.jsx
 var POOL_COLORS = {
 	talent: "bg-sky-500",
 	heritage: "bg-amber-500",
@@ -86037,8 +85766,7 @@ function PoolWindows({ wins, setWins }) {
 		types
 	}, w.id)) });
 }
-//#endregion
-//#region src/components/skilltree/CommandPalette.jsx
+// src/components/skilltree/CommandPalette.jsx
 function CommandPalette() {
 	const { tree, setActiveTab, setUi, settings } = useTree();
 	const [open, setOpen] = useState(false);
@@ -86247,8 +85975,7 @@ function CommandPalette() {
 		})
 	});
 }
-//#endregion
-//#region src/components/skilltree/TutorialVisual.jsx
+// src/components/skilltree/TutorialVisual.jsx
 var BG = "hsl(var(--background))";
 var CARD = "hsl(var(--card))";
 var BORDER = "hsl(var(--border))";
@@ -88735,8 +88462,7 @@ function TutorialVisual({ kind }) {
 	const Visual = VISUALS[kind] || LaunchVisual;
 	return /* @__PURE__ */ jsx(Visual, {});
 }
-//#endregion
-//#region src/components/skilltree/OnboardingTour.jsx
+// src/components/skilltree/OnboardingTour.jsx
 var STEPS = [
 	{
 		id: "welcome",
@@ -89240,8 +88966,7 @@ function OnboardingTour() {
 		})
 	});
 }
-//#endregion
-//#region src/routes/index.jsx?tsr-split=component
+// src/routes/index.jsx?tsr-split=component
 function Workspace() {
 	const { mode, loading, tree, ui, screen, setScreen, enterApp, sideTrees, setSideTree, character } = useTree();
 	const [ctx, setCtx] = useState(null);
@@ -89453,5 +89178,4 @@ var SplitComponent = () => /* @__PURE__ */ jsxs(TreeProvider, { children: [
 	/* @__PURE__ */ jsx(UpdatePrompt, {}),
 	/* @__PURE__ */ jsx(DesktopUpdater, {})
 ] });
-//#endregion
 export { SplitComponent as component };

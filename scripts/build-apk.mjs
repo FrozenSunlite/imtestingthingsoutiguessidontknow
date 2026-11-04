@@ -79,12 +79,20 @@ const versionCode = parts[0] * 10000 + parts[1] * 100 + parts[2];
 const versionName = pkg.version;
 console.log(`[apk] version ${versionName} (${versionCode})`);
 
+const keystoreProperties = join(process.cwd(), "android", "keystore.properties");
+if (!existsSync(keystoreProperties)) {
+  console.error(
+    "Missing android/keystore.properties. Create a release keystore before building the APK."
+  );
+  process.exit(1);
+}
+
 execFileSync(
   "cmd.exe",
   [
     "/c",
     "gradlew.bat",
-    "assembleDebug",
+    "assembleRelease",
     `-PappVersionCode=${versionCode}`,
     `-PappVersionName=${versionName}`,
   ],
@@ -102,8 +110,8 @@ const apkPath = join(
   "build",
   "outputs",
   "apk",
-  "debug",
-  "app-debug.apk"
+  "release",
+  "app-release.apk"
 );
 const apkMb = statSync(apkPath).size / 1024 / 1024;
 if (apkMb > 80) {

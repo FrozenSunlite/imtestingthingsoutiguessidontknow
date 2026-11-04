@@ -1,5 +1,5 @@
-import { t as createMiddleware } from "./createMiddleware-B_4t7rW1.js";
-//#region node_modules/@tanstack/start-client-core/dist/esm/createStart.js
+import { t as createMiddleware } from "../server.js";
+// node_modules/@tanstack/start-client-core/dist/esm/createStart.js
 function dedupeSerializationAdapters(deduped, serializationAdapters) {
 	for (let i = 0, len = serializationAdapters.length; i < len; i++) {
 		const current = serializationAdapters[i];
@@ -23,8 +23,6 @@ var createStart = (getOptions) => {
 		createMiddleware
 	};
 };
-//#endregion
-//#region src/start.js
+// src/start.js
 var startInstance = createStart(() => ({}));
-//#endregion
 export { startInstance };

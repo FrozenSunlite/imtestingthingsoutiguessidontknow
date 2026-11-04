@@ -18,15 +18,16 @@ Prebuilt builds are attached to the [latest GitHub release](../../releases/lates
 | --- | --- | --- |
 | Windows installer | `TalentTree-Setup-<version>.exe` | Start-menu and desktop shortcuts; supports in-app updates |
 | Windows portable | `TalentTree-Portable-<version>.exe` | Single executable; no installer or auto-update |
-| Android | `TalentTree-Android-<version>.apk` | Offline web build; debug-signed |
+| Android | `TalentTree-Android-<version>.apk` | Offline web build; release-signed |
 
 Windows and Android builds are produced from the same web bundle by
 `npm run build:all`.
 
 The Windows installer is **not code-signed**, so SmartScreen may ask for
-confirmation the first time it runs. The Android APK is **debug-signed**: install
-it for personal use, or rebuild it with a release keystore before distributing
-it more widely.
+confirmation the first time it runs. The Android APK is release-signed with this
+project's local keystore. Older debug-signed APKs must be uninstalled once
+(export the project first) because Android will not replace an app signed with a
+different key.
 
 The desktop app bundles its own Chromium, so it does not use Edge, Chrome, Opera
 or any other browser installed on the machine. Its data lives under
@@ -92,6 +93,9 @@ Requirements:
 - Node.js 20 or newer
 - Windows for building the Electron installers
 - JDK 21 and the Android SDK for the APK
+- `android/keystore.properties` plus its `.jks` for release-signed APKs
+  (kept outside git; back the keystore up — Android only accepts updates signed
+  with the same key)
 
 ```bash
 npm install
@@ -124,7 +128,8 @@ npm run desktop:publish   # copies the installer + /desktop-update.json into the
 Outputs land in `dist-electron/`: an NSIS installer and a portable executable.
 `npm run electron:build` runs the web build, packaging and publish steps
 together. `npm run build:all` also refreshes and rebuilds the Android APK so
-both platforms ship the same UI.
+both platforms ship the same UI. `npm run release:all` additionally publishes
+the APK and `update.json` to the stable Android update feed.
 
 Auto-updates are supported only in the installed NSIS build, not the portable
 build. On startup the app checks `<desktop update URL>/desktop-update.json`
@@ -146,15 +151,27 @@ npm run apk:build     # finds JDK 17-24 and the Android SDK, then packages + pub
 `apk:build` looks for a compatible JDK (preferring 21) and the Android SDK via
 `JAVA_HOME` and `ANDROID_HOME` / `ANDROID_SDK_ROOT`, then falls back to the
 toolchain paths on this machine. It also sets the Android `versionName` and
-`versionCode` from `package.json`. `apk:prepare` strips desktop installers and
-update files from the packaged client, so they never bloat the APK, and the
-build refuses an APK over 80 MB.
+`versionCode` from `package.json`, reads `android/keystore.properties`, and
+builds a signed release APK. `apk:prepare` strips desktop installers and update
+files from the packaged client, so they never bloat the APK, and the build
+refuses an APK over 80 MB.
 
-The debug APK lands in `android/app/build/outputs/apk/debug/app-debug.apk`.
+The signed APK lands in `android/app/build/outputs/apk/release/app-release.apk`.
 `npm run apk:build` also refreshes the downloadable copy and `update.json` under
 `standalone/desktop/app-dist/client/downloads/`. The APK checks
 `<update URL>/update.json` on startup, downloads a newer build in the app, and
-hands it to the Android installer.
+hands it to the Android installer. The default update URL is a stable,
+binary-only public gist; the source repository stays private.
+
+Publish the signed APK and manifest to that feed with either:
+
+```bash
+npm run release:all   # build everything, then publish the APK
+npm run apk:gist      # publish only the existing APK
+```
+
+`apk:gist` uses `GITHUB_TOKEN` when set, otherwise the local git credential
+helper. It force-updates the gist so old APKs do not accumulate in its history.
 
 ### Media
 

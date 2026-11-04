@@ -4,7 +4,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const apk = join("android", "app", "build", "outputs", "apk", "debug", "app-debug.apk");
+const apk = join("android", "app", "build", "outputs", "apk", "release", "app-release.apk");
 if (!existsSync(apk)) {
   console.error(`Missing ${apk}. Run npm run apk:build first.`);
   process.exit(1);

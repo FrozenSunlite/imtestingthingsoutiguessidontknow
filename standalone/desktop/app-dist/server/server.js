@@ -1,4 +1,3 @@
-import { t as createMiddleware } from "./assets/createMiddleware-B_4t7rW1.js";
 import "react";
 import { RouterProvider } from "@tanstack/react-router";
 import { jsx } from "react/jsx-runtime";
@@ -10,20 +9,18 @@ import { makeSerovalPlugin, mergeHeaders } from "@tanstack/router-core/ssr/clien
 import { fromJSON, toCrossJSONAsync, toCrossJSONStream } from "seroval";
 import { attachRouterServerSsrUtils, bindSsrResponseToRequest, createRawStreamRPCPlugin, defaultSerovalDeserializerPlugins, disposeSsrResponse, getNormalizedURL, isSsrResponse, normalizeSsrResponse, replaceSsrResponse, stripSsrResponseBody, waitForRequest } from "@tanstack/router-core/ssr/server";
 import { createServerHistory } from "@tanstack/history";
-//#region node_modules/@tanstack/react-start-server/dist/esm/StartServer.js
+// node_modules/@tanstack/react-start-server/dist/esm/StartServer.js
 function StartServer(props) {
 	return /* @__PURE__ */ jsx(RouterProvider, { router: props.router });
 }
-//#endregion
-//#region node_modules/@tanstack/react-start-server/dist/esm/defaultStreamHandler.js
+// node_modules/@tanstack/react-start-server/dist/esm/defaultStreamHandler.js
 var defaultStreamHandler = defineHandlerCallback(({ request, router, responseHeaders }) => renderRouterToStream({
 	request,
 	router,
 	responseHeaders,
 	children: /* @__PURE__ */ jsx(StartServer, { router })
 }));
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/request-response.js
+// node_modules/@tanstack/start-server-core/dist/esm/request-response.js
 var GLOBAL_EVENT_STORAGE_KEY = Symbol.for("tanstack-start:event-storage");
 var globalObj$1 = globalThis;
 if (!globalObj$1[GLOBAL_EVENT_STORAGE_KEY]) globalObj$1[GLOBAL_EVENT_STORAGE_KEY] = new AsyncLocalStorage();
@@ -93,11 +90,9 @@ function getH3Event() {
 function getResponse() {
 	return getH3Event().res;
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/constants.js
+// node_modules/@tanstack/start-server-core/dist/esm/constants.js
 var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/router-manifest.js
+// node_modules/@tanstack/start-server-core/dist/esm/router-manifest.js
 /**
 * @description Returns the router manifest data that should be sent to the client.
 * This includes only the assets and preloads for the current route and any
@@ -108,7 +103,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-BaNDmIlR.js");
+	const { tsrStartManifest } = await import("./assets/_tanstack-start-manifest_v-CZqqMH_Q.js");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId$1];
@@ -127,8 +122,7 @@ async function getStartManifest(matchedRoutes) {
 		routes: manifestRoutes
 	};
 }
-//#endregion
-//#region \0%23tanstack-start-server-fn-resolver
+// \0%23tanstack-start-server-fn-resolver
 var manifest = {};
 async function getServerFnById(id, access) {
 	const serverFnInfo = manifest[id];
@@ -139,8 +133,7 @@ async function getServerFnById(id, access) {
 	if (!action) throw new Error("Server function module export not resolved for serverFn ID: " + id);
 	return action;
 }
-//#endregion
-//#region node_modules/@tanstack/start-client-core/dist/esm/constants.js
+// node_modules/@tanstack/start-client-core/dist/esm/constants.js
 var TSS_FORMDATA_CONTEXT = "__TSS_CONTEXT";
 var TSS_SERVER_FUNCTION = Symbol.for("TSS_SERVER_FUNCTION");
 var X_TSS_SERIALIZED = "x-tss-serialized";
@@ -153,8 +146,7 @@ var MAX_FRAME_PAYLOAD_SIZE = 16777216;
 var MAX_FRAMED_STREAMS = 1024;
 /** Full Content-Type header value with version parameter */
 var TSS_CONTENT_TYPE_FRAMED_VERSIONED = `${TSS_CONTENT_TYPE_FRAMED}; v=1`;
-//#endregion
-//#region node_modules/@tanstack/start-storage-context/dist/esm/async-local-storage.js
+// node_modules/@tanstack/start-storage-context/dist/esm/async-local-storage.js
 var GLOBAL_STORAGE_KEY = Symbol.for("tanstack-start:start-storage-context");
 var globalObj = globalThis;
 if (!globalObj[GLOBAL_STORAGE_KEY]) globalObj[GLOBAL_STORAGE_KEY] = new AsyncLocalStorage();
@@ -167,17 +159,14 @@ function getStartContext(opts) {
 	if (!context && opts?.throwIfNotFound !== false) throw new Error(`No Start context found in AsyncLocalStorage. Make sure you are using the function within the server runtime.`);
 	return context;
 }
-//#endregion
-//#region node_modules/@tanstack/start-client-core/dist/esm/getStartOptions.js
+// node_modules/@tanstack/start-client-core/dist/esm/getStartOptions.js
 var getStartOptions = () => getStartContext().startOptions;
-//#endregion
-//#region node_modules/@tanstack/start-client-core/dist/esm/getDefaultSerovalPlugins.js
+// node_modules/@tanstack/start-client-core/dist/esm/getDefaultSerovalPlugins.js
 /** Start's serialization adapters followed by `routerPlugins`. */
 function getSerovalPlugins(routerPlugins) {
 	return [...(getStartOptions()?.serializationAdapters)?.map(makeSerovalPlugin) ?? [], ...routerPlugins];
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/frame-protocol.js
+// node_modules/@tanstack/start-server-core/dist/esm/frame-protocol.js
 /**
 * Binary frame protocol for multiplexing JSON and raw streams over HTTP.
 *
@@ -375,8 +364,7 @@ function createMultiplexedStream(recordStream, options = {}) {
 		}
 	});
 }
-//#endregion
-//#region node_modules/@tanstack/start-client-core/dist/esm/safeObjectMerge.js
+// node_modules/@tanstack/start-client-core/dist/esm/safeObjectMerge.js
 function isSafeKey(key) {
 	return key !== "__proto__" && key !== "constructor" && key !== "prototype";
 }
@@ -402,8 +390,7 @@ function createNullProtoObject(source) {
 	for (const key of Object.keys(source)) if (isSafeKey(key)) obj[key] = source[key];
 	return obj;
 }
-//#endregion
-//#region node_modules/@tanstack/start-client-core/dist/esm/createServerFn.js
+// node_modules/@tanstack/start-client-core/dist/esm/createServerFn.js
 function flattenMiddlewares(middlewares, maxDepth = 100) {
 	const seen = /* @__PURE__ */ new Set();
 	const flattened = [];
@@ -420,8 +407,34 @@ function flattenMiddlewares(middlewares, maxDepth = 100) {
 	recurse(middlewares, 0);
 	return flattened;
 }
-//#endregion
-//#region node_modules/@tanstack/start-client-core/dist/esm/createCsrfMiddleware.js
+// node_modules/@tanstack/start-client-core/dist/esm/createMiddleware.js
+var createMiddleware = (options, __opts) => {
+	const resolvedOptions = {
+		type: "request",
+		...__opts || options
+	};
+	const setValidator = (validator) => {
+		return createMiddleware({}, Object.assign(resolvedOptions, {
+			validator,
+			inputValidator: validator
+		}));
+	};
+	return {
+		options: resolvedOptions,
+		middleware: (middleware) => {
+			return createMiddleware({}, Object.assign(resolvedOptions, { middleware }));
+		},
+		validator: setValidator,
+		inputValidator: setValidator,
+		client: (client) => {
+			return createMiddleware({}, Object.assign(resolvedOptions, { client }));
+		},
+		server: (server) => {
+			return createMiddleware({}, Object.assign(resolvedOptions, { server }));
+		}
+	};
+};
+// node_modules/@tanstack/start-client-core/dist/esm/createCsrfMiddleware.js
 var innerCreateCsrfMiddleware = (opts = {}) => {
 	return createMiddleware().server(async (ctx) => {
 		const csrfCtx = ctx;
@@ -475,8 +488,7 @@ async function getFailureResponse(opts, ctx) {
 	if (typeof opts.failureResponse === "function") return opts.failureResponse(ctx);
 	return opts.failureResponse?.clone() ?? new Response("Forbidden", { status: 403 });
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/server-functions-handler.js
+// node_modules/@tanstack/start-server-core/dist/esm/server-functions-handler.js
 var serovalPlugins = void 0;
 var FORM_DATA_CONTENT_TYPES = ["multipart/form-data", "application/x-www-form-urlencoded"];
 var MAX_PAYLOAD_SIZE = 1e6;
@@ -775,8 +787,7 @@ function isNotFoundResponse(error) {
 	response.headers.set("Content-Type", "application/json");
 	return response;
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/early-hints.js
+// node_modules/@tanstack/start-server-core/dist/esm/early-hints.js
 var LINK_PARAM_TOKEN_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 var PRELOAD_AS_VALUES = /* @__PURE__ */ new Set([
 	"fetch",
@@ -1025,8 +1036,7 @@ function createEarlyHintsCollector(opts) {
 		}
 	};
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/transformAssetUrls.js
+// node_modules/@tanstack/start-server-core/dist/esm/transformAssetUrls.js
 function normalizeTransformAssetResult(result) {
 	if (typeof result === "string") return { href: result };
 	return result;
@@ -1184,8 +1194,7 @@ function buildManifest(source, opts) {
 		routes: { ...source.routes }
 	};
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/inlineCss.js
+// node_modules/@tanstack/start-server-core/dist/esm/inlineCss.js
 function getStaticHandlerInlineCssDefault(handlerInlineCss) {
 	if (typeof handlerInlineCss === "function") return;
 	return handlerInlineCss ?? true;
@@ -1195,8 +1204,7 @@ async function resolveInlineCssForRequest(opts) {
 	if (typeof opts.handlerInlineCss === "function") return await opts.handlerInlineCss({ request: opts.request });
 	return opts.handlerInlineCss ?? true;
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/finalManifest.js
+// node_modules/@tanstack/start-server-core/dist/esm/finalManifest.js
 function createCachedBaseManifestLoader(loadBaseManifest) {
 	let baseManifestPromise;
 	return () => {
@@ -1316,8 +1324,7 @@ function warmupFinalManifest(opts) {
 	if (opts.onError) warmupPromise.catch(opts.onError);
 	return warmupPromise;
 }
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/serializer/ServerFunctionSerializationAdapter.js
+// node_modules/@tanstack/start-server-core/dist/esm/serializer/ServerFunctionSerializationAdapter.js
 var ServerFunctionSerializationAdapter = createSerializationAdapter({
 	key: "$TSS/serverfn",
 	test: (v) => {
@@ -1340,8 +1347,7 @@ var ServerFunctionSerializationAdapter = createSerializationAdapter({
 		return fn;
 	}
 });
-//#endregion
-//#region node_modules/@tanstack/start-server-core/dist/esm/createStartHandler.js
+// node_modules/@tanstack/start-server-core/dist/esm/createStartHandler.js
 function getStartResponseHeaders(opts) {
 	return mergeHeaders({ "Content-Type": "text/html; charset=utf-8" }, ..._getRenderedMatches(opts.router.stores.matches.get()).map((match) => {
 		return match.headers;
@@ -1355,9 +1361,9 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./assets/router-B4AbQ6-H.js").then((n) => n.t),
-		import("./assets/start-DWuGlR21.js"),
-		import("./assets/empty-plugin-adapters-D9UWiqvJ.js")
+		import("./assets/router-DOAPdt2i.js").then((n) => n.t),
+		import("./assets/start-BxMWw407.js"),
+		import("./assets/empty-plugin-adapters-CeyhLWeJ.js")
 	]);
 	return {
 		routerEntry,
@@ -1812,8 +1818,7 @@ async function handleServerRoutes({ getRouter, request, url, executeRouter, cont
 		handlerType: "router"
 	}, request.signal, terminalNext));
 }
-//#endregion
-//#region node_modules/@tanstack/react-start/dist/plugin/default-entry/server.ts
+// node_modules/@tanstack/react-start/dist/plugin/default-entry/server.ts
 var fetch = createStartHandler(defaultStreamHandler);
 function createServerEntry(entry) {
 	return { async fetch(...args) {
@@ -1821,5 +1826,4 @@ function createServerEntry(entry) {
 	} };
 }
 var server_default = createServerEntry({ fetch });
-//#endregion
-export { createServerEntry, server_default as default };
+export { createServerEntry, server_default as default, createMiddleware as t };

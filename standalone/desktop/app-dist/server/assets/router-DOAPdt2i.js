@@ -7,7 +7,7 @@ import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useTheme } from "next-themes";
 import { Toaster } from "sonner";
-//#region \0rolldown/runtime.js
+// \0rolldown/runtime.js
 var __defProp = Object.defineProperty;
 var __exportAll = (all, no_symbols) => {
 	let target = {};
@@ -18,13 +18,11 @@ var __exportAll = (all, no_symbols) => {
 	if (!no_symbols) __defProp(target, Symbol.toStringTag, { value: "Module" });
 	return target;
 };
-//#endregion
-//#region src/lib/utils.js
+// src/lib/utils.js
 function cn(...inputs) {
 	return twMerge(clsx(inputs));
 }
-//#endregion
-//#region src/components/ui/button.jsx
+// src/components/ui/button.jsx
 var buttonVariants = cva("inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0", {
 	variants: {
 		variant: {
@@ -59,8 +57,7 @@ var Button = React.forwardRef(({ className, variant, size, asChild = false, ...p
 	});
 });
 Button.displayName = "Button";
-//#endregion
-//#region src/components/DefaultCatchBoundary.jsx
+// src/components/DefaultCatchBoundary.jsx
 function DefaultCatchBoundary({ error }) {
 	const router = useRouter();
 	const isRoot = useMatch({
@@ -92,8 +89,7 @@ function DefaultCatchBoundary({ error }) {
 		})]
 	});
 }
-//#endregion
-//#region src/components/NotFound.jsx
+// src/components/NotFound.jsx
 function NotFound({ children }) {
 	return /* @__PURE__ */ jsxs("div", {
 		className: "mx-auto flex max-w-lg flex-col items-center gap-4 py-24 text-center",
@@ -123,8 +119,7 @@ function NotFound({ children }) {
 		]
 	});
 }
-//#endregion
-//#region src/components/ui/sonner.jsx
+// src/components/ui/sonner.jsx
 var Toaster$1 = ({ ...props }) => {
 	const { theme = "system" } = useTheme();
 	return /* @__PURE__ */ jsx(Toaster, {
@@ -139,11 +134,9 @@ var Toaster$1 = ({ ...props }) => {
 		...props
 	});
 };
-//#endregion
-//#region src/index.css?url
+// src/index.css?url
 var src_default = "/assets/index-CIKDdAEn.css";
-//#endregion
-//#region src/routes/__root.jsx
+// src/routes/__root.jsx
 var Route$1 = createRootRoute({
 	head: () => ({
 		meta: [
@@ -211,11 +204,9 @@ function RootDocument({ children }) {
 		})]
 	});
 }
-//#endregion
-//#region src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-CbdAgtJD.js");
-//#endregion
-//#region src/routeTree.gen.ts
+// src/routes/index.jsx
+var $$splitComponentImporter = () => import("./routes-DtVN0ZJu.js");
+// src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({
 	ssr: false,
 	component: lazyRouteComponent($$splitComponentImporter, "component"),
@@ -229,8 +220,7 @@ var rootRouteChildren = { IndexRoute: createFileRoute("/")({
 	getParentRoute: () => Route$1
 }) };
 var routeTree = Route$1._addFileChildren(rootRouteChildren)._addFileTypes();
-//#endregion
-//#region src/router.jsx
+// src/router.jsx
 var router_exports = /* @__PURE__ */ __exportAll({ getRouter: () => getRouter });
 function getRouter() {
 	return createRouter({
@@ -242,5 +232,4 @@ function getRouter() {
 		scrollRestoration: true
 	});
 }
-//#endregion
 export { getRouter, Button as n, cn as r, router_exports as t };
