@@ -26,6 +26,7 @@ const NODE_ARRAY_FIELDS = [
   "choiceProficiencies",
   "requiresNames",
   "passives",
+  "benefits",
 ];
 
 // Hand-written/partial trees often omit optional arrays. Fill them once so the
@@ -151,6 +152,23 @@ export function normalizeTree(data) {
         range: a.range || "",
         duration: a.duration || "",
         concentration: !!a.concentration,
+        minPoints: Math.max(1, Number(a.minPoints) || 1),
+      })),
+      passives: (s["Skill Passives"] || []).map((p) => ({
+        name: p.name || "",
+        minPoints: Math.max(1, Number(p.minPoints) || 1),
+        description: p.description || "",
+      })),
+      benefits: (s["Skill Benefits"] || []).map((b) => ({
+        id: b.id || "",
+        category: b.category || "feature",
+        name: b.name || "",
+        source: b.source || "",
+        description: b.description || "",
+        image: b.image || "",
+        table: b.table || null,
+        ...(b.value != null ? { value: Number(b.value) || 0 } : {}),
+        minPoints: Math.max(1, Number(b.minPoints) || 1),
       })),
       resources: (s["Skill Resources"] || []).map((r) => ({
         name: r.name || "",
@@ -167,6 +185,7 @@ export function normalizeTree(data) {
         grantPool: r.grantPool || "talent",
         grantVariant: r.grantVariant || "general",
         grantName: r.grantName || "",
+        minPoints: Math.max(1, Number(r.minPoints) || 1),
         scaling: {
           mode: r.scaling?.mode || "none",
           stat: r.scaling?.stat || "STR",
@@ -396,6 +415,23 @@ export function denormalizeTree(tree) {
       range: a.range || "",
       duration: a.duration || "",
       concentration: !!a.concentration,
+      minPoints: Math.max(1, Number(a.minPoints) || 1),
+    })),
+    "Skill Passives": (n.passives || []).map((p) => ({
+      name: p.name,
+      minPoints: Math.max(1, Number(p.minPoints) || 1),
+      description: p.description || "",
+    })),
+    "Skill Benefits": (n.benefits || []).map((b) => ({
+      id: b.id || "",
+      category: b.category || "feature",
+      name: b.name || "",
+      source: b.source || "",
+      description: b.description || "",
+      image: b.image || "",
+      table: b.table || null,
+      ...(b.value != null ? { value: Number(b.value) || 0 } : {}),
+      minPoints: Math.max(1, Number(b.minPoints) || 1),
     })),
     "Skill Resources": (n.resources || []).map((r) => ({
       name: r.name,
@@ -413,6 +449,7 @@ export function denormalizeTree(tree) {
       grantPool: r.grantPool || "talent",
       grantVariant: r.grantVariant || "general",
       grantName: r.grantName || "",
+      minPoints: Math.max(1, Number(r.minPoints) || 1),
       scaling: r.scaling || { mode: "none" },
       })),
       // The node's own skill trees, exported recursively so nested subtrees

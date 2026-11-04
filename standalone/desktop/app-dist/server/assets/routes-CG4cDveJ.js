@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BhGseXeR.js";
+import { n as Button, r as cn } from "./router-C95Z7zSP.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5984,7 +5984,8 @@ var NODE_ARRAY_FIELDS = [
 	"talentTypes",
 	"choiceProficiencies",
 	"requiresNames",
-	"passives"
+	"passives",
+	"benefits"
 ];
 function withNodeDefaults(node) {
 	if (!node || typeof node !== "object" || Array.isArray(node)) return node;
@@ -6103,7 +6104,24 @@ function normalizeTree(data) {
 				target: a.target || "",
 				range: a.range || "",
 				duration: a.duration || "",
-				concentration: !!a.concentration
+				concentration: !!a.concentration,
+				minPoints: Math.max(1, Number(a.minPoints) || 1)
+			})),
+			passives: (s["Skill Passives"] || []).map((p) => ({
+				name: p.name || "",
+				minPoints: Math.max(1, Number(p.minPoints) || 1),
+				description: p.description || ""
+			})),
+			benefits: (s["Skill Benefits"] || []).map((b) => ({
+				id: b.id || "",
+				category: b.category || "feature",
+				name: b.name || "",
+				source: b.source || "",
+				description: b.description || "",
+				image: b.image || "",
+				table: b.table || null,
+				...b.value != null ? { value: Number(b.value) || 0 } : {},
+				minPoints: Math.max(1, Number(b.minPoints) || 1)
 			})),
 			resources: (s["Skill Resources"] || []).map((r) => ({
 				name: r.name || "",
@@ -6120,6 +6138,7 @@ function normalizeTree(data) {
 				grantPool: r.grantPool || "talent",
 				grantVariant: r.grantVariant || "general",
 				grantName: r.grantName || "",
+				minPoints: Math.max(1, Number(r.minPoints) || 1),
 				scaling: {
 					mode: r.scaling?.mode || "none",
 					stat: r.scaling?.stat || "STR",
@@ -6324,7 +6343,24 @@ function denormalizeTree(tree) {
 				target: a.target || "",
 				range: a.range || "",
 				duration: a.duration || "",
-				concentration: !!a.concentration
+				concentration: !!a.concentration,
+				minPoints: Math.max(1, Number(a.minPoints) || 1)
+			})),
+			"Skill Passives": (n.passives || []).map((p) => ({
+				name: p.name,
+				minPoints: Math.max(1, Number(p.minPoints) || 1),
+				description: p.description || ""
+			})),
+			"Skill Benefits": (n.benefits || []).map((b) => ({
+				id: b.id || "",
+				category: b.category || "feature",
+				name: b.name || "",
+				source: b.source || "",
+				description: b.description || "",
+				image: b.image || "",
+				table: b.table || null,
+				...b.value != null ? { value: Number(b.value) || 0 } : {},
+				minPoints: Math.max(1, Number(b.minPoints) || 1)
 			})),
 			"Skill Resources": (n.resources || []).map((r) => ({
 				name: r.name,
@@ -6342,6 +6378,7 @@ function denormalizeTree(tree) {
 				grantPool: r.grantPool || "talent",
 				grantVariant: r.grantVariant || "general",
 				grantName: r.grantName || "",
+				minPoints: Math.max(1, Number(r.minPoints) || 1),
 				scaling: r.scaling || { mode: "none" }
 			})),
 			...n.subtrees && n.subtrees.length ? { "Skill Subtrees": n.subtrees.map((st) => ({
