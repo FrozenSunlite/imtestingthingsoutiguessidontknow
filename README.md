@@ -84,7 +84,7 @@ Check their own licences before redistributing them with the app.
 Regenerate the SRD seed after changing the 5eTools source checkout:
 
 ```bash
-npm run srd:build -- "E:/path/to/5etools/data"
+npm run srd:build -- "C:/path/to/5etools/data"
 ```
 
 ### Private D&D Wiki conversion (optional)
