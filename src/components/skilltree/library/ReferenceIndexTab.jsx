@@ -44,6 +44,7 @@ import {
 } from "@/lib/importStatus";
 import { importImageFromUrl, importImagesInText } from "@/lib/imageStore";
 import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -133,6 +134,54 @@ const isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortN
 
 // Which Reference Index category owns a data file. Used when browsing "All
 // files", where the catalog property is not available for local files.
+// Manual JSON imports carry the category in their top-level array. This keeps
+// a dropped-in spell.json from being treated as monsters in the current tab.
+const CATEGORY_FOR_DATA_KEY = [
+  ["spell", "spells"],
+  ["monster", "bestiary"],
+  ["class", "classes"],
+  ["subclass", "classes"],
+  ["classFeature", "classes"],
+  ["subclassFeature", "classes"],
+  ["race", "species"],
+  ["subrace", "species"],
+  ["background", "backgrounds"],
+  ["item", "items"],
+  ["baseitem", "items"],
+  ["feat", "feats"],
+  ["optionalfeature", "optionalFeatures"],
+  ["condition", "conditions"],
+  ["disease", "conditions"],
+  ["trap", "traps"],
+  ["hazard", "traps"],
+  ["variantrule", "rulesGlossary"],
+  ["deity", "deities"],
+  ["book", "books"],
+  ["bookData", "books"],
+  ["adventure", "adventures"],
+  ["adventureData", "adventures"],
+  ["encounter", "encounterGen"],
+  ["vehicle", "vehicles"],
+  ["object", "objects"],
+  ["reward", "gifts"],
+  ["cult", "cults"],
+  ["psionic", "psionics"],
+  ["deck", "decks"],
+  ["action", "actions"],
+  ["language", "languages"],
+  ["skill", "skills"],
+  ["sense", "senses"],
+  ["table", "tables"],
+];
+
+const categoryIdForData = (data) => {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return "";
+  for (const [key, id] of CATEGORY_FOR_DATA_KEY) {
+    if (Array.isArray(data[key]) && data[key].length) return id;
+  }
+  return "";
+};
+
 const categoryIdForPath = (path) => {
   const p = String(path || "");
   if (!p) return "";
@@ -211,6 +260,8 @@ export function ReferenceIndexTab() {
   const rawByPath = useRef(new Map());
   const sourcePanelRef = useRef(null);
   const sourceInputRef = useRef(null);
+  const localInputRef = useRef(null);
+  const manualLoadRef = useRef(false);
   const [categoryId, setCategoryId] = useState("bestiary");
   const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
   const [filePath, setFilePath] = useState("");
@@ -396,6 +447,13 @@ export function ReferenceIndexTab() {
   }, [root]);
 
   useEffect(() => {
+    // Loading a manual JSON file sets its inferred category; don't let the
+    // category-change effect immediately replace the file with the first
+    // entry in the local 5eTools folder.
+    if (manualLoadRef.current) {
+      manualLoadRef.current = false;
+      return;
+    }
     setFilePath(files[0]?.path || "");
     setActiveCategoryId(categoryId);
     setEntries([]);
@@ -482,6 +540,45 @@ export function ReferenceIndexTab() {
       if (!list.length) toast("That file has no importable entries.");
     } catch {
       toast.error("Could not read that 5eTools file.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load a hand-picked JSON file (for example one of the split dandwiki
+  // exports) without needing to copy it into the 5eTools data folder first.
+  const loadLocalJson = async (file) => {
+    if (!file) return;
+    setLoading(true);
+    setAllMode(false);
+    setAllProgress(null);
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || typeof data !== "object") throw new Error("not JSON object");
+      const inferred =
+        categoryIdForData(data) ||
+        (categoryId !== "__all__" ? categoryId : activeCategoryId);
+      const list = entriesFromRaw(data).map((entry) => ({
+        ...entry,
+        __filePath: file.name,
+      }));
+      rawByPath.current.set(file.name, data);
+      manualLoadRef.current = inferred !== categoryId;
+      setCategoryId(inferred);
+      setActiveCategoryId(inferred);
+      setRaw(data);
+      setEntries(list);
+      setPreview(list[0] || null);
+      setSelected(new Set());
+      setSourceFilter("__all__");
+      setFilePath(file.name);
+      if (!list.length) {
+        toast("That JSON file has no importable entries.");
+      } else {
+        toast.success(`Loaded ${list.length} entries from ${file.name}.`);
+      }
+    } catch {
+      toast.error("Could not read that JSON file.");
     } finally {
       setLoading(false);
     }
@@ -1480,6 +1577,26 @@ export function ReferenceIndexTab() {
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => refresh(true)}>
             {isRemote ? "Refresh catalog" : "Refresh index"}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={() => localInputRef.current?.click()}
+            title="Open a 5eTools-shaped JSON file from disk and import it without copying it into the data folder"
+          >
+            <Upload className="mr-1 h-3.5 w-3.5" /> Open JSON
+          </Button>
+          <input
+            ref={localInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              loadLocalJson(file);
+            }}
+          />
         </div>
       </div>
 

@@ -115,7 +115,10 @@ under `Saves/dandwiki-5e/` (`spell.json`, `monster.json`, `class.json`,
 them into the matching folders of the local 5eTools data folder (`spells/`,
 `bestiary/`, `class/`, ...) before importing through the Reference Index. The
 app imports one top-level category array per file, so the split files are the
-practical import format.
+practical import format. If you do not want to copy them into the 5eTools data
+folder, open **Reference Library → Reference Index** and use **Open JSON** to
+pick any split file directly from disk; the category is inferred from its
+top-level array and the normal selection/import controls work as usual.
 
 Some dandwiki categories use different index pages and page suffixes; the
 converter's `PRESETS` table at the top of the script is the place to add seeds

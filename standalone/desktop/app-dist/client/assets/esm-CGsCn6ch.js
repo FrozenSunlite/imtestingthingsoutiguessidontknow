@@ -1,0 +1,1 @@
+import{b as e}from"./routes-iMzOcGAN.js";var t=e(`FileOpener`);export{t as FileOpener};

@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-BtRSyuo_.js";
+import { n as Button, r as cn } from "./router-zaXniGiq.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -53982,6 +53982,48 @@ var categoryForProps = (props = []) => {
 	return hit ? hit[0] : "";
 };
 var isSubclassEntry = (entry) => !!entry?.shortName || !!entry?.subclassShortName;
+var CATEGORY_FOR_DATA_KEY = [
+	["spell", "spells"],
+	["monster", "bestiary"],
+	["class", "classes"],
+	["subclass", "classes"],
+	["classFeature", "classes"],
+	["subclassFeature", "classes"],
+	["race", "species"],
+	["subrace", "species"],
+	["background", "backgrounds"],
+	["item", "items"],
+	["baseitem", "items"],
+	["feat", "feats"],
+	["optionalfeature", "optionalFeatures"],
+	["condition", "conditions"],
+	["disease", "conditions"],
+	["trap", "traps"],
+	["hazard", "traps"],
+	["variantrule", "rulesGlossary"],
+	["deity", "deities"],
+	["book", "books"],
+	["bookData", "books"],
+	["adventure", "adventures"],
+	["adventureData", "adventures"],
+	["encounter", "encounterGen"],
+	["vehicle", "vehicles"],
+	["object", "objects"],
+	["reward", "gifts"],
+	["cult", "cults"],
+	["psionic", "psionics"],
+	["deck", "decks"],
+	["action", "actions"],
+	["language", "languages"],
+	["skill", "skills"],
+	["sense", "senses"],
+	["table", "tables"]
+];
+var categoryIdForData = (data) => {
+	if (!data || typeof data !== "object" || Array.isArray(data)) return "";
+	for (const [key, id] of CATEGORY_FOR_DATA_KEY) if (Array.isArray(data[key]) && data[key].length) return id;
+	return "";
+};
 var categoryIdForPath = (path) => {
 	const p = String(path || "");
 	if (!p) return "";
@@ -54033,6 +54075,8 @@ function ReferenceIndexTab() {
 	const rawByPath = useRef(/* @__PURE__ */ new Map());
 	const sourcePanelRef = useRef(null);
 	const sourceInputRef = useRef(null);
+	const localInputRef = useRef(null);
+	const manualLoadRef = useRef(false);
 	const [categoryId, setCategoryId] = useState("bestiary");
 	const [activeCategoryId, setActiveCategoryId] = useState("bestiary");
 	const [filePath, setFilePath] = useState("");
@@ -54191,6 +54235,10 @@ function ReferenceIndexTab() {
 		refresh();
 	}, [root]);
 	useEffect(() => {
+		if (manualLoadRef.current) {
+			manualLoadRef.current = false;
+			return;
+		}
 		setFilePath(files[0]?.path || "");
 		setActiveCategoryId(categoryId);
 		setEntries([]);
@@ -54266,6 +54314,37 @@ function ReferenceIndexTab() {
 			if (!list.length) toast("That file has no importable entries.");
 		} catch {
 			toast.error("Could not read that 5eTools file.");
+		} finally {
+			setLoading(false);
+		}
+	};
+	const loadLocalJson = async (file) => {
+		if (!file) return;
+		setLoading(true);
+		setAllMode(false);
+		setAllProgress(null);
+		try {
+			const data = JSON.parse(await file.text());
+			if (!data || typeof data !== "object") throw new Error("not JSON object");
+			const inferred = categoryIdForData(data) || (categoryId !== "__all__" ? categoryId : activeCategoryId);
+			const list = entriesFromRaw(data).map((entry) => ({
+				...entry,
+				__filePath: file.name
+			}));
+			rawByPath.current.set(file.name, data);
+			manualLoadRef.current = inferred !== categoryId;
+			setCategoryId(inferred);
+			setActiveCategoryId(inferred);
+			setRaw(data);
+			setEntries(list);
+			setPreview(list[0] || null);
+			setSelected(/* @__PURE__ */ new Set());
+			setSourceFilter("__all__");
+			setFilePath(file.name);
+			if (!list.length) toast("That JSON file has no importable entries.");
+			else toast.success(`Loaded ${list.length} entries from ${file.name}.`);
+		} catch {
+			toast.error("Could not read that JSON file.");
 		} finally {
 			setLoading(false);
 		}
@@ -55190,6 +55269,25 @@ function ReferenceIndexTab() {
 								className: "h-7 text-xs",
 								onClick: () => refresh(true),
 								children: isRemote ? "Refresh catalog" : "Refresh index"
+							}),
+							/* @__PURE__ */ jsxs(Button, {
+								size: "sm",
+								variant: "outline",
+								className: "h-7 text-xs",
+								onClick: () => localInputRef.current?.click(),
+								title: "Open a 5eTools-shaped JSON file from disk and import it without copying it into the data folder",
+								children: [/* @__PURE__ */ jsx(Upload, { className: "mr-1 h-3.5 w-3.5" }), " Open JSON"]
+							}),
+							/* @__PURE__ */ jsx("input", {
+								ref: localInputRef,
+								type: "file",
+								accept: ".json,application/json",
+								className: "hidden",
+								onChange: (event) => {
+									const file = event.target.files?.[0];
+									event.target.value = "";
+									loadLocalJson(file);
+								}
 							})
 						]
 					})
