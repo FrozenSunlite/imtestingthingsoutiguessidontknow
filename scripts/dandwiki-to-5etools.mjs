@@ -1388,6 +1388,8 @@ function parseRaceTraits($, root) {
 
 const ITEM_KINDS = [
   /^wondrous item/i,
+  /^(?:Tiny|Small|Medium|Large|Huge|Gargantuan|Colossal)\s+vehicle\b/i,
+  /^vehicle\b/i,
   /^weapon\b/i,
   /^armor\b/i,
   /^shield\b/i,
@@ -1398,7 +1400,6 @@ const ITEM_KINDS = [
   /^staff\b/i,
   /^wand\b/i,
   /^ammunition\b/i,
-  /^vehicle\b/i,
   /^trade good\b/i,
   /^poison\b/i,
   /^magic item\b/i,
@@ -1412,6 +1413,7 @@ function parseRarity(text) {
 
 function itemCode(kind, text) {
   const value = `${kind} ${text}`.toLowerCase();
+  if (/\bvehicle\b/.test(value)) return { type: "VEH" };
   if (/^wondrous|^magic item/.test(kind.toLowerCase())) return { wondrous: true };
   if (/^weapon/.test(kind.toLowerCase())) return { type: /\branged\b/i.test(value) ? "R" : "M" };
   if (/^armor|^shield/.test(kind.toLowerCase())) {
@@ -1442,7 +1444,11 @@ function parseItem($, root, entry) {
       .map((row) => directCells($, row).map((cell) => cellText($, cell)).join(" "))
       .join(" ")
       .trim();
-    return ITEM_KINDS.some((re) => re.test(first)) && /,\s*(common|uncommon|rare|very rare|legendary|artifact|varies|none)/i.test(first);
+    return (
+      ITEM_KINDS.some((re) => re.test(first)) &&
+      (/,\s*(common|uncommon|rare|very rare|legendary|artifact|varies|none)/i.test(first) ||
+        /\bvehicle\b/i.test(first))
+    );
   });
   if (!table) return;
   const rows = directRows($, table);
@@ -1452,7 +1458,12 @@ function parseItem($, root, entry) {
     const cells = directCells($, row);
     if (!cells.length) continue;
     const text = cellText($, cells[0]);
-    if (!typeLine && ITEM_KINDS.some((re) => re.test(text)) && /,/i.test(text)) {
+    if (
+      !typeLine &&
+      ITEM_KINDS.some((re) => re.test(text)) &&
+      (/,\s*(common|uncommon|rare|very rare|legendary|artifact|varies|none)/i.test(text) ||
+        /\bvehicle\b/i.test(text))
+    ) {
       typeLine = text;
       continue;
     }
@@ -1488,6 +1499,22 @@ function parseItem($, root, entry) {
   const base = kind.match(/\(([^)]+)\)/);
   if (base) entry.baseItem = clean(base[1]);
   const text = cellText($, table);
+  if (entry.type === "VEH") {
+    entry.vehicleType = kind;
+    const size = kind.match(/^(Tiny|Small|Medium|Large|Huge|Gargantuan|Colossal)\b/i);
+    if (size) entry.size = size[1];
+    entry.terrain = /airship|air|fly|sky/i.test(kind)
+      ? "Air"
+      : /ship|boat|sea|water/i.test(kind)
+        ? "Sea"
+        : /space/i.test(kind)
+          ? "Space"
+          : "Land";
+    const pace = text.match(/Travel Pace:\s*([^\n]+)/i);
+    if (pace) entry.speed = clean(pace[1]);
+    const cargo = text.match(/Cargo Capacity:\s*([\d,]+)/i);
+    if (cargo) entry.capCargo = Number(cargo[1].replace(/,/g, ""));
+  }
   const weight = text.match(/Weight\s*[:.]?\s*([\d.]+)\s*lb/i);
   if (weight) entry.weight = Number(weight[1]);
   const cost = text.match(/(?:Cost|Price|Value)\s*[:.]?\s*([\d,.]+)\s*(cp|sp|ep|gp|pp)/i);
@@ -1500,6 +1527,72 @@ function parseItem($, root, entry) {
   const ac = text.match(/\bAC\s*(\d+)|\bArmor Class\s*(\d+)/i);
   if (ac) entry.ac = Number(ac[1] || ac[2]);
   entry.entries = pruneEntries(entries);
+}
+
+// Vehicle pages use a creature-style layout table rather than the normal item
+// block. Keep their stat line and description, and mark them type VEH so the
+// Reference Index files them under Vehicles instead of generic gear.
+function parseVehicle($, root, entry) {
+  const table = root
+    .find("table")
+    .toArray()
+    .find((element) => {
+      const text = $(element).text();
+      return (
+        /\b(?:Tiny|Small|Medium|Large|Huge|Gargantuan|Colossal)\s+vehicle\b/i.test(text) &&
+        $(element).find("table").length
+      );
+    });
+  if (!table) return false;
+
+  const statCell = $(table).find("td").first();
+  const typeLine = clean($(statCell).find("p").first().text());
+  const typeMatch = typeLine.match(
+    /^(Tiny|Small|Medium|Large|Huge|Gargantuan|Colossal)\s+vehicle\s*(?:\(([^)]*)\))?/i
+  );
+  entry.type = "VEH";
+  entry.itemKind = typeLine || "Vehicle";
+  entry.vehicleType = typeLine || "Vehicle";
+  if (typeMatch) {
+    entry.size = typeMatch[1];
+    if (typeMatch[2]) entry.baseItem = clean(typeMatch[2]);
+  }
+  entry.terrain = /airship|air|fly|sky/i.test(typeLine)
+    ? "Air"
+    : /ship|boat|sea|water/i.test(typeLine)
+      ? "Sea"
+      : /space/i.test(typeLine)
+        ? "Space"
+        : "Land";
+
+  const stats = textOf($, statCell);
+  const cargo = stats.match(/Cargo Capacity:\s*([\d,]+)/i);
+  if (cargo) entry.capCargo = Number(cargo[1].replace(/,/g, ""));
+  const passengers = stats.match(/Creature Capacity:\s*([^\n]+)/i);
+  if (passengers) entry.capPassenger = clean(passengers[1]);
+  const pace = stats.match(/Travel Pace:\s*([^\n]+)/i);
+  if (pace) entry.speed = clean(pace[1]);
+  const ac = stats.match(/Armor Class\s+(\d+)/i);
+  if (ac) entry.ac = Number(ac[1]);
+  const hp = stats.match(/Hit Points\s+(\d+)/i);
+  if (hp) entry.hp = Number(hp[1]);
+  const cost = stats.match(/Cost:\s*([^\n]+)/i);
+  if (cost) entry.cost = clean(cost[1]);
+  entry.rarity = parseRarity(cost?.[1] || "");
+
+  const cells = $(table).find("> tbody > tr > td, > tr > td");
+  const right = cells.length > 1 ? $(cells[1]).clone() : null;
+  if (right) {
+    right.find(NOISE_SELECTOR).remove();
+    right.find("table, .thumb, .navbox, .messagebox").remove();
+    const blocks = collectBlocks($, right.get(0), "");
+    entry.entries = blocksToEntries(blocks);
+  }
+  if (!entry.entries?.length) {
+    entry.entries = [];
+  }
+  $(table).remove();
+  return true;
 }
 
 function parseDeity($, root, entry, blocks) {
@@ -1650,6 +1743,7 @@ async function parsePage(html, url, fallbackKey) {
       entry.entries = pruneEntries([...traits, ...blocksToEntries(blocks)]);
     } else if (key === "item") {
       parseItem($, root, entry);
+      if (!entry.type) parseVehicle($, root, entry);
       if (!entry.entries?.length) {
         blocks = collectBlocks($, root, name);
         parseGeneric(entry, blocks);
