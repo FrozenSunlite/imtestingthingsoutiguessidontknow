@@ -827,11 +827,17 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
             <DropdownMenuItem
+              onClick={() => setSideTree(slot, { kind: "main", closed: false })}
+            >
+              Main tree — follow active tab
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
               onClick={() =>
                 loadSnapshot(tree?.name || "Main tree", tree?.nodes, tree?.connections)
               }
             >
-              Current project tree
+              Snapshot current tree
             </DropdownMenuItem>
             {(tree?.tabs || []).length > 1 && <DropdownMenuSeparator />}
             {(tree?.tabs || []).length > 1 && (

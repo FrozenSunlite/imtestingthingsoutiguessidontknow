@@ -1,7 +1,7 @@
 // Offline app shell for the installed PWA. 5eTools API calls and project data
 // stay network/local-storage driven; this only makes the interface itself
 // launchable when the connection drops.
-const BUILD = "2026-11-04T20:51:51.131Z";
+const BUILD = "2026-11-04T21:15:51.399Z";
 const CACHE = `ttt-shell-v3-${BUILD}`;
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 

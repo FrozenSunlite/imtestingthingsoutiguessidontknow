@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-C95Z7zSP.js";
+import { n as Button, r as cn } from "./router-CwpZ4x7-.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -46772,8 +46772,16 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 						className: "max-h-80 w-60 overflow-y-auto",
 						children: [
 							/* @__PURE__ */ jsx(DropdownMenuItem, {
+								onClick: () => setSideTree(slot, {
+									kind: "main",
+									closed: false
+								}),
+								children: "Main tree — follow active tab"
+							}),
+							/* @__PURE__ */ jsx(DropdownMenuSeparator, {}),
+							/* @__PURE__ */ jsx(DropdownMenuItem, {
 								onClick: () => loadSnapshot(tree?.name || "Main tree", tree?.nodes, tree?.connections),
-								children: "Current project tree"
+								children: "Snapshot current tree"
 							}),
 							(tree?.tabs || []).length > 1 && /* @__PURE__ */ jsx(DropdownMenuSeparator, {}),
 							(tree?.tabs || []).length > 1 && /* @__PURE__ */ jsx(DropdownMenuLabel, { children: "Project tabs" }),
