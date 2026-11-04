@@ -174,6 +174,20 @@ npm run apk:gist      # publish only the existing APK
 `apk:gist` uses `GITHUB_TOKEN` when set, otherwise the local git credential
 helper. It force-updates the gist so old APKs do not accumulate in its history.
 
+### Private build archive
+
+`npm run release:mirror` mirrors the current release into the private
+`FrozenSunlite/talent-tree-updates` repository (installer, portable build,
+signed APK and `update.json`). `npm run release:all` builds everything and
+mirrors it there. `npm run release:public` additionally publishes the APK to the
+optional public gist feed.
+
+Private GitHub assets cannot be downloaded anonymously. For beta testing,
+install builds manually from the private repository, add testers as read-only
+collaborators, or use Firebase App Distribution / Google Play internal testing.
+The in-app Android updater needs a public or authenticated host, not a private
+repository URL without credentials.
+
 ### Media
 
 ```bash

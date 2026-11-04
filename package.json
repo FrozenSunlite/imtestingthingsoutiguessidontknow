@@ -13,6 +13,7 @@
     "apk:build": "node scripts/build-apk.mjs",
     "apk:publish": "node scripts/publish-apk.mjs",
     "apk:gist": "node scripts/publish-apk-gist.mjs",
+    "release:mirror": "node scripts/publish-updates-repo.mjs",
     "music:import": "node scripts/import-music.mjs",
     "sounds:import": "node scripts/import-sounds.mjs",
     "sounds:index": "node scripts/index-sounds.mjs",
@@ -23,7 +24,8 @@
     "electron:build": "npm run build:standalone && electron-builder --win && node scripts/publish-desktop.mjs",
     "desktop:publish": "node scripts/publish-desktop.mjs",
     "build:all": "npm run electron:build && npm run apk:prepare && npm run apk:build",
-    "release:all": "npm run build:all && npm run apk:gist"
+    "release:all": "npm run build:all && npm run release:mirror",
+    "release:public": "npm run build:all && npm run apk:gist && npm run release:mirror"
   },
   "dependencies": {
     "@capacitor-community/file-opener": "^8.0.1",
