@@ -45,6 +45,7 @@ import { ConnectorMenu } from "@/components/skilltree/ConnectorMenu";
 import { CarryGhost } from "@/components/skilltree/CarryGhost";
 import { playSfx } from "@/lib/audio";
 import { SFX } from "@/lib/sfx";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 
 // Camera framing bookkeeping. Module scope on purpose: it must survive canvas
 // unmounts, so returning from the character sheet keeps the current view.
@@ -517,20 +518,26 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     [mergedTree]
   );
 
+  // DM-hidden nodes and their exclusive descendants. Edit mode still renders
+  // them (dimmed) so the DM can toggle them back; player View removes them.
+  const dmHiddenIds = useMemo(() => hiddenNodeIds(tree?.nodes || []), [tree]);
+
   // Blind run (View mode only): hide unlocked=no nodes whose prerequisites
   // aren't met — and, optionally, whose level requirement exceeds the level.
   const hiddenIds = useMemo(() => {
-    if (editable || !character?.hideLockedNodes || !tree) return null;
-    const level = effectiveCharacterLevel(character, mergedTree);
-    const includeLevel = !!character.hideLockedIncludeLevel;
     const ids = new Set();
-    for (const n of tree.nodes) {
-      if ((n.currentPoints || 0) > 0) continue;
-      if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
-      else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
+    if (!editable) dmHiddenIds.forEach((id) => ids.add(id));
+    if (!editable && character?.hideLockedNodes && tree) {
+      const level = effectiveCharacterLevel(character, mergedTree);
+      const includeLevel = !!character.hideLockedIncludeLevel;
+      for (const n of tree.nodes) {
+        if ((n.currentPoints || 0) > 0 || ids.has(n.id)) continue;
+        if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
+        else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
+      }
     }
-    return ids;
-  }, [editable, character, tree, nodesById, unlockedNames, mergedTree]);
+    return ids.size ? ids : null;
+  }, [editable, character, tree, nodesById, unlockedNames, mergedTree, dmHiddenIds]);
 
   const visibleNodes = useMemo(() => {
     if (!tree) return [];
@@ -538,11 +545,12 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
       (n) =>
         // Informative nodes are editor-only reference — hidden outside Edit.
         (editable || (n.nodeType || "") !== "informative") &&
+        (editable || !dmHiddenIds.has(n.id)) &&
         !hiddenIds?.has(n.id) &&
         n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY
     );
      
-  }, [tree, region.key, hiddenIds, editable]);
+  }, [tree, region.key, hiddenIds, editable, dmHiddenIds]);
 
   // Large or zoomed-out trees switch to a cheaper node/connector treatment:
   // the alpha outline and 3D socket are still there, but with far fewer filters.
@@ -1522,6 +1530,7 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
             editable={editable}
             selected={ui.selectedNodeId === n.id || (ui.selectedNodeIds || []).includes(n.id)}
             showNames={ui.showNames}
+            dmHidden={dmHiddenIds.has(n.id)}
             available={availableIds.has(n.id)}
             placeholder={settings.placeholderImage}
             placeholderFrame={settings.placeholderFrame}

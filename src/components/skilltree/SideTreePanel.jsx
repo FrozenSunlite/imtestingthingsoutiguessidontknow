@@ -20,6 +20,7 @@ import { pointTypesFor, poolLabel } from "@/lib/pointTypes";
 import { abilityReqStatus } from "@/lib/skills";
 import { tierGate, nodeMaxPoints } from "@/lib/nodeTiers";
 import { isAvailable, isExclusiveBlocked, collectUnlockedNames } from "@/lib/geometry";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import { SkillNodeView } from "@/components/skilltree/SkillNodeView";
 import { ConnectionLayer } from "@/components/skilltree/ConnectionLayer";
 import { NodeTooltip } from "@/components/skilltree/NodeTooltip";
@@ -117,6 +118,17 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
   const returnParentRef = useRef(null);
 
   const isMain = st?.kind === "main";
+  // A host the DM hid takes its open subtree windows with it.
+  const hostHidden = useMemo(() => {
+    if (isMain) return false;
+    const hosts = [
+      ...(st?.hostChain || []).map((entry) => entry.hostId),
+      ...(st?.subtreeHostId ? [st.subtreeHostId] : []),
+    ].filter(Boolean);
+    if (!hosts.length) return false;
+    const hidden = hiddenNodeIds(tree?.nodes || []);
+    return hosts.some((id) => hidden.has(id));
+  }, [isMain, st, tree]);
   const nodes = isMain
     ? tree?.nodes || []
     : st?.kind === "snapshot" || st?.kind === "subtrees"
@@ -134,6 +146,9 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     () => collectUnlockedNames(mergedTree?.nodes || []),
     [mergedTree]
   );
+  // The DM's hidden nodes and their exclusive descendants never reach the
+  // player. This panel only renders the View page, so no edit-mode exception.
+  const dmHiddenIds = useMemo(() => hiddenNodeIds(nodes), [nodes]);
   // Blind run (same rule as the main canvas): while playing, hide unstarted
   // nodes whose prerequisites aren't met; "include level requirements" also
   // hides nodes gated behind a higher character level.
@@ -170,10 +185,11 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
           // Informative nodes are editor-only reference, exactly as on the
           // main canvas outside Edit mode.
           (n.nodeType || "") !== "informative" &&
+          !dmHiddenIds.has(n.id) &&
           !hiddenIds?.has(n.id) &&
           n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY
       ),
-    [nodes, region.key, hiddenIds]
+    [nodes, region.key, dmHiddenIds, hiddenIds]
   );
   // Same detail tiers as the main canvas: large or zoomed-out trees skip the
   // expensive alpha outlines, socket shadows and connector decoration.
@@ -716,7 +732,7 @@ export function SideTreePanel({ slot, floating = false, stacked = false }) {
     setSelectedId(node.id);
   }, []);
 
-  if (!tree || !st || st.closed) return null;
+  if (!tree || !st || st.closed || hostHidden) return null;
   const selected = selectedId ? nodesById[selectedId] : null;
   const effChoices = effectiveChoices(character, mergedTree);
   const subtreeChain =

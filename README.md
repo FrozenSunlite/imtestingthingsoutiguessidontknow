@@ -102,17 +102,20 @@ npm run dandwiki:convert -- --preset spells --limit 20
 # Count what the built-in seeds cover without downloading entries
 npm run dandwiki:convert -- --preset all --dry-run
 
-# Full crawl of the built-in category seeds (about 30,000 pages; run overnight)
-npm run dandwiki:convert -- --preset all --split
+# Full crawl of the built-in category seeds (about 27,000 pages)
+npm run dandwiki:convert -- --preset all --split --concurrency 4
 ```
 
-The crawler is rate-limited (300 ms/page by default), caches every page under
-`Saves/dandwiki-cache`, and can be stopped and restarted safely. The combined
-file is `Saves/dandwiki-5e.json`; `--split` also writes one file per 5eTools
-category under `Saves/dandwiki-5e/`. Copy the split files into the matching
-folders of the local 5eTools data folder (`spells/`, `bestiary/`, `class/`, ...)
-before importing through the Reference Index. The app imports one top-level
-category array per file, so the split files are the practical import format.
+The crawler is rate-limited (300 ms between requests per worker by default, four
+workers), caches every page under `Saves/dandwiki-cache`, and can be stopped and
+restarted safely. The combined
+file is `Saves/dandwiki-5e.json`; `--split` also writes Reference Index files
+under `Saves/dandwiki-5e/` (`spell.json`, `monster.json`, `class.json`,
+`races.json`, `items.json`, `feats.json`, `optionalfeatures.json`, ...). Copy
+them into the matching folders of the local 5eTools data folder (`spells/`,
+`bestiary/`, `class/`, ...) before importing through the Reference Index. The
+app imports one top-level category array per file, so the split files are the
+practical import format.
 
 Some dandwiki categories use different index pages and page suffixes; the
 converter's `PRESETS` table at the top of the script is the place to add seeds

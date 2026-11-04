@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTree, poolUsage, effectivePools, statVars, aggregateResources, profBonusFor, carryCapacity, totalCoins } from "@/lib/treeStore";
 import { pointTypesFor } from "@/lib/pointTypes";
 import { groupUnlocked } from "@/lib/unlocked";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import { usePanelWidth } from "@/hooks/use-panel-width";
 import { PanelResizer } from "./PanelResizer";
 import {
@@ -87,7 +88,10 @@ export function PresentationSheet({ innerRef, onExport }) {
   const carried = totalCarried(character);
   const capacity = carryCapacity(character, tree);
   const spells = character.spellList || [];
-  const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
+  const dmHidden = character.devMode ? new Set() : hiddenNodeIds(tree?.nodes || []);
+  const unlocked = (tree?.nodes || []).filter(
+    (n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0
+  );
   // Heritage-purchased nodes first, then Talent-pool nodes grouped by Talent
   // Type (alphabetized), each in acquisition order.
   const {

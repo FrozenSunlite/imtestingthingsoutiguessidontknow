@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-pJmPC737.js";
+import { n as Button, r as cn } from "./router-B0cPO6hK.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -5990,6 +5990,7 @@ function withNodeDefaults(node) {
 	].includes(next.maxPointsMode)) next.maxPointsMode = "manual";
 	next.maxPointsBonus = Math.max(0, Number(next.maxPointsBonus) || 0);
 	next.maxPointsSubtree = Math.max(0, Number(next.maxPointsSubtree) || 0);
+	next.hidden = !!next.hidden;
 	next.subtrees = (Array.isArray(next.subtrees) ? next.subtrees : next.subtree && typeof next.subtree === "object" ? [next.subtree] : []).map((subtree) => subtree && typeof subtree === "object" ? {
 		...subtree,
 		nodes: (Array.isArray(subtree.nodes) ? subtree.nodes : []).map(withNodeDefaults)
@@ -6069,6 +6070,7 @@ function normalizeTree(data) {
 			].includes(s["Skill Max Points Mode"]) ? s["Skill Max Points Mode"] : "manual",
 			maxPointsBonus: Math.max(0, Number(s["Skill Max Points Bonus"]) || 0),
 			maxPointsSubtree: Math.max(0, Number(s["Skill Max Points Subtree"]) || 0),
+			hidden: !!s["Skill Hidden"],
 			currentPoints: s["Skill Current Points"] ?? 0,
 			levelGain: Math.max(0, Number(s["Skill Level Gain"]) || 0),
 			image: s["Skill Image"] || "",
@@ -6253,6 +6255,7 @@ function denormalizeTree(tree) {
 			"Skill Max Points Mode": n.maxPointsMode || "manual",
 			"Skill Max Points Bonus": n.maxPointsBonus ?? 0,
 			"Skill Max Points Subtree": n.maxPointsSubtree ?? 0,
+			"Skill Hidden": !!n.hidden,
 			"Skill Current Points": n.currentPoints,
 			"Skill Level Gain": n.levelGain || 0,
 			"Skill Image": n.image,
@@ -6488,6 +6491,26 @@ function levelZeroPointsFor(settings) {
 		out[pt.id] = Math.max(0, Number(value) || 0);
 	});
 	return out;
+}
+// src/lib/nodeVisibility.js
+function hiddenNodeIds(nodes) {
+	const list = Array.isArray(nodes) ? nodes : [];
+	const hidden = new Set(list.filter((node) => node && node.hidden).map((node) => node.id));
+	if (!hidden.size) return hidden;
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const node of list) {
+			if (!node || hidden.has(node.id)) continue;
+			const deps = Array.isArray(node.dependencies) ? node.dependencies.filter(Boolean) : [];
+			if (!deps.length) continue;
+			if (deps.every((id) => hidden.has(id))) {
+				hidden.add(node.id);
+				changed = true;
+			}
+		}
+	}
+	return hidden;
 }
 // src/lib/projectStore.js
 var DB_NAME = "talent-tree";
@@ -8526,6 +8549,23 @@ function TreeProvider({ children }) {
 	const [view, setView] = useState(DEFAULT_VIEW);
 	const [grid, setGrid] = useState(DEFAULT_GRID);
 	const [mode, setMode] = useState("edit");
+	useEffect(() => {
+		if (mode === "edit") return;
+		const hidden = hiddenNodeIds(tree?.nodes || []);
+		if (!hidden.size) return;
+		setUi((u) => {
+			const selectedNodeId = hidden.has(u.selectedNodeId) ? null : u.selectedNodeId;
+			const editingNodeId = hidden.has(u.editingNodeId) ? null : u.editingNodeId;
+			const selectedNodeIds = (u.selectedNodeIds || []).filter((id) => !hidden.has(id));
+			if (selectedNodeId === u.selectedNodeId && editingNodeId === u.editingNodeId && selectedNodeIds.length === (u.selectedNodeIds || []).length) return u;
+			return {
+				...u,
+				selectedNodeId,
+				editingNodeId,
+				selectedNodeIds
+			};
+		});
+	}, [mode, tree]);
 	const [sheetOnly, setSheetOnly] = useState(false);
 	const [pools, setPools] = useState(DEFAULT_POOLS);
 	const [character, setCharacter] = useState(DEFAULT_CHARACTER);
@@ -9345,6 +9385,14 @@ function TreeProvider({ children }) {
 					connections: [...prev.connections, ...connections]
 				};
 			});
+			const importedIds = nodes.map((n) => n.id);
+			setUi((u) => ({
+				...u,
+				selectedNodeId: null,
+				editingNodeId: null,
+				selectedNodeIds: importedIds,
+				selectedConnectionId: null
+			}));
 			return;
 		}
 		if (mode === "newTab") {
@@ -29167,12 +29215,22 @@ function SearchWindow({ query, setQuery, matches, onPick, onClose }) {
 }
 // src/components/skilltree/SearchBox.jsx
 function SearchBox({ onPick, fullWidth = false }) {
-	const { tree, setUi } = useTree();
+	const { tree, setUi, mode } = useTree();
 	const [query, setQuery] = useState("");
 	const [dropOpen, setDropOpen] = useState(false);
 	const [winOpen, setWinOpen] = useState(false);
 	const nextIdx = useRef(0);
-	const matches = query.trim() && tree ? searchNodes(tree.nodes, query) : [];
+	const matches = useMemo(() => {
+		if (!query.trim() || !tree) return [];
+		const all = searchNodes(tree.nodes, query);
+		if (mode === "edit") return all;
+		const hidden = hiddenNodeIds(tree.nodes || []);
+		return hidden.size ? all.filter((m) => !hidden.has(m.node?.id)) : all;
+	}, [
+		tree,
+		query,
+		mode
+	]);
 	const shown = matches.slice(0, 10);
 	const pick = (node, index) => {
 		onPick?.(node);
@@ -29362,7 +29420,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 		try {
 			importTree(importData, mode);
 			setImportData(null);
-			toast.success("Skill tree imported.");
+			toast.success(mode === "merge" ? "Skill tree merged. The imported nodes are selected — drag them into place." : "Skill tree imported.");
 		} catch (e) {
 			toast.error(e?.message || "Could not import that skill tree.");
 		}
@@ -29882,7 +29940,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 			onOpenChange: (v) => !v && setImportData(null),
 			children: /* @__PURE__ */ jsxs(DialogContent, {
 				className: "max-w-xs",
-				children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Import skill tree" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Where should the imported tree go?" })] }), /* @__PURE__ */ jsxs("div", {
+				children: [/* @__PURE__ */ jsxs(DialogHeader, { children: [/* @__PURE__ */ jsx(DialogTitle, { children: "Import skill tree" }), /* @__PURE__ */ jsx(DialogDescription, { children: "Where should the imported tree go? Merging keeps everything that is already open; the imported nodes arrive selected so you can drag the whole group into place." })] }), /* @__PURE__ */ jsxs("div", {
 					className: "grid gap-2",
 					children: [
 						/* @__PURE__ */ jsx(Button, {
@@ -29892,7 +29950,7 @@ function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
 						/* @__PURE__ */ jsx(Button, {
 							variant: "outline",
 							onClick: () => runImport("merge"),
-							children: "Merge into current tree"
+							children: "Merge into current tree (keep open data)"
 						}),
 						/* @__PURE__ */ jsx(Button, {
 							variant: "outline",
@@ -30349,7 +30407,7 @@ function IconArt({ src, circular, iconBox, size, className = "", fallbackSrc = "
 	});
 }
 // src/components/skilltree/SkillNodeView.jsx
-var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
+var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, showNames, available, dmHidden = false, popIn, placeholder, placeholderFrame, highlighted, onSelect, onPointerDown, onContextMenu, onInvest, onOpenSubtree, onReturnParent, dblClickInvest, onHover, onHoverMove, onHoverEnd, detailLevel = "full" }) {
 	const autoBridge = isBridgeNode(node) && available;
 	const unlocked = (node.currentPoints || 0) > 0 || autoBridge;
 	const dim = !unlocked && !available;
@@ -30419,10 +30477,10 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 			cursor: editable ? "grab" : "pointer",
 			textRendering: "geometricPrecision"
 		},
-		className: `group ${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
+		className: `group ${dmHidden ? "opacity-60 " : ""}${popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""} ${!editable ? "transition-transform duration-100 active:scale-90" : ""}`,
 		children: [
 			/* @__PURE__ */ jsx("div", {
-				className: `ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : minimal && unlocked ? "border-[#008000]/80" : minimal && available ? "border-amber-400/60" : "border-white/10"}`,
+				className: `ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${selected ? "border-primary/80" : dmHidden ? "border-destructive/70" : minimal && unlocked ? "border-[#008000]/80" : minimal && available ? "border-amber-400/60" : "border-white/10"}`,
 				style: {
 					background: "linear-gradient(145deg, rgba(30,41,59,0.92), rgba(2,6,23,0.97))",
 					boxShadow: slotShadow
@@ -30494,6 +30552,11 @@ var SkillNodeView = memo(function SkillNodeView({ node, editable, selected, show
 				className: "absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white opacity-0 transition-opacity group-hover:opacity-100",
 				title: "Choose one of this skill's subtree trees to open",
 				children: /* @__PURE__ */ jsx(ChevronDown, { className: "h-3 w-3" })
+			}),
+			!minimal && (dmHidden || node.hidden) && /* @__PURE__ */ jsx("div", {
+				className: "pointer-events-none absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow",
+				title: node.hidden ? "Hidden from players" : "Hidden from players because all of its prerequisites are hidden",
+				children: /* @__PURE__ */ jsx(EyeOff, { className: "h-3 w-3" })
 			}),
 			!minimal && !editable && !node.__returnNode && /* @__PURE__ */ jsx("div", {
 				className: "absolute -left-1 -top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100",
@@ -31518,33 +31581,38 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		vp.h
 	]);
 	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
+	const dmHiddenIds = useMemo(() => hiddenNodeIds(tree?.nodes || []), [tree]);
 	const hiddenIds = useMemo(() => {
-		if (editable || !character?.hideLockedNodes || !tree) return null;
-		const level = effectiveCharacterLevel(character, mergedTree);
-		const includeLevel = !!character.hideLockedIncludeLevel;
 		const ids = /* @__PURE__ */ new Set();
-		for (const n of tree.nodes) {
-			if ((n.currentPoints || 0) > 0) continue;
-			if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
-			else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
+		if (!editable) dmHiddenIds.forEach((id) => ids.add(id));
+		if (!editable && character?.hideLockedNodes && tree) {
+			const level = effectiveCharacterLevel(character, mergedTree);
+			const includeLevel = !!character.hideLockedIncludeLevel;
+			for (const n of tree.nodes) {
+				if ((n.currentPoints || 0) > 0 || ids.has(n.id)) continue;
+				if (!isAvailable(n, nodesById, unlockedNames)) ids.add(n.id);
+				else if (includeLevel && displayLevel(n) > level) ids.add(n.id);
+			}
 		}
-		return ids;
+		return ids.size ? ids : null;
 	}, [
 		editable,
 		character,
 		tree,
 		nodesById,
 		unlockedNames,
-		mergedTree
+		mergedTree,
+		dmHiddenIds
 	]);
 	const visibleNodes = useMemo(() => {
 		if (!tree) return [];
-		return tree.nodes.filter((n) => (editable || (n.nodeType || "") !== "informative") && !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY);
+		return tree.nodes.filter((n) => (editable || (n.nodeType || "") !== "informative") && (editable || !dmHiddenIds.has(n.id)) && !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY);
 	}, [
 		tree,
 		region.key,
 		hiddenIds,
-		editable
+		editable,
+		dmHiddenIds
 	]);
 	const detailLevel = useMemo(() => {
 		const zoom = view.zoom || .1;
@@ -32429,6 +32497,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 							editable,
 							selected: ui.selectedNodeId === n.id || (ui.selectedNodeIds || []).includes(n.id),
 							showNames: ui.showNames,
+							dmHidden: dmHiddenIds.has(n.id),
 							available: availableIds.has(n.id),
 							placeholder: settings.placeholderImage,
 							placeholderFrame: settings.placeholderFrame,
@@ -35939,10 +36008,10 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 			/* @__PURE__ */ jsxs("div", {
 				className: "flex-1 space-y-5 overflow-y-auto p-4 text-sm",
 				children: [
-					/* @__PURE__ */ jsx(FieldGroup, {
+					/* @__PURE__ */ jsxs(FieldGroup, {
 						label: "Identity",
 						collapsible: true,
-						children: /* @__PURE__ */ jsxs("div", {
+						children: [/* @__PURE__ */ jsxs("div", {
 							className: "grid grid-cols-2 gap-2",
 							children: [/* @__PURE__ */ jsxs("div", {
 								className: "space-y-1",
@@ -35971,7 +36040,22 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 									title: "Comma-separated. A node may belong to several Talent Types."
 								})]
 							})]
-						})
+						}), /* @__PURE__ */ jsxs("div", {
+							className: "mt-2 flex items-center justify-between gap-3 rounded-md border p-2",
+							children: [/* @__PURE__ */ jsxs("div", {
+								className: "min-w-0",
+								children: [/* @__PURE__ */ jsx(InfoTip, {
+									label: "Hidden nodes and talents whose only prerequisite path runs through them are removed from the player View. The toggle is saved with the project; hidden nodes stay visible in Edit mode for the DM.",
+									children: /* @__PURE__ */ jsx(Label, { children: "Visible to players" })
+								}), /* @__PURE__ */ jsx("p", {
+									className: "text-[10px] text-muted-foreground",
+									children: "Off hides this node and exclusive dependants from View. Saved in the project."
+								})]
+							}), /* @__PURE__ */ jsx(Switch, {
+								checked: !node.hidden,
+								onCheckedChange: (checked) => set({ hidden: !checked })
+							})]
+						})]
 					}),
 					/* @__PURE__ */ jsxs(FieldGroup, {
 						label: "Classification",
@@ -37219,6 +37303,7 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 			maxPointsMode: node.maxPointsMode || "manual",
 			maxPointsBonus: node.maxPointsBonus ?? 0,
 			maxPointsSubtree: node.maxPointsSubtree ?? 0,
+			hidden: !!node.hidden,
 			description: node.description,
 			flavor: node.flavor,
 			resources: node.resources,
@@ -37287,6 +37372,7 @@ function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onCl
 				...u,
 				pinnedNodeIds: (u.pinnedNodeIds || []).includes(node.id) ? (u.pinnedNodeIds || []).filter((id) => id !== node.id) : [...u.pinnedNodeIds || [], node.id]
 			})), false, "Show this node's full player-facing details in a pinned card"),
+			item(node.hidden ? "Show to players" : "Hide from players", node.hidden ? /* @__PURE__ */ jsx(Eye, { className: "h-4 w-4" }) : /* @__PURE__ */ jsx(EyeOff, { className: "h-4 w-4" }), () => updateNode(node.id, { hidden: !node.hidden }), false, "Hidden nodes and talents whose only prerequisite path runs through them are removed from player View; the setting is saved with the project"),
 			item("Rotate +15°", /* @__PURE__ */ jsx(RotateCw, { className: "h-4 w-4" }), () => rotateNode(node.id, 15), false, "Rotate the artwork 15° clockwise"),
 			item("Rotate −15°", /* @__PURE__ */ jsx(RotateCcw, { className: "h-4 w-4" }), () => rotateNode(node.id, -15), false, "Rotate the artwork 15° counter-clockwise"),
 			item("Flip", /* @__PURE__ */ jsx(FlipHorizontal, { className: "h-4 w-4" }), () => flipNode(node.id), false, "Mirror the artwork horizontally"),
@@ -38936,17 +39022,22 @@ function CharacterTab() {
 			color: e.color === "#ffffff" ? lib.color || e.color : e.color
 		};
 	});
-	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
 	const dev = !!character.devMode;
+	const dmHidden = dev ? /* @__PURE__ */ new Set() : hiddenNodeIds(tree?.nodes || []);
+	const unlocked = (tree?.nodes || []).filter((n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0);
 	const seenIds = new Set(unlocked.map((n) => n.id));
-	const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id));
+	const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id) && !dmHidden.has(n.id));
 	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, subtreeGroups, pointGroups } = groupUnlocked(dev ? [...tree?.nodes || [], ...subtreeUnlocked] : [...unlocked, ...subtreeUnlocked], {
 		includeAutoGranted: dev,
 		pointTypes: settings?.library?.pointTypes
 	});
+	const benefitTree = dmHidden.size ? {
+		...tree,
+		nodes: (tree?.nodes || []).filter((n) => !dmHidden.has(n.id))
+	} : tree;
 	const benefitGroups = BENEFIT_CATEGORIES.map((cat) => ({
 		...cat,
-		items: collectNodeBenefits(tree).filter((b) => b.category === cat.id)
+		items: collectNodeBenefits(benefitTree).filter((b) => b.category === cat.id)
 	})).filter((g) => g.items.length);
 	const benefitSpellList = benefitSpells(settings);
 	const testAdjust = (n, delta) => {
@@ -45695,10 +45786,22 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 	const transformRaf = useRef(0);
 	const returnParentRef = useRef(null);
 	const isMain = st?.kind === "main";
+	const hostHidden = useMemo(() => {
+		if (isMain) return false;
+		const hosts = [...(st?.hostChain || []).map((entry) => entry.hostId), ...st?.subtreeHostId ? [st.subtreeHostId] : []].filter(Boolean);
+		if (!hosts.length) return false;
+		const hidden = hiddenNodeIds(tree?.nodes || []);
+		return hosts.some((id) => hidden.has(id));
+	}, [
+		isMain,
+		st,
+		tree
+	]);
 	const nodes = isMain ? tree?.nodes || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.nodes || [] : [];
 	const connections = isMain ? tree?.connections || [] : st?.kind === "snapshot" || st?.kind === "subtrees" ? st.connections || [] : [];
 	const nodesById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
 	const unlockedNames = useMemo(() => collectUnlockedNames(mergedTree?.nodes || []), [mergedTree]);
+	const dmHiddenIds = useMemo(() => hiddenNodeIds(nodes), [nodes]);
 	const hiddenIds = useMemo(() => {
 		if (!character?.hideLockedNodes) return null;
 		const level = effectiveCharacterLevel(character, mergedTree);
@@ -45735,9 +45838,10 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 			key: `${minX}|${minY}|${maxX}|${maxY}`
 		};
 	}, [view, vp]);
-	const visibleNodes = useMemo(() => nodes.filter((n) => (n.nodeType || "") !== "informative" && !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY), [
+	const visibleNodes = useMemo(() => nodes.filter((n) => (n.nodeType || "") !== "informative" && !dmHiddenIds.has(n.id) && !hiddenIds?.has(n.id) && n.x >= region.minX && n.x <= region.maxX && n.y >= region.minY && n.y <= region.maxY), [
 		nodes,
 		region.key,
+		dmHiddenIds,
 		hiddenIds
 	]);
 	const detailLevel = useMemo(() => {
@@ -46202,7 +46306,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		e.stopPropagation();
 		setSelectedId(node.id);
 	}, []);
-	if (!tree || !st || st.closed) return null;
+	if (!tree || !st || st.closed || hostHidden) return null;
 	const selected = selectedId ? nodesById[selectedId] : null;
 	const effChoices = effectiveChoices(character, mergedTree);
 	const subtreeChain = st.hostChain || (st.subtreeHostId ? [{
@@ -85056,7 +85160,8 @@ function PresentationSheet({ innerRef, onExport }) {
 	const carried = totalCarried(character);
 	const capacity = carryCapacity(character, tree);
 	const spells = character.spellList || [];
-	const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
+	const dmHidden = character.devMode ? /* @__PURE__ */ new Set() : hiddenNodeIds(tree?.nodes || []);
+	const unlocked = (tree?.nodes || []).filter((n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0);
 	const { heritage: heritageNodes, talentGroups, attributes: attributeNodes, pointGroups } = groupUnlocked(unlocked, {
 		includeAutoGranted: !!character.devMode,
 		pointTypes: settings?.library?.pointTypes
@@ -86048,7 +86153,7 @@ function PoolWindows({ wins, setWins }) {
 }
 // src/components/skilltree/CommandPalette.jsx
 function CommandPalette() {
-	const { tree, setActiveTab, setUi, settings } = useTree();
+	const { tree, setActiveTab, setUi, settings, mode } = useTree();
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [cursor, setCursor] = useState(0);
@@ -86078,6 +86183,7 @@ function CommandPalette() {
 			if (out.length >= 200) return;
 			if (item && match(`${item.label} ${item.detail || ""}`)) out.push(item);
 		};
+		const dmHidden = mode === "edit" ? /* @__PURE__ */ new Set() : hiddenNodeIds(tree?.nodes || []);
 		(tree?.tabs || []).forEach((tab) => {
 			add({
 				kind: "Tab",
@@ -86086,6 +86192,7 @@ function CommandPalette() {
 				run: () => setActiveTab(tab.id)
 			});
 			(tab.nodes || []).forEach((node) => {
+				if (dmHidden.has(node.id)) return;
 				add({
 					kind: "Node",
 					label: node.name || "New Skill",
@@ -86181,7 +86288,8 @@ function CommandPalette() {
 		setActiveTab,
 		setUi,
 		settings,
-		tree
+		tree,
+		mode
 	]);
 	useEffect(() => {
 		setCursor(0);

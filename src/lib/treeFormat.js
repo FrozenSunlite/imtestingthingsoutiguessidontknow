@@ -45,6 +45,7 @@ export function withNodeDefaults(node) {
   }
   next.maxPointsBonus = Math.max(0, Number(next.maxPointsBonus) || 0);
   next.maxPointsSubtree = Math.max(0, Number(next.maxPointsSubtree) || 0);
+  next.hidden = !!next.hidden;
   const subtrees = Array.isArray(next.subtrees)
     ? next.subtrees
     : next.subtree && typeof next.subtree === "object"
@@ -128,6 +129,7 @@ export function normalizeTree(data) {
         : "manual",
       maxPointsBonus: Math.max(0, Number(s["Skill Max Points Bonus"]) || 0),
       maxPointsSubtree: Math.max(0, Number(s["Skill Max Points Subtree"]) || 0),
+      hidden: !!s["Skill Hidden"],
       currentPoints: s["Skill Current Points"] ?? 0,
       levelGain: Math.max(0, Number(s["Skill Level Gain"]) || 0),
       image: s["Skill Image"] || "",
@@ -324,6 +326,7 @@ export function denormalizeTree(tree) {
     "Skill Max Points Mode": n.maxPointsMode || "manual",
     "Skill Max Points Bonus": n.maxPointsBonus ?? 0,
     "Skill Max Points Subtree": n.maxPointsSubtree ?? 0,
+    "Skill Hidden": !!n.hidden,
     "Skill Current Points": n.currentPoints,
     "Skill Level Gain": n.levelGain || 0,
     "Skill Image": n.image,

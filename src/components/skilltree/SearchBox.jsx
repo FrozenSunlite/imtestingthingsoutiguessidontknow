@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { searchNodes } from "@/lib/treeSearch";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import { InfoTip } from "@/components/skilltree/InfoTip";
 import { SearchWindow } from "@/components/skilltree/SearchWindow";
 import { Search } from "lucide-react";
@@ -11,13 +12,21 @@ import { Search } from "lucide-react";
 // search window — draggable and resizable — for the full result list and the
 // syntax reference.
 export function SearchBox({ onPick, fullWidth = false }) {
-  const { tree, setUi } = useTree();
+  const { tree, setUi, mode } = useTree();
   const [query, setQuery] = useState("");
   const [dropOpen, setDropOpen] = useState(false);
   const [winOpen, setWinOpen] = useState(false);
   const nextIdx = useRef(0);
 
-  const matches = query.trim() && tree ? searchNodes(tree.nodes, query) : [];
+  // Players can't search their way to a node the DM hid. Edit mode keeps the
+  // full list so the DM can still find and reveal hidden nodes.
+  const matches = useMemo(() => {
+    if (!query.trim() || !tree) return [];
+    const all = searchNodes(tree.nodes, query);
+    if (mode === "edit") return all;
+    const hidden = hiddenNodeIds(tree.nodes || []);
+    return hidden.size ? all.filter((m) => !hidden.has(m.node?.id)) : all;
+  }, [tree, query, mode]);
   const shown = matches.slice(0, 10);
 
   const pick = (node, index) => {

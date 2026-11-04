@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, EyeOff } from "lucide-react";
 import { IconArt } from "@/components/skilltree/IconArt";
 import { displayLevel, nodeMaxPoints, tierPlan } from "@/lib/nodeTiers";
 import { isBridgeNode } from "@/lib/geometry";
@@ -12,6 +12,7 @@ export const SkillNodeView = memo(function SkillNodeView({
   selected,
   showNames,
   available,
+  dmHidden = false,
   popIn,
   placeholder,
   placeholderFrame,
@@ -141,6 +142,8 @@ export const SkillNodeView = memo(function SkillNodeView({
         textRendering: "geometricPrecision",
       }}
       className={`group ${
+        dmHidden ? "opacity-60 " : ""
+      }${
         // Blind run: newly revealed nodes pop in; a press squishes the node
         // like a button before the click lands.
         popIn ? "animate-[node-pop-in_0.28s_ease-out]" : ""
@@ -151,11 +154,13 @@ export const SkillNodeView = memo(function SkillNodeView({
         className={`ttt-node-slot pointer-events-none absolute inset-0 rounded-2xl border ${
           selected
             ? "border-primary/80"
-            : minimal && unlocked
-              ? "border-[#008000]/80"
-              : minimal && available
-                ? "border-amber-400/60"
-                : "border-white/10"
+            : dmHidden
+              ? "border-destructive/70"
+              : minimal && unlocked
+                ? "border-[#008000]/80"
+                : minimal && available
+                  ? "border-amber-400/60"
+                  : "border-white/10"
         }`}
         style={{
           background:
@@ -261,6 +266,21 @@ export const SkillNodeView = memo(function SkillNodeView({
         >
           <ChevronDown className="h-3 w-3" />
         </button>
+      )}
+
+      {/* DM-only marker: the node is hidden from players, either directly or
+          because every prerequisite path leading to it is hidden. */}
+      {!minimal && (dmHidden || node.hidden) && (
+        <div
+          className="pointer-events-none absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow"
+          title={
+            node.hidden
+              ? "Hidden from players"
+              : "Hidden from players because all of its prerequisites are hidden"
+          }
+        >
+          <EyeOff className="h-3 w-3" />
+        </div>
       )}
 
       {!minimal && !editable && !node.__returnNode && (

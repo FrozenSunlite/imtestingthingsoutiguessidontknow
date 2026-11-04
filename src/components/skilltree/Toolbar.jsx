@@ -217,7 +217,11 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
     try {
       importTree(importData, mode);
       setImportData(null);
-      toast.success("Skill tree imported.");
+      toast.success(
+        mode === "merge"
+          ? "Skill tree merged. The imported nodes are selected — drag them into place."
+          : "Skill tree imported."
+      );
     } catch (e) {
       toast.error(e?.message || "Could not import that skill tree.");
     }
@@ -627,12 +631,16 @@ export function Toolbar({ onAddPoolWindow, onReferenceIndex }) {
         <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle>Import skill tree</DialogTitle>
-            <DialogDescription>Where should the imported tree go?</DialogDescription>
+            <DialogDescription>
+              Where should the imported tree go? Merging keeps everything that
+              is already open; the imported nodes arrive selected so you can
+              drag the whole group into place.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             <Button onClick={() => runImport("overwrite")}>Replace current tree</Button>
             <Button variant="outline" onClick={() => runImport("merge")}>
-              Merge into current tree
+              Merge into current tree (keep open data)
             </Button>
             <Button variant="outline" onClick={() => runImport("newTab")}>
               Create a new tab from it

@@ -12,6 +12,7 @@ import {
 } from "@/lib/treeStore";
 import { pointTypesFor } from "@/lib/pointTypes";
 import { groupUnlocked, collectSubtreeUnlocked } from "@/lib/unlocked";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import { collectNodeBenefits, BENEFIT_CATEGORIES, tableSummary, tableOptions, benefitSpells } from "@/lib/benefits";
 import SkillTestRow from "./SkillTestRow";
 import { HitPointsCard } from "./HitPointsCard";
@@ -154,15 +155,22 @@ export function CharacterTab() {
       if (!lib) return e;
       return { ...e, color: e.color === "#ffffff" ? lib.color || e.color : e.color };
     });
-  const unlocked = (tree?.nodes || []).filter((n) => (n.currentPoints || 0) > 0);
+  // Dev mode is the DM's view; players never see hidden nodes or their
+  // exclusive descendants in the character tabs.
+  const dev = !!character.devMode;
+  const dmHidden = dev ? new Set() : hiddenNodeIds(tree?.nodes || []);
+  const unlocked = (tree?.nodes || []).filter(
+    (n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0
+  );
   // Unlocked nodes grouped: Heritage Points purchases first, then
   // Talent-pool nodes by Talent Type (alphabetized), each node in the order
   // its points were invested.
   // Test tool: with dev mode on, every talent is listed here (even ones with
   // no points yet) and its points can be added or removed freely.
-  const dev = !!character.devMode;
   const seenIds = new Set(unlocked.map((n) => n.id));
-  const subtreeUnlocked = collectSubtreeUnlocked(tree).filter((n) => !seenIds.has(n.id));
+  const subtreeUnlocked = collectSubtreeUnlocked(tree).filter(
+    (n) => !seenIds.has(n.id) && !dmHidden.has(n.id)
+  );
   const sourceNodes = dev
     ? [...(tree?.nodes || []), ...subtreeUnlocked]
     : [...unlocked, ...subtreeUnlocked];
@@ -176,9 +184,12 @@ export function CharacterTab() {
     includeAutoGranted: dev,
     pointTypes: settings?.library?.pointTypes,
   });
+  const benefitTree = dmHidden.size
+    ? { ...tree, nodes: (tree?.nodes || []).filter((n) => !dmHidden.has(n.id)) }
+    : tree;
   const benefitGroups = BENEFIT_CATEGORIES.map((cat) => ({
     ...cat,
-    items: collectNodeBenefits(tree).filter((b) => b.category === cat.id),
+    items: collectNodeBenefits(benefitTree).filter((b) => b.category === cat.id),
   })).filter((g) => g.items.length);
   const benefitSpellList = benefitSpells(settings);
 

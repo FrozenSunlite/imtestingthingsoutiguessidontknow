@@ -213,6 +213,20 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
               />
             </div>
           </div>
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-md border p-2">
+            <div className="min-w-0">
+              <InfoTip label="Hidden nodes and talents whose only prerequisite path runs through them are removed from the player View. The toggle is saved with the project; hidden nodes stay visible in Edit mode for the DM.">
+                <Label>Visible to players</Label>
+              </InfoTip>
+              <p className="text-[10px] text-muted-foreground">
+                Off hides this node and exclusive dependants from View. Saved in the project.
+              </p>
+            </div>
+            <Switch
+              checked={!node.hidden}
+              onCheckedChange={(checked) => set({ hidden: !checked })}
+            />
+          </div>
         </FieldGroup>
 
         {/* ── Classification ───────────────────────────────────────── */}

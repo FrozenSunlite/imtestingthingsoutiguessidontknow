@@ -58,6 +58,7 @@ import {
   levelZeroPointsFor,
 } from "@/lib/pointTypes";
 import { nodeMaxPoints } from "@/lib/nodeTiers";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import {
   LEGACY_KEYS,
   readProjectValue,
@@ -1615,6 +1616,26 @@ export function TreeProvider({ children }) {
   const [view, setView] = useState(DEFAULT_VIEW);
   const [grid, setGrid] = useState(DEFAULT_GRID);
   const [mode, setMode] = useState("edit");
+  // A DM can hide a node while it is selected. Clear that selection when the
+  // project leaves Edit mode so players never keep a hidden node selected.
+  useEffect(() => {
+    if (mode === "edit") return;
+    const hidden = hiddenNodeIds(tree?.nodes || []);
+    if (!hidden.size) return;
+    setUi((u) => {
+      const selectedNodeId = hidden.has(u.selectedNodeId) ? null : u.selectedNodeId;
+      const editingNodeId = hidden.has(u.editingNodeId) ? null : u.editingNodeId;
+      const selectedNodeIds = (u.selectedNodeIds || []).filter((id) => !hidden.has(id));
+      if (
+        selectedNodeId === u.selectedNodeId &&
+        editingNodeId === u.editingNodeId &&
+        selectedNodeIds.length === (u.selectedNodeIds || []).length
+      ) {
+        return u;
+      }
+      return { ...u, selectedNodeId, editingNodeId, selectedNodeIds };
+    });
+  }, [mode, tree]);
   // Character Creator enters the sheet with editing disabled; any other
   // entry point (New, Load) clears it again.
   const [sheetOnly, setSheetOnly] = useState(false);
@@ -2569,6 +2590,16 @@ export function TreeProvider({ children }) {
           connections: [...prev.connections, ...connections],
         };
       });
+      // Leave the imported group selected so it can be dragged into place as
+      // one unit without disturbing the existing tree.
+      const importedIds = nodes.map((n) => n.id);
+      setUi((u) => ({
+        ...u,
+        selectedNodeId: null,
+        editingNodeId: null,
+        selectedNodeIds: importedIds,
+        selectedConnectionId: null,
+      }));
       return;
     }
     if (mode === "newTab") {

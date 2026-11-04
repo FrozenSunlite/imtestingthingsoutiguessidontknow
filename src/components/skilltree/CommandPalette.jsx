@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import { Input } from "@/components/ui/input";
 import { entryName } from "@/lib/textSearch";
 import { Search } from "lucide-react";
@@ -8,7 +9,7 @@ import { Search } from "lucide-react";
 // dungeon room templates, saved dungeons, rulebook chapters and imported 5eTools
 // entries, then navigates to the chosen result.
 export function CommandPalette() {
-  const { tree, setActiveTab, setUi, settings } = useTree();
+  const { tree, setActiveTab, setUi, settings, mode } = useTree();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -42,6 +43,7 @@ export function CommandPalette() {
       if (item && match(`${item.label} ${item.detail || ""}`)) out.push(item);
     };
 
+    const dmHidden = mode === "edit" ? new Set() : hiddenNodeIds(tree?.nodes || []);
     (tree?.tabs || []).forEach((tab) => {
       add({
         kind: "Tab",
@@ -50,6 +52,7 @@ export function CommandPalette() {
         run: () => setActiveTab(tab.id),
       });
       (tab.nodes || []).forEach((node) => {
+        if (dmHidden.has(node.id)) return;
         add({
           kind: "Node",
           label: node.name || "New Skill",
@@ -143,7 +146,7 @@ export function CommandPalette() {
     });
 
     return out.slice(0, 120);
-  }, [open, query, setActiveTab, setUi, settings, tree]);
+  }, [open, query, setActiveTab, setUi, settings, tree, mode]);
 
   useEffect(() => {
     setCursor(0);

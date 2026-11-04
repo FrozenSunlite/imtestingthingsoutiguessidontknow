@@ -20,6 +20,8 @@ import {
   Pin,
   PinOff,
   Network,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtree, onClose }) {
@@ -138,6 +140,7 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
       maxPointsMode: node.maxPointsMode || "manual",
       maxPointsBonus: node.maxPointsBonus ?? 0,
       maxPointsSubtree: node.maxPointsSubtree ?? 0,
+      hidden: !!node.hidden,
       description: node.description,
       flavor: node.flavor,
       resources: node.resources,
@@ -209,6 +212,13 @@ export function ContextMenu({ x, y, node, world, editable = true, onSendToSubtre
                 })),
               false,
               "Show this node's full player-facing details in a pinned card"
+            )}
+            {item(
+              node.hidden ? "Show to players" : "Hide from players",
+              node.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />,
+              () => updateNode(node.id, { hidden: !node.hidden }),
+              false,
+              "Hidden nodes and talents whose only prerequisite path runs through them are removed from player View; the setting is saved with the project"
             )}
             {item("Rotate +15°", <RotateCw className="h-4 w-4" />, () => rotateNode(node.id, 15), false, "Rotate the artwork 15° clockwise")}
             {item("Rotate −15°", <RotateCcw className="h-4 w-4" />, () => rotateNode(node.id, -15), false, "Rotate the artwork 15° counter-clockwise")}
