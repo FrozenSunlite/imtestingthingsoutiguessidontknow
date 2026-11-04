@@ -87,6 +87,37 @@ Regenerate the SRD seed after changing the 5eTools source checkout:
 npm run srd:build -- "E:/path/to/5etools/data"
 ```
 
+### Private D&D Wiki conversion (optional)
+
+`scripts/dandwiki-to-5etools.mjs` converts dandwiki.com 5e homebrew into
+5eTools-shaped JSON for **private use**. D&D Wiki content is licensed under the
+**GNU Free Documentation License 1.3**; keep generated files private and do not
+redistribute them. Outputs are written under `Saves/`, which is gitignored and
+never shipped with the app.
+
+```bash
+# Validate a small sample first
+npm run dandwiki:convert -- --preset spells --limit 20
+
+# Count what the built-in seeds cover without downloading entries
+npm run dandwiki:convert -- --preset all --dry-run
+
+# Full crawl of the built-in category seeds (about 30,000 pages; run overnight)
+npm run dandwiki:convert -- --preset all --split
+```
+
+The crawler is rate-limited (300 ms/page by default), caches every page under
+`Saves/dandwiki-cache`, and can be stopped and restarted safely. The combined
+file is `Saves/dandwiki-5e.json`; `--split` also writes one file per 5eTools
+category under `Saves/dandwiki-5e/`. Copy the split files into the matching
+folders of the local 5eTools data folder (`spells/`, `bestiary/`, `class/`, ...)
+before importing through the Reference Index. The app imports one top-level
+category array per file, so the split files are the practical import format.
+
+Some dandwiki categories use different index pages and page suffixes; the
+converter's `PRESETS` table at the top of the script is the place to add seeds
+for categories that were missed.
+
 ## Development
 
 Requirements:
