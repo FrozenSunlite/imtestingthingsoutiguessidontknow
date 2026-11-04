@@ -205,7 +205,7 @@ function RootDocument({ children }) {
 	});
 }
 // src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-D_7PlJY9.js");
+var $$splitComponentImporter = () => import("./routes-C4CdQldZ.js");
 // src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({
 	ssr: false,

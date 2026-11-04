@@ -5,6 +5,7 @@ import { ActionsSection } from "@/components/skilltree/ActionsSection";
 import { InventorySection } from "@/components/skilltree/InventorySection";
 import { SpellListSection } from "@/components/skilltree/SpellListSection";
 import { groupUnlocked } from "@/lib/unlocked";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 
 import {
   Dialog,
@@ -40,8 +41,9 @@ function profLines(character) {
 function buildText(character, tree, pools, usage, resources, raw, levels, settings) {
   const eff = effectivePools(pools, character, tree, levels, settings);
   const pointTypes = settings?.library?.pointTypes || [];
+  const dmHidden = character.devMode ? new Set() : hiddenNodeIds(tree.nodes || []);
   const { heritage: heritageNodes, talentGroups, pointGroups } = groupUnlocked(
-    tree.nodes.filter((n) => (n.currentPoints || 0) > 0),
+    tree.nodes.filter((n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0),
     {
       includeAutoGranted: !!character.devMode,
       pointTypes: settings?.library?.pointTypes,

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useTree, poolForNode } from "@/lib/treeStore";
 import { pointTypesFor, poolLabel } from "@/lib/pointTypes";
 import { isAvailable } from "@/lib/geometry";
+import { hiddenNodeIds } from "@/lib/nodeVisibility";
 import { ChevronDown, ChevronRight, GripHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -199,7 +200,10 @@ export function PinnedNodeCard() {
   const { tree, ui, setUi, character } = useTree();
   const nodes = tree?.nodes || [];
   const nodesById = Object.fromEntries(nodes.map((n) => [n.id, n]));
-  const pins = (ui.pinnedNodeIds || []).map((id) => nodesById[id]).filter(Boolean);
+  const dmHidden = character.devMode ? new Set() : hiddenNodeIds(nodes);
+  const pins = (ui.pinnedNodeIds || [])
+    .map((id) => nodesById[id])
+    .filter((node) => node && !dmHidden.has(node.id));
   if (pins.length === 0) return null;
 
   const onMove = (id, p) =>

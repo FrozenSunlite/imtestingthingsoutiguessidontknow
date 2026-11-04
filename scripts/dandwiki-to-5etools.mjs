@@ -802,13 +802,17 @@ function parseSpeed(text) {
 
 function parseMonsterType(line) {
   const value = clean(line);
-  const m = value.match(/^([A-Za-z]+)\s+([A-Za-z ]+?)(?:\s*\(([^)]*)\))?(?:\s*,\s*(.+))?$/);
+  const m = value.match(
+    /^((?:Tiny|Small|Medium|Large|Huge|Gargantuan)(?:\s+or\s+(?:Tiny|Small|Medium|Large|Huge|Gargantuan))?)\s+([A-Za-z ]+?)(?:\s*\(([^)]*)\))?(?:\s*,\s*(.+))?$/i
+  );
   if (!m) return {};
-  const size = m[1].toLowerCase();
+  const sizes = m[1]
+    .split(/\s+or\s+/i)
+    .map((size) => SIZE_CODES[size.trim().toLowerCase()] || size.trim());
   const type = m[2].trim().toLowerCase();
   const tags = m[3] ? m[3].split(/[,;]/).map((tag) => tag.trim()).filter(Boolean) : [];
   return {
-    size: SIZE_CODES[size] ? [SIZE_CODES[size]] : [m[1]],
+    size: sizes,
     type: tags.length ? { type, tags } : { type },
     alignment: m[4] ? m[4].split(/,\s*/).filter(Boolean) : undefined,
   };
@@ -1235,11 +1239,12 @@ function parseClass($, root, entry) {
 function parseSubclass($, root, entry) {
   const blocks = collectBlocks($, root, entry.name);
   const classNameBlock = blocks.find(
-    (block) => block.type === "p" && /^[A-Za-z][A-Za-z ]+ Subclass$/i.test(block.text)
+    (block) => block.type === "p" && /^[A-Za-z][A-Za-z ]{1,30}\s+Subclass\b/i.test(block.text)
   );
-  const className = classNameBlock
-    ? clean(classNameBlock.text.replace(/\s+Subclass$/i, ""))
-    : "Unknown";
+  const className =
+    (classNameBlock
+      ? clean(classNameBlock.text.match(/^([A-Za-z][A-Za-z ]{1,30}?)\s+Subclass\b/i)?.[1] || "")
+      : "") || "Unknown";
   const features = [];
   const intro = [];
   let pending = null;
@@ -1330,7 +1335,12 @@ function parseRaceTraits($, root) {
     .find((element) => {
       if (isQuoteTable($, element) || isNoticeTable($, element)) return false;
       const text = $(element).text();
-      return /Ability Score Increase/i.test(text) && /(Age|Size|Speed|Languages)/i.test(text);
+      // Full race pages also list Age/Size/Speed/Languages; subrace pages
+      // often only list the Ability Score Increase and their own traits.
+      return (
+        /Ability Score Increase/i.test(text) &&
+        (/(Age|Size|Speed|Languages)/i.test(text) || directRows($, element).length >= 2)
+      );
     });
   if (!table) return [];
   const entries = [];
@@ -1803,7 +1813,10 @@ if (has("split")) {
   };
   for (const [key, entries] of Object.entries(byKey)) {
     if (!entries.length) continue;
-    add(SPLIT_FILES[key] || `${key}.json`, key, entries);
+    // The app's Traps & Hazards tab reads one array; fold hazards in so they
+    // are not hidden behind `entriesFromRaw`'s first-array preference.
+    const splitKey = key === "hazard" ? "trap" : key;
+    add(SPLIT_FILES[key] || `${key}.json`, splitKey, entries);
   }
   const classFile = groups.get("class.json");
   if (classFile) {

@@ -343,18 +343,25 @@ const spellSchool = (code) => {
   return map[String(code || "").toUpperCase()] || code || "";
 };
 
+const SPELL_UNIT = {
+  action: "action",
+  bonus: "bonus action",
+  reaction: "reaction",
+  round: "round",
+  minute: "minute",
+  hour: "hour",
+  day: "day",
+};
+
 const spellTime = (time) => {
-  if (Array.isArray(time)) {
-    return time
-      .map((t) => {
-        if (t == null) return "";
-        if (typeof t !== "object") return textOf(t);
-        return `${t.number || 1} ${t.unit || "action"}`;
-      })
-      .filter(Boolean)
-      .join(", ");
-  }
-  if (time && typeof time === "object") return `${time.number || 1} ${time.unit || "action"}`;
+  const one = (t) => {
+    if (t == null) return "";
+    if (typeof t !== "object") return textOf(t);
+    const unit = SPELL_UNIT[t.unit] || t.unit || "action";
+    return `${t.number || 1} ${unit}`;
+  };
+  if (Array.isArray(time)) return time.map(one).filter(Boolean).join(", ");
+  if (time && typeof time === "object") return one(time);
   return textOf(time);
 };
 

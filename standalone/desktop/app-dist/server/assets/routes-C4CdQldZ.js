@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-B0cPO6hK.js";
+import { n as Button, r as cn } from "./router-BKm1Qv8e.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -4681,13 +4681,24 @@ var spellSchool = (code) => {
 		V: "Evocation"
 	}[String(code || "").toUpperCase()] || code || "";
 };
+var SPELL_UNIT = {
+	action: "action",
+	bonus: "bonus action",
+	reaction: "reaction",
+	round: "round",
+	minute: "minute",
+	hour: "hour",
+	day: "day"
+};
 var spellTime = (time) => {
-	if (Array.isArray(time)) return time.map((t) => {
+	const one = (t) => {
 		if (t == null) return "";
 		if (typeof t !== "object") return textOf$1(t);
-		return `${t.number || 1} ${t.unit || "action"}`;
-	}).filter(Boolean).join(", ");
-	if (time && typeof time === "object") return `${time.number || 1} ${time.unit || "action"}`;
+		const unit = SPELL_UNIT[t.unit] || t.unit || "action";
+		return `${t.number || 1} ${unit}`;
+	};
+	if (Array.isArray(time)) return time.map(one).filter(Boolean).join(", ");
+	if (time && typeof time === "object") return one(time);
 	return textOf$1(time);
 };
 var spellRange = (range) => {
@@ -46933,7 +46944,8 @@ function PinnedNodeCard() {
 	const { tree, ui, setUi, character } = useTree();
 	const nodes = tree?.nodes || [];
 	const nodesById = Object.fromEntries(nodes.map((n) => [n.id, n]));
-	const pins = (ui.pinnedNodeIds || []).map((id) => nodesById[id]).filter(Boolean);
+	const dmHidden = character.devMode ? /* @__PURE__ */ new Set() : hiddenNodeIds(nodes);
+	const pins = (ui.pinnedNodeIds || []).map((id) => nodesById[id]).filter((node) => node && !dmHidden.has(node.id));
 	if (pins.length === 0) return null;
 	const onMove = (id, p) => setUi((u) => ({
 		...u,
@@ -85741,7 +85753,8 @@ function profLines(character) {
 function buildText(character, tree, pools, usage, resources, raw, levels, settings) {
 	const eff = effectivePools(pools, character, tree, levels, settings);
 	const pointTypes = settings?.library?.pointTypes || [];
-	const { heritage: heritageNodes, talentGroups, pointGroups } = groupUnlocked(tree.nodes.filter((n) => (n.currentPoints || 0) > 0), {
+	const dmHidden = character.devMode ? /* @__PURE__ */ new Set() : hiddenNodeIds(tree.nodes || []);
+	const { heritage: heritageNodes, talentGroups, pointGroups } = groupUnlocked(tree.nodes.filter((n) => !dmHidden.has(n.id) && (n.currentPoints || 0) > 0), {
 		includeAutoGranted: !!character.devMode,
 		pointTypes: settings?.library?.pointTypes
 	});
