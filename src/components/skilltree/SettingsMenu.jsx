@@ -669,8 +669,10 @@ export function SettingsMenu({ open, onClose }) {
               <div className="space-y-1 rounded border p-2">
                 <p className="text-xs font-semibold">Automatic project files</p>
                 <p className="text-[10px] text-muted-foreground">
-                  The project is saved to the browser, and mirrored into{" "}
-                  <code>standalone\desktop\userdata\projects</code> on this PC.
+                  The project is saved in the app, and mirrored into{" "}
+                  <code>%APPDATA%\Talent Tree\data\projects</code> on this PC.
+                  Autosave writes a separate <code>Autosave - &lt;project&gt;</code> file so it
+                  never overwrites the project you loaded.
                 </p>
                 <label className="flex items-center justify-between gap-2 text-xs">
                   Auto-save to disk

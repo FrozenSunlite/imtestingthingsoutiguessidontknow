@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-CwpZ4x7-.js";
+import { n as Button, r as cn } from "./router-C323SoFy.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -6164,7 +6164,8 @@ function normalizeTree(data) {
 			proficiencies: (s["Skill Proficiencies"] || []).map((p) => ({
 				type: p.type || "skill",
 				name: p.name || "",
-				expertise: !!p.expertise
+				expertise: !!p.expertise,
+				minPoints: Math.max(1, Number(p.minPoints) || 1)
 			})),
 			grantsExpertise: !!s["Skill Grants Expertise"],
 			proficiencyGrant: s["Skill Proficiency Grant"] || "none",
@@ -6308,7 +6309,8 @@ function denormalizeTree(tree) {
 			"Skill Proficiencies": (n.proficiencies || []).map((p) => ({
 				type: p.type,
 				name: p.name,
-				expertise: !!p.expertise
+				expertise: !!p.expertise,
+				minPoints: Math.max(1, Number(p.minPoints) || 1)
 			})),
 			"Skill Cost": n.cost ?? 1,
 			"Skill Pool": n.poolOverride || "",
@@ -7958,7 +7960,9 @@ var DEFAULT_CHARACTER = {
 		skills: [],
 		tools: [],
 		languages: [],
-		instruments: []
+		instruments: [],
+		armor: [],
+		weapons: []
 	},
 	abilityChoices: {},
 	portraitUri: "",
@@ -8401,6 +8405,7 @@ function buildImportedTab(name, features, meta = {}) {
 }
 function TreeProvider({ children }) {
 	const [treeRaw, setTreeRawState] = useState(null);
+	const [currentProjectFile, setCurrentProjectFile] = useState("");
 	const setTreeRaw = useCallback((updater) => {
 		setTreeRawState((prev) => {
 			return applyAutoMaxPointsToTree(typeof updater === "function" ? updater(prev) : updater);
@@ -9184,7 +9189,8 @@ function TreeProvider({ children }) {
 		const characterHasContent = !!character?.name;
 		if (!treeHasContent && !worldHasContent && !characterHasContent) return;
 		const t = setTimeout(() => {
-			const payload = {
+			const autosaveName = `Autosave - ${String(currentProjectFile || tree.name || character?.name || "Terrific Talent Tree Project").replace(/\.json$/i, "").replace(/^Autosave - /i, "")}`;
+			saveProjectToDisk({
 				name: tree.name || character?.name || "Terrific Talent Tree Project",
 				savedAt: (/* @__PURE__ */ new Date()).toISOString(),
 				tree,
@@ -9198,8 +9204,7 @@ function TreeProvider({ children }) {
 					updateUrl: settings.updateUrl
 				},
 				plots: loadPlots()
-			};
-			saveProjectToDisk(payload, { name: payload.name }).catch(() => {});
+			}, { name: autosaveName }).catch(() => {});
 		}, 2500);
 		return () => clearTimeout(t);
 	}, [
@@ -9211,7 +9216,8 @@ function TreeProvider({ children }) {
 		settings.autoSaveToDisk,
 		settings.levelRules,
 		settings.updateUrl,
-		dirty
+		dirty,
+		currentProjectFile
 	]);
 	useEffect(() => {
 		if (!dirty || typeof window !== "undefined" && window.talentDesktop) return;
@@ -10060,6 +10066,7 @@ function TreeProvider({ children }) {
 	}, [clearDirty]);
 	const startNewTree = useCallback(() => {
 		backupProject("Before New").catch(() => {});
+		setCurrentProjectFile("");
 		setTreeRaw({
 			name: "New Skill Tree",
 			nodes: [],
@@ -10103,8 +10110,9 @@ function TreeProvider({ children }) {
 		backupProject,
 		settings
 	]);
-	const applyLoadedSave = useCallback((entry, nextMode) => {
+	const applyLoadedSave = useCallback((entry, nextMode, sourceFile = "") => {
 		if (!entry) return;
+		setCurrentProjectFile(String(sourceFile || entry.name || ""));
 		backupProject("Before load").catch(() => {});
 		if (entry.tree) setTreeRaw(seedCameraStart(ensureTabs(migrateTree(entry.tree))));
 		if (entry.character) setCharacter({
@@ -10166,6 +10174,8 @@ function TreeProvider({ children }) {
 	}, [markDirty]);
 	const value = {
 		tree,
+		currentProjectFile,
+		setCurrentProjectFile,
 		mergedTree,
 		sideTrees,
 		setSideTree,
@@ -10679,22 +10689,30 @@ function effectivePools(pools, character, tree, levels = [], settings = null) {
 	out.profBonus = profBonus;
 	return out;
 }
-function applyNodeProficiencies(profs, nodeProfs, delta) {
+function applyNodeProficiencies(profs, nodeProfs, delta, points = null) {
 	const next = {
 		skills: [...profs?.skills || []],
 		tools: [...profs?.tools || []],
 		languages: [...profs?.languages || []],
-		instruments: [...profs?.instruments || []]
+		instruments: [...profs?.instruments || []],
+		armor: [...profs?.armor || []],
+		weapons: [...profs?.weapons || []]
 	};
 	const keyFor = {
 		skill: "skills",
 		tool: "tools",
 		language: "languages",
-		instrument: "instruments"
+		instrument: "instruments",
+		armor: "armor",
+		weapon: "weapons"
 	};
 	(nodeProfs || []).forEach((p) => {
 		const key = keyFor[p.type];
 		if (!key || !p.name) return;
+		if (points != null && (Number(p.minPoints) || 1) > points) {
+			if (delta < 0) next[key] = next[key].filter((e) => (e.name || "") !== p.name);
+			return;
+		}
 		const i = next[key].findIndex((e) => (e.name || "") === p.name);
 		if (i >= 0) next[key][i] = {
 			...next[key][i],
@@ -10703,7 +10721,8 @@ function applyNodeProficiencies(profs, nodeProfs, delta) {
 		else if (delta > 0) next[key].push({
 			name: p.name,
 			expertise: !!p.expertise,
-			times: 1
+			times: 1,
+			benefit: true
 		});
 	});
 	Object.keys(next).forEach((k) => {
@@ -14644,10 +14663,12 @@ function SettingsMenu({ open, onClose }) {
 										/* @__PURE__ */ jsxs("p", {
 											className: "text-[10px] text-muted-foreground",
 											children: [
-												"The project is saved to the browser, and mirrored into",
+												"The project is saved in the app, and mirrored into",
 												" ",
-												/* @__PURE__ */ jsx("code", { children: "standalone\\desktop\\userdata\\projects" }),
-												" on this PC."
+												/* @__PURE__ */ jsx("code", { children: "%APPDATA%\\Talent Tree\\data\\projects" }),
+												" on this PC. Autosave writes a separate ",
+												/* @__PURE__ */ jsx("code", { children: "Autosave - <project>" }),
+												" file so it never overwrites the project you loaded."
 											]
 										}),
 										/* @__PURE__ */ jsxs("label", {
@@ -28520,7 +28541,7 @@ function LibraryMenu({ open, onClose }) {
 }
 // src/components/skilltree/SaveLoadMenu.jsx
 function SaveLoadMenu({ open, onClose }) {
-	const { tree, character, pools, settings, applyLoadedSave, clearDirty } = useTree();
+	const { tree, character, pools, settings, applyLoadedSave, clearDirty, setCurrentProjectFile } = useTree();
 	const [saves, setSaves] = useState([]);
 	const [name, setName] = useState("");
 	const [busy, setBusy] = useState(false);
@@ -28559,10 +28580,11 @@ function SaveLoadMenu({ open, onClose }) {
 				...includeSources ? { referenceSources: getFiveEToolsSources() } : {}
 			};
 			await writeCharacterSave(name, payload);
-			await saveProjectToDisk(payload, {
+			const saved = await saveProjectToDisk(payload, {
 				name: payload.name,
 				manual: true
 			});
+			setCurrentProjectFile(saved?.name || payload.name);
 			await refresh();
 			setDiskSaves(await listProjectFiles());
 			setBackupSaves(await listProjectBackups());
@@ -28587,6 +28609,7 @@ function SaveLoadMenu({ open, onClose }) {
 			name: payload.name,
 			manual: true
 		});
+		setCurrentProjectFile(result?.name || payload.name);
 		setDiskSaves(await listProjectFiles());
 		setBackupSaves(await listProjectBackups());
 		toast[result ? "success" : "error"](result ? `Saved to disk: ${result.path}` : "Could not write the project file.");
@@ -28599,7 +28622,7 @@ function SaveLoadMenu({ open, onClose }) {
 			return;
 		}
 		if (!backup) setName(projectNameFromFile(file));
-		applyLoadedSave(await rehydrateImages(data), "sheet");
+		applyLoadedSave(await rehydrateImages(data), "sheet", backup ? "" : projectNameFromFile(file));
 		onClose();
 	};
 	const removeDisk = async (file, backup = false) => {
@@ -28610,7 +28633,7 @@ function SaveLoadMenu({ open, onClose }) {
 	};
 	const doLoad = (entry) => {
 		setName(entry.name || "");
-		applyLoadedSave(entry, "sheet");
+		applyLoadedSave(entry, "sheet", entry.name || "");
 		onClose();
 	};
 	const doDelete = async (id) => {
@@ -28634,7 +28657,7 @@ function SaveLoadMenu({ open, onClose }) {
 		try {
 			const data = JSON.parse(await file.text());
 			if (!data || !data.tree && !data.character) throw new Error("bad file");
-			applyLoadedSave(await rehydrateImages(data), "sheet");
+			applyLoadedSave(await rehydrateImages(data), "sheet", projectNameFromFile(file.name));
 			onClose();
 		} catch {
 			toast.error("Not a valid character save file.");
@@ -32874,7 +32897,7 @@ function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgroundCont
 		investPoint(n.id, delta);
 		if (delta !== 0 && (n.proficiencies || []).length) setCharacter((c) => ({
 			...c,
-			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
+			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta, Math.max(0, (Number(n.currentPoints) || 0) + delta))
 		}));
 		if (delta > 0 && Array.isArray(optionNames) && optionNames.length) setCharacter((c) => ({
 			...c,
@@ -39330,11 +39353,19 @@ var REST_LABEL$3 = {
 	short: "short rest",
 	long: "long rest"
 };
+var ARMOR_CATEGORIES = [
+	"Light armor",
+	"Medium armor",
+	"Heavy armor",
+	"Shields"
+];
 var PROF_TYPES = [
 	["Skill", "skills"],
 	["Tool", "tools"],
 	["Languages", "languages"],
-	["Instruments", "instruments"]
+	["Instruments", "instruments"],
+	["Armor", "armor"],
+	["Weapon", "weapons"]
 ];
 function SectionCard({ title, children }) {
 	return /* @__PURE__ */ jsxs("section", {
@@ -39416,16 +39447,41 @@ function CharacterTab() {
 			setSubtreeNodePoints(n.__hostChain, n.__path || [n.__originalId], next);
 			if ((n.proficiencies || []).length) setCharacter((c) => ({
 				...c,
-				proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
+				proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta, Math.max(0, (Number(n.currentPoints) || 0) + delta))
 			}));
 			return;
 		}
 		investPoint(n.id, delta);
 		if ((n.proficiencies || []).length) setCharacter((c) => ({
 			...c,
-			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
+			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta, Math.max(0, (Number(n.currentPoints) || 0) + delta))
 		}));
 	};
+	const addProficiency = (key, name) => {
+		const value = String(name || "").trim();
+		if (!value) return;
+		setCharacter((c) => {
+			const list = c.proficiencies?.[key] || [];
+			if (list.some((p) => String(p.name || "").toLowerCase() === value.toLowerCase())) return c;
+			return {
+				...c,
+				proficiencies: {
+					...c.proficiencies || {},
+					[key]: [...list, {
+						name: value,
+						times: 1
+					}]
+				}
+			};
+		});
+	};
+	const removeProficiency = (key, name) => setCharacter((c) => ({
+		...c,
+		proficiencies: {
+			...c.proficiencies || {},
+			[key]: (c.proficiencies?.[key] || []).filter((p) => String(p.name || "") !== String(name || ""))
+		}
+	}));
 	const jumpToNode = (n) => {
 		if (n.__subtreeLabel && Array.isArray(n.__hostChain) && n.__hostChain.length) {
 			const final = n.__hostChain[n.__hostChain.length - 1];
@@ -39770,32 +39826,57 @@ function CharacterTab() {
 						skills: "skill",
 						tools: "tool",
 						languages: "language",
-						instruments: "instrument"
+						instruments: "instrument",
+						armor: "armor",
+						weapons: "weapon"
 					}[key];
 					const benefitList = collectNodeBenefits(tree).filter((b) => b.category === benefitKey).map((b) => ({
 						name: b.name,
 						benefit: true
 					}));
-					const list = [...(character.proficiencies || {})[key] || [], ...benefitList];
-					return /* @__PURE__ */ jsx(SectionCard, {
+					const seenProf = /* @__PURE__ */ new Set();
+					const list = [...(character.proficiencies || {})[key] || [], ...benefitList].filter((p) => {
+						const name = String(p.name || "").toLowerCase();
+						if (!name || seenProf.has(name)) return false;
+						seenProf.add(name);
+						return true;
+					});
+					return /* @__PURE__ */ jsxs(SectionCard, {
 						title: `${label} Proficiencies`,
-						children: /* @__PURE__ */ jsxs("div", {
+						children: [/* @__PURE__ */ jsxs("div", {
 							className: "flex flex-wrap gap-1.5",
 							children: [list.map((p, i) => /* @__PURE__ */ jsxs("span", {
-								className: "rounded-full border bg-accent/40 px-2.5 py-0.5 text-[11px]",
+								className: "inline-flex items-center gap-1 rounded-full border bg-accent/40 px-2.5 py-0.5 text-[11px]",
 								children: [
 									p.name || "—",
 									p.expertise ? " (Expertise)" : "",
 									key === "skills" && p.name && !p.benefit && /* @__PURE__ */ jsxs("span", {
 										className: "text-muted-foreground",
 										children: [" · passive ", passiveFor(p)]
+									}),
+									!p.benefit && /* @__PURE__ */ jsx("button", {
+										type: "button",
+										className: "text-muted-foreground hover:text-destructive",
+										title: "Remove proficiency",
+										onClick: () => removeProficiency(key, p.name),
+										children: "×"
 									})
 								]
 							}, i)), list.length === 0 && /* @__PURE__ */ jsx("p", {
 								className: "text-[11px] text-muted-foreground",
 								children: "None yet."
 							})]
-						})
+						}), key === "armor" && /* @__PURE__ */ jsxs(Select, {
+							value: "",
+							onValueChange: (value) => addProficiency("armor", value),
+							children: [/* @__PURE__ */ jsx(SelectTrigger, {
+								className: "mt-2 h-7 text-xs",
+								children: /* @__PURE__ */ jsx(SelectValue, { placeholder: "Add an armor category…" })
+							}), /* @__PURE__ */ jsx(SelectContent, { children: ARMOR_CATEGORIES.map((category) => /* @__PURE__ */ jsx(SelectItem, {
+								value: category,
+								children: category
+							}, category)) })]
+						})]
 					}, key);
 				})
 			}),
@@ -46528,7 +46609,7 @@ function SideTreePanel({ slot, floating = false, stacked = false }) {
 		applyPoints(n.id, delta);
 		if (delta !== 0 && (n.proficiencies || []).length) setCharacter((c) => ({
 			...c,
-			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta)
+			proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta, Math.max(0, (Number(n.currentPoints) || 0) + delta))
 		}));
 		if (delta > 0 && Array.isArray(optionNames) && optionNames.length) setCharacter((c) => ({
 			...c,
@@ -85673,14 +85754,18 @@ function PresentationSheet({ innerRef, onExport }) {
 		["Skill", (character.proficiencies || {}).skills],
 		["Tool", (character.proficiencies || {}).tools],
 		["Language", (character.proficiencies || {}).languages],
-		["Instrument", (character.proficiencies || {}).instruments]
+		["Instrument", (character.proficiencies || {}).instruments],
+		["Armor", (character.proficiencies || {}).armor],
+		["Weapon", (character.proficiencies || {}).weapons]
 	].filter(([, list]) => (list || []).length > 0);
 	const profLines = [];
 	[
 		["skills", "Skill"],
 		["tools", "Tool"],
 		["languages", "Language"],
-		["instruments", "Instrument"]
+		["instruments", "Instrument"],
+		["armor", "Armor"],
+		["weapons", "Weapon"]
 	].forEach(([k, label]) => ((character.proficiencies || {})[k] || []).forEach((it) => profLines.push(`${label}: ${it.name || "—"}${k === "languages" ? "" : ` ×${it.times ?? 1}`}${it.expertise ? " (Expertise)" : ""}`)));
 	const poolMap = {};
 	actions.filter((a) => a.usesMode === "shared" && a.sharedResource).forEach((a) => {

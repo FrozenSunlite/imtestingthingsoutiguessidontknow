@@ -43,6 +43,13 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Check, Sparkles } from "lucide-react";
 
 const signed = (n) => (n >= 0 ? `+${n}` : String(n));
@@ -58,11 +65,15 @@ const IDENTITY = [
 ];
 const REST_LABEL = { none: "", short: "short rest", long: "long rest" };
 // One proficiency card per type, each always visible.
+const ARMOR_CATEGORIES = ["Light armor", "Medium armor", "Heavy armor", "Shields"];
+
 const PROF_TYPES = [
   ["Skill", "skills"],
   ["Tool", "tools"],
   ["Languages", "languages"],
   ["Instruments", "instruments"],
+  ["Armor", "armor"],
+  ["Weapon", "weapons"],
 ];
 
 function SectionCard({ title, children }) {
@@ -207,7 +218,12 @@ export function CharacterTab() {
       if ((n.proficiencies || []).length)
         setCharacter((c) => ({
           ...c,
-          proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta),
+          proficiencies: applyNodeProficiencies(
+            c.proficiencies,
+            n.proficiencies,
+            delta,
+            Math.max(0, (Number(n.currentPoints) || 0) + delta)
+          ),
         }));
       return;
     }
@@ -215,9 +231,45 @@ export function CharacterTab() {
     if ((n.proficiencies || []).length)
       setCharacter((c) => ({
         ...c,
-        proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta),
+        proficiencies: applyNodeProficiencies(
+          c.proficiencies,
+          n.proficiencies,
+          delta,
+          Math.max(0, (Number(n.currentPoints) || 0) + delta)
+        ),
       }));
   };
+
+  // Manual proficiency additions (the Armor section uses categories rather
+  // than a free-text field).
+  const addProficiency = (key, name) => {
+    const value = String(name || "").trim();
+    if (!value) return;
+    setCharacter((c) => {
+      const list = c.proficiencies?.[key] || [];
+      if (list.some((p) => String(p.name || "").toLowerCase() === value.toLowerCase())) {
+        return c;
+      }
+      return {
+        ...c,
+        proficiencies: {
+          ...(c.proficiencies || {}),
+          [key]: [...list, { name: value, times: 1 }],
+        },
+      };
+    });
+  };
+
+  const removeProficiency = (key, name) =>
+    setCharacter((c) => ({
+      ...c,
+      proficiencies: {
+        ...(c.proficiencies || {}),
+        [key]: (c.proficiencies?.[key] || []).filter(
+          (p) => String(p.name || "") !== String(name || "")
+        ),
+      },
+    }));
 
   // Double-click a skill: if its tree is open in a side panel (the main tree
   // or a loaded snapshot), centre that panel on the node; otherwise say so.
@@ -575,23 +627,43 @@ export function CharacterTab() {
             tools: "tool",
             languages: "language",
             instruments: "instrument",
+            armor: "armor",
+            weapons: "weapon",
           }[key];
           const benefitList = collectNodeBenefits(tree)
             .filter((b) => b.category === benefitKey)
             .map((b) => ({ name: b.name, benefit: true }));
-          const list = [...((character.proficiencies || {})[key] || []), ...benefitList];
+          const seenProf = new Set();
+          const list = [...((character.proficiencies || {})[key] || []), ...benefitList].filter(
+            (p) => {
+              const name = String(p.name || "").toLowerCase();
+              if (!name || seenProf.has(name)) return false;
+              seenProf.add(name);
+              return true;
+            }
+          );
           return (
             <SectionCard key={key} title={`${label} Proficiencies`}>
               <div className="flex flex-wrap gap-1.5">
                 {list.map((p, i) => (
                   <span
                     key={i}
-                    className="rounded-full border bg-accent/40 px-2.5 py-0.5 text-[11px]"
+                    className="inline-flex items-center gap-1 rounded-full border bg-accent/40 px-2.5 py-0.5 text-[11px]"
                   >
                     {p.name || "—"}
                     {p.expertise ? " (Expertise)" : ""}
                     {key === "skills" && p.name && !p.benefit && (
                       <span className="text-muted-foreground"> · passive {passiveFor(p)}</span>
+                    )}
+                    {!p.benefit && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Remove proficiency"
+                        onClick={() => removeProficiency(key, p.name)}
+                      >
+                        ×
+                      </button>
                     )}
                   </span>
                 ))}
@@ -599,6 +671,20 @@ export function CharacterTab() {
                   <p className="text-[11px] text-muted-foreground">None yet.</p>
                 )}
               </div>
+              {key === "armor" && (
+                <Select value="" onValueChange={(value) => addProficiency("armor", value)}>
+                  <SelectTrigger className="mt-2 h-7 text-xs">
+                    <SelectValue placeholder="Add an armor category…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ARMOR_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </SectionCard>
           );
         })}

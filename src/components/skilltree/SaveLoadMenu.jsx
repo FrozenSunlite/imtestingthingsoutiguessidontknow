@@ -33,7 +33,15 @@ import {
 // reference library, so uploaded images — stored as permanent URLs or file
 // references — travel with the saved data.
 export function SaveLoadMenu({ open, onClose }) {
-  const { tree, character, pools, settings, applyLoadedSave, clearDirty } = useTree();
+  const {
+    tree,
+    character,
+    pools,
+    settings,
+    applyLoadedSave,
+    clearDirty,
+    setCurrentProjectFile,
+  } = useTree();
   const [saves, setSaves] = useState([]);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,7 +86,8 @@ export function SaveLoadMenu({ open, onClose }) {
         ...(includeSources ? { referenceSources: getFiveEToolsSources() } : {}),
       };
       await writeCharacterSave(name, payload);
-      await saveProjectToDisk(payload, { name: payload.name, manual: true });
+      const saved = await saveProjectToDisk(payload, { name: payload.name, manual: true });
+      setCurrentProjectFile(saved?.name || payload.name);
       await refresh();
       setDiskSaves(await listProjectFiles());
       setBackupSaves(await listProjectBackups());
@@ -101,6 +110,7 @@ export function SaveLoadMenu({ open, onClose }) {
       plots: loadPlots(),
     };
     const result = await saveProjectToDisk(payload, { name: payload.name, manual: true });
+    setCurrentProjectFile(result?.name || payload.name);
     setDiskSaves(await listProjectFiles());
     setBackupSaves(await listProjectBackups());
     toast[result ? "success" : "error"](
@@ -117,7 +127,11 @@ export function SaveLoadMenu({ open, onClose }) {
       return;
     }
     if (!backup) setName(projectNameFromFile(file));
-    applyLoadedSave(await rehydrateImages(data), "sheet");
+    applyLoadedSave(
+      await rehydrateImages(data),
+      "sheet",
+      backup ? "" : projectNameFromFile(file)
+    );
     onClose();
   };
 
@@ -136,7 +150,7 @@ export function SaveLoadMenu({ open, onClose }) {
 
   const doLoad = (entry) => {
     setName(entry.name || "");
-    applyLoadedSave(entry, "sheet");
+    applyLoadedSave(entry, "sheet", entry.name || "");
     onClose();
   };
 
@@ -191,7 +205,11 @@ export function SaveLoadMenu({ open, onClose }) {
       const data = JSON.parse(text);
       if (!data || (!data.tree && !data.character)) throw new Error("bad file");
       // Embedded images get uploaded into this machine's project folder again.
-      applyLoadedSave(await rehydrateImages(data), "sheet");
+      applyLoadedSave(
+        await rehydrateImages(data),
+        "sheet",
+        projectNameFromFile(file.name)
+      );
       onClose();
     } catch (e) {
       toast.error("Not a valid bundle: " + (e?.message || e));
@@ -205,7 +223,11 @@ export function SaveLoadMenu({ open, onClose }) {
     try {
       const data = JSON.parse(await file.text());
       if (!data || (!data.tree && !data.character)) throw new Error("bad file");
-      applyLoadedSave(await rehydrateImages(data), "sheet");
+      applyLoadedSave(
+        await rehydrateImages(data),
+        "sheet",
+        projectNameFromFile(file.name)
+      );
       onClose();
     } catch {
       toast.error("Not a valid character save file.");

@@ -483,7 +483,14 @@ const DEFAULT_CHARACTER = {
   properties: [],
   hideLockedNodes: false,
   hideLockedIncludeLevel: false,
-  proficiencies: { skills: [], tools: [], languages: [], instruments: [] },
+  proficiencies: {
+    skills: [],
+    tools: [],
+    languages: [],
+    instruments: [],
+    armor: [],
+    weapons: [],
+  },
   abilityChoices: {},
   portraitUri: "",
   activityLog: [],
@@ -989,6 +996,9 @@ function buildImportedTab(name, features, meta = {}) {
 
 export function TreeProvider({ children }) {
   const [treeRaw, setTreeRawState] = useState(null);
+  // The project file currently loaded (or last manually saved). Autosave uses
+  // this to write a separate copy instead of overwriting the user's project.
+  const [currentProjectFile, setCurrentProjectFile] = useState("");
   // Every tree write goes through the auto Max Points pass, so edits inside a
   // subtree, tab moves and imports all refresh dependent formulas.
   const setTreeRaw = useCallback((updater) => {
@@ -1896,6 +1906,12 @@ export function TreeProvider({ children }) {
       return undefined;
     }
     const t = setTimeout(() => {
+      const projectName = String(
+        currentProjectFile || tree.name || character?.name || "Terrific Talent Tree Project"
+      )
+        .replace(/\.json$/i, "")
+        .replace(/^Autosave - /i, "");
+      const autosaveName = `Autosave - ${projectName}`;
       const payload = {
         name: tree.name || character?.name || "Terrific Talent Tree Project",
         savedAt: new Date().toISOString(),
@@ -1911,10 +1927,10 @@ export function TreeProvider({ children }) {
         },
         plots: loadPlots(),
       };
-      saveProjectToDisk(payload, { name: payload.name }).catch(() => {});
+      saveProjectToDisk(payload, { name: autosaveName }).catch(() => {});
     }, 2500);
     return () => clearTimeout(t);
-  }, [tree, character, pools, settings.library, settings.rewardCurrency, settings.autoSaveToDisk, settings.levelRules, settings.updateUrl, dirty]);
+  }, [tree, character, pools, settings.library, settings.rewardCurrency, settings.autoSaveToDisk, settings.levelRules, settings.updateUrl, dirty, currentProjectFile]);
 
   // Warn before the program closes only while edits are unsaved. Leaving the
   // workspace for the main menu deliberately does not ask.
@@ -2886,6 +2902,7 @@ export function TreeProvider({ children }) {
 
   const startNewTree = useCallback(() => {
     backupProject("Before New").catch(() => {});
+    setCurrentProjectFile("");
     setTreeRaw({
       name: "New Skill Tree",
       nodes: [],
@@ -2920,8 +2937,9 @@ export function TreeProvider({ children }) {
 
   // Load a saved character bundle (tree + character + pools + library).
   const applyLoadedSave = useCallback(
-    (entry, nextMode) => {
+    (entry, nextMode, sourceFile = "") => {
       if (!entry) return;
+      setCurrentProjectFile(String(sourceFile || entry.name || ""));
       backupProject("Before load").catch(() => {});
       if (entry.tree) setTreeRaw(seedCameraStart(ensureTabs(migrateTree(entry.tree))));
       if (entry.character)
@@ -2989,6 +3007,8 @@ export function TreeProvider({ children }) {
 
   const value = {
     tree,
+    currentProjectFile,
+    setCurrentProjectFile,
     mergedTree,
     sideTrees,
     setSideTree,
@@ -3616,27 +3636,38 @@ export function effectivePools(pools, character, tree, levels = [], settings = n
 }
 
 // Apply a node's proficiency grants to the sheet; repeats stack via "times".
-export function applyNodeProficiencies(profs, nodeProfs, delta) {
+export function applyNodeProficiencies(profs, nodeProfs, delta, points = null) {
   const next = {
     skills: [...(profs?.skills || [])],
     tools: [...(profs?.tools || [])],
     languages: [...(profs?.languages || [])],
     instruments: [...(profs?.instruments || [])],
+    armor: [...(profs?.armor || [])],
+    weapons: [...(profs?.weapons || [])],
   };
   const keyFor = {
     skill: "skills",
     tool: "tools",
     language: "languages",
     instrument: "instruments",
+    armor: "armor",
+    weapon: "weapons",
   };
   (nodeProfs || []).forEach((p) => {
     const key = keyFor[p.type];
     if (!key || !p.name) return;
+    // Second-rank proficiencies only apply once enough points are invested.
+    if (points != null && (Number(p.minPoints) || 1) > points) {
+      if (delta < 0) {
+        next[key] = next[key].filter((e) => (e.name || "") !== p.name);
+      }
+      return;
+    }
     const i = next[key].findIndex((e) => (e.name || "") === p.name);
     if (i >= 0) {
       next[key][i] = { ...next[key][i], times: Math.max(0, (next[key][i].times ?? 1) + delta) };
     } else if (delta > 0) {
-      next[key].push({ name: p.name, expertise: !!p.expertise, times: 1 });
+      next[key].push({ name: p.name, expertise: !!p.expertise, times: 1, benefit: true });
     }
   });
   Object.keys(next).forEach((k) => {

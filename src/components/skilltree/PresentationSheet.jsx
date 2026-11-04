@@ -112,6 +112,8 @@ export function PresentationSheet({ innerRef, onExport }) {
     ["Tool", (character.proficiencies || {}).tools],
     ["Language", (character.proficiencies || {}).languages],
     ["Instrument", (character.proficiencies || {}).instruments],
+    ["Armor", (character.proficiencies || {}).armor],
+    ["Weapon", (character.proficiencies || {}).weapons],
   ].filter(([, list]) => (list || []).length > 0);
 
   const profLines = [];
@@ -120,6 +122,8 @@ export function PresentationSheet({ innerRef, onExport }) {
     ["tools", "Tool"],
     ["languages", "Language"],
     ["instruments", "Instrument"],
+    ["armor", "Armor"],
+    ["weapons", "Weapon"],
   ].forEach(([k, label]) =>
     ((character.proficiencies || {})[k] || []).forEach((it) =>
       profLines.push(

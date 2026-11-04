@@ -1326,7 +1326,12 @@ export function SkillTreeCanvas({ editable = false, onNodeContextMenu, onBackgro
     if (delta !== 0 && (n.proficiencies || []).length) {
       setCharacter((c) => ({
         ...c,
-        proficiencies: applyNodeProficiencies(c.proficiencies, n.proficiencies, delta),
+        proficiencies: applyNodeProficiencies(
+          c.proficiencies,
+          n.proficiencies,
+          delta,
+          Math.max(0, (Number(n.currentPoints) || 0) + delta)
+        ),
       }));
     }
     if (delta > 0 && Array.isArray(optionNames) && optionNames.length) {
