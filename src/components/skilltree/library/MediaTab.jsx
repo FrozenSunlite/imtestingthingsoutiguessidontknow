@@ -87,6 +87,7 @@ export function MediaTab() {
         method: "POST",
       });
       if (!res.ok) throw new Error("delete failed");
+      await res.json().catch(() => null);
       setServerImages((list) => list.filter((image) => image.name !== row.name));
       toast.success(`Deleted ${row.name}.`);
     } catch {
@@ -106,7 +107,10 @@ export function MediaTab() {
         const res = await fetch(`/api/images/delete?name=${encodeURIComponent(image.name)}`, {
           method: "POST",
         });
-        if (res.ok) deleted += 1;
+        if (res.ok) {
+          await res.json().catch(() => null);
+          deleted += 1;
+        }
       } catch {
         /* keep going */
       }

@@ -2,7 +2,13 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-r
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import { Toaster } from "@/components/ui/sonner";
+import { installDiagnostics } from "@/lib/diagnostics";
 import appCss from "@/index.css?url";
+
+// Capture failures from the first client render onward. The Settings >
+// Diagnostics tab reads the same store; installing at module scope means an
+// early startup error is recorded before React mounts.
+if (typeof window !== "undefined") installDiagnostics();
 
 export const Route = createRootRoute({
   // Per-page <title>/meta come from each route's head(); this is the shared base.

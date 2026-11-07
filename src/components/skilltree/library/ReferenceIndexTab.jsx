@@ -233,6 +233,30 @@ const imageFor = (entry, root, filePath) => {
   return `/api/5etools/image?path=${encodeURIComponent(candidate)}`;
 };
 
+// Read an API response as JSON, with a timeout. Without the timeout a stalled
+// local server leaves the panel on "Reading local 5eTools data…" forever.
+const readJsonResponse = async (url, { timeoutMs = 30000 } = {}) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("the response was not valid JSON");
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("the server did not respond in time");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 // Reference Index: a local, read-only view of the 5eTools folders. Files are
 // fetched on demand, grouped by source, previewed before import, and imported
 // at a chosen rate. Imported data becomes part of the project library; raw
@@ -363,14 +387,15 @@ export function ReferenceIndexTab() {
 
   const refresh = async (force = false) => {
     try {
-      const s = await fetch("/api/5etools/status").then((r) => r.json());
+      const s = await readJsonResponse("/api/5etools/status", { timeoutMs: 15000 });
       setStatus(s);
       if (isRemote) {
         const key = `5e-catalog:${root}`;
         let cached = force ? null : readIndexCache(key);
         if (!cached) {
-          const c = await fetch(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`).then((r) =>
-            r.json()
+          const c = await readJsonResponse(
+            `/api/5etools/catalog?kind=${encodeURIComponent(root)}`,
+            { timeoutMs: 60000 }
           );
           cached = Array.isArray(c.entries) ? c.entries : [];
           writeIndexCache(key, cached);
@@ -381,8 +406,9 @@ export function ReferenceIndexTab() {
         const key = `5e-index:${root}`;
         let cached = force ? null : readIndexCache(key);
         if (!cached) {
-          const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) =>
-            r.json()
+          const i = await readJsonResponse(
+            `/api/5etools/index?root=${encodeURIComponent(root)}`,
+            { timeoutMs: 60000 }
           );
           cached = Array.isArray(i.files) ? i.files : [];
           writeIndexCache(key, cached);
@@ -390,16 +416,19 @@ export function ReferenceIndexTab() {
         setIndex(cached);
         setCatalog([]);
       }
-    } catch {
+    } catch (error) {
+      const message = error?.message || String(error);
       if (!isRemote) {
-        setStatus({
+        setStatus((prev) => ({
+          ...(prev || {}),
           available: false,
-          roots: {},
+          roots: prev?.roots || {},
           apiError: true,
-          error: "The local API did not respond.",
-        });
+          error: message,
+        }));
+        toast.error(`Could not read the local 5eTools index: ${message}`);
       } else {
-        toast.error("Could not load the remote 5eTools catalog. Check your connection.");
+        toast.error(`Could not load the remote 5eTools catalog: ${message}`);
       }
       setIndex([]);
       setCatalog([]);
@@ -475,14 +504,12 @@ export function ReferenceIndexTab() {
       const cached = cachedFiveEToolsSource(key);
       if (cached) return cached;
     }
-    const data = await fetch(
+    const data = await readJsonResponse(
       isRemote
         ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
-        : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
-    ).then((r) => {
-      if (!r.ok) throw new Error("Could not read file");
-      return r.json();
-    });
+        : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`,
+      { timeoutMs: isRemote ? 120000 : 60000 }
+    );
     if (!isRemote) cacheFiveEToolsSource(key, data);
     return data;
   };
@@ -538,8 +565,8 @@ export function ReferenceIndexTab() {
         setActiveCategoryId(categoryIdForPath(path) || categoryId);
       }
       if (!list.length) toast("That file has no importable entries.");
-    } catch {
-      toast.error("Could not read that 5eTools file.");
+    } catch (error) {
+      toast.error(`Could not read that 5eTools file: ${error?.message || error}`);
     } finally {
       setLoading(false);
     }
@@ -1241,6 +1268,7 @@ export function ReferenceIndexTab() {
     let entryTotal = 0;
     let tabTotal = 0;
     let errors = 0;
+    const errorDetails = [];
     const total = chosen.length;
     const pause = Math.max(0, Math.min(5000, Number(delay) || 0));
     beginImport({
@@ -1266,21 +1294,31 @@ export function ReferenceIndexTab() {
                   data,
                   category: categoryForLocalFile(path) || effectiveCategory,
                 };
-              } catch {
-                return { path, info: null, error: true };
+              } catch (error) {
+                return {
+                  path,
+                  info: null,
+                  error: true,
+                  message: error?.message || String(error),
+                };
               }
             }
             const info = catalog.find((f) => f.path === path);
-            if (!info) return { path, error: true };
+            if (!info) return { path, error: true, message: "file is missing from the catalog" };
             try {
               const res = await fetch(
                 `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`
               );
-              if (!res.ok) throw new Error("download failed");
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
               const data = await res.json();
               return { path, info, data, category: categoryForBrew(info) };
-            } catch {
-              return { path, info, error: true };
+            } catch (error) {
+              return {
+                path,
+                info,
+                error: true,
+                message: error?.message || String(error),
+              };
             }
           })
         );
@@ -1289,6 +1327,7 @@ export function ReferenceIndexTab() {
           done += 1;
           if (r.error) {
             errors += 1;
+            errorDetails.push(`${r.path}: ${r.message || "could not be read"}`);
             if (pause) await sleep(pause);
             continue;
           }
@@ -1312,8 +1351,9 @@ export function ReferenceIndexTab() {
               newTabs.push(tab);
               tabTotal += 1;
             });
-          } catch {
+          } catch (error) {
             errors += 1;
+            errorDetails.push(`${r.path}: ${error?.message || error}`);
           }
           if (pause) await sleep(pause);
         }
@@ -1381,6 +1421,9 @@ export function ReferenceIndexTab() {
           toast(
             `${images.skipped} extra pictures still use the source link. Re-import that file to save them, or import individual entries.`
           );
+        }
+        if (errors && errorDetails.length) {
+          toast.error(`First failed file — ${errorDetails[0]}`);
         }
       }
     } catch (err) {
@@ -1536,6 +1579,11 @@ export function ReferenceIndexTab() {
           {!isRemote && status?.version ? ` · ${status.version}` : ""}
           {!isRemote && (status?.managed ? " · downloaded" : status?.base ? " · local folder" : "")}
         </span>
+        {!isRemote && status?.error ? (
+          <span className="text-[10px] text-destructive">
+            {status.error}. Use “Refresh index” to retry.
+          </span>
+        ) : null}
         <div className="ml-auto flex items-center gap-1">
           {!isRemote && (
             <Button

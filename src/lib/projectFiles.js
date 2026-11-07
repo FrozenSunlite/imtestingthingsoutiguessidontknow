@@ -64,7 +64,10 @@ export async function deleteProjectFile(file, { backup = false } = {}) {
     const res = await fetch(`/api/project/delete?${params.toString()}`, {
       method: "POST",
     });
-    return res.ok;
+    if (!res.ok) return false;
+    // Read the tiny JSON reply so the connection is released immediately.
+    await res.json().catch(() => null);
+    return true;
   } catch {
     return false;
   }

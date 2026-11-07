@@ -217,11 +217,23 @@ export async function playMusicTrack(track, { fadeMs = FADE_MS } = {}) {
 
 // Warm the browser cache for the next track so the hand-off at the end of a
 // song starts immediately instead of buffering from the server again.
+//
+// The response body must be consumed. A bare fetch() resolves when the headers
+// arrive but leaves the body unread, which keeps one of the browser's six
+// HTTP/1.1 connections per origin open. After a few tracks every connection is
+// pinned by an abandoned prefetch and unrelated calls (the Reference Index,
+// project saves, artwork) queue forever. Reading the body fills the cache and
+// releases the connection.
 const prefetched = new Set();
 export function prefetchMusic(file) {
   if (!file || typeof fetch === "undefined" || prefetched.has(file)) return;
   prefetched.add(file);
-  fetch(file, { cache: "force-cache" }).catch(() => prefetched.delete(file));
+  fetch(file, { cache: "force-cache" })
+    .then((res) => {
+      if (!res.ok) throw new Error(`music prefetch ${res.status}`);
+      return res.arrayBuffer();
+    })
+    .catch(() => prefetched.delete(file));
 }
 
 export async function pauseMusic(fadeMs = FADE_MS) {

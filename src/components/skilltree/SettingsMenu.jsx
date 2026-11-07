@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { HotkeyRow } from "@/components/skilltree/HotkeyRow";
 import { HelpContent } from "@/components/skilltree/HelpContent";
+import { DiagnosticsPanel } from "@/components/skilltree/DiagnosticsPanel";
 import { useTheme, COLOR_TEMPLATES, DEFAULT_CUSTOM, FONT_OPTIONS } from "@/lib/useTheme";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -67,7 +68,6 @@ export function SettingsMenu({ open, onClose }) {
   const customTheme = { ...DEFAULT_CUSTOM, ...(theme.custom || {}) };
   const setCustomTheme = (patch) =>
     setTheme({ ...theme, custom: { ...customTheme, ...patch } });
-  const [devLogs, setDevLogs] = useState([]);
   const [backups, setBackups] = useState([]);
   const [buildInfo, setBuildInfo] = useState(null);
   useEffect(() => {
@@ -135,14 +135,6 @@ export function SettingsMenu({ open, onClose }) {
       alive = false;
     };
   }, [open, listBackups]);
-  useEffect(() => {
-    if (!character?.devMode) return;
-    const origLog = console.log;
-    const origError = console.error;
-    console.log = (...a) => { setDevLogs((l) => [...l, a.join(" ")]); origLog(...a); };
-    console.error = (...a) => { setDevLogs((l) => [...l, "ERROR: " + a.join(" ")]); origError(...a); };
-    return () => { console.log = origLog; console.error = origError; };
-  }, [character?.devMode]);
   if (!settings) return null;
 
   const setHotkey = (action, combo) =>
@@ -195,6 +187,7 @@ export function SettingsMenu({ open, onClose }) {
             <TabsTrigger value="connector">Connectors</TabsTrigger>
             <TabsTrigger value="artwork">Node Artwork</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
             <TabsTrigger value="audio">Audio</TabsTrigger>
             <TabsTrigger value="project">Project</TabsTrigger>
             <TabsTrigger value="help">Help</TabsTrigger>
@@ -548,44 +541,7 @@ export function SettingsMenu({ open, onClose }) {
                     onCheckedChange={(v) => setCharacter({ ...character, devMode: v })}
                   />
                 </div>
-                {character?.devMode && (
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      try {
-                        const logs = ["Crash/Diagnostic log", new Date().toISOString(), "User agent: " + navigator.userAgent];
-                        const blob = new Blob([logs.join("\n")], { type: "text/plain" });
-                        if (window.showSaveFilePicker) {
-                          const handle = await window.showSaveFilePicker({ suggestedName: "crash-log.txt" });
-                          const writable = await handle.createWritable();
-                          await writable.write(blob);
-                          await writable.close();
-                          toast.success("Crash log saved.");
-                        } else {
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = "crash-log.txt";
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        }
-                      } catch (e) {
-                        toast.error("Could not export crash log: " + (e?.message || e));
-                      }
-                    }}>Export crash log</Button>
-                  </div>
-                )}
               </div>
-            {character?.devMode && (
-              <div className="mt-4 border-t pt-3 space-y-2">
-                <p className="text-sm font-medium">Console (DevMode)</p>
-                <textarea
-                  className="h-40 w-full rounded-md border bg-black/80 p-2 font-mono text-xs text-green-300"
-                  readOnly
-                  value={devLogs.join("\n")}
-                />
-                <Button size="sm" variant="outline" onClick={() => setDevLogs([])}>Clear</Button>
-              </div>
-            )}
               <div className="mt-4 space-y-2 border-t pt-3">
                 <p className="text-sm font-medium">Updates</p>
                 <p className="text-[10px] text-muted-foreground">
@@ -663,6 +619,10 @@ export function SettingsMenu({ open, onClose }) {
                   </a>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="diagnostics" className="mt-3">
+              <DiagnosticsPanel />
             </TabsContent>
 
             <TabsContent value="project" className="mt-3 space-y-3">
