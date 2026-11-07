@@ -1,4 +1,4 @@
-import { n as Button, r as cn } from "./router-DfoCU9l0.js";
+import { a as formatDiagnostics, c as Button, i as downloadDiagnostics, l as cn, n as clearDiagnostics, o as getDiagnostics, r as copyDiagnostics, s as subscribeDiagnostics } from "./router-CRJm8M0Y.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -3178,7 +3178,10 @@ var prefetched = /* @__PURE__ */ new Set();
 function prefetchMusic(file) {
 	if (!file || typeof fetch === "undefined" || prefetched.has(file)) return;
 	prefetched.add(file);
-	fetch(file, { cache: "force-cache" }).catch(() => prefetched.delete(file));
+	fetch(file, { cache: "force-cache" }).then((res) => {
+		if (!res.ok) throw new Error(`music prefetch ${res.status}`);
+		return res.arrayBuffer();
+	}).catch(() => prefetched.delete(file));
 }
 async function pauseMusic(fadeMs = FADE_MS) {
 	const el = music.el;
@@ -7124,7 +7127,10 @@ async function deleteProjectFile(file, { backup = false } = {}) {
 	try {
 		const params = new URLSearchParams({ name: file });
 		if (backup) params.set("backup", "1");
-		return (await fetch(`/api/project/delete?${params.toString()}`, { method: "POST" })).ok;
+		const res = await fetch(`/api/project/delete?${params.toString()}`, { method: "POST" });
+		if (!res.ok) return false;
+		await res.json().catch(() => null);
+		return true;
 	} catch {
 		return false;
 	}
@@ -13592,6 +13598,95 @@ function HelpContent() {
 		]
 	});
 }
+// src/components/skilltree/DiagnosticsPanel.jsx
+var FILTERS = [
+	["all", "All"],
+	["error", "Errors"],
+	["warn", "Warnings"]
+];
+function DiagnosticsPanel() {
+	const [entries, setEntries] = useState(() => getDiagnostics());
+	const [filter, setFilter] = useState("all");
+	useEffect(() => subscribeDiagnostics(setEntries), []);
+	const visible = useMemo(() => filter === "all" ? entries : entries.filter((entry) => entry.level === filter), [entries, filter]);
+	const text = useMemo(() => visible.length ? formatDiagnostics(visible) : "No errors captured yet.\n\nRetry the action that failed; the message and stack will appear here.", [visible]);
+	const copy = async () => {
+		if (await copyDiagnostics(visible.length ? visible : entries)) toast.success("Diagnostic log copied.");
+		else toast.error("Could not copy the diagnostic log.");
+	};
+	const download = () => {
+		if (downloadDiagnostics(visible.length ? visible : entries)) toast.success("Diagnostic log downloaded.");
+		else toast.error("Could not download the diagnostic log.");
+	};
+	return /* @__PURE__ */ jsxs("div", {
+		className: "space-y-3",
+		children: [
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap items-start justify-between gap-2",
+				children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx("p", {
+					className: "text-sm font-medium",
+					children: "Error console"
+				}), /* @__PURE__ */ jsx("p", {
+					className: "text-[10px] text-muted-foreground",
+					children: "Console errors and warnings, uncaught exceptions, promise rejections, failed local API calls, and every error toast. Logs stay on this device until you clear them."
+				})] }), /* @__PURE__ */ jsxs("div", {
+					className: "flex flex-wrap gap-1",
+					children: [
+						/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: copy,
+							children: "Copy"
+						}),
+						/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "outline",
+							onClick: download,
+							children: "Download"
+						}),
+						/* @__PURE__ */ jsx(Button, {
+							size: "sm",
+							variant: "ghost",
+							onClick: () => {
+								clearDiagnostics();
+								toast("Diagnostic log cleared.");
+							},
+							children: "Clear"
+						})
+					]
+				})]
+			}),
+			/* @__PURE__ */ jsxs("div", {
+				className: "flex flex-wrap items-center gap-1",
+				children: [FILTERS.map(([id, label]) => /* @__PURE__ */ jsx(Button, {
+					size: "sm",
+					variant: filter === id ? "secondary" : "ghost",
+					className: "h-6 px-2 text-[10px]",
+					onClick: () => setFilter(id),
+					children: label
+				}, id)), /* @__PURE__ */ jsxs("span", {
+					className: "ml-auto text-[10px] text-muted-foreground",
+					children: [
+						visible.length,
+						" of ",
+						entries.length,
+						" entries · newest first"
+					]
+				})]
+			}),
+			/* @__PURE__ */ jsx("textarea", {
+				readOnly: true,
+				spellCheck: false,
+				value: text,
+				className: "h-72 w-full resize-y rounded-md border bg-black/85 p-2 font-mono text-[10px] leading-relaxed text-green-300"
+			}),
+			/* @__PURE__ */ jsx("p", {
+				className: "text-[10px] text-muted-foreground",
+				children: "If something fails, open this tab, press Copy, and paste the text into the issue report. Clear it before sending if you want to start a fresh capture."
+			})
+		]
+	});
+}
 // src/lib/useTheme.js
 var DEFAULT_CUSTOM = {
 	background: "#12161d",
@@ -13924,7 +14019,6 @@ function SettingsMenu({ open, onClose }) {
 			...patch
 		}
 	});
-	const [devLogs, setDevLogs] = useState([]);
 	const [backups, setBackups] = useState([]);
 	const [buildInfo, setBuildInfo] = useState(null);
 	useEffect(() => {
@@ -13987,23 +14081,6 @@ function SettingsMenu({ open, onClose }) {
 			alive = false;
 		};
 	}, [open, listBackups]);
-	useEffect(() => {
-		if (!character?.devMode) return;
-		const origLog = console.log;
-		const origError = console.error;
-		console.log = (...a) => {
-			setDevLogs((l) => [...l, a.join(" ")]);
-			origLog(...a);
-		};
-		console.error = (...a) => {
-			setDevLogs((l) => [...l, "ERROR: " + a.join(" ")]);
-			origError(...a);
-		};
-		return () => {
-			console.log = origLog;
-			console.error = origError;
-		};
-	}, [character?.devMode]);
 	if (!settings) return null;
 	const setHotkey = (action, combo) => setSettings((s) => ({
 		...s,
@@ -14074,6 +14151,10 @@ function SettingsMenu({ open, onClose }) {
 						/* @__PURE__ */ jsx(TabsTrigger, {
 							value: "general",
 							children: "General"
+						}),
+						/* @__PURE__ */ jsx(TabsTrigger, {
+							value: "diagnostics",
+							children: "Diagnostics"
 						}),
 						/* @__PURE__ */ jsx(TabsTrigger, {
 							value: "audio",
@@ -14526,9 +14607,9 @@ function SettingsMenu({ open, onClose }) {
 										})
 									]
 								}),
-								/* @__PURE__ */ jsxs("div", {
+								/* @__PURE__ */ jsx("div", {
 									className: "mt-4 border-t pt-3",
-									children: [/* @__PURE__ */ jsxs("div", {
+									children: /* @__PURE__ */ jsxs("div", {
 										className: "flex items-center justify-between gap-2",
 										children: [/* @__PURE__ */ jsxs("div", { children: [/* @__PURE__ */ jsx(Label, {
 											className: "text-xs",
@@ -14543,59 +14624,7 @@ function SettingsMenu({ open, onClose }) {
 												devMode: v
 											})
 										})]
-									}), character?.devMode && /* @__PURE__ */ jsx("div", {
-										className: "mt-2 flex gap-2",
-										children: /* @__PURE__ */ jsx(Button, {
-											size: "sm",
-											variant: "outline",
-											onClick: async () => {
-												try {
-													const logs = [
-														"Crash/Diagnostic log",
-														(/* @__PURE__ */ new Date()).toISOString(),
-														"User agent: " + navigator.userAgent
-													];
-													const blob = new Blob([logs.join("\n")], { type: "text/plain" });
-													if (window.showSaveFilePicker) {
-														const writable = await (await window.showSaveFilePicker({ suggestedName: "crash-log.txt" })).createWritable();
-														await writable.write(blob);
-														await writable.close();
-														toast.success("Crash log saved.");
-													} else {
-														const url = URL.createObjectURL(blob);
-														const a = document.createElement("a");
-														a.href = url;
-														a.download = "crash-log.txt";
-														a.click();
-														URL.revokeObjectURL(url);
-													}
-												} catch (e) {
-													toast.error("Could not export crash log: " + (e?.message || e));
-												}
-											},
-											children: "Export crash log"
-										})
-									})]
-								}),
-								character?.devMode && /* @__PURE__ */ jsxs("div", {
-									className: "mt-4 border-t pt-3 space-y-2",
-									children: [
-										/* @__PURE__ */ jsx("p", {
-											className: "text-sm font-medium",
-											children: "Console (DevMode)"
-										}),
-										/* @__PURE__ */ jsx("textarea", {
-											className: "h-40 w-full rounded-md border bg-black/80 p-2 font-mono text-xs text-green-300",
-											readOnly: true,
-											value: devLogs.join("\n")
-										}),
-										/* @__PURE__ */ jsx(Button, {
-											size: "sm",
-											variant: "outline",
-											onClick: () => setDevLogs([]),
-											children: "Clear"
-										})
-									]
+									})
 								}),
 								/* @__PURE__ */ jsxs("div", {
 									className: "mt-4 space-y-2 border-t pt-3",
@@ -14683,6 +14712,11 @@ function SettingsMenu({ open, onClose }) {
 									]
 								})
 							]
+						}),
+						/* @__PURE__ */ jsx(TabsContent, {
+							value: "diagnostics",
+							className: "mt-3",
+							children: /* @__PURE__ */ jsx(DiagnosticsPanel, {})
 						}),
 						/* @__PURE__ */ jsxs(TabsContent, {
 							value: "project",
@@ -21863,7 +21897,9 @@ function MediaTab() {
 		if (!row?.onDisk || !row.name) return;
 		if (!window.confirm(`Delete ${row.name} from the project image folder?`)) return;
 		try {
-			if (!(await fetch(`/api/images/delete?name=${encodeURIComponent(row.name)}`, { method: "POST" })).ok) throw new Error("delete failed");
+			const res = await fetch(`/api/images/delete?name=${encodeURIComponent(row.name)}`, { method: "POST" });
+			if (!res.ok) throw new Error("delete failed");
+			await res.json().catch(() => null);
 			setServerImages((list) => list.filter((image) => image.name !== row.name));
 			toast.success(`Deleted ${row.name}.`);
 		} catch {
@@ -21878,7 +21914,11 @@ function MediaTab() {
 		if (!window.confirm(`Delete ${orphans.length} unreferenced image(s)?`)) return;
 		let deleted = 0;
 		for (const image of orphans) try {
-			if ((await fetch(`/api/images/delete?name=${encodeURIComponent(image.name)}`, { method: "POST" })).ok) deleted += 1;
+			const res = await fetch(`/api/images/delete?name=${encodeURIComponent(image.name)}`, { method: "POST" });
+			if (res.ok) {
+				await res.json().catch(() => null);
+				deleted += 1;
+			}
 		} catch {}
 		await loadImages();
 		toast.success(`Removed ${deleted} orphaned image(s).`);
@@ -54450,6 +54490,25 @@ var imageFor = (entry, root, filePath) => {
 	const candidate = cleaned.startsWith("img/") ? cleaned : `img/${cleaned}`;
 	return `/api/5etools/image?path=${encodeURIComponent(candidate)}`;
 };
+var readJsonResponse = async (url, { timeoutMs = 3e4 } = {}) => {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		const res = await fetch(url, { signal: controller.signal });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const text = await res.text();
+		try {
+			return JSON.parse(text);
+		} catch {
+			throw new Error("the response was not valid JSON");
+		}
+	} catch (error) {
+		if (error?.name === "AbortError") throw new Error("the server did not respond in time");
+		throw error;
+	} finally {
+		clearTimeout(timer);
+	}
+};
 function ReferenceIndexTab() {
 	const { tree, settings, setSettings, addImportedTab, addImportedTabs, deleteTab } = useTree();
 	const [status, setStatus] = useState(null);
@@ -54561,13 +54620,13 @@ function ReferenceIndexTab() {
 	]);
 	const refresh = async (force = false) => {
 		try {
-			const s = await fetch("/api/5etools/status").then((r) => r.json());
+			const s = await readJsonResponse("/api/5etools/status", { timeoutMs: 15e3 });
 			setStatus(s);
 			if (isRemote) {
 				const key = `5e-catalog:${root}`;
 				let cached = force ? null : readIndexCache(key);
 				if (!cached) {
-					const c = await fetch(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`).then((r) => r.json());
+					const c = await readJsonResponse(`/api/5etools/catalog?kind=${encodeURIComponent(root)}`, { timeoutMs: 6e4 });
 					cached = Array.isArray(c.entries) ? c.entries : [];
 					writeIndexCache(key, cached);
 				}
@@ -54577,21 +54636,25 @@ function ReferenceIndexTab() {
 				const key = `5e-index:${root}`;
 				let cached = force ? null : readIndexCache(key);
 				if (!cached) {
-					const i = await fetch(`/api/5etools/index?root=${encodeURIComponent(root)}`).then((r) => r.json());
+					const i = await readJsonResponse(`/api/5etools/index?root=${encodeURIComponent(root)}`, { timeoutMs: 6e4 });
 					cached = Array.isArray(i.files) ? i.files : [];
 					writeIndexCache(key, cached);
 				}
 				setIndex(cached);
 				setCatalog([]);
 			}
-		} catch {
-			if (!isRemote) setStatus({
-				available: false,
-				roots: {},
-				apiError: true,
-				error: "The local API did not respond."
-			});
-			else toast.error("Could not load the remote 5eTools catalog. Check your connection.");
+		} catch (error) {
+			const message = error?.message || String(error);
+			if (!isRemote) {
+				setStatus((prev) => ({
+					...prev || {},
+					available: false,
+					roots: prev?.roots || {},
+					apiError: true,
+					error: message
+				}));
+				toast.error(`Could not read the local 5eTools index: ${message}`);
+			} else toast.error(`Could not load the remote 5eTools catalog: ${message}`);
 			setIndex([]);
 			setCatalog([]);
 		}
@@ -54660,10 +54723,7 @@ function ReferenceIndexTab() {
 			const cached = cachedFiveEToolsSource(key);
 			if (cached) return cached;
 		}
-		const data = await fetch(isRemote ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}` : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`).then((r) => {
-			if (!r.ok) throw new Error("Could not read file");
-			return r.json();
-		});
+		const data = await readJsonResponse(isRemote ? `/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}` : `/api/5etools/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`, { timeoutMs: isRemote ? 12e4 : 6e4 });
 		if (!isRemote) cacheFiveEToolsSource(key, data);
 		return data;
 	};
@@ -54710,8 +54770,8 @@ function ReferenceIndexTab() {
 				setActiveCategoryId(inferred || categoryIdForPath(path) || categoryId);
 			} else setActiveCategoryId(categoryIdForPath(path) || categoryId);
 			if (!list.length) toast("That file has no importable entries.");
-		} catch {
-			toast.error("Could not read that 5eTools file.");
+		} catch (error) {
+			toast.error(`Could not read that 5eTools file: ${error?.message || error}`);
 		} finally {
 			setLoading(false);
 		}
@@ -55349,6 +55409,7 @@ function ReferenceIndexTab() {
 		let entryTotal = 0;
 		let tabTotal = 0;
 		let errors = 0;
+		const errorDetails = [];
 		const total = chosen.length;
 		const pause = Math.max(0, Math.min(5e3, Number(delay) || 0));
 		beginImport({
@@ -55380,32 +55441,35 @@ function ReferenceIndexTab() {
 							data,
 							category: categoryForLocalFile(path) || effectiveCategory
 						};
-					} catch {
+					} catch (error) {
 						return {
 							path,
 							info: null,
-							error: true
+							error: true,
+							message: error?.message || String(error)
 						};
 					}
 					const info = catalog.find((f) => f.path === path);
 					if (!info) return {
 						path,
-						error: true
+						error: true,
+						message: "file is missing from the catalog"
 					};
 					try {
 						const res = await fetch(`/api/5etools/remote?kind=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`);
-						if (!res.ok) throw new Error("download failed");
+						if (!res.ok) throw new Error(`HTTP ${res.status}`);
 						return {
 							path,
 							info,
 							data: await res.json(),
 							category: categoryForBrew(info)
 						};
-					} catch {
+					} catch (error) {
 						return {
 							path,
 							info,
-							error: true
+							error: true,
+							message: error?.message || String(error)
 						};
 					}
 				}));
@@ -55414,6 +55478,7 @@ function ReferenceIndexTab() {
 					done += 1;
 					if (r.error) {
 						errors += 1;
+						errorDetails.push(`${r.path}: ${r.message || "could not be read"}`);
 						if (pause) await sleep(pause);
 						continue;
 					}
@@ -55435,8 +55500,9 @@ function ReferenceIndexTab() {
 							newTabs.push(tab);
 							tabTotal += 1;
 						});
-					} catch {
+					} catch (error) {
 						errors += 1;
+						errorDetails.push(`${r.path}: ${error?.message || error}`);
 					}
 					if (pause) await sleep(pause);
 				}
@@ -55488,6 +55554,7 @@ function ReferenceIndexTab() {
 			else {
 				toast.success(sourceLabel ? `Imported ${entryTotal} entries with source “${sourceLabel}” from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${images.saved ? ` · saved ${images.saved} pictures` : ""}${errors ? ` · ${errors} failed` : ""}.` : `Imported ${entryTotal} entries from ${done} files${tabTotal ? ` and created ${tabTotal} tabs` : ""}${images.saved ? ` · saved ${images.saved} pictures` : ""}${errors ? ` · ${errors} failed` : ""}.`);
 				if (images.skipped) toast(`${images.skipped} extra pictures still use the source link. Re-import that file to save them, or import individual entries.`);
+				if (errors && errorDetails.length) toast.error(`First failed file — ${errorDetails[0]}`);
 			}
 		} catch (err) {
 			failImport(err);
@@ -55625,6 +55692,10 @@ function ReferenceIndexTab() {
 							!isRemote && (status?.managed ? " · downloaded" : status?.base ? " · local folder" : "")
 						]
 					}),
+					!isRemote && status?.error ? /* @__PURE__ */ jsxs("span", {
+						className: "text-[10px] text-destructive",
+						children: [status.error, ". Use “Refresh index” to retry."]
+					}) : null,
 					/* @__PURE__ */ jsxs("div", {
 						className: "ml-auto flex items-center gap-1",
 						children: [
