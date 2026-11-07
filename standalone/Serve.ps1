@@ -4,6 +4,8 @@ param(
   [string]$UserDataRoot = ""
 )
 
+Add-Type -AssemblyName System.Web
+
 $root = Join-Path $PSScriptRoot "desktop\app-dist\client"
 $shell = "_shell.html"
 $port = $Port
@@ -298,6 +300,10 @@ while ($listener.IsListening) {
   $res = $ctx.Response
   try {
     $path = [Uri]::UnescapeDataString($req.Url.AbsolutePath.TrimStart('/'))
+    # HttpListenerRequest.QueryString decodes percent escapes with the system
+    # ANSI code page, which turns UTF-8 names (é, ü, ê) into mojibake. Remote
+    # 5eTools paths then 404. Parse the raw query as UTF-8 instead.
+    $query = [System.Web.HttpUtility]::ParseQueryString($req.Url.Query)
     $res.Headers.Add("Cache-Control", "no-store")
 
     # --- Windows desktop update feed ---------------------------------------
@@ -334,7 +340,7 @@ while ($listener.IsListening) {
       $bytes = $ms.ToArray()
       $ms.Dispose()
       if ($bytes.Length -eq 0) { throw "empty upload" }
-      $rawName = [string]$req.QueryString["name"]
+      $rawName = [string]$query["name"]
       $ext = [IO.Path]::GetExtension($rawName).ToLower()
       # Only ever store images; anything else is saved as a PNG-named blob the
       # browser sniffs by content type when served back.
@@ -367,7 +373,7 @@ while ($listener.IsListening) {
       continue
     }
     if ($req.HttpMethod -eq "POST" -and $path -eq "api/images/delete") {
-      $name = [string]$req.QueryString["name"]
+      $name = [string]$query["name"]
       if (-not $name -or $name -match "[\\/]" -or $name -match "\.\.") { throw "bad image name" }
       $target = Join-Path $uploadRoot $name
       $full = [IO.Path]::GetFullPath($target)
@@ -401,7 +407,7 @@ while ($listener.IsListening) {
       $reader.Dispose()
       $payload = $null
       try { $payload = $bodyText | ConvertFrom-Json } catch { }
-      $newRoot = if ($payload -and $payload.root) { [string]$payload.root } else { [string]$req.QueryString["path"] }
+      $newRoot = if ($payload -and $payload.root) { [string]$payload.root } else { [string]$query["path"] }
       $newRoot = $newRoot.Trim().Trim('"')
       if (-not $newRoot -or -not (Test-Path $newRoot -PathType Container)) {
         $body = [Text.Encoding]::UTF8.GetBytes((@{
@@ -494,9 +500,9 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/assets/folders") {
       $index = Get-AssetIndex
-      $match = ([string]$req.QueryString["match"]).Trim().ToLower()
+      $match = ([string]$query["match"]).Trim().ToLower()
       $limit = 200
-      [void][int]::TryParse([string]$req.QueryString["limit"], [ref]$limit)
+      [void][int]::TryParse([string]$query["limit"], [ref]$limit)
       $limit = [Math]::Max(1, [Math]::Min(500, $limit))
       $counts = @{}
       foreach ($f in @($index.files)) {
@@ -519,13 +525,13 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/assets/list") {
       $index = Get-AssetIndex
-      $q = ([string]$req.QueryString["q"]).Trim().ToLower()
-      $cat = ([string]$req.QueryString["category"]).Trim()
-      $dir = ([string]$req.QueryString["dir"]).Trim().Replace('\','/').Trim('/')
+      $q = ([string]$query["q"]).Trim().ToLower()
+      $cat = ([string]$query["category"]).Trim()
+      $dir = ([string]$query["dir"]).Trim().Replace('\','/').Trim('/')
       $limit = 80
       $offset = 0
-      [void][int]::TryParse([string]$req.QueryString["limit"], [ref]$limit)
-      [void][int]::TryParse([string]$req.QueryString["offset"], [ref]$offset)
+      [void][int]::TryParse([string]$query["limit"], [ref]$limit)
+      [void][int]::TryParse([string]$query["offset"], [ref]$offset)
       $limit = [Math]::Max(1, [Math]::Min(200, $limit))
       $offset = [Math]::Max(0, $offset)
       $files = @($index.files)
@@ -557,7 +563,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/assets/file") {
-      $rel = [string]$req.QueryString["path"]
+      $rel = [string]$query["path"]
       if (-not $rel) { throw "missing asset path" }
       $rel = $rel.Replace('\','/')
       if ($rel -match '(^|/)\.\.' -or $rel.StartsWith("/")) { throw "bad asset path" }
@@ -573,7 +579,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "POST" -and $path -eq "api/assets/import") {
-      $rel = [string]$req.QueryString["path"]
+      $rel = [string]$query["path"]
       if (-not $rel) { throw "missing asset path" }
       $rel = $rel.Replace('\','/')
       if ($rel -match '(^|/)\.\.' -or $rel.StartsWith("/")) { throw "bad asset path" }
@@ -604,7 +610,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       if (-not $bodyText) { throw "empty project" }
       $payload = $null
       try { $payload = $bodyText | ConvertFrom-Json } catch { throw "bad project json" }
-      $rawName = [string]$req.QueryString["name"]
+      $rawName = [string]$query["name"]
       if (-not $rawName -and $payload.name) { $rawName = [string]$payload.name }
       $safe = ($rawName -replace '[^a-zA-Z0-9._ -]', '').Trim()
       if (-not $safe) { $safe = "Terrific Talent Tree Project" }
@@ -614,7 +620,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       $json = $payload | ConvertTo-Json -Depth 100 -Compress
       if (-not $json) { $json = $bodyText }
       $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-      $mode = [string]$req.QueryString["mode"]
+      $mode = [string]$query["mode"]
       $backupDir = Join-Path $projectRoot "backups"
       New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
       $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
@@ -687,11 +693,11 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/project/load") {
-      $name = [string]$req.QueryString["name"]
+      $name = [string]$query["name"]
       if (-not $name) { throw "missing project name" }
       if ($name -match "[\\/]" -or $name -match "\.\.") { throw "bad project name" }
       if (-not $name.EndsWith(".json")) { $name = "$name.json" }
-      $backup = [string]$req.QueryString["backup"] -eq "1"
+      $backup = [string]$query["backup"] -eq "1"
       $baseDir = if ($backup) { Join-Path $projectRoot "backups" } else { $projectRoot }
       $file = Join-Path $baseDir $name
       $full = [IO.Path]::GetFullPath($file)
@@ -704,11 +710,11 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "POST" -and $path -eq "api/project/delete") {
-      $name = [string]$req.QueryString["name"]
+      $name = [string]$query["name"]
       if (-not $name) { throw "missing project name" }
       if ($name -match "[\\/]" -or $name -match "\.\.") { throw "bad project name" }
       if (-not $name.EndsWith(".json")) { $name = "$name.json" }
-      $backup = [string]$req.QueryString["backup"] -eq "1"
+      $backup = [string]$query["backup"] -eq "1"
       $baseDir = if ($backup) { Join-Path $projectRoot "backups" } else { $projectRoot }
       $file = Join-Path $baseDir $name
       $full = [IO.Path]::GetFullPath($file)
@@ -786,7 +792,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/catalog") {
-      $kind = [string]$req.QueryString["kind"]
+      $kind = [string]$query["kind"]
       if ($kind -notin @("homebrew", "prerelease")) { throw "bad brew kind" }
       $catalog = Get-BrewCatalogData $kind
       $body = [Text.Encoding]::UTF8.GetBytes(($catalog | ConvertTo-Json -Depth 6 -Compress))
@@ -796,9 +802,9 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/remote") {
-      $kind = [string]$req.QueryString["kind"]
+      $kind = [string]$query["kind"]
       if ($kind -notin @("homebrew", "prerelease")) { throw "bad brew kind" }
-      $rel = [string]$req.QueryString["path"]
+      $rel = [string]$query["path"]
       if (-not $rel) { throw "missing path" }
       $rel = $rel.Replace('\','/')
       if ($rel.StartsWith("/") -or $rel -match "(^|/)\.\." -or $rel -notmatch "\.json$") { throw "bad path" }
@@ -812,9 +818,9 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/brew-image") {
-      $kind = [string]$req.QueryString["kind"]
+      $kind = [string]$query["kind"]
       if ($kind -notin @("homebrew", "prerelease")) { throw "bad brew kind" }
-      $rel = [string]$req.QueryString["path"]
+      $rel = [string]$query["path"]
       if (-not $rel) { throw "missing path" }
       $rel = $rel.Replace('\','/')
       if ($rel.StartsWith("/") -or $rel -match "(^|/)\.\.") { throw "bad path" }
@@ -943,7 +949,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/index") {
-      $rootName = [string]$req.QueryString["root"]
+      $rootName = [string]$query["root"]
       if (-not $rootName) { $rootName = "data" }
       if ($fiveRoots -notcontains $rootName) { throw "bad root" }
       $root5e = Join-Path $fiveBase $rootName
@@ -963,11 +969,11 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/file") {
-      $rootName = [string]$req.QueryString["root"]
+      $rootName = [string]$query["root"]
       if (-not $rootName) { $rootName = "data" }
       if ($fiveRoots -notcontains $rootName) { throw "bad root" }
       $root5e = Join-Path $fiveBase $rootName
-      $rel = [string]$req.QueryString["path"]
+      $rel = [string]$query["path"]
       if (-not $rel) { throw "missing path" }
       $full = [IO.Path]::GetFullPath((Join-Path $root5e $rel))
       $rootFull = [IO.Path]::GetFullPath($root5e)
@@ -980,7 +986,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
       continue
     }
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/5etools/image") {
-      $rel = [string]$req.QueryString["path"]
+      $rel = [string]$query["path"]
       if (-not $rel) { throw "missing path" }
       # Prefer the active data folder (which may be a downloaded release with
       # no image pack), then fall back to the local 5etools install's images.
@@ -1010,7 +1016,7 @@ if (`$d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     # this endpoint for the bytes, then saves them into userdata\images through
     # /api/upload so every picture travels with the project file.
     if ($req.HttpMethod -eq "GET" -and $path -eq "api/image-proxy") {
-      $sourceUrl = [string]$req.QueryString["url"]
+      $sourceUrl = [string]$query["url"]
       if (-not $sourceUrl -or $sourceUrl -notmatch '^https?://') { throw "bad image url" }
       [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
       $r = Invoke-WebRequest -Uri $sourceUrl -Headers @{ "User-Agent" = "TerrificTalentTree" } -UseBasicParsing
