@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTree } from "@/lib/treeStore";
 import { playSfx } from "@/lib/audio";
 import { SFX } from "@/lib/sfx";
@@ -64,6 +64,8 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
   const [search, setSearch] = useState("");
   const [exSearch, setExSearch] = useState("");
   const [imagePickerField, setImagePickerField] = useState("");
+  const [talentTypesDraft, setTalentTypesDraft] = useState("");
+  const talentTypesFocused = useRef(false);
   // Panel width persists across sessions and is shared with the View panel.
   const [width] = usePanelWidth();
   const panelWidth = mobile ? "100%" : width;
@@ -87,6 +89,19 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
   };
 
   const node = (nodeId || ui.editingNodeId) ? nodesById[nodeId || ui.editingNodeId] : null;
+
+  // Keep a raw draft while the field is focused so typing "Arcane Talent" is
+  // not parsed and trimmed after every keystroke (which removes the space).
+  useEffect(() => {
+    if (talentTypesFocused.current) return;
+    const list = node?.talentTypes?.length
+      ? node.talentTypes
+      : node?.talentType
+        ? [node.talentType]
+        : [];
+    setTalentTypesDraft(list.join(", "));
+  }, [node?.id, node?.talentType, node?.talentTypes]);
+
   if (!node) {
     return (
       <div
@@ -194,17 +209,30 @@ export function NodeEditorPanel({ mobile = false, nodeId = null }) {
                 <Label>Talent Types</Label>
               </InfoTip>
               <Input
-                value={
-                  node.talentTypes?.length
-                    ? node.talentTypes.join(", ")
-                    : node.talentType || ""
-                }
+                value={talentTypesDraft}
                 placeholder="[Arcane Talent], [Bloodline]"
+                onFocus={() => {
+                  talentTypesFocused.current = true;
+                }}
                 onChange={(e) => {
-                  const talentTypes = e.target.value
+                  const raw = e.target.value;
+                  setTalentTypesDraft(raw);
+                  const talentTypes = raw
                     .split(/[,;]/)
                     .map((value) => value.trim())
                     .filter(Boolean);
+                  set({
+                    talentTypes,
+                    talentType: talentTypes.join(", "),
+                  });
+                }}
+                onBlur={() => {
+                  talentTypesFocused.current = false;
+                  const talentTypes = talentTypesDraft
+                    .split(/[,;]/)
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                  setTalentTypesDraft(talentTypes.join(", "));
                   set({
                     talentTypes,
                     talentType: talentTypes.join(", "),
