@@ -1,4 +1,4 @@
-import { a as formatDiagnostics, c as Button, i as downloadDiagnostics, l as cn, n as clearDiagnostics, o as getDiagnostics, r as copyDiagnostics, s as subscribeDiagnostics } from "./router-CRJm8M0Y.js";
+import { a as formatDiagnostics, c as Button, i as downloadDiagnostics, l as cn, n as clearDiagnostics, o as getDiagnostics, r as copyDiagnostics, s as subscribeDiagnostics } from "./router-CYFqXq43.js";
 import * as React from "react";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
@@ -36315,6 +36315,8 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 	const [search, setSearch] = useState("");
 	const [exSearch, setExSearch] = useState("");
 	const [imagePickerField, setImagePickerField] = useState("");
+	const [talentTypesDraft, setTalentTypesDraft] = useState("");
+	const talentTypesFocused = useRef(false);
 	const [width] = usePanelWidth();
 	const panelWidth = mobile ? "100%" : width;
 	const [uploading, setUploading] = useState(false);
@@ -36331,6 +36333,15 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 		}
 	};
 	const node = nodeId || ui.editingNodeId ? nodesById[nodeId || ui.editingNodeId] : null;
+	useEffect(() => {
+		if (talentTypesFocused.current) return;
+		const list = node?.talentTypes?.length ? node.talentTypes : node?.talentType ? [node.talentType] : [];
+		setTalentTypesDraft(list.join(", "));
+	}, [
+		node?.id,
+		node?.talentType,
+		node?.talentTypes
+	]);
 	if (!node) return /* @__PURE__ */ jsxs("div", {
 		className: "flex h-full flex-col items-center justify-center border-l bg-card p-6 text-center text-sm text-muted-foreground",
 		style: { width: panelWidth },
@@ -36444,10 +36455,24 @@ function NodeEditorPanel({ mobile = false, nodeId = null }) {
 									label: "One or more comma-separated tags shown on the canvas, e.g. [Arcane Talent], [Bloodline]. A node can belong to several Talent Types.",
 									children: /* @__PURE__ */ jsx(Label, { children: "Talent Types" })
 								}), /* @__PURE__ */ jsx(Input, {
-									value: node.talentTypes?.length ? node.talentTypes.join(", ") : node.talentType || "",
+									value: talentTypesDraft,
 									placeholder: "[Arcane Talent], [Bloodline]",
+									onFocus: () => {
+										talentTypesFocused.current = true;
+									},
 									onChange: (e) => {
-										const talentTypes = e.target.value.split(/[,;]/).map((value) => value.trim()).filter(Boolean);
+										const raw = e.target.value;
+										setTalentTypesDraft(raw);
+										const talentTypes = raw.split(/[,;]/).map((value) => value.trim()).filter(Boolean);
+										set({
+											talentTypes,
+											talentType: talentTypes.join(", ")
+										});
+									},
+									onBlur: () => {
+										talentTypesFocused.current = false;
+										const talentTypes = talentTypesDraft.split(/[,;]/).map((value) => value.trim()).filter(Boolean);
+										setTalentTypesDraft(talentTypes.join(", "));
 										set({
 											talentTypes,
 											talentType: talentTypes.join(", ")

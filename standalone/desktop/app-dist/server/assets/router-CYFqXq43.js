@@ -425,7 +425,7 @@ function RootDocument({ children }) {
 	});
 }
 // src/routes/index.jsx
-var $$splitComponentImporter = () => import("./routes-BEWuPzqM.js");
+var $$splitComponentImporter = () => import("./routes-Brz12pUm.js");
 // src/routeTree.gen.ts
 var rootRouteChildren = { IndexRoute: createFileRoute("/")({
 	ssr: false,
